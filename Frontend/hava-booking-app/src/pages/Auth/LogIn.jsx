@@ -98,7 +98,7 @@ const Login = () => {
               ? "/admin-dashboard"
               : role === "client"
               ? "/client-dashboard"
-              : "/dev-dashboard";
+              : "/development-dashboard";
         }, 2000);
       }
     } catch (error) {
