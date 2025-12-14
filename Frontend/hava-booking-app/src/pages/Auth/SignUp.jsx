@@ -149,7 +149,11 @@ const SignUp = () => {
         // Redirect based on role
         setTimeout(() => {
           window.location.href =
-            formData.role === "employer" ? "/employer-dashboard" : "/find-jobs";
+            formData.role === "studioAdmin"
+              ? "/admin-dashboard"
+              : "client"
+              ? "/client-dashboard"
+              : "/development-dashboard";
         }, 2000);
       }
     } catch (error) {
