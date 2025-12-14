@@ -151,7 +151,7 @@ const SignUp = () => {
           window.location.href =
             formData.role === "studioAdmin"
               ? "/admin-dashboard"
-              : "/client"
+              : "client"
               ? "/client-dashboard"
               : "/development-dashboard";
         }, 2000);
