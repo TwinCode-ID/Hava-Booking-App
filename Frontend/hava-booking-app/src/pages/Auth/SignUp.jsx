@@ -171,52 +171,54 @@ const SignUp = () => {
 
   if (formState.success) {
     return (
-      <div className='min-h-screen flex items-center justify-center via-gray-50 px-4'>
+      <div className="min-h-screen flex items-center justify-center via-gray-50 px-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className='bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center'>
-          <CheckCircle className='w-16 h-16 text-green-500 mx-auto mb-4' />
-          <h2 className='text-2xl font-bold text-gray-900 mb-2'>
+          className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center"
+        >
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Account Created!
           </h2>
-          <p className='text-gray-600 mb-4'>
+          <p className="text-gray-600 mb-4">
             Hello <b>{formData.fullName}</b>, Your account has been successfully
             created. Welcome!
           </p>
-          <div className='animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto' />
+          <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto" />
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8'>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className='bg-white p-8 rounded-xl shadow-lg max-w-md w-full'>
-        <div className='text-center mb-8'>
-          <h2 className='text-xl font-bold text-emerald-800 mb-2'>
+        className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full"
+      >
+        <div className="text-center mb-8">
+          <h2 className="text-xl font-bold text-emerald-800 mb-2">
             Create Account
           </h2>
-          <p className='text-sm text-gray-600'>
+          <p className="text-sm text-gray-600">
             Join thousands of members finding their strength and balance.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className='space-y-6'>
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Full Name */}
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Full Name *
             </label>
-            <div className='relative'>
-              <User className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                type='text'
-                name='fullName'
+                type="text"
+                name="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange}
                 className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
@@ -224,12 +226,12 @@ const SignUp = () => {
                     ? "border-red-500"
                     : "border-gray-300"
                 } focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`}
-                placeholder='Enter your full name'
+                placeholder="Enter your full name"
               />
             </div>
             {formState.errors.fullName && (
-              <p className='text-red-500 text-sm mt-1 flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-1' />
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
                 {formState.errors.fullName}
               </p>
             )}
@@ -237,25 +239,25 @@ const SignUp = () => {
 
           {/* Email */}
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Address *
             </label>
-            <div className='relative'>
-              <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                type='email'
-                name='email'
+                type="email"
+                name="email"
                 value={formData.email}
                 onChange={handleInputChange}
                 className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
                   formState.errors.email ? "border-red-500" : "border-gray-300"
                 } focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`}
-                placeholder='Enter your email'
+                placeholder="Enter your email"
               />
             </div>
             {formState.errors.email && (
-              <p className='text-red-500 text-sm mt-1 flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-1' />
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
                 {formState.errors.email}
               </p>
             )}
@@ -263,14 +265,14 @@ const SignUp = () => {
 
           {/* Password */}
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password *
             </label>
-            <div className='relative'>
-              <Lock className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type={formState.showPassword ? "text" : "password"}
-                name='password'
+                name="password"
                 value={formData.password}
                 onChange={handleInputChange}
                 className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
@@ -278,27 +280,28 @@ const SignUp = () => {
                     ? "border-red-500"
                     : "border-gray-300"
                 } focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`}
-                placeholder='Create a strong password'
+                placeholder="Create a strong password"
               />
               <button
-                type='button'
+                type="button"
                 onClick={() =>
                   setFormState((prev) => ({
                     ...prev,
                     showPassword: !prev.showPassword,
                   }))
                 }
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600'>
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
                 {formState.showPassword ? (
-                  <EyeOff className='w-5 h-5' />
+                  <EyeOff className="w-5 h-5" />
                 ) : (
-                  <Eye className='w-5 h-5' />
+                  <Eye className="w-5 h-5" />
                 )}
               </button>
             </div>
             {formState.errors.password && (
-              <p className='text-red-500 text-sm mt-1 flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-1' />
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
                 {formState.errors.password}
               </p>
             )}
@@ -306,14 +309,14 @@ const SignUp = () => {
 
           {/* Phone Number */}
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Phone Number *
             </label>
-            <div className='relative'>
-              <Phone className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                type='text'
-                name='phoneNumber'
+                type="text"
+                name="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={handleInputChange}
                 className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
@@ -321,12 +324,12 @@ const SignUp = () => {
                     ? "border-red-500"
                     : "border-gray-300"
                 } focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`}
-                placeholder='Enter your phone number'
+                placeholder="Enter your phone number"
               />
             </div>
             {formState.errors.phoneNumber && (
-              <p className='text-red-500 text-sm mt-1 flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-1' />
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
                 {formState.errors.phoneNumber}
               </p>
             )}
@@ -334,43 +337,44 @@ const SignUp = () => {
 
           {/* Avatar Upload */}
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Profile Picture (Optional)
             </label>
-            <div className='flex items-center space-x-4'>
-              <div className='w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden'>
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
                 {formState.avatarPreview ? (
                   <img
                     src={formState.avatarPreview}
-                    alt='Avatar preview'
-                    className='w-full h-full object-cover'
+                    alt="Avatar preview"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <User className='w-8 h-8 text-gray-400' />
+                  <User className="w-8 h-8 text-gray-400" />
                 )}
               </div>
-              <div className='flex-1'>
+              <div className="flex-1">
                 <input
-                  type='file'
-                  id='avatar'
-                  accept='image/png, image/jpeg, image/jpg'
+                  type="file"
+                  id="avatar"
+                  accept="image/png, image/jpeg, image/jpg"
                   onChange={handleAvatarChange}
-                  className='hidden'
+                  className="hidden"
                 />
                 <label
-                  htmlFor='avatar'
-                  className='cursor-pointer bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2'>
-                  <Upload className='w-4 h-4' />
+                  htmlFor="avatar"
+                  className="cursor-pointer bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                >
+                  <Upload className="w-4 h-4" />
                   <span>Upload Photo</span>
                 </label>
-                <p className='text-xs text-gray-500 mt-1'>
+                <p className="text-xs text-gray-500 mt-1">
                   JPG, PNG up to 5 MB
                 </p>
               </div>
             </div>
             {formState.errors.avatar && (
-              <p className='text-red-500 text-sm mt-1 flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-1' />
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
                 {formState.errors.avatar}
               </p>
             )}
@@ -378,9 +382,9 @@ const SignUp = () => {
 
           {/* Submit Error */}
           {formState.errors.submit && (
-            <div className='bg-red-50 border border-red-200 rounded-lg p-3'>
-              <p className='text-red-700 text-sm flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-2' />
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-700 text-sm flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" />
                 {formState.errors.submit}
               </p>
             </div>
@@ -388,12 +392,13 @@ const SignUp = () => {
 
           {/* Submit Button */}
           <button
-            type='submit'
+            type="submit"
             disabled={formState.loading}
-            className='w-full bg-emerald-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2'>
+            className="w-full bg-emerald-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
             {formState.loading ? (
               <>
-                <Loader className='w-5 h-5 animate-spin' />
+                <Loader className="w-5 h-5 animate-spin" />
                 <span>Creating Account...</span>
               </>
             ) : (
@@ -402,11 +407,12 @@ const SignUp = () => {
           </button>
 
           {/* Login Link */}
-          <p className='text-center text-sm text-gray-600'>
+          <p className="text-center text-sm text-gray-600">
             Already have an account?{" "}
             <a
-              href='/login'
-              className='text-emerald-800 hover:text-emerald-600 font-medium'>
+              href="/login"
+              className="text-emerald-800 hover:text-emerald-600 font-medium"
+            >
               Sign in here
             </a>
           </p>

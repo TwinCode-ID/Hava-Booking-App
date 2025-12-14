@@ -116,101 +116,104 @@ const Login = () => {
 
   if (formState.success) {
     return (
-      <div className='min-h-screen flex items-center justify-center via-gray-50 px-4'>
+      <div className="min-h-screen flex items-center justify-center via-gray-50 px-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className='bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center'>
-          <CheckCircle className='w-16 h-16 text-emerald-800 mx-auto mb-4' />
-          <h2 className='text-2xl font-bold text-emerald-800 mb-2'>
+          className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center"
+        >
+          <CheckCircle className="w-16 h-16 text-emerald-800 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-emerald-800 mb-2">
             Welcome Back
           </h2>
-          <p className='text-gray-600 mb-4'>
+          <p className="text-gray-600 mb-4">
             You have been successfully logged in.
           </p>
-          <div className='animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto' />
+          <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto" />
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50 px-4'>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className='bg-white p-8 rounded-xl shadow-lg max-w-md w-full'>
-        <div className='text-center mb-8'>
-          <h2 className='text-2xl font-bold text-emerald-800 mb-2'>
+        className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full"
+      >
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-emerald-800 mb-2">
             Welcome Back
           </h2>
-          <p className='text-gray-600'>Sign in to your account</p>
+          <p className="text-gray-600">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className='space-y-6'>
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email */}
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
             </label>
-            <div className='relative'>
-              <Mail className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5' />
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                type='email'
-                name='email'
+                type="email"
+                name="email"
                 value={formData.email}
                 onChange={handleInputChange}
                 className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
                   formState.errors.email ? "border-red-500" : "border-gray-300"
                 } focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`}
-                placeholder='Enter your email'
+                placeholder="Enter your email"
               />
             </div>
             {formState.errors.email && (
-              <p className='text-red-500 text-sm mt-1 flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-1' />
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
                 {formState.errors.email}
               </p>
             )}
           </div>
 
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password
             </label>
-            <div className='relative'>
-              <Lock className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5' />
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type={formState.showPassword ? "text" : "password"}
-                name='password'
+                name="password"
                 value={formData.password}
                 onChange={handleInputChange}
                 className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
                   formState.errors.email ? "border-red-500" : "border-gray-300"
                 } focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`}
-                placeholder='Enter your password'
+                placeholder="Enter your password"
               />
 
               <button
-                type='button'
+                type="button"
                 onClick={() =>
                   setFormState((prev) => ({
                     ...prev,
                     showPassword: !prev.showPassword,
                   }))
                 }
-                className='absolute right-3 top-1/2 transform -translate-y-1/2 hover: text-gray-600'>
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 hover: text-gray-600"
+              >
                 {formState.showPassword ? (
-                  <EyeOff className='w-5 h-5' />
+                  <EyeOff className="w-5 h-5" />
                 ) : (
-                  <Eye className='w-5 h-5' />
+                  <Eye className="w-5 h-5" />
                 )}
               </button>
             </div>
             {formState.errors.password && (
-              <p className='text-red-500 text-sm mt-1 flex items-center'>
-                <AlertCircle className='w-5 h-5 mr-1' />
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="w-5 h-5 mr-1" />
                 {formState.errors.password}
               </p>
             )}
@@ -218,9 +221,9 @@ const Login = () => {
 
           {/* Submit Error */}
           {formState.errors.submit && (
-            <div className='bg-red-40 border border-red-200 rounded-lg p-3'>
-              <p className='text-red-700 text-sm flex items-center'>
-                <AlertCircle className='w-4 h-4 mr-2' />
+            <div className="bg-red-40 border border-red-200 rounded-lg p-3">
+              <p className="text-red-700 text-sm flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" />
                 {formState.errors.submit}
               </p>
             </div>
@@ -228,12 +231,13 @@ const Login = () => {
 
           {/* Submit Button */}
           <button
-            type='submit'
+            type="submit"
             disabled={formState.loading}
-            className='w-full bg-emerald-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2'>
+            className="w-full bg-emerald-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
             {formState.loading ? (
               <>
-                <Loader className='w-5 h-5 animate-spin' />
+                <Loader className="w-5 h-5 animate-spin" />
                 <span>Signin In...</span>
               </>
             ) : (
@@ -242,21 +246,23 @@ const Login = () => {
           </button>
 
           {/* Sign Up Link */}
-          <div className='text-center'>
-            <p className='text-gray-600'>
+          <div className="text-center">
+            <p className="text-gray-600">
               Don't have an account?{" "}
               <a
-                href='/signup'
-                className='text-emerald-800 hover:text-emerald-600 font-medium'>
+                href="/signup"
+                className="text-emerald-800 hover:text-emerald-600 font-medium"
+              >
                 Create one here
               </a>
             </p>
           </div>
 
           <button
-            type='submit'
+            type="submit"
             disabled={formState.loading}
-            className=''></button>
+            className=""
+          ></button>
         </form>
       </motion.div>
     </div>

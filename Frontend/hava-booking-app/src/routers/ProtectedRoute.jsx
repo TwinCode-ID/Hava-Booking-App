@@ -27,9 +27,9 @@ const ProtectedRoute = ({ requiredRole }) => {
   }, []);
 
   if (loading) return <div>Loading...</div>;
-  if (!isAuthenticated) return <Navigate to='/login' replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (requiredRole && userRole !== requiredRole)
-    return <Navigate to='/' replace />;
+    return <Navigate to="/" replace />;
 
   return <Outlet />;
 };
