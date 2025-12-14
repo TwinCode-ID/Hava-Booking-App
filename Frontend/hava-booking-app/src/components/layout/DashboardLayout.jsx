@@ -107,7 +107,7 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
                 <span className='text-gray-900 font-bold text-xl'>
                   Admin Dashboard
                 </span>
-              ) : role === "client" ? (
+              ) : user.role === "client" ? (
                 <span className='text-gray-900 font-bold text-xl'>
                   Client Dashboard
                 </span>
@@ -137,7 +137,7 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
               />
             ))}
           </nav>
-        ) : role === "client" ? (
+        ) : user.role === "client" ? (
           <nav className='p-4 space-y-2'>
             {NAVIGATION_MENU_CLIENT.map((item) => (
               <NavigationItem
