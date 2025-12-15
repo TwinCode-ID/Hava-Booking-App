@@ -15,7 +15,7 @@ import { API_PATHS } from "../../utils/apiPath";
 import { useAuth } from "../../context/AuthContext";
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -88,9 +88,11 @@ const Login = () => {
         success: true,
         errors: {},
       }));
-      const { token, role } = response.data;
+
+      const { role, token } = response.data;
+
       if (token) {
-        login(response.data, token);
+        login(token);
         // Redirect based on role
         setTimeout(() => {
           window.location.href =
