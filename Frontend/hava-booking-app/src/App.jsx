@@ -11,8 +11,9 @@ import SignUp from "./pages/Auth/SignUp";
 import BookNow from "./pages/BookingPage/BookNow";
 import ProtectedRoute from "./routers/ProtectedRoute";
 import AdminDashboard from "./pages/StudioAdminPage/AdminDashboard";
-import ManagePackage from "./pages/StudioAdminPage/ManagePackage";
-import ManageBooking from "./pages/StudioAdminPage/ManageBooking";
+import ManagePackages from "./pages/StudioAdminPage/ManagePackage";
+import ManageBookings from "./pages/StudioAdminPage/ManageBooking";
+import ManageInstructors from "./pages/StudioAdminPage/ManageInstructor";
 import ManageStudio from "./pages/StudioAdminPage/ManageStudio";
 import DevelopmentDashboard from "./pages/DevAdminPage/DeveloperDashboard";
 import ClientDashboard from "./pages/ClientPage/ClientDashboard";
@@ -39,8 +40,9 @@ const App = () => {
           </Route>
           <Route element={<ProtectedRoute requiredRole='studioAdmin' />}>
             <Route path='/admin-dashboard' element={<AdminDashboard />} />
-            <Route path='/manage-package' element={<ManagePackage />} />
-            <Route path='/manage-booking' element={<ManageBooking />} />
+            <Route path='/manage-packages' element={<ManagePackages />} />
+            <Route path='/manage-bookings' element={<ManageBookings />} />
+            <Route path='/manage-instructors' element={<ManageInstructors />} />
             <Route path='/manage-studio' element={<ManageStudio />} />
           </Route>
           {/*Catch All Routes */}

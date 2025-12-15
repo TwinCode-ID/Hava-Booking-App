@@ -29,6 +29,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
 
       if (token) {
@@ -47,6 +48,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (token) => {
+    setLoading(true);
     localStorage.setItem("token", token);
     // localStorage.setItem("user", JSON.stringify(userData));
 
@@ -60,6 +62,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       setIsAuthenticated(false);
       console.error("Auth check failed:", error);
+    } finally {
+      setLoading(false);
     }
   };
 

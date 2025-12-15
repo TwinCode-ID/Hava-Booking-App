@@ -3,7 +3,7 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 
 const ManageBooking = () => {
   return (
-    <DashboardLayout activeMenu={"manage-booking"}>
+    <DashboardLayout activeMenu={"manage-bookings"}>
       Manage Bookings
     </DashboardLayout>
   );
