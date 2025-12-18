@@ -1,13 +1,13 @@
 const express = require("express");
 const {
-    createInstructor,
-    updateProfile,
-    getPublicProfile,
-    deleteInstructor,
-    instructorStatus,
-    getAllInstructors,
+  createInstructor,
+  updateProfile,
+  getPublicProfile,
+  deleteInstructor,
+  instructorStatus,
+  getAllInstructors,
 } = require("../controllers/instructorsController");
-const {protect, studioAdmin} = require("../middlewares/authMiddleware");
+const { protect, studioAdmin } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 

@@ -16,8 +16,9 @@ import {
 
 export const NAVIGATION_MENU_ADMIN = [
   { id: "admin-dashboard", name: "Dashboard", icon: LayoutDashboard },
-  { id: "manage-booking", name: "Manage Bookings", icon: NotepadText },
-  { id: "manage-package", name: "Manage Packages", icon: Package },
+  { id: "manage-bookings", name: "Manage Bookings", icon: NotepadText },
+  { id: "manage-packages", name: "Manage Packages", icon: Package },
+  { id: "manage-instructors", name: "Manage Instructors", icon: Users },
   { id: "manage-studio", name: "Manage Studio", icon: House },
 ];
 

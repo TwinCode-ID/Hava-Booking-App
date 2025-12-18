@@ -1,10 +1,10 @@
 const express = require("express");
 const {
-    updateProfile,
-    getPublicProfile,
-    deleteUser,
+  updateProfile,
+  getPublicProfile,
+  deleteUser,
 } = require("../controllers/userController");
-const {protect, devTeam} = require("../middlewares/authMiddleware");
+const { protect, devTeam } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 

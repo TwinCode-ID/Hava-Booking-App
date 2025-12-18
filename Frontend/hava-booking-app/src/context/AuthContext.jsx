@@ -5,6 +5,8 @@ import React, {
   useEffect,
   Children,
 } from "react";
+import axiosInstance from "../utils/axiosInstance";
+import { API_PATHS } from "../utils/apiPath";
 
 const AuthContext = createContext();
 
@@ -27,10 +29,12 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
-      const userStr = localStorage.getItem("user");
 
-      if (token && userStr) {
+      if (token) {
+        const response = await axiosInstance.get(API_PATHS.AUTH.GET_PROFILE);
+        const userStr = JSON.stringify(response.data);
         const userData = JSON.parse(userStr);
         setUser(userData);
         setIsAuthenticated(true);
@@ -43,18 +47,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = (userData, token) => {
+  const login = async (token) => {
+    setLoading(true);
     localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(userData));
+    // localStorage.setItem("user", JSON.stringify(userData));
 
-    setUser(userData);
-    setIsAuthenticated(true);
+    try {
+      if (token) {
+        const response = await axiosInstance.get(API_PATHS.AUTH.GET_PROFILE);
+        const loginData = response.data;
+        setUser(JSON.stringify(loginData));
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      setIsAuthenticated(false);
+      console.error("Auth check failed:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
 
     setUser(null);
     setIsAuthenticated(false);

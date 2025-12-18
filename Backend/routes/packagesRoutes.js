@@ -1,13 +1,13 @@
 const express = require("express");
 const {
-    createPackage, 
-    getPackageById, 
-    getAllPackages, 
-    updatePackage, 
-    deletePackage, 
-    packageStatus,
+  createPackage,
+  getPackageById,
+  getAllPackages,
+  updatePackage,
+  deletePackage,
+  packageStatus,
 } = require("../controllers/packagesController");
-const {protect, studioAdmin} = require("../middlewares/authMiddleware");
+const { protect, studioAdmin } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 

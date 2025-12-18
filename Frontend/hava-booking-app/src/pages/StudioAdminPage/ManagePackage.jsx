@@ -3,7 +3,7 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 
 const ManagePackage = () => {
   return (
-    <DashboardLayout activeMenu={"manage-package"}>
+    <DashboardLayout activeMenu={"manage-packages"}>
       Manage Package
     </DashboardLayout>
   );
