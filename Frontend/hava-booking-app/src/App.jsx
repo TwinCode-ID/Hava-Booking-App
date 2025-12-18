@@ -17,6 +17,7 @@ import ManageInstructors from "./pages/StudioAdminPage/ManageInstructor";
 import ManageStudio from "./pages/StudioAdminPage/ManageStudio";
 import DevelopmentDashboard from "./pages/DevAdminPage/DeveloperDashboard";
 import ClientDashboard from "./pages/ClientPage/ClientDashboard";
+import StudioLocation from "./pages/StudioPage/StudioLocation";
 
 const App = () => {
   return (
@@ -28,6 +29,7 @@ const App = () => {
           <Route path='/login' element={<Login />} />
           <Route path='/signup' element={<SignUp />} />
           <Route path='/book-now' element={<BookNow />} />
+          <Route path='/studio-location' element={<StudioLocation />} />
           {/*Protected Routes */}
           <Route element={<ProtectedRoute requiredRole='client' />}>
             <Route path='/client-dashboard' element={<ClientDashboard />} />

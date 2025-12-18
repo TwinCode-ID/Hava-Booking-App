@@ -3,7 +3,7 @@ import Header from "../../components/Header";
 import Hero from "./components/Hero";
 import Footer from "../../components/Footer";
 
-const LandingPage = () => {
+const StudioLocation = () => {
   return (
     <div className='min-h-screen'>
       <Header />
@@ -13,4 +13,4 @@ const LandingPage = () => {
   );
 };
 
-export default LandingPage;
+export default StudioLocation;

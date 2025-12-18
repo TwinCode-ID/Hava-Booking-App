@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
-import ProfileDropdown from "../../../components/layout/ProfileDropdown";
+import { useAuth } from "../context/AuthContext";
+import ProfileDropdown from "./layout/ProfileDropdown";
 import logo from "/havalogo.png";
 
 const Header = () => {
@@ -63,7 +63,7 @@ const Header = () => {
             {/* Desktop Nav - Added transition classes */}
             <nav className='hidden md:flex items-center space-x-8 ml-8 transition-all duration-100 ease-in-out'>
               <a
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/studio-location")}
                 className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium cursor-pointer'>
                 Studio Location
               </a>

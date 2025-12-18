@@ -10,4 +10,8 @@ export const API_PATHS = {
   IMAGE: {
     UPLOAD_IMAGE: "/api/auth/upload-image",
   },
+
+  STUDIOS: {
+    GET_ALL: "/api/studio",
+  },
 };
