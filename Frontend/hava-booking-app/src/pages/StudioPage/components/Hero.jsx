@@ -34,7 +34,7 @@ const Hero = () => {
 
   return (
     <section className='bg-white min-h-screen flex items-center py-20'>
-      <div className='container mx-auto overflow-x-auto px-4 py-12 flex gap-8 snap-x snap-mandatory scrollbar-hide justify-center items-stretch'>
+      <div className='container mx-auto overflow-x-auto px-6 md:px-12 py-12 flex gap-8 snap-x snap-mandatory scrollbar-hide justify-start md:justify-center items-stretch'>
         {studios.map((studio, index) => (
           <motion.div
             key={studio._id}

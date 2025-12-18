@@ -31,7 +31,7 @@ const Header = () => {
         transition={{ duration: 0.3 }}
         className='fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-100 ease-in-out'>
         <div className='container mx-auto px-4 transition-all duration-300 ease-in-out'>
-          <div className='flex items-center h-16 justify-between'>
+          <div className='flex items-center h-16 justify-start'>
             {/* Mobile Toggle Button */}
             <div className='md:hidden '>
               <button
@@ -74,7 +74,7 @@ const Header = () => {
               </a>
             </nav>
             {isAuthenticated ? (
-              <div className='flex items-center space-x-3  ml-auto transition-all duration-100 ease-in-out'>
+              <div className='hidden md:flex items-center space-x-3  ml-auto transition-all duration-100 ease-in-out'>
                 <span className='flex items-center space-x-3'>
                   <ProfileDropdown
                     isOpen={profileDropdownOpen}
@@ -92,7 +92,7 @@ const Header = () => {
                 </span>
               </div>
             ) : (
-              <div className='md:flex items-center space-x-3 ml-auto transition-all duration-100 ease-in-out'>
+              <div className='hidden md:flex items-center space-x-3 ml-auto transition-all duration-100 ease-in-out'>
                 <a
                   href='/login'
                   className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium px-4 py-2 rounded-lg hover:bg-gray-50'>
@@ -130,9 +130,41 @@ const Header = () => {
                 transition={{ duration: 0.3, ease: "easeInOut" }}
                 className='md:hidden bg-white border-t border-gray-100 overflow-hidden absolute left-0 right-0 z-50 shadow-lg'>
                 <div className='container mx-auto px-4 py-6 space-y-4 flex flex-col'>
+                  {isAuthenticated ? (
+                    <div className='md:flex items-center mr-auto transition-all duration-100 ease-in-out'>
+                      <span className='flex items-center space-x-3'>
+                        <ProfileDropdown
+                          isOpen={profileDropdownOpen}
+                          onToggle={(e) => {
+                            e.stopPropagation();
+                            setProfileDropdownOpen(!profileDropdownOpen);
+                          }}
+                          avatar={user?.avatar || ""}
+                          fullName={user?.fullName || ""}
+                          email={user?.email || ""}
+                          phoneNumber={user?.phoneNumber || ""}
+                          role={user?.role || ""}
+                          onLogout={logout}
+                        />
+                      </span>
+                    </div>
+                  ) : (
+                    <div className='md:flex items-center mr-auto transition-all duration-100 ease-in-out'>
+                      <a
+                        href='/signup'
+                        className='bg-emerald-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-all duration-300 shadow-sm hover:shadow-md'>
+                        Sign Up
+                      </a>
+                      <a
+                        href='/login'
+                        className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium px-4 py-2 rounded-lg hover:bg-gray-50'>
+                        Login
+                      </a>
+                    </div>
+                  )}
                   <a
                     onClick={() => {
-                      navigate("/");
+                      navigate("/studio-location");
                       setIsMobileMenuOpen(false);
                     }}
                     className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
