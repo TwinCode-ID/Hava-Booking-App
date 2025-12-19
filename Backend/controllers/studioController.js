@@ -2,7 +2,8 @@ const Studio = require("../models/Studios");
 
 exports.createStudio = async (req, res) => {
   try {
-    const { studioName, address, facilities, contactNumber } = req.body;
+    const { studioName, studioPictures, address, facilities, contactNumber } =
+      req.body;
     if (!studioName) {
       return res.status(400).json({ message: "Studio name is required" });
     }
@@ -13,6 +14,7 @@ exports.createStudio = async (req, res) => {
 
     const studio = await Studio.create({
       studioName,
+      studioPictures,
       address,
       facilities,
       contactNumber,
@@ -21,6 +23,7 @@ exports.createStudio = async (req, res) => {
     res.status(201).json({
       _id: studio._id,
       studioName: studio.studioName,
+      studioPictures: studio.studioPictures,
       address: studio.address,
       facilities: studio.facilities,
       contactNumber: studio.contactNumber,
@@ -39,6 +42,7 @@ exports.getStudioById = async (req, res) => {
     res.json({
       _id: studio._id,
       studioName: studio.studioName,
+      studioPictures: studio.studioPictures,
       address: studio.address,
       facilities: studio.facilities,
       contactNumber: studio.contactNumber,
@@ -59,13 +63,15 @@ exports.getAllStudios = async (req, res) => {
 
 exports.updateStudio = async (req, res) => {
   try {
-    const { studioName, address, facilities, contactNumber } = req.body;
+    const { studioName, studioPictures, address, facilities, contactNumber } =
+      req.body;
     const studio = await Studio.findById(req.params.id);
     if (!studio) {
       return res.status(404).json({ message: "Studio not found" });
     }
 
     studio.studioName = studioName || studio.studioName;
+    studio.studioPictures = studioPictures || studio.studioPictures;
     studio.address = address || studio.address;
     studio.facilities = facilities || studio.facilities;
     studio.contactNumber = contactNumber || studio.contactNumber;
@@ -75,6 +81,7 @@ exports.updateStudio = async (req, res) => {
     res.status(201).json({
       _id: studio._id,
       studioName: studio.studioName,
+      studioPictures: studio.studioPictures,
       address: studio.address,
       facilities: studio.facilities,
       contactNumber: studio.contactNumber,
