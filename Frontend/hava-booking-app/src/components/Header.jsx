@@ -44,21 +44,53 @@ const Header = () => {
                 )}
               </button>
             </div>
-
             {/* Logo Section */}
-            <div
-              className='flex items-center space-x-3 cursor-pointer'
-              onClick={() => navigate("/")}>
-              <div className='w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-300 hover:scale-105 md: ml-3'>
-                <img src={logo} alt='Logo' />
-              </div>
-              <span className='text-xl font-bold text-gray-900'>
-                <span className='text-xl font-bold text-emerald-900'>
+            {isAuthenticated ? (
+              <div
+                // FIX 1: 'w-full' for mobile, 'md:w-auto' for desktop (resets the width issue)
+                className='flex items-center space-x-3 cursor-pointer justify-between w-full md:w-auto'
+                onClick={() => navigate("/")}>
+                {/* 1. Profile Section (Swapped to Top = Left Side) */}
+                {/* FIX 2: Added 'md:hidden' so it disappears on desktop */}
+
+                {/* 2. Logo Section (Swapped to Bottom = Right Side) */}
+                {/* Added md:ml-3 to keep spacing on desktop if needed */}
+                <div className='text-xl font-bold text-emerald-900 ml-3 md:ml-3'>
                   Booking
+                  <span> Service</span>
+                </div>
+
+                <div className='md:hidden flex items-center space-x-3'>
+                  <ProfileDropdown
+                    isOpen={profileDropdownOpen}
+                    onToggle={(e) => {
+                      e.stopPropagation();
+                      setProfileDropdownOpen(!profileDropdownOpen);
+                    }}
+                    avatar={user?.avatar || ""}
+                    fullName={user?.fullName || ""}
+                    email={user?.email || ""}
+                    phoneNumber={user?.phoneNumber || ""}
+                    role={user?.role || ""}
+                    onLogout={logout}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div
+                className='flex items-center space-x-3 cursor-pointer'
+                onClick={() => navigate("/")}>
+                <div className='w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-300 hover:scale-105 md: ml-3'>
+                  <img src={logo} alt='Logo' />
+                </div>
+                <span className='text-xl font-bold text-gray-900'>
+                  <span className='text-xl font-bold text-emerald-900'>
+                    Booking
+                  </span>
+                  <span> Service</span>
                 </span>
-                <span> Service</span>
-              </span>
-            </div>
+              </div>
+            )}
 
             {/* Desktop Nav - Added transition classes */}
             <nav className='hidden md:flex items-center space-x-8 ml-8 transition-all duration-100 ease-in-out'>
@@ -132,21 +164,22 @@ const Header = () => {
                 <div className='container mx-auto px-4 py-6 space-y-4 flex flex-col'>
                   {isAuthenticated ? (
                     <div className='md:flex items-center mr-auto transition-all duration-100 ease-in-out'>
-                      <span className='flex items-center space-x-3'>
-                        <ProfileDropdown
-                          isOpen={profileDropdownOpen}
-                          onToggle={(e) => {
-                            e.stopPropagation();
-                            setProfileDropdownOpen(!profileDropdownOpen);
-                          }}
-                          avatar={user?.avatar || ""}
-                          fullName={user?.fullName || ""}
-                          email={user?.email || ""}
-                          phoneNumber={user?.phoneNumber || ""}
-                          role={user?.role || ""}
-                          onLogout={logout}
-                        />
-                      </span>
+                      <a
+                        onClick={() => {
+                          navigate("/studio-location");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
+                        Studio Location
+                      </a>
+                      <a
+                        onClick={() => {
+                          navigate("/");
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
+                        Book Class
+                      </a>
                     </div>
                   ) : (
                     <div className='md:flex items-center mr-auto transition-all duration-100 ease-in-out'>
@@ -160,24 +193,26 @@ const Header = () => {
                         className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium px-4 py-2 rounded-lg hover:bg-gray-50'>
                         Login
                       </a>
+                      <div className='container  md:flex items-center space-x-3 ml-auto transition-all duration-100 ease-in-out mt-5'>
+                        <a
+                          onClick={() => {
+                            navigate("/studio-location");
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className='text-gray-600  hover:text-emerald-800 font-medium cursor-pointer block text-lg mb-2.5'>
+                          Studio Location
+                        </a>
+                        <a
+                          onClick={() => {
+                            navigate("/");
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
+                          Book Class
+                        </a>
+                      </div>
                     </div>
                   )}
-                  <a
-                    onClick={() => {
-                      navigate("/studio-location");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
-                    Studio Location
-                  </a>
-                  <a
-                    onClick={() => {
-                      navigate("/");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
-                    Book Class
-                  </a>
                 </div>
               </motion.div>
             </>
