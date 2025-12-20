@@ -3,6 +3,11 @@ const mongoose = require("mongoose");
 const studiosSchema = new mongoose.Schema(
   {
     studioName: { type: String, require: true },
+    studioPictures: [
+      {
+        type: [String],
+      },
+    ],
     address: {
       street: { type: String, require: true },
       city: { type: String, require: true },

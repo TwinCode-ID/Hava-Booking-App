@@ -13,5 +13,6 @@ export const API_PATHS = {
 
   STUDIOS: {
     GET_ALL: "/api/studio",
+    GET_STUDIO_BY_ID: (id) => `/api/studio/${id}`,
   },
 };
