@@ -91,7 +91,7 @@ const StudioDetails = () => {
 
       {/* 2. Main Content Wrapper */}
       {/* Added pt-20 (padding-top) to prevent Header from covering content */}
-      <main className='flex-grow pt-20 md:pt-24'>
+      <main className='grow pt-20 md:pt-24'>
         <section className='pb-24'>
           {/* 3. Back Button Row */}
           <div className='container mx-auto px-4 md:px-6 py-4 flex items-center'>
@@ -110,7 +110,7 @@ const StudioDetails = () => {
             animate={{ opacity: 1, y: 0 }}
             className='container mx-auto px-4 md:px-6'>
             {/* Image Carousel */}
-            <div className='relative w-full h-[300px] md:h-[500px] rounded-[32px] overflow-hidden shadow-lg group'>
+            <div className='relative w-full h-[300px] md:h-[500px] rounded-4xl overflow-hidden shadow-lg group'>
               <AnimatePresence mode='wait'>
                 <motion.img
                   key={currentImageIndex}
@@ -125,7 +125,7 @@ const StudioDetails = () => {
               </AnimatePresence>
 
               {/* Gradient Overlay */}
-              <div className='absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10' />
+              <div className='absolute inset-0 bg-linear-to-t from-black/50 to-transparent pointer-events-none z-10' />
 
               {/* Arrows */}
               {displayImages.length > 1 && (
