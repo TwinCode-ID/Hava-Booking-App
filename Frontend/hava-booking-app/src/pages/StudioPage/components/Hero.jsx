@@ -6,8 +6,12 @@ import { API_PATHS } from "../../../utils/apiPath";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import LoadingSpinner from "../../../components/LoadingSpinner";
+import { href } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const Hero = () => {
+  const navigate = useNavigate();
+
   const [studios, setStudios] = useState([]);
   const [isLoading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,10 +52,8 @@ const Hero = () => {
                 {/* Image Section */}
                 <div className='h-[280px] w-full relative'>
                   <img
-                    src={
-                      "https://www.advantour.com/img/japan/tokyo/tokyo-tower.jpg"
-                    }
-                    alt={"Demo Image"}
+                    src={studio.studioPictures[0] || " "}
+                    alt={studio.studioPictures[0] || " "}
                     className='w-full h-full object-cover'
                   />
                 </div>
@@ -109,7 +111,11 @@ const Hero = () => {
                       </span>
                     </button>
 
-                    <button className='w-full text-emerald-900 text-lg font-medium py-4 rounded-3xl hover:text-emerald-800 transition-colors'>
+                    <button
+                      className='w-full text-emerald-900 text-lg font-medium py-4 rounded-3xl hover:text-emerald-800 transition-colors'
+                      onClick={() =>
+                        navigate(`/studio-details?id=${studio._id}`)
+                      }>
                       Show more
                     </button>
                   </div>
