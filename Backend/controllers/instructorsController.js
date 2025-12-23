@@ -9,6 +9,7 @@ exports.createInstructor = async (req, res) => {
       avatar,
       workingHours,
       instructorType,
+      instructorTier,
     } = req.body;
     if (!fullName) {
       return res.status(400).json({ message: "Instructor name is required" });
@@ -20,6 +21,7 @@ exports.createInstructor = async (req, res) => {
       avatar,
       workingHours,
       instructorType,
+      instructorTier,
     });
 
     res.status(201).json({
@@ -30,6 +32,7 @@ exports.createInstructor = async (req, res) => {
       avatar: instructor.avatar,
       workingHours: instructor.workingHours,
       instructorType: instructor.instructorType,
+      instructorTier: instructor.instructorTier,
       isActive: instructor.isActive,
     });
   } catch (err) {
@@ -46,6 +49,7 @@ exports.updateProfile = async (req, res) => {
       avatar,
       workingHours,
       instructorType,
+      instructorTier,
       isActive,
     } = req.body;
     const instructor = await Instructor.findById(req.params.id);
@@ -59,6 +63,7 @@ exports.updateProfile = async (req, res) => {
     instructor.avatar = avatar || instructor.avatar;
     instructor.workingHours = workingHours || instructor.workingHours;
     instructor.instructorType = instructorType || instructor.instructorType;
+    instructor.instructorTier = instructorTier || instructor.instructorTier;
     instructor.isActive = isActive || instructor.isActive;
 
     await instructor.save();
@@ -71,6 +76,7 @@ exports.updateProfile = async (req, res) => {
       avatar: instructor.avatar,
       workingHours: instructor.workingHours,
       instructorType: instructor.instructorType,
+      instructorTier: instructor.instructorTier,
       isActive: instructor.isActive,
     });
   } catch (err) {

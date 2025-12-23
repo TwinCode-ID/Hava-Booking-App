@@ -15,6 +15,7 @@ const user_passesSchema = new mongoose.Schema(
         "Master Instructor",
         "Junior Instructor",
         "Apprentice Instructor",
+        "Special Instructor",
       ],
       require: true,
     },
