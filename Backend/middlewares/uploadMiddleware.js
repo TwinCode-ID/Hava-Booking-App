@@ -5,20 +5,21 @@ const path = require("path");
 const createUploader = (subfolderName) => {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      // 1. Try to get userId from Auth Token (req.user) OR Request Body
-      // Note: req.user is safest. If using req.body, the 'userId' field must be sent BEFORE the file in the frontend.
-      let userId = "unknown";
+      let userId = "unassigned"; // Default folder if no ID is found
 
+      // 1. Check req.user (if protected)
       if (req.user && req.user._id) {
         userId = req.user._id.toString();
-      } else if (req.body.userId) {
+      }
+      // 2. Check req.body (if public/registration)
+      // CRITICAL: Frontend must send 'userId' BEFORE 'image'
+      else if (req.body.userId) {
         userId = req.body.userId;
       }
 
-      // 2. Define the dynamic path: uploads/UserProfile/{userId}/
       const uploadPath = path.join("uploads", subfolderName, userId);
 
-      // 3. Create directory if it doesn't exist (recursively)
+      // Create folder if it doesn't exist
       if (!fs.existsSync(uploadPath)) {
         fs.mkdirSync(uploadPath, { recursive: true });
       }
@@ -26,7 +27,6 @@ const createUploader = (subfolderName) => {
       cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
-      // Clean filename to prevent duplicate conflicts
       cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`);
     },
   });
