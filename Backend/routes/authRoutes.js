@@ -2,11 +2,14 @@ const express = require("express");
 const { register, login, getMe } = require("../controllers/authController");
 const { protect } = require("../middlewares/authMiddleware");
 const { uploadProfile } = require("../middlewares/uploadMiddleware");
+const { requestOTP, verifyOTP } = require("../controllers/otpController");
 const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
+router.post("/otp/request", requestOTP);
+router.post("/otp/verify", verifyOTP);
 
 router.post("/upload-profile", uploadProfile.single("image"), (req, res) => {
   if (!req.file) {

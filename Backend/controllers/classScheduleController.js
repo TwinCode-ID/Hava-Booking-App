@@ -1,7 +1,7 @@
 const ClassSchedule = require("../models/Class_Schedule"); // Update path as needed
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
-import { checkConflicts } from "../helper/ScheduleHelper";
+const { checkConflicts } = require("../helper/ScheduleHelper");
 
 // --- 1. CREATE CLASS (Single or Recurring) ---
 exports.createClass = async (req, res) => {

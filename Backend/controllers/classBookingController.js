@@ -28,6 +28,14 @@ exports.createBooking = async (req, res) => {
     if (classSession.currentEnrollment >= classSession.capacity)
       throw new Error("Class full.");
 
+    const existingBooking = await ClassBooking.findOne({
+      userId,
+      classId,
+      status: "Booked",
+    }).session(session);
+
+    if (existingBooking) throw new Error("You have already booked this class.");
+
     // --- B. GET PASS ---
     const userPass = await UserPasses.findOne({ _id: passId, userId }).session(
       session

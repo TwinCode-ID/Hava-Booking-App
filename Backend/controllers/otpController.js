@@ -1,4 +1,4 @@
-import { sendEmail } from "../helper/sendEmail";
+const { sendEmail } = require("../helper/sendEmail");
 const User = require("../models/User"); // Your User Model
 const nodemailer = require("nodemailer"); // For sending emails
 
