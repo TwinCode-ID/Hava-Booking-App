@@ -97,3 +97,63 @@ exports.createBooking = async (req, res) => {
     session.endSession();
   }
 };
+
+exports.cancelBooking = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { userId, classId, passId } = req.body;
+
+    // --- A. GET CLASS ---
+    const classSession = await ClassSchedule.findById(classId).session(session);
+    if (!classSession || !classSession.isActive)
+      throw new Error("Class not available.");
+    if (classSession.currentEnrollment >= classSession.capacity)
+      throw new Error("Class full.");
+
+    const existingBooking = await ClassBooking.findOne({
+      userId,
+      classId,
+      status: "Booked",
+    }).session(session);
+
+    if (!existingBooking) throw new Error("You haven't booked this class.");
+
+    // --- B. GET PASS ---
+    const userPass = await UserPasses.findOne({ _id: passId, userId }).session(
+      session
+    );
+    if (!userPass || !userPass.isActive) throw new Error("Invalid pass.");
+
+    // --- D. CANCELLATION ---
+    userPass.remainingCredits += 1;
+    await userPass.save({ session });
+
+    const newBooking = new ClassBooking({
+      userId,
+      classId,
+      passId,
+      bookingDate: new Date(),
+      status: "Cancelled",
+      studioId: classSession.studioId,
+      instructorId: classSession.instructorId,
+    });
+
+    await newBooking.save({ session });
+
+    classSession.currentEnrollment -= 1;
+    await classSession.save({ session });
+
+    await session.commitTransaction();
+    res.status(201).json({
+      message: "Booking cancelled successfully!",
+      bookingId: newBooking._id,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ error: error.message });
+  } finally {
+    session.endSession();
+  }
+};
