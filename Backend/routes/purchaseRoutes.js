@@ -5,7 +5,7 @@ const {
   uploadProof,
   adminReviewPayment,
   getMyPurchases,
-} = require("../controllers/purchaseController");
+} = require("../controllers/packagePurchaseController");
 const { protect } = require("../middlewares/authMiddleware");
 
 // POST /api/purchases - Initiate a new purchase

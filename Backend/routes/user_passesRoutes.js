@@ -5,7 +5,7 @@ const {
   getMyActivePasses,
   deductCredits,
   getUserPassHistory,
-} = require("../controllers/passController");
+} = require("../controllers/user_passesController");
 const { protect } = require("../middlewares/authMiddleware");
 
 // GET /api/passes/user/:userId - Get active passes (Wallet)

@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   upsertMedicalRecord,
   getMedicalRecord,
-} = require("../controllers/medicalController");
+} = require("../controllers/medicalRecordController");
 const { protect } = require("../middlewares/authMiddleware");
 
 // POST /api/medical/:userId - Create or Update record

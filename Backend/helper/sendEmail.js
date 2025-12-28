@@ -1,4 +1,4 @@
-export const sendEmail = async (email, otp) => {
+const sendEmail = async (email, otp) => {
   const transporter = nodemailer.createTransport({
     service: "gmail", // or your SMTP provider
     auth: {
@@ -14,3 +14,5 @@ export const sendEmail = async (email, otp) => {
     text: `Your One-Time Password is: ${otp}. It expires in 5 minutes.`,
   });
 };
+
+module.exports = sendEmail;

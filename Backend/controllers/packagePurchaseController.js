@@ -15,7 +15,47 @@ const checkAndExpire = async (purchase) => {
   return purchase;
 };
 
-// ... [createPurchase function remains the same] ...
+// --- 1. CREATE PURCHASE ---
+exports.createPurchase = async (req, res) => {
+  try {
+    const {
+      userId,
+      packageId,
+      totalAmount,
+      paymentMethod,
+      paymentIssuer,
+      issuingStudio,
+    } = req.body;
+
+    const packageInfo = await Packages.findById(packageId);
+    if (!packageInfo) throw new Error("Package not found");
+
+    // Set 24 Hour Payment Window
+    const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const newPurchase = new PackagePurchase({
+      transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      userId,
+      packageId,
+      paymentWindowExpiry: paymentDeadline, // The 24h timer
+      creditsPurchased: packageInfo.credits,
+      totalAmount,
+      paymentMethod,
+      paymentIssuer,
+      issuingStudio,
+      status: "pending", // Initial status
+    });
+
+    await newPurchase.save();
+
+    res.status(201).json({
+      message: "Purchase initiated. Please upload proof within 24 hours.",
+      purchase: newPurchase,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
 
 // --- 2. UPLOAD PROOF (User Action) ---
 exports.uploadProof = async (req, res) => {
@@ -30,11 +70,9 @@ exports.uploadProof = async (req, res) => {
     purchase = await checkAndExpire(purchase);
 
     if (purchase.status === "expired") {
-      return res
-        .status(400)
-        .json({
-          error: "Payment window has expired. Please make a new purchase.",
-        });
+      return res.status(400).json({
+        error: "Payment window has expired. Please make a new purchase.",
+      });
     }
 
     if (purchase.status === "confirmed") {
@@ -50,12 +88,10 @@ exports.uploadProof = async (req, res) => {
 
     await purchase.save();
 
-    res
-      .status(200)
-      .json({
-        message: "Proof uploaded. Waiting for admin confirmation.",
-        purchase,
-      });
+    res.status(200).json({
+      message: "Proof uploaded. Waiting for admin confirmation.",
+      purchase,
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -79,12 +115,10 @@ exports.adminReviewPayment = async (req, res) => {
       purchase.status = "expired";
       await purchase.save({ session });
       await session.commitTransaction();
-      return res
-        .status(400)
-        .json({
-          error: "Payment window expired during review.",
-          status: "expired",
-        });
+      return res.status(400).json({
+        error: "Payment window expired during review.",
+        status: "expired",
+      });
     }
 
     // --- SCENARIO A: APPROVE ---

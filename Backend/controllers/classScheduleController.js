@@ -1,4 +1,4 @@
-const ClassSchedule = require("../models/Class_Schedule"); // Update path as needed
+const ClassSchedule = require("../models/ClassSchedule"); // Update path as needed
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
 const { checkConflicts } = require("../helper/ScheduleHelper");

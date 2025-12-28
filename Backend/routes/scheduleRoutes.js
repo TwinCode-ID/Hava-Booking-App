@@ -5,7 +5,7 @@ const {
   getClasses,
   updateClass,
   deleteClass,
-} = require("../controllers/scheduleController");
+} = require("../controllers/classScheduleController");
 const { protect } = require("../middlewares/authMiddleware");
 // You likely want an 'admin' middleware here too
 

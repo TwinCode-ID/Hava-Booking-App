@@ -1,4 +1,4 @@
-export const checkConflicts = async (
+const checkConflicts = async (
   studioId,
   startTime,
   endTime,
@@ -24,3 +24,5 @@ export const checkConflicts = async (
   const conflict = await ClassSchedule.findOne(query);
   return conflict;
 };
+
+module.exports = { checkConflicts };

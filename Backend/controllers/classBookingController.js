@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const ClassBooking = require("../models/ClassBooking");
-const ClassSchedule = require("../models/Class_Schedule");
+const ClassSchedule = require("../models/ClassSchedule");
 const UserPasses = require("../models/User_Passes");
 
 // 1. DEFINE THE HIERARCHY
