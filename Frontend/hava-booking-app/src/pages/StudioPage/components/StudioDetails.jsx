@@ -45,10 +45,7 @@ const StudioDetails = () => {
   }, [studioId]);
 
   // Handle image array (flattening nested array if necessary)
-  const displayImages =
-    studio?.studioPictures?.length > 1
-      ? studio.studioPictures
-      : [...(studio?.studioPictures?.[0] || [])];
+  const displayImages = [...(studio?.studioPictures?.[0] || [])];
 
   const nextImage = (e) => {
     e?.stopPropagation();
@@ -128,20 +125,23 @@ const StudioDetails = () => {
               <div className='absolute inset-0 bg-linear-to-t from-black/50 to-transparent pointer-events-none z-10' />
 
               {/* Arrows */}
-              {displayImages.length > 1 && (
+              {displayImages.length > 0 && (
                 <>
-                  <button
-                    onClick={prevImage}
-                    className='absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md p-2 md:p-3 rounded-full text-white hover:bg-white/40 transition-all z-20 border border-white/30'>
-                    <ChevronLeft className='w-5 h-5 md:w-6 md:h-6' />
-                  </button>
+                  {displayImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevImage}
+                        className='absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md p-2 md:p-3 rounded-full text-white hover:bg-white/40 transition-all z-20 border border-white/30'>
+                        <ChevronLeft className='w-5 h-5 md:w-6 md:h-6' />
+                      </button>
 
-                  <button
-                    onClick={nextImage}
-                    className='absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md p-2 md:p-3 rounded-full text-white hover:bg-white/40 transition-all z-20 border border-white/30'>
-                    <ChevronRight className='w-5 h-5 md:w-6 md:h-6' />
-                  </button>
-
+                      <button
+                        onClick={nextImage}
+                        className='absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-md p-2 md:p-3 rounded-full text-white hover:bg-white/40 transition-all z-20 border border-white/30'>
+                        <ChevronRight className='w-5 h-5 md:w-6 md:h-6' />
+                      </button>
+                    </>
+                  )}
                   {/* Dots */}
                   <div className='absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-20'>
                     {displayImages.map((_, idx) => (

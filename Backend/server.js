@@ -9,6 +9,11 @@ const userRoutes = require("./routes/userRoutes");
 const studioRoutes = require("./routes/studioRoutes");
 const packagesRoutes = require("./routes/packagesRoutes");
 const instructorsRoutes = require("./routes/instructorsRoutes");
+const bookingRoutes = require("./routes/bookingRoutes");
+const scheduleRoutes = require("./routes/scheduleRoutes");
+const purchaseRoutes = require("./routes/purchaseRoutes");
+const userPassRoutes = require("./routes/user_passesRoutes");
+const medicalRoutes = require("./routes/medicalRoutes");
 
 const app = express();
 
@@ -29,8 +34,13 @@ app.use("/api/user", userRoutes);
 app.use("/api/studio", studioRoutes);
 app.use("/api/package", packagesRoutes);
 app.use("/api/instructor", instructorsRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/purchases", purchaseRoutes);
+app.use("/api/passes", userPassRoutes);
+app.use("/api/medical", medicalRoutes);
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads"), {}));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

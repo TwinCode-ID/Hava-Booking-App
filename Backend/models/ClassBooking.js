@@ -1,0 +1,38 @@
+const mongoose = require("mongoose");
+
+const ClassBookingSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      require: true,
+    },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Classes",
+      require: true,
+    },
+    passId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User_Passes",
+      require: true,
+    },
+    bookingDate: { type: Date, require: true },
+    status: {
+      type: String,
+      enum: ["Booked", "Cancelled", "Completed"],
+      default: "Booked",
+    },
+    studioId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Studios",
+      require: true,
+    },
+    instructorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Instructors",
+      require: true,
+    },
+  },
+  { timestamps: true }
+);
