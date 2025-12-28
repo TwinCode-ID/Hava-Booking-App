@@ -1,105 +1,152 @@
 const mongoose = require("mongoose");
 const PackagePurchase = require("../models/PackagePurchase");
 const UserPasses = require("../models/User_Passes");
-const Packages = require("../models/Packages"); // Assuming you have this model
+const Packages = require("../models/Packages");
 
-// --- 1. CREATE PURCHASE (User initiates request) ---
-exports.createPurchase = async (req, res) => {
+// --- HELPER: CHECK EXPIRY ---
+const checkAndExpire = async (purchase) => {
+  if (["confirmed", "expired"].includes(purchase.status)) return purchase;
+
+  const now = new Date();
+  if (now > purchase.paymentWindowExpiry) {
+    purchase.status = "expired";
+    await purchase.save();
+  }
+  return purchase;
+};
+
+// ... [createPurchase function remains the same] ...
+
+// --- 2. UPLOAD PROOF (User Action) ---
+exports.uploadProof = async (req, res) => {
   try {
-    const {
-      userId,
-      packageId,
-      totalAmount,
-      paymentMethod,
-      paymentIssuer,
-      issuingStudio,
-    } = req.body;
+    const { purchaseId } = req.params;
+    const { proofUrl } = req.body;
 
-    // 1. Get Package Details (to calculate credits/expiry if needed later)
-    const packageInfo = await Packages.findById(packageId);
-    if (!packageInfo) throw new Error("Package not found");
+    let purchase = await PackagePurchase.findById(purchaseId);
+    if (!purchase) throw new Error("Purchase not found");
 
-    // 2. Create the Purchase Record (Status: Unconfirmed)
-    const newPurchase = new PackagePurchase({
-      transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Simple auto-gen ID
-      userId,
-      packageId,
-      purchaseDate: new Date(),
-      expiryDate: new Date(Date.now() + 1000 * 60 * 60 * 24), // Temp expiry for payment window (24h)
-      creditsPurchased: packageInfo.credits, // Assuming Package schema has 'credits'
-      totalAmount,
-      paymentMethod,
-      paymentIssuer,
-      issuingStudio,
-      isPaymentConfirmed: false, // Pending Admin Approval
-    });
+    // Check if expired
+    purchase = await checkAndExpire(purchase);
 
-    await newPurchase.save();
+    if (purchase.status === "expired") {
+      return res
+        .status(400)
+        .json({
+          error: "Payment window has expired. Please make a new purchase.",
+        });
+    }
 
-    res.status(201).json({
-      message: "Purchase initiated. Waiting for payment confirmation.",
-      purchase: newPurchase,
-    });
+    if (purchase.status === "confirmed") {
+      return res.status(400).json({ error: "Payment already confirmed." });
+    }
+
+    // Update status
+    purchase.proofOfPayment = proofUrl;
+    purchase.status = "waiting_confirmation";
+
+    // --- IMPORTANT: Clear any previous rejection reason on new upload ---
+    purchase.rejectionReason = null;
+
+    await purchase.save();
+
+    res
+      .status(200)
+      .json({
+        message: "Proof uploaded. Waiting for admin confirmation.",
+        purchase,
+      });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
-// --- 2. CONFIRM PAYMENT (Admin Action) ---
-// This is the magic step: It verifies payment AND gives the user their credits.
-exports.confirmPayment = async (req, res) => {
+// --- 3. ADMIN REVIEW (Approve or Reject) ---
+exports.adminReviewPayment = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { purchaseId } = req.params;
-    // const { adminId } = req.user; // If you have auth
+    // Get rejectionReason from body
+    const { action, rejectionReason } = req.body;
 
-    // A. Find the Purchase
-    const purchase = await PackagePurchase.findById(purchaseId).session(
-      session
-    );
+    let purchase = await PackagePurchase.findById(purchaseId).session(session);
     if (!purchase) throw new Error("Purchase record not found.");
-    if (purchase.isPaymentConfirmed)
-      throw new Error("This payment is already confirmed.");
 
-    // B. Get Package Details (To know duration & rules)
-    const packageDetails = await Packages.findById(purchase.packageId).session(
-      session
-    );
-    if (!packageDetails) throw new Error("Associated package data missing.");
+    // 1. Manual Time Check inside Transaction
+    if (new Date() > purchase.paymentWindowExpiry) {
+      purchase.status = "expired";
+      await purchase.save({ session });
+      await session.commitTransaction();
+      return res
+        .status(400)
+        .json({
+          error: "Payment window expired during review.",
+          status: "expired",
+        });
+    }
 
-    // C. Calculate Real Expiry Date (e.g., Purchase Date + 30 Days)
-    // Assuming packageDetails.validityDays exists
-    const validUntil = new Date();
-    validUntil.setDate(
-      validUntil.getDate() + (packageDetails.validityDays || 30)
-    );
+    // --- SCENARIO A: APPROVE ---
+    if (action === "approve") {
+      if (purchase.status === "confirmed") throw new Error("Already confirmed");
 
-    // D. Create the USER PASS (The actual credits)
-    const newUserPass = new UserPasses({
-      userId: purchase.userId,
-      packageId: purchase.packageId,
-      purchaseDate: new Date(),
-      expiryDate: validUntil,
-      remainingCredits: purchase.creditsPurchased,
-      isActive: true,
-      instructorType: packageDetails.instructorType, // Inherit from Package
-    });
+      const packageDetails = await Packages.findById(
+        purchase.packageId
+      ).session(session);
 
-    await newUserPass.save({ session });
+      const passExpiry = new Date();
+      passExpiry.setDate(
+        passExpiry.getDate() + (packageDetails.validityDays || 30)
+      );
 
-    // E. Update Purchase Status
-    purchase.isPaymentConfirmed = true;
-    purchase.expiryDate = validUntil; // Update to real expiry
-    await purchase.save({ session });
+      const newUserPass = new UserPasses({
+        userId: purchase.userId,
+        packageId: purchase.packageId,
+        purchaseDate: new Date(),
+        expiryDate: passExpiry,
+        remainingCredits: purchase.creditsPurchased,
+        isActive: true,
+        instructorType: packageDetails.instructorType,
+      });
 
-    await session.commitTransaction();
+      await newUserPass.save({ session });
 
-    res.status(200).json({
-      message: "Payment confirmed and Credits assigned to user.",
-      passId: newUserPass._id,
-    });
+      purchase.status = "confirmed";
+      purchase.rejectionReason = null; // Ensure clean slate
+      await purchase.save({ session });
+
+      await session.commitTransaction();
+      return res
+        .status(200)
+        .json({ message: "Payment confirmed.", passId: newUserPass._id });
+    }
+
+    // --- SCENARIO B: REJECT ---
+    else if (action === "reject") {
+      const now = new Date();
+
+      // If time is up, force expire
+      if (now > purchase.paymentWindowExpiry) {
+        purchase.status = "expired";
+        purchase.rejectionReason = "Payment window expired.";
+      } else {
+        // Time remains: Allow re-upload
+        purchase.status = "payment_rejected";
+        // Save the admin's note
+        purchase.rejectionReason =
+          rejectionReason || "Proof rejected. Please upload a valid proof.";
+      }
+
+      await purchase.save({ session });
+      await session.commitTransaction();
+
+      return res.status(200).json({
+        message: "Payment status updated.",
+        status: purchase.status,
+        reason: purchase.rejectionReason,
+      });
+    }
   } catch (error) {
     await session.abortTransaction();
     res.status(400).json({ error: error.message });
@@ -108,28 +155,25 @@ exports.confirmPayment = async (req, res) => {
   }
 };
 
-// --- 3. UPLOAD PROOF OF PAYMENT (User Action) ---
-exports.uploadProof = async (req, res) => {
-  try {
-    const { purchaseId } = req.params;
-    const { proofUrl } = req.body; // URL from S3/Cloudinary
-
-    const purchase = await PackagePurchase.findByIdAndUpdate(
-      purchaseId,
-      { proofOfPayment: proofUrl },
-      { new: true }
-    );
-
-    res.status(200).json({ message: "Proof uploaded", purchase });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-// --- 4. GET MY PURCHASES ---
+// --- 4. GET MY PURCHASES (With Auto-Expiry Check) ---
 exports.getMyPurchases = async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // 1. First, find any "pending" or "payment_rejected" items that have passed their deadline
+    // and bulk update them to "expired" so the user sees the correct status.
+    await PackagePurchase.updateMany(
+      {
+        userId: userId,
+        status: { $in: ["pending", "payment_rejected"] },
+        paymentWindowExpiry: { $lt: new Date() }, // Time is up
+      },
+      {
+        $set: { status: "expired" },
+      }
+    );
+
+    // 2. Fetch the updated list
     const history = await PackagePurchase.find({ userId })
       .populate("packageId", "packageName price")
       .sort({ createdAt: -1 });

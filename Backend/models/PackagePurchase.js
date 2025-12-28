@@ -2,29 +2,42 @@ const mongoose = require("mongoose");
 
 const PackagePurchaseSchema = new mongoose.Schema(
   {
-    transactionId: { type: String, require: true, unique: true },
+    transactionId: { type: String, required: true, unique: true },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      require: true,
+      required: true,
     },
     packageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Packages",
-      require: true,
+      required: true,
     },
-    purchaseDate: { type: Date, require: true },
-    expiryDate: { type: Date, require: true },
-    creditsPurchased: { type: Number, require: true },
-    totalAmount: { type: Number, require: true },
+    paymentWindowExpiry: { type: Date, required: true },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "waiting_confirmation",
+        "payment_rejected",
+        "confirmed",
+        "expired",
+      ],
+      default: "pending",
+    },
+
+    rejectionReason: { type: String, default: null },
+
+    creditsPurchased: { type: Number, required: true },
+    totalAmount: { type: Number, required: true },
     paymentMethod: {
       type: String,
       enum: ["Bank Transfer", "QRIS", "Pay At Studio"],
-      require: true,
+      required: true,
     },
-    paymentIssuer: { type: String, require: true },
+    paymentIssuer: { type: String, required: true },
     proofOfPayment: { type: String, default: null },
-    isPaymentConfirmed: { type: Boolean, default: false },
     issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
   },
   { timestamps: true }
