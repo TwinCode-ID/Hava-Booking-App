@@ -4,16 +4,16 @@ const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
 
-const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const studioRoutes = require("./routes/studioRoutes");
-const packagesRoutes = require("./routes/packagesRoutes");
-const instructorsRoutes = require("./routes/instructorsRoutes");
-const bookingRoutes = require("./routes/bookingRoutes");
-const scheduleRoutes = require("./routes/scheduleRoutes");
-const purchaseRoutes = require("./routes/purchaseRoutes");
-const userPassRoutes = require("./routes/user_passesRoutes");
-const medicalRoutes = require("./routes/medicalRoutes");
+const authRoutes = require("./routes/UserRoutes/authRoutes");
+const userRoutes = require("./routes/UserRoutes/userRoutes");
+const studioRoutes = require("./routes/StudioRoutes/studioRoutes");
+const packagesRoutes = require("./routes/StudioRoutes/packagesRoutes");
+const instructorsRoutes = require("./routes/StudioRoutes/instructorsRoutes");
+const bookingRoutes = require("./routes/BookingRoutes/bookingRoutes");
+const scheduleRoutes = require("./routes/BookingRoutes/scheduleRoutes");
+const purchaseRoutes = require("./routes/StudioRoutes/purchaseRoutes");
+const userPassRoutes = require("./routes/UserRoutes/user_passesRoutes");
+const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
 
 const app = express();
 
