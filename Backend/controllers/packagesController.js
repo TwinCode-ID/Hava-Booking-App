@@ -8,6 +8,7 @@ exports.createPackage = async (req, res) => {
       packagePrice,
       currency,
       validityDays,
+      credits,
       instructorType,
     } = req.body;
     if (!packageName) {
@@ -21,6 +22,7 @@ exports.createPackage = async (req, res) => {
       currency,
       validityDays,
       instructorType,
+      credits,
       studioLocation,
     });
 
@@ -32,6 +34,7 @@ exports.createPackage = async (req, res) => {
       currency: package.currency,
       validityDays: package.validityDays,
       isActive: package.isActive,
+      credits: package.credits,
       instructorType: package.instructorType,
       studioLocation: package.studioLocation,
     });
@@ -54,6 +57,7 @@ exports.getPackageById = async (req, res) => {
       currency: package.currency,
       validityDays: package.validityDays,
       isActive: package.isActive,
+      credits: package.credits,
       instructorType: package.instructorType,
     });
   } catch (err) {
@@ -79,6 +83,7 @@ exports.updatePackage = async (req, res) => {
       currency,
       validityDays,
       isActive,
+      credits,
       instructorType,
     } = req.body;
     const package = await Package.findById(req.params.id);
@@ -93,6 +98,7 @@ exports.updatePackage = async (req, res) => {
     package.currency = currency || package.currency;
     package.validityDays = validityDays || package.validityDays;
     package.isActive = isActive || package.isActive;
+    package.credits = credits || package.credits;
     package.instructorType = instructorType || package.instructorType;
     await package.save();
 
@@ -104,6 +110,7 @@ exports.updatePackage = async (req, res) => {
       currency: package.currency,
       validityDays: package.validityDays,
       isActive: package.isActive,
+      credits: package.credits,
       instructorType: package.instructorType,
     });
   } catch (err) {

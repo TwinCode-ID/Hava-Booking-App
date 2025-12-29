@@ -1,6 +1,6 @@
 const { sendEmail } = require("../helper/sendEmail");
-const User = require("../models/User"); // Your User Model
-const nodemailer = require("nodemailer"); // For sending emails
+const User = require("../models/User");
+const OTP = require("../models/OTP"); // Your User Model
 
 // --- A. REQUEST OTP (User enters email) ---
 exports.requestOTP = async (req, res) => {

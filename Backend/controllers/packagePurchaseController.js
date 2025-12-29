@@ -19,7 +19,6 @@ const checkAndExpire = async (purchase) => {
 exports.createPurchase = async (req, res) => {
   try {
     const {
-      userId,
       packageId,
       totalAmount,
       paymentMethod,
@@ -33,6 +32,7 @@ exports.createPurchase = async (req, res) => {
     // Set 24 Hour Payment Window
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
+    const { _id: userId } = req.user;
     const newPurchase = new PackagePurchase({
       transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId,
@@ -50,6 +50,7 @@ exports.createPurchase = async (req, res) => {
 
     res.status(201).json({
       message: "Purchase initiated. Please upload proof within 24 hours.",
+      purchaseId: newPurchase._id,
       purchase: newPurchase,
     });
   } catch (error) {
