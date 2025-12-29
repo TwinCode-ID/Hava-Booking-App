@@ -8,6 +8,7 @@ const packagesSchema = new mongoose.Schema(
     currency: { type: String, default: "IDR" },
     validityDays: { type: Number, require: true },
     isActive: { type: Boolean, default: true },
+    credits: { type: Number, require: true },
     instructorType: {
       type: String,
       enum: [
