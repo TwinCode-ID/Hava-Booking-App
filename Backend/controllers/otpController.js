@@ -27,7 +27,7 @@ exports.requestOTP = async (req, res) => {
 
     // 5. Send via Email
     // (In production, wrap this in a try-catch so DB save isn't rolled back if email fails)
-    await sendEmail(email, generatedOTP);
+    await sendEmail(user.fullName, email, generatedOTP);
 
     res.status(200).json({ message: "OTP sent to your email." });
   } catch (error) {

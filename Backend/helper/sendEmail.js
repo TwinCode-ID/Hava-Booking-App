@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
 
-const sendEmail = async (email, otp) => {
+const sendEmail = async (userName, email, otp) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -59,7 +59,7 @@ const sendEmail = async (email, otp) => {
         </div>
 
         <div class="content">
-          <div class="greeting">Hi there,</div>
+          <div class="greeting">Hi ${userName},</div>
           
           <p>Thank you for using Pilates Booking Service.</p>
           
