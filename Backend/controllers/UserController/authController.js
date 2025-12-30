@@ -55,7 +55,6 @@ exports.login = async (req, res) => {
       role: user.role,
       adminStudioLocation: user.adminStudioLocation || "",
       avatar: user.avatar || "",
-      token: generateToken(user._id),
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
