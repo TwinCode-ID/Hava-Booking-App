@@ -1,7 +1,8 @@
 const { sendEmail } = require("../../helper/sendEmail");
 const User = require("../../models/UserData/User");
 const OTP = require("../../models/OTP/OTP");
-const OtpLog = require("../../models/OTP/OtpLog"); // <--- Import the new model
+const OtpLog = require("../../models/OTP/OtpLog");
+const jwt = require("jsonwebtoken"); // <--- Import the new model
 
 exports.requestOTP = async (req, res) => {
   try {
@@ -94,6 +95,7 @@ exports.verifyOTP = async (req, res) => {
     res.status(200).json({
       message: "Login successful",
       userId: user._id,
+      token: generateToken(user._id),
       // token: token
     });
   } catch (error) {
