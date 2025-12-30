@@ -58,10 +58,31 @@ exports.getPackageById = async (req, res) => {
       validityDays: package.validityDays,
       isActive: package.isActive,
       credits: package.credits,
+      studioLocation: package.studioLocation,
       instructorType: package.instructorType,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getPackageByStudio = async (req, res) => {
+  try {
+    const { studioLocation } = req.params;
+
+    const packages = await Package.find({
+      studioLocation: studioLocation,
+    }).populate("studioLocation", "studioName");
+
+    if (!packages || packages.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No packages found for this studio." });
+    }
+
+    res.status(200).json(packages);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
