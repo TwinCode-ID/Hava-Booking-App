@@ -141,6 +141,7 @@ exports.adminReviewPayment = async (req, res) => {
         purchaseDate: new Date(),
         expiryDate: passExpiry,
         remainingCredits: purchase.creditsPurchased,
+        issuingStudio: purchase.issuingStudio,
         isActive: true,
         instructorType: packageDetails.instructorType,
       });
@@ -210,6 +211,35 @@ exports.getMyPurchases = async (req, res) => {
 
     // 2. Fetch the updated list
     const history = await PackagePurchase.find({ userId })
+      .populate("packageId", "packageName price")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(history);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getStudioPurchasesHistory = async (req, res) => {
+  try {
+    const { studioId } = req.params;
+
+    // 1. First, find any "pending" or "payment_rejected" items that have passed their deadline
+    // and bulk update them to "expired" so the user sees the correct status.
+    await PackagePurchase.updateMany(
+      {
+        issuingStudio: studioId,
+        status: { $in: ["pending", "payment_rejected"] },
+        paymentWindowExpiry: { $lt: new Date() }, // Time is up
+      },
+      {
+        $set: { status: "expired" },
+      }
+    );
+
+    // 2. Fetch the updated list
+    const history = await PackagePurchase.find({ issuingStudio: studioId })
+      .populate("userId", "fullName")
       .populate("packageId", "packageName price")
       .sort({ createdAt: -1 });
 

@@ -10,6 +10,7 @@ exports.updateProfile = async (req, res) => {
       preferredStudioId,
       adminStudioLocation,
       avatar,
+      role,
     } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) return res.status(400).json({ message: "User not found" });
@@ -23,6 +24,7 @@ exports.updateProfile = async (req, res) => {
     }
 
     if (user.role === "devTeam") {
+      user.role = role || user.role;
       user.preferredStudioId = preferredStudioId || user.preferredStudioId;
       user.adminStudioLocation =
         adminStudioLocation || user.adminStudioLocation;

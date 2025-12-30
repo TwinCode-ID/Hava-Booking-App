@@ -7,6 +7,7 @@ const user_passesSchema = new mongoose.Schema(
     purchaseDate: { type: Date, require: true },
     expiryDate: { type: Date, require: true },
     remainingCredits: { type: Number, require: true },
+    issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
     isActive: { type: Boolean, require: true },
     instructorType: {
       type: String,
