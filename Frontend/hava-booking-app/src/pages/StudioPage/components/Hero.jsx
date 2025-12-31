@@ -38,7 +38,9 @@ const Hero = () => {
   return (
     <section className='min-h-screen bg-white flex items-center py-20'>
       {isLoading ? (
-        <LoadingSpinner />
+        <div className='min-h-screen rounded-2xl bg-white  flex items-center font-sans'>
+          <LoadingSpinner />
+        </div>
       ) : (
         <div className='container mx-auto overflow-x-auto px-6 md:px-12 py-12 flex gap-8 snap-x snap-mandatory scrollbar-hide justify-start md:justify-center items-stretch'>
           {studios.map((studio, index) => (

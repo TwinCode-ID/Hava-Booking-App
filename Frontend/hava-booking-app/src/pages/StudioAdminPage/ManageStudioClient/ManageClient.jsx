@@ -1,11 +1,11 @@
 import React from "react";
 import DashboardLayout from "../../../components/layout/DashboardLayout";
+import ClientManager from "./components/ClientManaget";
 
 const ManageClient = () => {
   return (
     <DashboardLayout activeMenu={"manage-client"}>
-      {" "}
-      <div>ManageClient</div>
+      <ClientManager />
     </DashboardLayout>
   );
 };

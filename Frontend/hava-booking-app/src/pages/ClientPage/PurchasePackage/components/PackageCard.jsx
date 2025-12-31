@@ -3,7 +3,7 @@ import { Clock, Sparkles, ShoppingBag, Ticket } from "lucide-react";
 import FeatureRow from "./FeatureRow";
 
 // --- Sub-Component: Modern Package Card ---
-const PackageCard = ({ pkg }) => {
+const PackageCard = ({ pkg, onPurchase }) => {
   // Format Price to IDR
   const formatPrice = (price) => {
     return new Intl.NumberFormat("id-ID", {
@@ -61,7 +61,7 @@ const PackageCard = ({ pkg }) => {
 
       {/* Action Button */}
       <button
-        onClick={() => console.log("Navigate to checkout", pkg._id)}
+        onClick={onPurchase}
         className={`w-full py-4 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 ${
           isBestValue
             ? "bg-emerald-900 text-white hover:bg-emerald-800 shadow-emerald-900/20"

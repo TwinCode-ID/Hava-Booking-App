@@ -220,7 +220,7 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
                 setProfileDropdownOpen(!profileDropdownOpen);
               }}
               avatar={user?.avatar || ""}
-              companyName={user?.userName || ""}
+              fullName={user?.fullName || ""}
               email={user?.email || ""}
               role={user?.role || ""}
               onLogout={logout}

@@ -11,6 +11,7 @@ export const API_PATHS = {
 
   IMAGE: {
     UPLOAD_IMAGE: "/api/auth/upload-image",
+    UPLOAD_PROOF: "/api/auth/upload-proof",
   },
 
   STUDIOS: {
@@ -29,7 +30,20 @@ export const API_PATHS = {
   },
 
   PURCHASES: {
+    CREATE: "/api/purchases",
     GET_ALL_ADMIN: (studioId) => `/api/purchases/studio/${studioId}`,
     REVIEW_PURCHASE: (purchaseId) => `/api/purchases/${purchaseId}/review`,
+  },
+
+  PASSES: {
+    GET_ALL_ADMIN: (studioId) => `/api/passes/history/${studioId}`,
+  },
+
+  INSTRUCTOR: {
+    GET_ALL: "/api/instructor/",
+  },
+
+  STUDIO: {
+    GET_STUDIO_BY_ID: (studioId) => `/api/studio/${studioId}`,
   },
 };
