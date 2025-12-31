@@ -107,8 +107,13 @@ exports.deductCredits = async (req, res) => {
 // 4. Admin/Debug: Get All History for a User (Including expired)
 exports.getUserPassHistory = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const history = await UserPasses.find({ userId }).sort({ createdAt: -1 });
+    const { studioId } = req.params;
+    const history = await UserPasses.find({ issuingStudio: studioId })
+      .sort({
+        createdAt: -1,
+      })
+      .populate("packageId")
+      .populate("userId", "fullName email");
     res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });

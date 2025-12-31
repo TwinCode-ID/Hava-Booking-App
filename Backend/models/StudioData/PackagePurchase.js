@@ -33,7 +33,7 @@ const PackagePurchaseSchema = new mongoose.Schema(
     totalAmount: { type: Number, required: true },
     paymentMethod: {
       type: String,
-      enum: ["Bank Transfer", "QRIS", "Pay At Studio"],
+      enum: ["manual_transfer", "QRIS", "pay_at_studio"],
       required: true,
     },
     paymentIssuer: { type: String, required: true },

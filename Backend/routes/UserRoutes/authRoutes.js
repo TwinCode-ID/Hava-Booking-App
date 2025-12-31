@@ -5,7 +5,11 @@ const {
   getMe,
 } = require("../../controllers/UserController/authController");
 const { protect } = require("../../middlewares/authMiddleware");
-const { uploadProfile } = require("../../middlewares/uploadMiddleware");
+const {
+  uploadProfile,
+  uploadProof,
+  uploadStudio,
+} = require("../../middlewares/uploadMiddleware");
 const {
   requestOTP,
   verifyOTP,
@@ -29,6 +33,36 @@ router.post("/upload-profile", uploadProfile.single("image"), (req, res) => {
   const imageUrl = `${req.protocol}://${req.get(
     "host"
   )}/uploads/UserProfile/${userId}/${req.file.filename}`;
+
+  res.status(200).json({ imageUrl });
+});
+
+router.post("/upload-proof", uploadProof.single("image"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "No file uploaded" });
+  }
+
+  // Use req.body.userId to build the URL since req.user is missing
+  const userId = req.body.userId || "unassigned";
+
+  const imageUrl = `${req.protocol}://${req.get(
+    "host"
+  )}/uploads/ProofOfPurchase/${userId}/${req.file.filename}`;
+
+  res.status(200).json({ imageUrl });
+});
+
+router.post("/upload-studio", uploadStudio.single("image"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "No file uploaded" });
+  }
+
+  // Use req.body.userId to build the URL since req.user is missing
+  const studioId = req.body.adminStudioLocation || "unassigned";
+
+  const imageUrl = `${req.protocol}://${req.get(
+    "host"
+  )}/uploads/Studio/${studioId}/${req.file.filename}`;
 
   res.status(200).json({ imageUrl });
 });

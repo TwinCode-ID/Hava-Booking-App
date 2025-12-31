@@ -12,7 +12,7 @@ const { protect } = require("../../middlewares/authMiddleware");
 router.get("/user/:userId", protect, getMyActivePasses);
 
 // GET /api/passes/history/:userId - Get all pass history (Debug/Admin)
-router.get("/history/:userId", protect, getUserPassHistory);
+router.get("/history/:studioId", protect, getUserPassHistory);
 
 // POST /api/passes/assign - Manually assign a pass (Admin/System)
 router.post("/assign", protect, assignPassToUser);

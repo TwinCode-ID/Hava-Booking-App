@@ -24,6 +24,7 @@ exports.createPurchase = async (req, res) => {
       paymentMethod,
       paymentIssuer,
       issuingStudio,
+      proofOfPayment,
     } = req.body;
 
     const packageInfo = await Packages.findById(packageId);
@@ -33,6 +34,9 @@ exports.createPurchase = async (req, res) => {
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const { _id: userId } = req.user;
+
+    const paymentStatus =
+      paymentMethod === "pay_at_studio" ? "pending" : "waiting_confirmation";
     const newPurchase = new PackagePurchase({
       transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId,
@@ -42,8 +46,9 @@ exports.createPurchase = async (req, res) => {
       totalAmount,
       paymentMethod,
       paymentIssuer,
+      proofOfPayment,
       issuingStudio,
-      status: "pending", // Initial status
+      status: paymentStatus, // Initial status
     });
 
     await newPurchase.save();

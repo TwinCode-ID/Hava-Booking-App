@@ -15,6 +15,8 @@ const createUploader = (subfolderName) => {
       // CRITICAL: Frontend must send 'userId' BEFORE 'image'
       else if (req.body.userId) {
         userId = req.body.userId;
+      } else if (req.body.adminStudioLocation) {
+        userId = req.body.adminStudioLocation;
       }
 
       const uploadPath = path.join("uploads", subfolderName, userId);
@@ -43,4 +45,5 @@ const createUploader = (subfolderName) => {
 module.exports = {
   uploadProfile: createUploader("UserProfile"),
   uploadProof: createUploader("ProofOfPurchase"),
+  uploadStudio: createUploader("Studio"),
 };
