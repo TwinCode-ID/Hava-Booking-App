@@ -17,11 +17,13 @@ import { API_PATHS } from "../../../utils/apiPath";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
+import { useAuth } from "../../../context/AuthContext";
 
 const StudioDetails = () => {
+  const [user] = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const studioId = searchParams.get("id");
+  const studioId = user.adminStudioLocation;
 
   const [studio, setStudio] = useState(null);
   const [isLoading, setLoading] = useState(true);
