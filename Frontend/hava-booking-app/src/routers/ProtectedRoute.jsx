@@ -8,7 +8,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 const ProtectedRoute = ({ requiredRole }) => {
   const { isAuthenticated, loading, user } = useAuth();
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <></>;
   if (!isAuthenticated) return <Navigate to='/login' replace />;
   if (requiredRole && user?.role !== requiredRole) {
     return <Navigate to='/' replace />;

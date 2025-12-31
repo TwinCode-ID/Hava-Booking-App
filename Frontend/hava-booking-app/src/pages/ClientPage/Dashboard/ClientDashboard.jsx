@@ -1,6 +1,6 @@
 import React from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { useAuth } from "../../context/AuthContext";
+import DashboardLayout from "../../../components/layout/DashboardLayout";
+import { useAuth } from "../../../context/AuthContext";
 
 const ClientDashboard = () => {
   return (
