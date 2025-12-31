@@ -10,7 +10,7 @@ const Footer = () => {
             {/* Copyright */}
             <div className='space-y-2'>
               <p className={"text-sm text-gray-600"}>
-                © {new Date().getFullYear()} HAVA Pilates Conservatory Indonesia
+                © {new Date().getFullYear()} Pilates Studio Indonesia
               </p>
               <p className={"text-xs text-gray-500"}>All rights reserved</p>
             </div>

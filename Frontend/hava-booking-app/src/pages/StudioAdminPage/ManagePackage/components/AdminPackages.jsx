@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { API_PATHS } from "../../../utils/apiPath";
+import { API_PATHS } from "../../../../utils/apiPath";
 import {
   Plus,
   Edit2,
@@ -13,9 +13,9 @@ import {
   Power,
   AlertTriangle,
 } from "lucide-react";
-import axiosInstance from "../../../utils/axiosInstance";
-import { useAuth } from "../../../context/AuthContext";
-import CustomSelect from "../CustomSelect";
+import axiosInstance from "../../../../utils/axiosInstance";
+import { useAuth } from "../../../../context/AuthContext";
+import CustomSelect from "../../layout/CustomSelect";
 
 const AdminPackages = () => {
   const { user } = useAuth();

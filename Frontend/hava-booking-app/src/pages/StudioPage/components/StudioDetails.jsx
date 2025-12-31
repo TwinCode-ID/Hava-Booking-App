@@ -74,7 +74,12 @@ const StudioDetails = () => {
     return <Star className='w-4 h-4' />;
   };
 
-  if (isLoading) return <LoadingSpinner />;
+  if (loading)
+    return (
+      <div className='min-h-screen rounded-2xl bg-white  flex items-center font-sans'>
+        <LoadingSpinner />
+      </div>
+    );
   if (!studio) return <div className='text-center py-20'>Studio not found</div>;
 
   const facilityList = Array.isArray(studio.facilities?.[0])
