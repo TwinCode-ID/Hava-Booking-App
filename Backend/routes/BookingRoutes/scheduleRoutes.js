@@ -5,6 +5,7 @@ const {
   getClasses,
   updateClass,
   deleteClass,
+  toggleClass,
 } = require("../../controllers/ClassBookingController/classScheduleController");
 const { protect } = require("../../middlewares/authMiddleware");
 // You likely want an 'admin' middleware here too
@@ -19,6 +20,8 @@ router.post("/", protect, createClass);
 router.put("/:id", protect, updateClass);
 
 // DELETE /api/schedule/:id - Cancel/Delete class (Admin only)
+router.put("/toggle/:id", protect, toggleClass);
+
 router.delete("/:id", protect, deleteClass);
 
 module.exports = router;

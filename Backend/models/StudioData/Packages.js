@@ -14,8 +14,10 @@ const packagesSchema = new mongoose.Schema(
       enum: [
         "Principal Instructor",
         "Master Instructor",
+        "Senior Instructor",
         "Junior Instructor",
         "Apprentice Instructor",
+        "Special Instructor",
       ],
       require: true,
     },

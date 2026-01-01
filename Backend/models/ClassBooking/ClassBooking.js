@@ -9,7 +9,7 @@ const ClassBookingSchema = new mongoose.Schema(
     },
     classId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Classes",
+      ref: "ClassSchedule",
       require: true,
     },
     passId: {
@@ -36,3 +36,5 @@ const ClassBookingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+module.exports = mongoose.model("ClassBooking", ClassBookingSchema);

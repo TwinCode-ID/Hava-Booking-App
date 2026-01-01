@@ -5,11 +5,15 @@ const {
   getMyActivePasses,
   deductCredits,
   getUserPassHistory,
+  getMyInactivePasses,
 } = require("../../controllers/UserController/user_passesController");
 const { protect } = require("../../middlewares/authMiddleware");
 
 // GET /api/passes/user/:userId - Get active passes (Wallet)
-router.get("/user/:userId", protect, getMyActivePasses);
+router.get("/user/active/:userId", protect, getMyActivePasses);
+
+// GET /api/passes/user/:userId - Get active passes (Wallet)
+router.get("/user/inactive/:userId", protect, getMyInactivePasses);
 
 // GET /api/passes/history/:userId - Get all pass history (Debug/Admin)
 router.get("/history/:studioId", protect, getUserPassHistory);

@@ -50,7 +50,6 @@ exports.updateProfile = async (req, res) => {
 exports.getPublicProfile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select("-password")
       .populate("preferredStudioId", "studioName address")
       .populate("adminStudioLocation", "studioName address");
 

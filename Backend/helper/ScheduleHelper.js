@@ -1,18 +1,17 @@
+const ClassSchedule = require("../models/ClassBooking/ClassSchedule");
+
 const checkConflicts = async (
-  studioId,
+  instructorId, // 1. Add instructorId as a parameter
   startTime,
   endTime,
   excludeClassId = null
 ) => {
   const query = {
-    studioId,
-    isActive: true, // Only check against active classes
+    instructorId, // 2. Add it to the query filters
+    isActive: true,
     $or: [
-      // New class starts during an existing class
       { startTime: { $lt: endTime, $gte: startTime } },
-      // New class ends during an existing class
       { endTime: { $gt: startTime, $lte: endTime } },
-      // New class completely encompasses an existing class
       { startTime: { $lte: startTime }, endTime: { $gte: endTime } },
     ],
   };

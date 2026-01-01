@@ -1,13 +1,12 @@
 const UserPasses = require("../../models/UserData/User_Passes");
 const mongoose = require("mongoose");
 
-// 1. Assign a New Pass (Usually called after successful payment)
+// 1. Assign a New Pass
 exports.assignPassToUser = async (req, res) => {
   try {
     const { userId, packageId, credits, durationInDays, instructorType } =
       req.body;
 
-    // Calculate Expiry Date automatically
     const purchaseDate = new Date();
     const expiryDate = new Date();
     expiryDate.setDate(purchaseDate.getDate() + durationInDays);
@@ -18,7 +17,7 @@ exports.assignPassToUser = async (req, res) => {
       purchaseDate,
       expiryDate,
       remainingCredits: credits,
-      instructorType, // e.g., "Senior Instructor"
+      instructorType,
       isActive: true,
     });
 
@@ -33,20 +32,19 @@ exports.assignPassToUser = async (req, res) => {
   }
 };
 
-// 2. Get User's "Wallet" (Active Passes only)
+// 2. Get User's "Wallet" (Active Passes)
+// Used in the Booking Modal to show valid payment options
 exports.getMyActivePasses = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.user._id; // SECURITY FIX: Use token ID
 
-    // Find passes that are Active AND Not Expired AND Have Credits
     const activePasses = await UserPasses.find({
       userId: userId,
-      isActive: true,
-      remainingCredits: { $gt: 0 }, // Greater than 0
-      expiryDate: { $gte: new Date() }, // Future date
     })
-      .populate("packageId", "packageName") // Optional: show package name
-      .sort({ expiryDate: 1 }); // Show passes expiring soonest first
+      .populate("issuingStudio", "studioName")
+      .populate("packageId", "packageName")
+      // Sort: Active First (Logic: -1), then by Earliest Expiry (Logic: 1)
+      .sort({ isActive: -1, expiryDate: 1 });
 
     res.status(200).json(activePasses);
   } catch (error) {
@@ -54,7 +52,31 @@ exports.getMyActivePasses = async (req, res) => {
   }
 };
 
-// 3. Deduct Credits (Called when Booking a Class)
+// 3. Get User's Inactive History
+exports.getMyInactivePasses = async (req, res) => {
+  try {
+    const userId = req.user._id; // SECURITY FIX
+
+    const inactivePasses = await UserPasses.find({
+      userId: userId,
+      // Either manually inactive OR 0 credits OR expired
+      $or: [
+        { isActive: false },
+        { remainingCredits: 0 },
+        { expiryDate: { $lt: new Date() } },
+      ],
+    })
+      .populate("issuingStudio", "studioName")
+      .populate("packageId", "packageName")
+      .sort({ expiryDate: -1 }); // Show most recently expired first
+
+    res.status(200).json(inactivePasses);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 4. Deduct Credits (Backend Utility)
 exports.deductCredits = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -62,31 +84,20 @@ exports.deductCredits = async (req, res) => {
   try {
     const { userId, passId, creditsToDeduct } = req.body;
 
-    // Find the pass safely
     const userPass = await UserPasses.findOne({
       _id: passId,
       userId: userId,
     }).session(session);
 
-    if (!userPass) {
-      throw new Error("Pass not found.");
-    }
-
-    // Validation Checks
-    if (!userPass.isActive) {
-      throw new Error("This pass is inactive.");
-    }
-    if (new Date() > userPass.expiryDate) {
+    if (!userPass) throw new Error("Pass not found.");
+    if (!userPass.isActive) throw new Error("This pass is inactive.");
+    if (new Date() > userPass.expiryDate)
       throw new Error("This pass has expired.");
-    }
-    if (userPass.remainingCredits < creditsToDeduct) {
-      throw new Error("Insufficient credits on this pass.");
-    }
+    if (userPass.remainingCredits < creditsToDeduct)
+      throw new Error("Insufficient credits.");
 
-    // Perform Deduction
     userPass.remainingCredits -= creditsToDeduct;
 
-    // Optional: Auto-deactivate if 0 credits left
     if (userPass.remainingCredits === 0) userPass.isActive = false;
 
     await userPass.save({ session });
@@ -104,14 +115,12 @@ exports.deductCredits = async (req, res) => {
   }
 };
 
-// 4. Admin/Debug: Get All History for a User (Including expired)
+// 5. Admin: Get User History
 exports.getUserPassHistory = async (req, res) => {
   try {
     const { studioId } = req.params;
     const history = await UserPasses.find({ issuingStudio: studioId })
-      .sort({
-        createdAt: -1,
-      })
+      .sort({ createdAt: -1 })
       .populate("packageId")
       .populate("userId", "fullName email");
     res.status(200).json(history);

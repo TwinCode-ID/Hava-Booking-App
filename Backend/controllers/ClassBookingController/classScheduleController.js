@@ -1,9 +1,10 @@
-const ClassSchedule = require("../../models/ClassBooking/ClassSchedule"); // Update path as needed
+const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
+// Make sure this helper exists in your project
 const { checkConflicts } = require("../../helper/ScheduleHelper");
 
-// --- 1. CREATE CLASS (Single or Recurring) ---
+// --- 1. CREATE CLASS ---
 exports.createClass = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -21,15 +22,17 @@ exports.createClass = async (req, res) => {
       capacity,
       isRecurring,
       recurrenceRule,
-      recurrenceCount, // e.g., 10 occurrences
+      recurrenceCount,
     } = req.body;
 
     const start = new Date(startTime);
     const end = new Date(start.getTime() + duration * 60000);
 
-    // 1. Check conflict for the FIRST class
-    if (await checkConflicts(studioId, start, end)) {
-      throw new Error(`Room conflict detected at ${start.toISOString()}`);
+    // Initial Conflict Check
+    if (await checkConflicts(instructorId, start, end)) {
+      throw new Error(
+        `Instructor conflict detected on ${start.toDateString()} at ${start.toTimeString()}`
+      );
     }
 
     const classesToCreate = [];
@@ -37,10 +40,10 @@ exports.createClass = async (req, res) => {
     const loopCount = isRecurring ? recurrenceCount || 1 : 1;
 
     for (let i = 0; i < loopCount; i++) {
-      // Calculate date offset
       const currentStart = new Date(start);
       const currentEnd = new Date(end);
 
+      // Calculate Dates for Recurrence
       if (i > 0) {
         if (recurrenceRule === "Daily") {
           currentStart.setDate(start.getDate() + i);
@@ -53,9 +56,8 @@ exports.createClass = async (req, res) => {
           currentEnd.setMonth(end.getMonth() + i);
         }
 
-        // Check conflict for SUBSEQUENT classes in the loop
-        // (Optional: You might want to skip conflicting dates instead of failing)
-        if (await checkConflicts(studioId, currentStart, currentEnd)) {
+        // Check Conflict for this specific instance
+        if (await checkConflicts(instructorId, currentStart, currentEnd)) {
           throw new Error(
             `Conflict detected for recurrence #${i + 1} at ${currentStart}`
           );
@@ -94,24 +96,20 @@ exports.createClass = async (req, res) => {
   }
 };
 
-// --- 2. GET CLASSES (Calendar View) ---
+// --- 2. GET CLASSES ---
 exports.getClasses = async (req, res) => {
   try {
     const { start, end, studioId, instructorId } = req.query;
 
-    const query = { isActive: true };
-
-    // Filter by Date Range (Crucial for Calendar UI)
     if (start && end) {
-      query.startTime = { $gte: new Date(start), $lte: new Date(end) };
+      startTime = { $gte: new Date(start), $lte: new Date(end) };
     }
+    if (studioId) studioId = studioId;
+    if (instructorId) instructorId = instructorId;
 
-    if (studioId) query.studioId = studioId;
-    if (instructorId) query.instructorId = instructorId;
-
-    const classes = await ClassSchedule.find(query)
-      .populate("instructorId", "name") // Assuming Instructor has a 'name' field
-      .populate("studioId", "name") // Assuming Studio has a 'name' field
+    const classes = await ClassSchedule.find()
+      .populate("instructorId", "name")
+      .populate("studioId", "studioName") // Adjusted based on your likely Studio model
       .sort({ startTime: 1 });
 
     res.status(200).json(classes);
@@ -120,19 +118,17 @@ exports.getClasses = async (req, res) => {
   }
 };
 
-// --- 3. UPDATE CLASS (Single or Series) ---
+// --- 3. UPDATE CLASS ---
 exports.updateClass = async (req, res) => {
   try {
     const { id } = req.params;
     const { updateMode, ...updateData } = req.body;
-    // updateMode: 'single' | 'future' | 'all' (Simple version: just single vs all)
 
     const targetClass = await ClassSchedule.findById(id);
     if (!targetClass) throw new Error("Class not found");
 
-    // Case A: Update ONLY this specific class instance
+    // Case A: Update Single
     if (!updateMode || updateMode === "single") {
-      // If changing time, check conflicts
       if (updateData.startTime || updateData.duration) {
         const newStart = updateData.startTime
           ? new Date(updateData.startTime)
@@ -140,10 +136,12 @@ exports.updateClass = async (req, res) => {
         const dur = updateData.duration || targetClass.duration;
         const newEnd = new Date(newStart.getTime() + dur * 60000);
 
-        if (await checkConflicts(targetClass.studioId, newStart, newEnd, id)) {
+        if (
+          await checkConflicts(targetClass.instructorId, newStart, newEnd, id)
+        ) {
           throw new Error("Cannot move class: Time conflict.");
         }
-        updateData.endTime = newEnd; // Ensure end time matches duration
+        updateData.endTime = newEnd;
       }
 
       const updated = await ClassSchedule.findByIdAndUpdate(id, updateData, {
@@ -152,19 +150,13 @@ exports.updateClass = async (req, res) => {
       return res.status(200).json(updated);
     }
 
-    // Case B: Update the ENTIRE SERIES
+    // Case B: Update Series
     if (updateMode === "all" && targetClass.recurrenceGroupId) {
-      // Note: Updating TIME for a series is complex (need to shift dates, not set fixed date).
-      // For safety, we usually block bulk time updates or implement 'shift' logic.
-      // Here, we block bulk time updates but allow description/instructor updates.
-
       if (updateData.startTime) {
-        return res.status(400).json({
-          error:
-            "Cannot update Start Time for bulk series. Please update individually.",
-        });
+        return res
+          .status(400)
+          .json({ error: "Cannot update Start Time for bulk series." });
       }
-
       const result = await ClassSchedule.updateMany(
         { recurrenceGroupId: targetClass.recurrenceGroupId },
         { $set: updateData }
@@ -181,30 +173,59 @@ exports.updateClass = async (req, res) => {
   }
 };
 
-// --- 4. DELETE CLASS (Single or Series) ---
-exports.deleteClass = async (req, res) => {
+// --- 4. DELETE CLASS ---
+exports.toggleClass = async (req, res) => {
   try {
     const { id } = req.params;
-    const { deleteMode } = req.body; // 'single' or 'all'
+    const { toggleMode } = req.body;
 
     const targetClass = await ClassSchedule.findById(id);
     if (!targetClass) throw new Error("Class not found");
 
-    // Soft Delete (isActive: false) is usually safer than remove()
+    if (toggleMode === "all" && targetClass.recurrenceGroupId) {
+      const status = !targetClass.isActive ? "Active" : "Inactive";
+      if (targetClass.isActive) {
+        await ClassSchedule.updateMany(
+          { recurrenceGroupId: targetClass.recurrenceGroupId },
+          { isActive: false }
+        );
+      } else {
+        await ClassSchedule.updateMany(
+          { recurrenceGroupId: targetClass.recurrenceGroupId },
+          { isActive: true }
+        );
+      }
 
-    // Case A: Delete Entire Series
+      res.status(200).json({ message: `Entire Class ${status}` });
+    }
+    if (targetClass.isActive) {
+      targetClass.isActive = false;
+    } else {
+      targetClass.isActive = true;
+    }
+    await targetClass.save();
+    const status = targetClass.isActive ? "Active" : "Inactive";
+    res.status(200).json({ message: `Class ${status}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteClass = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { deleteMode } = req.body;
+
+    const targetClass = await ClassSchedule.findById(id);
+    if (!targetClass) throw new Error("Class not found");
+
     if (deleteMode === "all" && targetClass.recurrenceGroupId) {
-      await ClassSchedule.updateMany(
-        { recurrenceGroupId: targetClass.recurrenceGroupId },
-        { isActive: false }
-      );
+      await ClassSchedule.deleteMany({
+        recurrenceGroupId: targetClass.recurrenceGroupId,
+      });
       return res.status(200).json({ message: "Entire series deleted" });
     }
-
-    // Case B: Delete Single Instance
-    targetClass.isActive = false;
-    await targetClass.save();
-
+    await ClassSchedule.deleteOne({ _id: id });
     res.status(200).json({ message: "Class deleted" });
   } catch (error) {
     res.status(500).json({ error: error.message });
