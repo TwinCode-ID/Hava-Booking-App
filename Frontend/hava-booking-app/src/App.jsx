@@ -21,6 +21,11 @@ import ClientDashboard from "./pages/ClientPage/Dashboard/ClientDashboard";
 import PurchasePackage from "./pages/ClientPage/PurchasePackage/PurchasePackage";
 import StudioLocation from "./pages/StudioPage/StudioLocation";
 import StudioDetails from "./pages/StudioPage/components/StudioDetails";
+import ManagePackage from "./pages/ClientPage/ManagePackage/ManagePackage";
+import BookClass from "./pages/ClientPage/BookClass/BookClass";
+import ManageBooking from "./pages/ClientPage/ManageBooking/ManageBooking";
+import ManageAccount from "./pages/ClientPage/ManageAccount/ManageAccount";
+import MedicalRecords from "./pages/ClientPage/MedicalRecords/MedicalRecords";
 
 const App = () => {
   return (
@@ -38,6 +43,11 @@ const App = () => {
           <Route element={<ProtectedRoute requiredRole='client' />}>
             <Route path='/client-dashboard' element={<ClientDashboard />} />
             <Route path='/purchase-packages' element={<PurchasePackage />} />
+            <Route path='/manage-packages' element={<ManagePackage />} />
+            <Route path='/class-booking' element={<BookClass />} />
+            <Route path='/manage-bookings' element={<ManageBooking />} />
+            <Route path='/manage-account' element={<ManageAccount />} />
+            <Route path='/medical-records' element={<MedicalRecords />} />
           </Route>
           <Route element={<ProtectedRoute requiredRole='devTeam' />}>
             <Route

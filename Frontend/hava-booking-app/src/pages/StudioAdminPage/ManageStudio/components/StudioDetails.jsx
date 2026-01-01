@@ -120,7 +120,7 @@ const StudioDetails = () => {
                   <ImageIcon className='w-12 h-12 opacity-50' />
                 </div>
               )}
-              <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 pt-20'>
+              <div className='absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 via-black/40 to-transparent p-6 pt-20'>
                 <h2 className='text-white text-2xl font-bold'>
                   {studio.studioName}
                 </h2>
