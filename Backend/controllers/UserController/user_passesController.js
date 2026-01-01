@@ -41,10 +41,31 @@ exports.getMyActivePasses = async (req, res) => {
     // Find passes that are Active AND Not Expired AND Have Credits
     const activePasses = await UserPasses.find({
       userId: userId,
-      isActive: true,
-      remainingCredits: { $gt: 0 }, // Greater than 0
-      expiryDate: { $gte: new Date() }, // Future date
+      // isActive: true,
+      // remainingCredits: { $gt: 0 }, // Greater than 0
+      // expiryDate: { $gte: new Date() }, // Future date
     })
+      .populate("issuingStudio", "studioName")
+      .populate("packageId", "packageName") // Optional: show package name
+      .sort({ isActive: -1, expiryDate: 1 }); // Show passes expiring soonest first
+
+    res.status(200).json(activePasses);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 2. Get User's "Wallet" (Active Passes only)
+exports.getMyInactivePasses = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find passes that are Active AND Not Expired AND Have Credits
+    const activePasses = await UserPasses.find({
+      userId: userId,
+      isActive: false,
+    })
+      .populate("issuingStudio", "studioName")
       .populate("packageId", "packageName") // Optional: show package name
       .sort({ expiryDate: 1 }); // Show passes expiring soonest first
 

@@ -1,3 +1,5 @@
+const ClassSchedule = require("../models/ClassBooking/ClassSchedule");
+
 const checkConflicts = async (
   studioId,
   startTime,
