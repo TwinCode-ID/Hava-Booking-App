@@ -32,7 +32,6 @@ const AdminDashboard = () => {
         const response = await axiosInstance.get(
           API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation)
         );
-
         setPurchases(response.data);
       } catch (err) {
         console.error("Failed to fetch dashboard data", err);
