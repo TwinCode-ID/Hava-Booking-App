@@ -4,7 +4,6 @@ const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
 const UserPasses = require("../../models/UserData/User_Passes");
 
 // 1. DEFINE THE HIERARCHY
-// Higher number = Higher rank
 const INSTRUCTOR_RANKS = {
   "Apprentice Instructor": 1,
   "Junior Instructor": 2,
@@ -19,7 +18,9 @@ exports.createBooking = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { userId, classId, passId } = req.body;
+    // SECURITY FIX: Get userId from the token, not the body
+    const userId = req.user._id;
+    const { classId, passId } = req.body;
 
     // --- A. GET CLASS ---
     const classSession = await ClassSchedule.findById(classId).session(session);
@@ -44,16 +45,10 @@ exports.createBooking = async (req, res) => {
     if (userPass.remainingCredits < 1) throw new Error("Insufficient credits.");
     if (new Date() > userPass.expiryDate) throw new Error("Pass expired.");
 
-    // --- C. HIERARCHY VALIDATION (The Logic You Wanted) ---
-
-    // 1. Get rank of the PASS the user is holding
+    // --- C. HIERARCHY VALIDATION ---
     const passRank = INSTRUCTOR_RANKS[userPass.instructorType] || 0;
-
-    // 2. Get rank of the CLASS they are trying to book
-    // (We use classSession.instructorType because it's already in the schedule schema)
     const classRank = INSTRUCTOR_RANKS[classSession.instructorType] || 0;
 
-    // 3. Compare
     if (passRank < classRank) {
       throw new Error(
         `This pass (${userPass.instructorType}) is not valid for ${classSession.instructorType} classes. Please purchase a higher tier pass.`
@@ -68,7 +63,13 @@ exports.createBooking = async (req, res) => {
     }
 
     // --- D. DEDUCT & BOOK ---
-    userPass.remainingCredits -= 1;
+    if (userPass.remainingCredits === 1) {
+      userPass.remainingCredits -= 1;
+      userPass.isActive = false;
+    } else {
+      userPass.remainingCredits -= 1;
+    }
+
     await userPass.save({ session });
 
     const newBooking = new ClassBooking({
@@ -98,58 +99,80 @@ exports.createBooking = async (req, res) => {
   }
 };
 
+exports.getMyBooking = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Populated specifically for the "Manage Bookings" UI
+    const bookings = await ClassBooking.find({ userId })
+      .populate({
+        path: "classId",
+        select: "className classType startTime endTime duration",
+      })
+      .populate("studioId", "studioName")
+      .sort({ bookingDate: -1 });
+
+    res.json(bookings);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 exports.cancelBooking = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { userId, classId, passId } = req.body;
+    const userId = req.user._id; // SECURITY FIX
+    const { bookingId } = req.body; // Expect bookingId
 
-    // --- A. GET CLASS ---
-    const classSession = await ClassSchedule.findById(classId).session(session);
-    if (!classSession || !classSession.isActive)
-      throw new Error("Class not available.");
-    if (classSession.currentEnrollment >= classSession.capacity)
-      throw new Error("Class full.");
-
-    const existingBooking = await ClassBooking.findOne({
+    // 1. GET BOOKING
+    const booking = await ClassBooking.findOne({
+      _id: bookingId,
       userId,
-      classId,
-      status: "Booked",
     }).session(session);
 
-    if (!existingBooking) throw new Error("You haven't booked this class.");
+    if (!booking || booking.status === "Cancelled") {
+      throw new Error("Booking not found or already cancelled.");
+    }
 
-    // --- B. GET PASS ---
-    const userPass = await UserPasses.findOne({ _id: passId, userId }).session(
+    // 2. GET CLASS (To check time)
+    const classSession = await ClassSchedule.findById(booking.classId).session(
       session
     );
-    if (!userPass || !userPass.isActive) throw new Error("Invalid pass.");
+    if (!classSession) throw new Error("Class details not found.");
 
-    // --- D. CANCELLATION ---
-    userPass.remainingCredits += 1;
-    await userPass.save({ session });
+    // --- 24-HOUR CANCELLATION RULE ---
+    const currentTime = new Date();
+    const classStartTime = new Date(classSession.startTime);
+    const timeDifference = classStartTime - currentTime;
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
 
-    const newBooking = new ClassBooking({
-      userId,
-      classId,
-      passId,
-      bookingDate: new Date(),
-      status: "Cancelled",
-      studioId: classSession.studioId,
-      instructorId: classSession.instructorId,
-    });
+    if (hoursDifference < 24) {
+      throw new Error(
+        "Late Cancellation: Cancellations are only allowed 24 hours before class. Please contact studio admin."
+      );
+    }
 
-    await newBooking.save({ session });
+    // 3. GET PASS (To Refund)
+    const userPass = await UserPasses.findById(booking.passId).session(session);
+    if (userPass) {
+      userPass.remainingCredits += 1;
+      await userPass.save({ session });
+    }
 
+    // 4. UPDATE BOOKING STATUS
+    booking.status = "Cancelled";
+    await booking.save({ session });
+
+    // 5. UPDATE CLASS CAPACITY
     classSession.currentEnrollment -= 1;
     await classSession.save({ session });
 
     await session.commitTransaction();
-    res.status(201).json({
-      message: "Booking cancelled successfully!",
-      bookingId: newBooking._id,
-    });
+    res
+      .status(200)
+      .json({ message: "Booking cancelled successfully. Credit refunded." });
   } catch (error) {
     await session.abortTransaction();
     res.status(400).json({ error: error.message });

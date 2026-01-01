@@ -58,7 +58,4 @@ const ClassScheduleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Compound Index: Prevents double booking the same room at the exact same time
-ClassScheduleSchema.index({ studioId: 1, startTime: 1 }, { unique: true });
-
 module.exports = mongoose.model("ClassSchedule", ClassScheduleSchema);

@@ -29,8 +29,10 @@ exports.createClass = async (req, res) => {
     const end = new Date(start.getTime() + duration * 60000);
 
     // Initial Conflict Check
-    if (await checkConflicts(studioId, start, end)) {
-      throw new Error(`Room conflict detected at ${start.toISOString()}`);
+    if (await checkConflicts(instructorId, start, end)) {
+      throw new Error(
+        `Instructor conflict detected on ${start.toDateString()} at ${start.toTimeString()}`
+      );
     }
 
     const classesToCreate = [];
@@ -55,7 +57,7 @@ exports.createClass = async (req, res) => {
         }
 
         // Check Conflict for this specific instance
-        if (await checkConflicts(studioId, currentStart, currentEnd)) {
+        if (await checkConflicts(instructorId, currentStart, currentEnd)) {
           throw new Error(
             `Conflict detected for recurrence #${i + 1} at ${currentStart}`
           );
@@ -134,7 +136,9 @@ exports.updateClass = async (req, res) => {
         const dur = updateData.duration || targetClass.duration;
         const newEnd = new Date(newStart.getTime() + dur * 60000);
 
-        if (await checkConflicts(targetClass.studioId, newStart, newEnd, id)) {
+        if (
+          await checkConflicts(targetClass.instructorId, newStart, newEnd, id)
+        ) {
           throw new Error("Cannot move class: Time conflict.");
         }
         updateData.endTime = newEnd;
