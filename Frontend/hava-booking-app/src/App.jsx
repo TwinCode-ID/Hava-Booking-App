@@ -57,8 +57,8 @@ const App = () => {
           </Route>
           <Route element={<ProtectedRoute requiredRole='studioAdmin' />}>
             <Route path='/admin-dashboard' element={<AdminDashboard />} />
-            <Route path='/manage-packages' element={<ManagePackages />} />
-            <Route path='/manage-bookings' element={<ManageBookings />} />
+            <Route path='/manage-packages-admin' element={<ManagePackages />} />
+            <Route path='/manage-bookings-admin' element={<ManageBookings />} />
             <Route path='/manage-instructors' element={<ManageInstructors />} />
             <Route path='/manage-studio' element={<ManageStudio />} />
             <Route path='/manage-client' element={<ManageClient />} />

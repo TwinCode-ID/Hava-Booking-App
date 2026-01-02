@@ -197,7 +197,7 @@ const BookingCard = ({ booking, onCancel, isCancelling, isHistory }) => {
 
       {/* Action Area */}
       {!isHistory && booking.status !== "Cancelled" && (
-        <div className='flex flex-col items-end justify-center min-w-[160px]'>
+        <div className='flex flex-col items-end justify-center min-w-40'>
           {canCancel ? (
             <button
               onClick={() => onCancel(booking)}

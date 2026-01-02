@@ -118,10 +118,7 @@ const AdminDashboard = () => {
         pending: pendingList.length,
         confirmed: confirmedList.length,
         revenue: purchases.reduce((acc, curr) => {
-          if (
-            curr.status === "pending" ||
-            curr.status === "waiting_confirmation"
-          ) {
+          if (curr.status === "confirmed") {
             return acc;
           }
           return acc + (parseFloat(curr.totalAmount) || 0);
