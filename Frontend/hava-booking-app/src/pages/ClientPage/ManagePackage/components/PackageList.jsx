@@ -69,7 +69,7 @@ const PackageList = () => {
   const filteredData = transactions.filter((t) =>
     activeTab === "active"
       ? t.isActive && new Date(t.expiryDate) > new Date()
-      : !t.isActive && new Date(t.expiryDate) < new Date()
+      : !t.isActive || new Date(t.expiryDate) < new Date()
   );
 
   return (
