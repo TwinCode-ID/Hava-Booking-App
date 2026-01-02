@@ -158,6 +158,9 @@ exports.cancelBooking = async (req, res) => {
     const userPass = await UserPasses.findById(booking.passId).session(session);
     if (userPass) {
       userPass.remainingCredits += 1;
+      if (!userPass.isActive) {
+        userPass.isActive = true;
+      }
       await userPass.save({ session });
     }
 
