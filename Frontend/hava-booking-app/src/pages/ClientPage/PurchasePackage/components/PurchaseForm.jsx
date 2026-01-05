@@ -17,7 +17,7 @@ import CustomSelect from "../../layout/CustomSelect";
 import uploadProof from "../../../../utils/uploadProof";
 
 const PurchaseForm = ({ pkg, onCancel, userId }) => {
-  // --- NEW: Payment Method State ---
+  // --- Payment Method State ---
   const [paymentMethod, setPaymentMethod] = useState("manual_transfer");
 
   const [file, setFile] = useState(null);
@@ -26,9 +26,10 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  // --- Form Data ---
   const [formData, setFormData] = useState({
-    paymentMethod: "",
-    paymentIssuer: "OTHER",
+    paymentIssuer: "BCA", // Default to BCA for transfer
+    customIssuer: "", // For "OTHER" input
     proofOfPayment: "",
   });
 
@@ -64,6 +65,16 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
       return;
     }
 
+    // Validate: Custom Issuer if "OTHER" selected
+    if (
+      paymentMethod === "manual_transfer" &&
+      formData.paymentIssuer === "OTHER" &&
+      !formData.customIssuer.trim()
+    ) {
+      setError("Please specify your payment issuer.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -75,11 +86,24 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
         paymentUrl = imgUploadRes.imageUrl || "";
       }
 
+      // Determine final issuer string
+      let finalIssuer = formData.paymentIssuer;
+      if (
+        paymentMethod === "manual_transfer" &&
+        formData.paymentIssuer === "OTHER"
+      ) {
+        finalIssuer = formData.customIssuer;
+      } else if (paymentMethod === "QRIS") {
+        finalIssuer = "QRIS";
+      } else if (paymentMethod === "pay_at_studio") {
+        finalIssuer = ""; // Or leave empty/handle on backend
+      }
+
       await axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
         packageId: pkg._id,
         totalAmount: pkg.packagePrice,
-        paymentMethod: "manual_transfer",
-        paymentIssuer: formData.paymentIssuer,
+        paymentMethod: paymentMethod,
+        paymentIssuer: finalIssuer,
         issuingStudio: pkg.studioLocation,
         proofOfPayment: paymentUrl,
       });
@@ -152,8 +176,8 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
             label='Manual Transfer'
           />
           <PaymentOption
-            active={paymentMethod === "qr_payment"}
-            onClick={() => setPaymentMethod("qr_payment")}
+            active={paymentMethod === "QRIS"}
+            onClick={() => setPaymentMethod("QRIS")}
             icon={QrCode}
             label='QRIS'
           />
@@ -166,24 +190,44 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
         </div>
       </div>
 
-      {paymentMethod === "manual_transfer" && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className='justify-between'>
-          <div>
+      {/* --- CONDITIONAL ISSUER SELECT --- */}
+      <AnimatePresence>
+        {paymentMethod === "manual_transfer" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className='space-y-3'>
             <CustomSelect
-              label='Payment Issuer'
+              label='Transfer From (Bank Name)'
               options={issuerOptions}
               value={formData.paymentIssuer}
               onChange={(val) =>
                 setFormData({ ...formData, paymentIssuer: val })
               }
-              placeholder='OTHER'
+              placeholder='Select Bank'
             />
-          </div>
-        </motion.div>
-      )}
+
+            {/* Show Text Input if "OTHER" is selected */}
+            {formData.paymentIssuer === "OTHER" && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  Specify Bank Name
+                </label>
+                <input
+                  type='text'
+                  value={formData.customIssuer}
+                  onChange={(e) =>
+                    setFormData({ ...formData, customIssuer: e.target.value })
+                  }
+                  className='w-full p-3 rounded-xl border border-gray-200 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-sm'
+                  placeholder='e.g. Bank Jago, SeaBank...'
+                />
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. Conditional Content Based on Method */}
       <div className='bg-white border-2 border-dashed border-gray-200 rounded-xl p-4 relative transition-all'>
@@ -207,7 +251,7 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
         )}
 
         {/* VIEW: QR Payment */}
-        {paymentMethod === "qr_payment" && (
+        {paymentMethod === "QRIS" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
