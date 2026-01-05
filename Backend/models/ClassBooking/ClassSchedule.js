@@ -20,14 +20,6 @@ const ClassScheduleSchema = new mongoose.Schema(
     // Class Details
     instructorType: {
       type: String,
-      enum: [
-        "Principal Instructor",
-        "Master Instructor",
-        "Senior Instructor",
-        "Junior Instructor",
-        "Apprentice Instructor",
-        "Special Instructor",
-      ],
       required: true,
     },
     classType: {

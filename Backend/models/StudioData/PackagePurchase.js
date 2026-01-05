@@ -17,13 +17,6 @@ const PackagePurchaseSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "pending",
-        "waiting_confirmation",
-        "payment_rejected",
-        "confirmed",
-        "expired",
-      ],
       default: "pending",
     },
 
@@ -33,10 +26,9 @@ const PackagePurchaseSchema = new mongoose.Schema(
     totalAmount: { type: Number, required: true },
     paymentMethod: {
       type: String,
-      enum: ["manual_transfer", "QRIS", "pay_at_studio"],
       required: true,
     },
-    paymentIssuer: { type: String, required: true },
+    paymentIssuer: { type: String, default: null },
     proofOfPayment: { type: String, default: null },
     issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
   },

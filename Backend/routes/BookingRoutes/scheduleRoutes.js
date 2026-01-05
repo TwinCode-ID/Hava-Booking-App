@@ -6,6 +6,7 @@ const {
   updateClass,
   deleteClass,
   toggleClass,
+  getStudioClasses,
 } = require("../../controllers/ClassBookingController/classScheduleController");
 const { protect } = require("../../middlewares/authMiddleware");
 // You likely want an 'admin' middleware here too
@@ -15,7 +16,7 @@ router.get("/", getClasses);
 
 // POST /api/schedule - Create new class (Admin only)
 router.post("/", protect, createClass);
-
+router.get("/:id", protect, getStudioClasses);
 // PUT /api/schedule/:id - Update class details (Admin only)
 router.put("/:id", protect, updateClass);
 

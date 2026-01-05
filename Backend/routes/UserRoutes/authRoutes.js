@@ -3,6 +3,8 @@ const {
   register,
   login,
   getMe,
+  checkAuth,
+  checkUserStatus,
 } = require("../../controllers/UserController/authController");
 const { protect } = require("../../middlewares/authMiddleware");
 const {
@@ -21,6 +23,8 @@ router.post("/login", login);
 router.get("/me", protect, getMe);
 router.post("/otp/request", requestOTP);
 router.post("/otp/verify", verifyOTP);
+router.post("/verify-password", protect, checkAuth);
+router.post("/check-status", checkUserStatus);
 
 router.post("/upload-profile", uploadProfile.single("image"), (req, res) => {
   if (!req.file) {
