@@ -38,14 +38,6 @@ const InstructorsSchema = new mongoose.Schema(
     },
     instructorType: {
       type: String,
-      enum: [
-        "Principal Instructor",
-        "Master Instructor",
-        "Junior Instructor",
-        "Senior Instructor",
-        "Apprentice Instructor",
-        "Special Instructor",
-      ],
       require: true,
     },
     instructorTier: {

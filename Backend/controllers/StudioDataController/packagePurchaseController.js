@@ -17,6 +17,10 @@ const checkAndExpire = async (purchase) => {
 
 // --- 1. CREATE PURCHASE ---
 exports.createPurchase = async (req, res) => {
+  // 1. Initialize Session at the very start
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const {
       packageId,
@@ -25,41 +29,86 @@ exports.createPurchase = async (req, res) => {
       paymentIssuer,
       issuingStudio,
       proofOfPayment,
+      userId, // Allow passing userId directly (for Admin Assign)
     } = req.body;
 
-    const packageInfo = await Packages.findById(packageId);
+    // Use req.user._id only if userId is not in body (User Purchase flow)
+    const finalUserId = userId || req.user._id;
+
+    const packageInfo = await Packages.findById(packageId).session(session);
     if (!packageInfo) throw new Error("Package not found");
 
     // Set 24 Hour Payment Window
+    let paymentStatus;
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    const { _id: userId } = req.user;
+    // Determine status
+    if (paymentMethod === "pay_at_studio" || paymentMethod === "manual_admin") {
+      // If admin creates it ("manual_admin") or "pay_at_studio", we can set it to confirmed immediately if desired,
+      // OR keep it pending.
+      // Based on your frontend code, you send status: "confirmed" for manual_admin.
+      paymentStatus = req.body.status || "pending";
+    } else if (paymentMethod === "direct_payment") {
+      paymentStatus = "confirmed";
+    } else {
+      paymentStatus = "waiting_confirmation";
+    }
 
-    const paymentStatus =
-      paymentMethod === "pay_at_studio" ? "pending" : "waiting_confirmation";
     const newPurchase = new PackagePurchase({
       transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      userId,
+      userId: finalUserId,
       packageId,
-      paymentWindowExpiry: paymentDeadline, // The 24h timer
+      paymentWindowExpiry: paymentDeadline,
       creditsPurchased: packageInfo.credits,
       totalAmount,
       paymentMethod,
       paymentIssuer,
       proofOfPayment,
       issuingStudio,
-      status: paymentStatus, // Initial status
+      status: paymentStatus,
     });
 
-    await newPurchase.save();
+    await newPurchase.save({ session });
 
+    // --- AUTO-CONFIRM LOGIC (For Direct Payment or Manual Admin) ---
+    if (paymentStatus === "confirmed") {
+      const passExpiry = new Date();
+      passExpiry.setDate(
+        passExpiry.getDate() + (packageInfo.validityDays || 30)
+      );
+
+      const newUserPass = new UserPasses({
+        userId: finalUserId,
+        packageId: packageId,
+        purchaseDate: new Date(),
+        expiryDate: passExpiry,
+        remainingCredits: packageInfo.credits,
+        issuingStudio: issuingStudio,
+        isActive: true,
+        instructorType: packageInfo.instructorType,
+      });
+
+      await newUserPass.save({ session });
+
+      await session.commitTransaction(); // Commit here for confirmed flow
+      return res.status(200).json({
+        message: "Purchase confirmed & Pass created.",
+        purchase: newPurchase,
+      });
+    }
+
+    // --- STANDARD FLOW ---
+    await session.commitTransaction(); // Commit for standard flow
     res.status(201).json({
-      message: "Purchase initiated. Please upload proof within 24 hours.",
+      message: "Purchase initiated.",
       purchaseId: newPurchase._id,
       purchase: newPurchase,
     });
   } catch (error) {
+    await session.abortTransaction();
     res.status(400).json({ error: error.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -111,7 +160,7 @@ exports.adminReviewPayment = async (req, res) => {
   try {
     const { purchaseId } = req.params;
     // Get rejectionReason from body
-    const { action, rejectionReason } = req.body;
+    const { action, rejectionReason, paymentIssuer } = req.body;
 
     let purchase = await PackagePurchase.findById(purchaseId).session(session);
     if (!purchase) throw new Error("Purchase record not found.");
@@ -154,7 +203,9 @@ exports.adminReviewPayment = async (req, res) => {
       await newUserPass.save({ session });
 
       purchase.status = "confirmed";
-      purchase.rejectionReason = null; // Ensure clean slate
+      purchase.rejectionReason = null;
+      purchase.paymentIssuer = paymentIssuer;
+
       await purchase.save({ session });
 
       await session.commitTransaction();

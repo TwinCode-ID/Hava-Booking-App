@@ -12,6 +12,7 @@ const ClassBookingSchema = new mongoose.Schema(
       ref: "ClassSchedule",
       require: true,
     },
+    isAttend: { type: Boolean, default: "false" },
     passId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User_Passes",
@@ -20,7 +21,6 @@ const ClassBookingSchema = new mongoose.Schema(
     bookingDate: { type: Date, require: true },
     status: {
       type: String,
-      enum: ["Booked", "Cancelled", "Completed"],
       default: "Booked",
     },
     studioId: {

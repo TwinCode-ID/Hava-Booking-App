@@ -118,6 +118,49 @@ exports.getMyBooking = async (req, res) => {
   }
 };
 
+exports.getStudioBooking = async (req, res) => {
+  try {
+    const userId = req.user.adminStudioLocation;
+
+    // Populated specifically for the "Manage Bookings" UI
+    const bookings = await ClassBooking.find({ studioId: userId })
+      .populate("userId", "fullName phoneNumber email")
+      .populate({
+        path: "classId",
+        select: "className classType startTime endTime duration",
+      })
+      .populate("studioId", "studioName")
+      .populate("instructorId", "fullName")
+      .sort({ bookingDate: -1 });
+
+    res.json(bookings);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+exports.studentCheckIn = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    // Populated specifically for the "Manage Bookings" UI
+    const bookings = await ClassBooking.findById(bookingId);
+
+    if (bookings.isAttend) {
+      bookings.isAttend = false;
+      await bookings.save();
+      res.json({ message: "Success" });
+    } else {
+      bookings.isAttend = true;
+      await bookings.save();
+      res.json({ message: "Success" });
+    }
+    res.json(bookings);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 exports.cancelBooking = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();

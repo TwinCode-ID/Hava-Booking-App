@@ -11,14 +11,6 @@ const packagesSchema = new mongoose.Schema(
     credits: { type: Number, require: true },
     instructorType: {
       type: String,
-      enum: [
-        "Principal Instructor",
-        "Master Instructor",
-        "Senior Instructor",
-        "Junior Instructor",
-        "Apprentice Instructor",
-        "Special Instructor",
-      ],
       require: true,
     },
     studioLocation: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },

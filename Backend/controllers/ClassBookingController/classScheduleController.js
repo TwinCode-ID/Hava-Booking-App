@@ -108,7 +108,22 @@ exports.getClasses = async (req, res) => {
     if (instructorId) instructorId = instructorId;
 
     const classes = await ClassSchedule.find()
-      .populate("instructorId", "name")
+      .populate("instructorId", "fullName")
+      .populate("studioId", "studioName") // Adjusted based on your likely Studio model
+      .sort({ startTime: 1 });
+
+    res.status(200).json(classes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getStudioClasses = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const classes = await ClassSchedule.find({ studioId: id })
+      .populate("instructorId", "fullName")
       .populate("studioId", "studioName") // Adjusted based on your likely Studio model
       .sort({ startTime: 1 });
 
