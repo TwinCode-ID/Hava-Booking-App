@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { API_PATHS } from "../../../../utils/apiPath";
+import { API_PATHS } from "../../../../../../utils/apiPath";
 import {
   Plus,
   Edit2,
@@ -12,12 +12,13 @@ import {
   Search,
   Power,
   AlertTriangle,
+  Package, // Added Icon
 } from "lucide-react";
-import axiosInstance from "../../../../utils/axiosInstance";
-import { useAuth } from "../../../../context/AuthContext";
-import CustomSelect from "../../layout/CustomSelect";
+import axiosInstance from "../../../../../../utils/axiosInstance";
+import { useAuth } from "../../../../../../context/AuthContext";
+import CustomSelect from "../../../../layout/CustomSelect";
 
-const AdminPackages = () => {
+const AdminPackages = ({ isEmbedded = false }) => {
   const { user } = useAuth();
   const [packages, setPackages] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -29,7 +30,6 @@ const AdminPackages = () => {
   const [toggleId, setToggleId] = useState(null);
   const [packageStatus, setPackageStatus] = useState(null);
 
-  // --- 1. DEFINE FETCH FUNCTION OUTSIDE USEEFFECT ---
   const fetchPackages = async () => {
     try {
       const response = await axiosInstance.get(
@@ -43,17 +43,16 @@ const AdminPackages = () => {
     }
   };
 
-  // --- 2. CALL IT ON MOUNT ---
   useEffect(() => {
     fetchPackages();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDeleteConfirm = async () => {
     if (!deleteId) return;
     try {
       await axiosInstance.delete(API_PATHS.PACKAGES.DELETE_PACKAGE(deleteId));
-      await fetchPackages(); // Refresh list
-      setDeleteId(null); // Close modal
+      await fetchPackages();
+      setDeleteId(null);
     } catch (error) {
       console.error("Delete failed", error);
     }
@@ -63,72 +62,103 @@ const AdminPackages = () => {
     if (!toggleId) return;
     try {
       await axiosInstance.put(API_PATHS.PACKAGES.SET_PACKAGE_STATUS(toggleId));
-      await fetchPackages(); // Refresh list
-      setToggleId(null); // Close modal
+      await fetchPackages();
+      setToggleId(null);
     } catch (error) {
       console.error("Delete failed", error);
     }
   };
-  // Filter for Search
+
   const filteredPackages = packages.filter((pkg) =>
     pkg.packageName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className='p-6 md:p-10 bg-gray-50 min-h-screen'>
-      {/* Top Bar */}
-      <div className='flex flex-col md:flex-row justify-between items-center mb-8 gap-4'>
-        <div>
-          <h1 className='text-2xl font-bold text-gray-900'>
-            Package Management
-          </h1>
-          <p className='text-gray-500 text-sm mt-1'>
-            Create and manage studio pricing tiers
-          </p>
+    <div
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 relative`}>
+      {/* Top Bar (Conditional) */}
+      {!isEmbedded && (
+        <div className='flex flex-col md:flex-row justify-between items-center mb-8 gap-4'>
+          <div>
+            <h1 className='text-2xl font-bold text-gray-900'>
+              Package Management
+            </h1>
+            <p className='text-gray-500 text-sm mt-1'>
+              Create and manage studio pricing tiers
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Toolbar: Search & Actions */}
+      <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4'>
+        {/* Left: Search */}
+        <div className='relative w-full md:w-96'>
+          <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
+          <input
+            type='text'
+            placeholder='Search packages...'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className='w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:border-2 transition-all shadow-sm'
+          />
         </div>
 
-        <button
-          onClick={() => {
-            setEditingPackage(null);
-            setIsFormOpen(true);
-          }}
-          className='bg-emerald-900 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-900/20'>
-          <Plus className='w-4 h-4' /> New Package
-        </button>
-      </div>
+        {/* Right: Count & Add Button */}
+        <div className='flex items-center gap-4 w-full md:w-auto justify-end'>
+          {/* --- NEW: Package Count Note --- */}
+          <div className='text-sm text-gray-500 font-medium whitespace-nowrap hidden md:block'>
+            Showing{" "}
+            <span className='text-gray-900 font-bold'>
+              {filteredPackages.length}
+            </span>{" "}
+            packages
+          </div>
 
-      {/* Search Bar */}
-      <div className='relative mb-6'>
-        <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
-        <input
-          type='text'
-          placeholder='Search packages...'
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className='w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
-        />
+          <button
+            onClick={() => {
+              setEditingPackage(null);
+              setIsFormOpen(true);
+            }}
+            className='bg-emerald-900 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-900/20 whitespace-nowrap text-sm font-bold'>
+            <Plus className='w-4 h-4' /> New Package
+          </button>
+        </div>
       </div>
 
       {/* Packages Grid */}
       <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'>
-        {filteredPackages.map((pkg) => (
-          <AdminPackageCard
-            key={pkg._id}
-            pkg={pkg}
-            onEdit={() => {
-              setEditingPackage(pkg);
-              setIsFormOpen(true);
-              setIsEditing(true);
-            }}
-            onDelete={() => setDeleteId(pkg._id)}
-            isActive={() => {
-              setToggleId(pkg._id);
-              setPackageStatus(pkg.isActive);
-            }}
-          />
-        ))}
+        <AnimatePresence>
+          {filteredPackages.length > 0 ? (
+            filteredPackages.map((pkg) => (
+              <AdminPackageCard
+                key={pkg._id}
+                pkg={pkg}
+                onEdit={() => {
+                  setEditingPackage(pkg);
+                  setIsFormOpen(true);
+                  setIsEditing(true);
+                }}
+                onDelete={() => setDeleteId(pkg._id)}
+                isActive={() => {
+                  setToggleId(pkg._id);
+                  setPackageStatus(pkg.isActive);
+                }}
+              />
+            ))
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className='col-span-full py-20 text-center text-gray-400 bg-white rounded-2xl border border-dashed border-gray-300'>
+              <Package className='w-10 h-10 mx-auto mb-3 opacity-20' />
+              <p>No packages found.</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
+      {/* Modals */}
       <AnimatePresence>
         {deleteId && (
           <DeleteConfirmationModal
@@ -151,7 +181,6 @@ const AdminPackages = () => {
         )}
       </AnimatePresence>
 
-      {/* Create/Edit Modal Overlay */}
       <AnimatePresence>
         {isFormOpen && (
           <PackageFormModal
@@ -159,7 +188,6 @@ const AdminPackages = () => {
             onClose={() => setIsFormOpen(false)}
             initialData={editingPackage}
             isEdit={isEditing}
-            // --- 3. PASS THE REFRESH FUNCTION AS A PROP ---
             onSuccess={() => {
               fetchPackages();
               setIsEditing(false);
@@ -171,6 +199,7 @@ const AdminPackages = () => {
   );
 };
 
+// --- Confirmation Modals ---
 const DeleteConfirmationModal = ({ onClose, onConfirm }) => (
   <motion.div
     initial={{ opacity: 0 }}
@@ -220,15 +249,9 @@ const ToggleConfirmationModal = ({ onClose, onConfirm, status }) => (
       <div className='w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600'>
         <AlertTriangle className='w-6 h-6' />
       </div>
-      {status ? (
-        <h3 className='text-lg font-bold text-gray-900 mb-2'>
-          Deactivate Package?
-        </h3>
-      ) : (
-        <h3 className='text-lg font-bold text-gray-900 mb-2'>
-          Activate Package?
-        </h3>
-      )}
+      <h3 className='text-lg font-bold text-gray-900 mb-2'>
+        {status ? "Deactivate Package?" : "Activate Package?"}
+      </h3>
       <p className='text-gray-500 text-sm mb-6'>
         Are you sure you want to {status ? "deactivate" : "activate"} this
         package?
@@ -249,10 +272,13 @@ const ToggleConfirmationModal = ({ onClose, onConfirm, status }) => (
   </motion.div>
 );
 
-// --- Sub-Component: Admin Card (Unchanged) ---
+// --- Package Card ---
 const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
   <motion.div
     layout
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, scale: 0.95 }}
     className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group'>
     <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2'>
       <button
@@ -290,26 +316,25 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
 
     <div className='space-y-2 text-sm text-gray-500 border-t border-gray-100 pt-4'>
       <div className='flex items-center gap-2'>
-        <NotepadText className='w-4 h-4 text-gray-400' />
+        <NotepadText className='w-4 h-4 text-gray-400' />{" "}
         {pkg.packageDescription}
       </div>
       <div className='flex items-center gap-2'>
-        <PersonStandingIcon className='w-4 h-4 text-gray-400' />
+        <PersonStandingIcon className='w-4 h-4 text-gray-400' />{" "}
         {pkg.instructorType}
       </div>
       <div className='flex items-center gap-2'>
-        <Layers className='w-4 h-4 text-gray-400' />
-        {pkg.credits} Credits
+        <Layers className='w-4 h-4 text-gray-400' /> {pkg.credits} Credits
       </div>
       <div className='flex items-center gap-2'>
-        <Calendar className='w-4 h-4 text-gray-400' />
-        {pkg.validityDays} Days Validity
+        <Calendar className='w-4 h-4 text-gray-400' /> {pkg.validityDays} Days
+        Validity
       </div>
     </div>
   </motion.div>
 );
 
-// --- Sub-Component: Modal Form ---
+// --- Form Modal ---
 const PackageFormModal = ({
   isOpen,
   isEdit,
@@ -322,7 +347,6 @@ const PackageFormModal = ({
     errors: {},
     success: false,
   });
-
   const [formData, setFormData] = useState({
     packageName: initialData?.packageName || "",
     packageDescription: initialData?.packageDescription || "",
@@ -335,60 +359,33 @@ const PackageFormModal = ({
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    if (formState.errors[name] || formState.errors.submit) {
-      setFormState((prev) => ({
-        ...prev,
-        errors: { ...prev.errors, [name]: "", submit: "" },
-      }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleNewPackageSubmit = async (e) => {
     e.preventDefault();
     setFormState((prev) => ({ ...prev, loading: true }));
-
     try {
-      if (!isEdit) {
+      if (!initialData) {
         await axiosInstance.post(API_PATHS.PACKAGES.CREATE_PACKAGE, {
-          packageName: formData.packageName,
-          packageDescription: formData.packageDescription,
+          ...formData,
           packagePrice: Number(formData.packagePrice),
-          currency: formData.currency,
           validityDays: Number(formData.validityDays),
           credits: Number(formData.credits),
-          instructorType: formData.instructorType,
         });
       } else {
         await axiosInstance.put(
           API_PATHS.PACKAGES.UPDATE_PACKAGE(initialData._id),
           {
-            packageName: formData.packageName,
-            packageDescription: formData.packageDescription,
+            ...formData,
             packagePrice: Number(formData.packagePrice),
-            currency: formData.currency,
             validityDays: Number(formData.validityDays),
             credits: Number(formData.credits),
-            instructorType: formData.instructorType,
           }
         );
       }
-
-      setFormState((prev) => ({
-        ...prev,
-        loading: false,
-        success: true,
-      }));
-
-      // --- 4. CALL THE REFRESH FUNCTION FROM PARENT ---
-      if (onSuccess) {
-        await onSuccess();
-      }
-
+      setFormState((prev) => ({ ...prev, loading: false, success: true }));
+      if (onSuccess) await onSuccess();
       onClose();
     } catch (error) {
       setFormState((prev) => ({
@@ -400,10 +397,12 @@ const PackageFormModal = ({
   };
 
   const instructorOptions = [
-    "Principal Instructor",
-    "Master Instructor",
-    "Junior Instructor",
     "Apprentice Instructor",
+    "Junior Instructor",
+    "Senior Instructor",
+    "Master Instructor",
+    "Principal Instructor",
+    "Special Instructor",
   ];
 
   return (
@@ -416,7 +415,8 @@ const PackageFormModal = ({
         initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, y: 20 }}
-        className='bg-white rounded-3xl h-full w-full max-w-lg p-8 shadow-2xl overflow-hidden'>
+        // --- 2. FIXED MODAL SIZING: Removed h-full, added max-h & overflow ---
+        className='bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto'>
         <h2 className='text-2xl font-bold text-gray-900 mb-6'>
           {initialData ? "Edit Package" : "Create New Package"}
         </h2>
@@ -463,11 +463,11 @@ const PackageFormModal = ({
               <label className='block text-sm font-medium text-gray-700 mb-1'>
                 Price (IDR){" "}
                 <span className='text-xs text-red-500 font-bold'>
-                  Insert only numbers, without commas or dot*
+                  Numbers only*
                 </span>
               </label>
               <input
-                type='number'
+                type='string'
                 name='packagePrice'
                 value={formData.packagePrice}
                 onChange={handleInputChange}
@@ -479,7 +479,7 @@ const PackageFormModal = ({
                 Credits
               </label>
               <input
-                type='number'
+                type='string'
                 name='credits'
                 value={formData.credits}
                 onChange={handleInputChange}
@@ -491,7 +491,7 @@ const PackageFormModal = ({
                 Validity (Days)
               </label>
               <input
-                type='number'
+                type='string'
                 name='validityDays'
                 value={formData.validityDays}
                 onChange={handleInputChange}

@@ -11,11 +11,11 @@ import SignUp from "./pages/Auth/SignUp";
 import BookNow from "./pages/BookingPage/BookNow";
 import ProtectedRoute from "./routers/ProtectedRoute";
 import AdminDashboard from "./pages/StudioAdminPage/Dashboard/AdminDashboard";
-import ManagePackages from "./pages/StudioAdminPage/ManagePackage/ManagePackage";
-import ManageBookings from "./pages/StudioAdminPage/ManageBooking/ManageBooking";
-import ManageInstructors from "./pages/StudioAdminPage/ManageInstructor/ManageInstructor";
-import ManageStudio from "./pages/StudioAdminPage/ManageStudio/ManageStudio";
-import ManageClient from "./pages/StudioAdminPage/ManageStudioClient/ManageClient";
+// import ManagePackages from "./pages/StudioAdminPage/StudioActivities/components/ManagePackage/ManagePackage";
+// import ManageBookings from "./pages/StudioAdminPage/ManageBooking/ManageBooking";
+// import ManageInstructors from "./pages/StudioAdminPage/ManageInstructor/ManageInstructor";
+import StudioSettings from "./pages/StudioAdminPage/StudioSettings/StudioSettings";
+// import ManageClient from "./pages/StudioAdminPage/ManageStudioClient/ManageClient";
 import DevelopmentDashboard from "./pages/DevAdminPage/DeveloperDashboard";
 import ClientDashboard from "./pages/ClientPage/Dashboard/ClientDashboard";
 import PurchasePackage from "./pages/ClientPage/PurchasePackage/PurchasePackage";
@@ -26,6 +26,8 @@ import BookClass from "./pages/ClientPage/BookClass/BookClass";
 import ManageBooking from "./pages/ClientPage/ManageBooking/ManageBooking";
 import ManageAccount from "./pages/ClientPage/ManageAccount/ManageAccount";
 import MedicalRecords from "./pages/ClientPage/MedicalRecords/MedicalRecords";
+import DashboardLayout from "./pages/StudioAdminPage/layout/DashboardLayout";
+import StudioActivities from "./pages/StudioAdminPage/StudioActivities/ManageStudio";
 
 const App = () => {
   return (
@@ -56,12 +58,24 @@ const App = () => {
             />
           </Route>
           <Route element={<ProtectedRoute requiredRole='studioAdmin' />}>
-            <Route path='/admin-dashboard' element={<AdminDashboard />} />
-            <Route path='/manage-packages-admin' element={<ManagePackages />} />
-            <Route path='/manage-bookings-admin' element={<ManageBookings />} />
-            <Route path='/manage-instructors' element={<ManageInstructors />} />
-            <Route path='/manage-studio' element={<ManageStudio />} />
-            <Route path='/manage-client' element={<ManageClient />} />
+            <Route element={<DashboardLayout />}>
+              <Route path='/admin-dashboard' element={<AdminDashboard />} />
+              {/* <Route
+                path='/manage-packages-admin'
+                element={<ManagePackages />}
+              /> */}
+              <Route path='/studio-activities' element={<StudioActivities />} />
+              {/* <Route
+                path='/manage-bookings-admin'
+                element={<ManageBookings />}
+              />
+              <Route
+                path='/manage-instructors'
+                element={<ManageInstructors />}
+              /> */}
+              <Route path='/studio-settings' element={<StudioSettings />} />
+              {/* <Route path='/manage-client' element={<ManageClient />} /> */}
+            </Route>
           </Route>
           {/*Catch All Routes */}
           <Route path='*' element={<Navigate to='/' />} />

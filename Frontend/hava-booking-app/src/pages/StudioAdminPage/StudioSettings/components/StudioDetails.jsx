@@ -91,7 +91,7 @@ const StudioDetails = () => {
       {/* Header */}
       <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'>
         <div>
-          <h1 className='text-2xl font-bold text-gray-900'>Manage Studio</h1>
+          <h1 className='text-2xl font-bold text-gray-900'>Studio Settings</h1>
           <p className='text-gray-500 text-sm mt-1'>
             Update location details, images, and facilities.
           </p>
