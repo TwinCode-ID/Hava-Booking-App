@@ -76,6 +76,11 @@ const DashboardLayout = () => {
               <p className='text-xs text-emerald-300 truncate w-40'>
                 {user?.email}
               </p>
+              {user?.phoneNumber && (
+                <p className='text-xs text-emerald-300 truncate w-40'>
+                  {user?.phoneNumbers}
+                </p>
+              )}
             </div>
           </div>
         </div>

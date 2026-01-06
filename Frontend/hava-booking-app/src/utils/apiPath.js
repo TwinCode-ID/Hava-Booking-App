@@ -60,6 +60,7 @@ export const API_PATHS = {
   STUDIO: {
     GET_ALL: "/api/studio",
     GET_STUDIO_BY_ID: (studioId) => `/api/studio/${studioId}`,
+    UPDATE_STUDIO_BY_ID: (studioId) => `/api/studio/${studioId}`,
   },
 
   SCHEDULE: {

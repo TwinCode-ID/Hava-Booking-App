@@ -275,7 +275,7 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
             className='flex flex-col items-center text-center py-4'>
             <Store className='w-10 h-10 text-emerald-600 mb-2' />
             <p className='text-sm font-bold text-gray-900'>Pay at Front Desk</p>
-            <p className='text-xs text-gray-500 max-w-[200px]'>
+            <p className='text-xs text-gray-500 max-w-50'>
               Please make payment at the studio reception before your session
               begins.
             </p>
@@ -298,7 +298,7 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
 
             <div
               onClick={() => fileInputRef.current?.click()}
-              className={`cursor-pointer min-h-[120px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all ${
+              className={`cursor-pointer min-h-30 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all ${
                 previewUrl
                   ? "border-emerald-500 bg-emerald-50"
                   : "border-gray-300 hover:border-emerald-400 hover:bg-gray-50"

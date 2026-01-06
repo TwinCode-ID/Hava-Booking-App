@@ -305,7 +305,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
             <LoadingSpinner />
           ) : (
             // Use h-full min-h-[500px] to ensure it fits and scrolls if needed
-            <div className='grid grid-cols-7 h-full min-h-[500px]'>
+            <div className='grid grid-cols-7 h-full min-h-125'>
               {weekDays.map((day) => {
                 const dayClasses = classes.filter((c) =>
                   isSameDay(parseISO(c.startTime), day)
@@ -1012,7 +1012,7 @@ const CreateClassModal = ({
                 <label className='block text-xs font-bold text-gray-700 mb-1'>
                   Instructor Type
                 </label>
-                <div className='w-full h-[42px] px-3 border bg-gray-50 rounded-xl flex items-center gap-2 text-gray-500'>
+                <div className='w-full h-10.5 px-3 border bg-gray-50 rounded-xl flex items-center gap-2 text-gray-500'>
                   <BadgeCheck className='w-4 h-4 text-emerald-600' />
                   <span className='text-sm font-medium'>
                     {form.instructorType || "Auto-detected"}
@@ -1034,7 +1034,7 @@ const CreateClassModal = ({
                 </label>
                 <input
                   type='number'
-                  className='w-full h-[42px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
+                  className='w-full h-10.5 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
                   value={form.capacity}
                   onChange={(e) =>
                     setForm({ ...form, capacity: e.target.value })
@@ -1062,7 +1062,7 @@ const CreateClassModal = ({
                 </label>
                 <input
                   type='number'
-                  className='w-full h-[42px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
+                  className='w-full h-10.5 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
                   value={form.duration}
                   onChange={(e) =>
                     setForm({ ...form, duration: e.target.value })
@@ -1153,7 +1153,7 @@ const CreateClassModal = ({
                       </label>
                       <input
                         type='number'
-                        className='w-full h-[42px] p-3 border rounded-xl text-sm bg-white'
+                        className='w-full h-10.5 p-3 border rounded-xl text-sm bg-white'
                         value={form.recurrenceCount}
                         onChange={(e) =>
                           setForm({ ...form, recurrenceCount: e.target.value })
@@ -1380,7 +1380,7 @@ const CustomDatePicker = ({ label, value, onChange }) => {
       <button
         type='button'
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-[42px] px-3 border rounded-xl flex items-center justify-between transition-all bg-white ${
+        className={`w-full h-10.5 px-3 border rounded-xl flex items-center justify-between transition-all bg-white ${
           isOpen
             ? "border-emerald-500 ring-2 ring-emerald-500/20"
             : "border-gray-200 hover:border-emerald-500"
@@ -1401,7 +1401,7 @@ const CustomDatePicker = ({ label, value, onChange }) => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className='absolute z-50 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 min-w-[300px]'>
+            className='absolute z-50 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 min-w-75'>
             <CalendarSinglePicker
               selectedDate={dateValue}
               onChange={(d) => {
@@ -1463,7 +1463,7 @@ const CustomTimePicker = ({ label, value, onChange }) => {
         {label}
       </label>
       <div
-        className={`w-full h-[42px] px-3 border rounded-xl flex items-center justify-between transition-all bg-white ${
+        className={`w-full h-10.5 px-3 border rounded-xl flex items-center justify-between transition-all bg-white ${
           isOpen
             ? "border-emerald-500 ring-2 ring-emerald-500/20"
             : "border-gray-200 hover:border-emerald-500"

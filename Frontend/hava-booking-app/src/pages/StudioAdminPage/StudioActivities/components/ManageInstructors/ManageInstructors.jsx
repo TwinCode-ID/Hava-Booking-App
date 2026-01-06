@@ -762,7 +762,7 @@ const InstructorFormModal = ({
                 <button
                   type='button'
                   onClick={addShift}
-                  className='w-full h-[46px] bg-emerald-900 text-white rounded-xl text-sm font-bold hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-900/20'>
+                  className='w-full h-11.5 bg-emerald-900 text-white rounded-xl text-sm font-bold hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-900/20'>
                   Add
                 </button>
               </div>
@@ -793,7 +793,7 @@ const InstructorFormModal = ({
                               {shift.start} - {shift.end}
                             </span>
                             <span className='text-gray-400'>|</span>
-                            <span className='text-gray-600 truncate max-w-[200px]'>
+                            <span className='text-gray-600 truncate max-w-50'>
                               {studioName}
                             </span>
                             <button
