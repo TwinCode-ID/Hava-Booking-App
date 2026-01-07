@@ -165,7 +165,12 @@ const AccountSettings = () => {
         <div className='lg:col-span-4 space-y-6'>
           <div className='bg-white rounded-2xl p-8 border border-gray-100 shadow-sm flex flex-col items-center text-center'>
             <div className='relative group cursor-pointer mb-6'>
-              <div className='w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-50 shadow-inner ring-4 ring-transparent group-hover:ring-emerald-50 transition-all duration-300'>
+              <div
+                className={`w-32 h-32 rounded-full overflow-hidden border-4 ${
+                  !previewImage
+                    ? "border-emerald-50 shadow-inner ring-4 ring-transparent group-hover:ring-emerald-50"
+                    : "border-white ring-4 ring-transparent group-hover:ring-white"
+                }  transition-all duration-300`}>
                 {previewImage ? (
                   <img
                     src={previewImage}
