@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation, Outlet } from "react-router-dom"; // Import useLocation and Outlet
-import { LogOut, Menu, X } from "lucide-react";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { LogOut, Menu, X, User } from "lucide-react";
 import { NAVIGATION_MENU_ADMIN } from "../../../utils/data";
 import { useAuth } from "../../../context/AuthContext";
 
-// Removed props because we will detect them automatically
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // Get current URL location
+  const location = useLocation();
   const [isHovered, setIsHovered] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Handle Resize to switch modes
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -48,22 +46,32 @@ const DashboardLayout = () => {
               : "w-20"
           }
         `}>
-        {/* Profile Section */}
-        <div className='h-24 flex items-center px-4 border-b border-emerald-800/50 whitespace-nowrap overflow-hidden shrink-0'>
+        {/* --- PROFILE SECTION (Navigates to Page) --- */}
+        <div
+          onClick={() => {
+            navigate("/admin-account-settings"); // <--- Navigate to page
+            setIsMobileOpen(false);
+          }}
+          className='h-24 flex items-center px-4 border-b border-emerald-800/50 whitespace-nowrap overflow-hidden shrink-0 cursor-pointer hover:bg-emerald-800 transition-colors group'>
           <div className='flex items-center gap-3'>
-            <div
-              className={`w-10 h-10 rounded-full ${
-                user?.avatar ? "" : "bg-emerald-100"
-              }  flex items-center justify-center text-emerald-900 font-bold shrink-0`}>
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt='Profile'
-                  className='w-full h-full rounded-full object-cover'
-                />
-              ) : (
-                user?.fullName?.charAt(0) || "A"
-              )}
+            <div className='relative'>
+              <div
+                className={`w-10 h-10 rounded-full ${
+                  user?.avatar ? "" : "bg-emerald-100"
+                }  flex items-center justify-center text-emerald-900 font-bold shrink-0 overflow-hidden border-2 border-transparent group-hover:border-emerald-400 transition-all`}>
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt='Profile'
+                    className='w-full h-full object-cover'
+                  />
+                ) : (
+                  user?.fullName?.charAt(0) || "A"
+                )}
+              </div>
+              <div className='absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
+                <User className='w-2 h-2 text-white' />
+              </div>
             </div>
 
             <div
@@ -74,16 +82,12 @@ const DashboardLayout = () => {
                 {user?.fullName}
               </p>
               <p className='text-xs text-emerald-300 truncate w-40'>
-                {user?.email}
+                Edit Profile
               </p>
-              {user?.phoneNumber && (
-                <p className='text-xs text-emerald-300 truncate w-40'>
-                  {user?.phoneNumbers}
-                </p>
-              )}
             </div>
           </div>
         </div>
+
         {/* Navigation */}
         <nav className='flex-1 py-6 space-y-3 px-4 overflow-y-auto overflow-x-hidden'>
           {NAVIGATION_MENU_ADMIN.map((item) => {
@@ -97,14 +101,12 @@ const DashboardLayout = () => {
                   navigate(`/${item.id}`);
                   setIsMobileOpen(false);
                 }}
-                // UPDATED CLASSNAME BELOW
                 className={`w-full flex items-center p-3.5 rounded-2xl transition-all duration-300 ease-out group whitespace-nowrap relative
           ${
             isActive
               ? "bg-white text-emerald-900 shadow-xl shadow-emerald-900/10 scale-[1.02] font-bold"
               : "text-emerald-100 hover:bg-white/10 hover:text-white hover:shadow-inner"
           }`}>
-                {/* Active Indicator Dot (Optional: adds to the floating feel) */}
                 {isActive && (
                   <div className='absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-emerald-500 rounded-r-full opacity-0 md:opacity-100 transition-opacity' />
                 )}
@@ -159,7 +161,6 @@ const DashboardLayout = () => {
         `}>
         <div className='flex-1 overflow-auto bg-gray-50'>
           <div className='w-full h-full'>
-            {/* THIS IS THE KEY CHANGE: Outlet renders the child page */}
             <Outlet />
           </div>
         </div>

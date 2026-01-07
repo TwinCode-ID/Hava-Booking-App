@@ -28,6 +28,7 @@ import ManageAccount from "./pages/ClientPage/ManageAccount/ManageAccount";
 import MedicalRecords from "./pages/ClientPage/MedicalRecords/MedicalRecords";
 import DashboardLayout from "./pages/StudioAdminPage/layout/DashboardLayout";
 import StudioActivities from "./pages/StudioAdminPage/StudioActivities/ManageStudio";
+import AccountSettings from "./pages/StudioAdminPage/Account/AccountSettings";
 
 const App = () => {
   return (
@@ -60,21 +61,12 @@ const App = () => {
           <Route element={<ProtectedRoute requiredRole='studioAdmin' />}>
             <Route element={<DashboardLayout />}>
               <Route path='/admin-dashboard' element={<AdminDashboard />} />
-              {/* <Route
-                path='/manage-packages-admin'
-                element={<ManagePackages />}
-              /> */}
-              <Route path='/studio-activities' element={<StudioActivities />} />
-              {/* <Route
-                path='/manage-bookings-admin'
-                element={<ManageBookings />}
-              />
               <Route
-                path='/manage-instructors'
-                element={<ManageInstructors />}
-              /> */}
+                path='/admin-account-settings'
+                element={<AccountSettings />}
+              />
+              <Route path='/studio-activities' element={<StudioActivities />} />
               <Route path='/studio-settings' element={<StudioSettings />} />
-              {/* <Route path='/manage-client' element={<ManageClient />} /> */}
             </Route>
           </Route>
           {/*Catch All Routes */}

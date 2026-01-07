@@ -13,11 +13,7 @@ import {
 
 export const NAVIGATION_MENU_ADMIN = [
   { id: "admin-dashboard", name: "Dashboard", icon: LayoutDashboard },
-  // { id: "manage-bookings-admin", name: "Manage Bookings", icon: NotepadText },
-  // { id: "manage-packages-admin", name: "Manage Packages", icon: Package },
   { id: "studio-activities", name: "Studio Management", icon: FolderKanban },
-  // { id: "manage-client", name: "Manage Client", icon: FileUser },
-  // { id: "manage-instructors", name: "Manage Instructors", icon: Users },
   { id: "studio-settings", name: "Studio Settings", icon: Cog },
 ];
 

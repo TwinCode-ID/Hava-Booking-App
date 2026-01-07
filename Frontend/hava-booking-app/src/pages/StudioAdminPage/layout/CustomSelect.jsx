@@ -37,7 +37,7 @@ const CustomSelect = ({
       <button
         type='button'
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-[46px] p-3 rounded-xl border bg-white flex items-center justify-between transition-all outline-none ${
+        className={`w-full h-11.5 p-3 rounded-xl border bg-white flex items-center justify-between transition-all outline-none ${
           isOpen
             ? "border-emerald-500 ring-2 ring-emerald-500/20"
             : "border-gray-200 hover:border-emerald-300"

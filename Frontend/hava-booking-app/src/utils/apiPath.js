@@ -13,6 +13,8 @@ export const API_PATHS = {
     VERIFY_PASSWORD: "/api/auth/verify-password",
     CHECK_STATUS: "api/auth/check-status",
     SET_NEW_PASSWORD: "api/user/set-password",
+    UPDATE_PROFILE: "api/user/profile",
+    UPDATE_PASSWORD: "api/user/update-password",
   },
 
   IMAGE: {
