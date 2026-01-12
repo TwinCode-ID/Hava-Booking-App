@@ -394,7 +394,7 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
 
         {/* Actions */}
         <div className='flex flex-col gap-3'>
-          {canCancel && (
+          {canCancel ? (
             <button
               onClick={() => onCancel(booking)}
               disabled={cancellingId === booking._id}
@@ -403,6 +403,10 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
                 ? "Processing..."
                 : "Cancel Booking"}
             </button>
+          ) : (
+            <div className='w-full py-3 bg-white border border-red-100 text-red-600 font-semibold rounded-xl transition-colors text-xs'>
+              Cancellation unavailable within 24 hours of class time.”
+            </div>
           )}
 
           <button
