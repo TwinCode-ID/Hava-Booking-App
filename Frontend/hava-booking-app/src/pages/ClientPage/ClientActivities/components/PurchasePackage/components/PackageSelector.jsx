@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
+import QRCode from "react-qr-code";
 import {
   MapPin,
   X,
@@ -999,6 +1000,7 @@ const PassCard = ({ trx, onClick }) => {
 // --- 3. NEW: PASS DETAIL MODAL ---
 const PassDetailModal = ({ pass, onClose }) => {
   const isExpired = !pass.isActive || new Date(pass.expiryDate) < new Date();
+  const qrValue = pass._id || "error-no-id";
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'>
@@ -1038,24 +1040,30 @@ const PassDetailModal = ({ pass, onClose }) => {
           {/* QR Code Placeholder */}
           <div className='relative group'>
             <div
-              className={`w-48 h-48 rounded-xl flex items-center justify-center mb-6 border-2 border-dashed ${
+              className={`w-48 h-48 rounded-xl flex items-center justify-center my-6 border-2 border-dashed mx-auto p-2 ${
                 isExpired
                   ? "bg-gray-50 border-gray-200"
                   : "bg-white border-emerald-500"
               }`}>
               {/* Replace this SVG with your actual QR Code Component */}
-              <QrCode
-                className={`w-24 h-24 ${
-                  isExpired ? "text-gray-300" : "text-gray-900"
-                }`}
-                strokeWidth={1.5}
-              />
+              <div className='w-full h-full rounded-lg overflow-hidden'>
+                <QRCode
+                  size={256}
+                  style={{
+                    height: "auto",
+                    maxWidth: "100%",
+                    width: "100%",
+                    background: "white",
+                  }}
+                  value={qrValue}
+                  viewBox={`0 0 256 256`}
+                />
+              </div>
             </div>
           </div>
 
-          <p className='text-sm text-gray-500 mb-8 max-w-[250px]'>
-            Show this QR code to the studio staff to check-in or redeem your
-            session.
+          <p className='text-sm text-gray-500 mb-4 text-center mx-auto'>
+            Show this QR code to the studio staff to check-in.
           </p>
 
           {/* Stats Grid */}
@@ -1091,7 +1099,7 @@ const PassDetailModal = ({ pass, onClose }) => {
           <button
             className='flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-emerald-600 transition-colors'
             onClick={() => {
-              navigator.clipboard.writeText(pass.transactionId);
+              navigator.clipboard.writeText(pass._id);
               alert("Transaction ID Copied!");
             }}>
             <Copy className='w-4 h-4' /> Copy Pass ID

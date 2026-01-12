@@ -1,39 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import QRCode from "react-qr-code";
 import {
-  CreditCard,
-  Activity,
-  Calendar,
   Clock,
   MapPin,
-  ChevronRight,
-  ChevronLeft, // Added
-  AlertCircle,
-  CheckCircle2,
   ArrowRight,
   Plus,
-  User,
-  XCircle,
   Ticket,
-  Info,
-  X, // Added
+  X,
+  Calendar,
+  History,
+  CheckCircle2,
+  XCircle,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import {
-  format,
-  differenceInHours,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  isToday,
-} from "date-fns";
+import { format, differenceInHours, isPast } from "date-fns";
 import axiosInstance from "../../../utils/axiosInstance";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { API_PATHS } from "../../../utils/apiPath";
@@ -46,11 +29,7 @@ const ClientDashboard = () => {
   // --- State ---
   const [credits, setCredits] = useState(0);
   const [nextClasses, setNextClasses] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
-
-  // --- Calendar State ---
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [historyClasses, setHistoryClasses] = useState([]);
 
   // --- Modal State ---
   const [selectedClass, setSelectedClass] = useState(null);
@@ -66,17 +45,44 @@ const ClientDashboard = () => {
       const allBookings = bookingRes.data;
 
       const now = new Date();
-      const upcoming = allBookings
-        .filter(
-          (b) =>
-            new Date(b.classId?.startTime) > now && b.status !== "Cancelled"
-        )
-        .sort(
-          (a, b) =>
-            new Date(a.classId?.startTime) - new Date(b.classId?.startTime)
-        );
 
-      // Fetch Passes
+      // --- Filter Logic ---
+      const upcoming = [];
+      const history = [];
+
+      allBookings.forEach((b) => {
+        const hasClassInfo = b.classId && b.classId?.startTime;
+        const startTime = hasClassInfo ? new Date(b.classId?.startTime) : null;
+        const endTime = hasClassInfo ? new Date(b.classId?.endTime) : null;
+
+        const isUpcoming =
+          startTime && startTime > now && b.status !== "Cancelled";
+
+        const isHistory =
+          b.status === "Cancelled" || (endTime && endTime < now);
+
+        if (isUpcoming) {
+          upcoming.push(b);
+        } else if (isHistory) {
+          history.push(b);
+        }
+      });
+
+      upcoming.sort(
+        (a, b) =>
+          new Date(a.classId?.startTime) - new Date(b.classId?.startTime)
+      );
+
+      history.sort((a, b) => {
+        const dateA = a.classId?.startTime
+          ? new Date(a.classId?.startTime)
+          : new Date(a.createdAt);
+        const dateB = b.classId?.startTime
+          ? new Date(b.classId?.startTime)
+          : new Date(b.createdAt);
+        return dateB - dateA;
+      });
+
       const passRes = await axiosInstance.get(
         API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id)
       );
@@ -86,15 +92,9 @@ const ClientDashboard = () => {
         0
       );
 
-      // Set State
       setCredits(totalCredits);
       setNextClasses(upcoming);
-
-      // Sort activity by created date (newest first)
-      const sortedActivity = [...allBookings].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
-      setRecentActivity(sortedActivity.slice(0, 4)); // Show top 4
+      setHistoryClasses(history);
     } catch (error) {
       console.error("Dashboard fetch error:", error);
     } finally {
@@ -141,18 +141,6 @@ const ClientDashboard = () => {
     }
   };
 
-  // --- 3. Calendar Logic ---
-  const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
-
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
-  const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
-
   if (loading)
     return (
       <div className='h-screen flex items-center justify-center bg-gray-50'>
@@ -163,13 +151,14 @@ const ClientDashboard = () => {
   return (
     <div className='p-6 md:p-10 bg-[#FAFAFA] min-h-full font-sans'>
       {/* --- HEADER --- */}
-
       <div className='mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6'>
         <div>
           <h1 className='text-3xl font-bold text-gray-900 tracking-tight'>
             Welcome, {user?.fullName?.split(" ")[0]}!
           </h1>
-          <p className='text-gray-500 mt-2 text-base'>{user?.email}</p>
+          <p className='text-gray-500 mt-2 text-base'>
+            {format(new Date(), "EEEE, MMMM dd, yyyy")}
+          </p>
         </div>
         {nextClasses.length > 0 && (
           <button
@@ -183,7 +172,7 @@ const ClientDashboard = () => {
 
       {/* --- MAIN CONTENT GRID --- */}
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-        {/* === LEFT COL (2/3): Upcoming Classes === */}
+        {/* === UPCOMING CLASSES === */}
         <div className='lg:col-span-3 space-y-8'>
           {nextClasses.length > 0 ? (
             <div className='space-y-6'>
@@ -197,7 +186,6 @@ const ClientDashboard = () => {
                   <div className='p-8'>
                     <div className='flex items-start justify-between mb-6'>
                       <div className='flex gap-2 items-center'>
-                        {/* Only show "Up Next" pulse for the very first class */}
                         {index === 0 ? (
                           <>
                             <span className='flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse'></span>
@@ -225,30 +213,31 @@ const ClientDashboard = () => {
                       {/* Date Box */}
                       <div className='bg-gray-50 rounded-2xl p-5 min-w-27.5 text-center border border-gray-100'>
                         <span className='block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1'>
-                          {format(new Date(item.classId.startTime), "MMMM")}
+                          {format(new Date(item.classId?.startTime), "MMMM")}
                         </span>
                         <span className='block text-4xl font-bold text-gray-900 leading-none mb-1'>
-                          {format(new Date(item.classId.startTime), "dd")}
+                          {format(new Date(item.classId?.startTime), "dd")}
                         </span>
                         <span className='block text-sm font-medium text-gray-500'>
-                          {format(new Date(item.classId.startTime), "EEEE")}
+                          {format(new Date(item.classId?.startTime), "EEEE")}
                         </span>
                       </div>
 
                       {/* Details */}
                       <div className='flex-1 space-y-3'>
                         <h3 className='text-2xl font-bold text-gray-900 leading-tight'>
-                          {item.classId.className}
+                          {item.classId?.className}
                         </h3>
 
                         <div className='flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600'>
                           <div className='flex items-center gap-2'>
                             <Clock className='w-4 h-4 text-emerald-600' />
                             {format(
-                              new Date(item.classId.startTime),
+                              new Date(item.classId?.startTime),
                               "h:mm a"
                             )}{" "}
-                            - {format(new Date(item.classId.endTime), "h:mm a")}
+                            -{" "}
+                            {format(new Date(item.classId?.endTime), "h:mm a")}
                           </div>
                           <div className='flex items-center gap-2'>
                             <MapPin className='w-4 h-4 text-emerald-600' />
@@ -295,6 +284,114 @@ const ClientDashboard = () => {
             </div>
           )}
         </div>
+
+        {/* === BOOKING HISTORY SECTION === */}
+        {historyClasses.length > 0 && (
+          <div className='lg:col-span-3 pt-8'>
+            <div className='flex items-center gap-2 mb-6'>
+              <History className='w-5 h-5 text-gray-400' />
+              <h2 className='text-xl font-bold text-gray-900'>
+                Booking History
+              </h2>
+            </div>
+
+            <div className='bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden'>
+              <div className='overflow-x-auto'>
+                <table className='w-full text-left border-collapse'>
+                  <thead className='bg-gray-50 border-b border-gray-100'>
+                    <tr>
+                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                        Date
+                      </th>
+                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                        Class
+                      </th>
+                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                        Studio
+                      </th>
+                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right'>
+                        Attendance Status
+                      </th>
+                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right'>
+                        Status
+                      </th>
+                      <th className='py-4 px-6 w-10'></th>
+                    </tr>
+                  </thead>
+                  <tbody className='divide-y divide-gray-100'>
+                    {historyClasses.map((item) => {
+                      const isCancelled = item.status === "Cancelled";
+                      const dateObj = item.classId?.startTime
+                        ? new Date(item.classId?.startTime)
+                        : new Date(item.createdAt);
+
+                      return (
+                        <tr
+                          key={item._id}
+                          onClick={() => setSelectedClass(item)}
+                          className='hover:bg-gray-50/80 transition-colors cursor-pointer group'>
+                          <td className='py-4 px-6'>
+                            <div className='flex flex-col'>
+                              <span
+                                className={`font-bold text-sm ${
+                                  isCancelled
+                                    ? "text-gray-400"
+                                    : "text-gray-900"
+                                }`}>
+                                {format(dateObj, "MMM dd, yyyy")}
+                              </span>
+                              <span className='text-xs text-gray-400'>
+                                {format(dateObj, "h:mm a")}
+                              </span>
+                            </div>
+                          </td>
+                          <td className='py-4 px-6'>
+                            <div className='flex flex-col'>
+                              <span
+                                className={`font-bold text-sm ${
+                                  isCancelled
+                                    ? "text-gray-400"
+                                    : "text-gray-900"
+                                }`}>
+                                {item.classId?.className || "Unknown Class"}
+                              </span>
+                              <span className='text-xs text-gray-400'>
+                                {item.instructorId?.fullName || "Instructor"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className='py-4 px-6 text-sm text-gray-500'>
+                            {item.studioId?.studioName || "N/A"}
+                          </td>
+                          {/* ALIGNED TO RIGHT */}
+                          <td className='py-4 px-6 text-sm text-gray-500 text-right'>
+                            {item.isAttend ? "Attended" : "Not attended"}
+                          </td>
+                          <td className='py-4 px-6 text-right'>
+                            <div className='flex justify-end'>
+                              {isCancelled ? (
+                                <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold border border-red-100'>
+                                  <XCircle className='w-3 h-3' /> Cancelled
+                                </span>
+                              ) : (
+                                <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold border border-gray-200'>
+                                  <CheckCircle2 className='w-3 h-3' /> Completed
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className='py-4 px-6 text-right'>
+                            <ChevronRight className='w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors' />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* --- DETAILS MODAL POPUP --- */}
@@ -312,17 +409,20 @@ const ClientDashboard = () => {
   );
 };
 
-// --- Helper Component: Details Modal (Refined Style) ---
+// --- Helper Component: Details Modal ---
 const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
   const startTime = new Date(booking.classId?.startTime);
-  const endTime = new Date(booking.classId?.endTime);
   const now = new Date();
 
-  const isCompleted = now > endTime;
-  const isCancelled = booking.status === "Cancelled";
+  // Calculate cancellation window
   const hoursUntil = differenceInHours(startTime, now);
+
+  // Logic: Can cancel if > 24 hours, not attended, and not already cancelled
   const canCancel =
-    !booking.isAttend && !isCancelled && !isCompleted && hoursUntil >= 24;
+    !booking.isAttend && booking.status !== "Cancelled" && hoursUntil >= 24;
+
+  const isCancelled = booking.status === "Cancelled";
+  const qrValue = booking._id || "error-no-id";
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'>
@@ -337,7 +437,6 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
           <X className='w-5 h-5 text-gray-500' />
         </button>
 
-        {/* Header Icon */}
         <div className='w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4'>
           <Ticket className='w-8 h-8 text-emerald-600' />
         </div>
@@ -356,7 +455,6 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
           </span>
         </div>
 
-        {/* Info Grid */}
         <div className='bg-gray-50 rounded-2xl p-4 text-left space-y-3 mb-6'>
           <div className='flex justify-between items-center border-b border-gray-100 pb-2'>
             <span className='text-xs font-bold text-gray-400 uppercase'>
@@ -390,9 +488,35 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
               {booking.studioId?.studioName}
             </span>
           </div>
+          <div className='flex justify-between items-center'>
+            <span className='text-xs font-bold text-gray-400 uppercase'>
+              Attendance Status
+            </span>
+            <span className='text-sm font-bold text-gray-900'>
+              {booking.isAttend ? "Attended" : "Not attended"}
+            </span>
+          </div>
+
+          <div className='w-48 h-48 rounded-xl flex items-center justify-center my-6 border-2 border-dashed bg-white border-emerald-500 mx-auto p-2'>
+            <div className='w-full h-full rounded-lg overflow-hidden'>
+              <QRCode
+                size={256}
+                style={{
+                  height: "auto",
+                  maxWidth: "100%",
+                  width: "100%",
+                  background: "white",
+                }}
+                value={qrValue}
+                viewBox={`0 0 256 256`}
+              />
+            </div>
+          </div>
+          <p className='text-sm text-gray-500 mb-4 text-center mx-auto'>
+            Show this QR code to the studio staff to check-in.
+          </p>
         </div>
 
-        {/* Actions */}
         <div className='flex flex-col gap-3'>
           {canCancel ? (
             <button
@@ -405,7 +529,9 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
             </button>
           ) : (
             <div className='w-full py-3 bg-white border border-red-100 text-red-600 font-semibold rounded-xl transition-colors text-xs'>
-              Cancellation unavailable within 24 hours of class time.”
+              {isCancelled
+                ? "This booking has been cancelled."
+                : "Cancellation unavailable within 24 hours of class time."}
             </div>
           )}
 
