@@ -113,7 +113,7 @@ const AdminDashboard = () => {
   const { scheduledClasses, dailyStats, dailyBookings } = useMemo(() => {
     const todaysBookings = bookings.filter(
       (b) =>
-        isSameDay(new Date(b.classId.startTime), selectedDate) &&
+        isSameDay(new Date(b.classId?.startTime), selectedDate) &&
         b.status !== "Cancelled"
     );
 
@@ -442,7 +442,7 @@ const AdminDashboard = () => {
     );
 
   return (
-    <div className='max-w-[1920px] mx-auto h-full flex flex-col lg:flex-row bg-gray-50 overflow-hidden'>
+    <div className='max-w-480 mx-auto h-full flex flex-col lg:flex-row bg-gray-50 overflow-hidden'>
       {/* LEFT COLUMN */}
       <div className='flex-1 flex flex-col h-full overflow-hidden order-2 lg:order-1'>
         {/* MOBILE HEADER (Existing code...) */}
@@ -665,7 +665,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* RIGHT COLUMN */}
-      <div className='hidden lg:flex w-[400px] xl:w-[450px] bg-white border-l border-gray-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
+      <div className='hidden lg:flex w-100 xl:w-112.5 bg-white border-l border-gray-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
         <div className='space-y-4'>
           <DigitalClock />
 

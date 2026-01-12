@@ -10,11 +10,11 @@ import {
   Store,
   QrCode,
 } from "lucide-react";
-import axiosInstance from "../../../../utils/axiosInstance";
-import { API_PATHS } from "../../../../utils/apiPath";
-import LoadingSpinner from "../../../../components/LoadingSpinner";
-import CustomSelect from "../../layout/CustomSelect";
-import uploadProof from "../../../../utils/uploadProof";
+import axiosInstance from "../../../../../../utils/axiosInstance";
+import { API_PATHS } from "../../../../../../utils/apiPath";
+import LoadingSpinner from "../../../../../../components/LoadingSpinner";
+import CustomSelect from "../../../../layout/CustomSelect";
+import uploadProof from "../../../../../../utils/uploadProof";
 
 const PurchaseForm = ({ pkg, onCancel, userId }) => {
   // --- Payment Method State ---
@@ -146,22 +146,8 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className='space-y-6'>
+    <form onSubmit={handleSubmit} className='space-y-6 p-4'>
       {/* 1. Order Summary */}
-      <div className='bg-gray-50 p-4 rounded-2xl border border-gray-100 flex justify-between items-center'>
-        <div>
-          <p className='text-xs text-gray-500 font-bold uppercase tracking-wide'>
-            Package
-          </p>
-          <p className='font-bold text-gray-900'>{pkg.packageName}</p>
-        </div>
-        <div className='text-right'>
-          <p className='text-xs text-gray-500 font-bold uppercase tracking-wide'>
-            Total
-          </p>
-          <p className='font-bold text-emerald-700 text-lg'>{formattedPrice}</p>
-        </div>
-      </div>
 
       {/* 2. Payment Method Selector */}
       <div>
@@ -275,7 +261,7 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
             className='flex flex-col items-center text-center py-4'>
             <Store className='w-10 h-10 text-emerald-600 mb-2' />
             <p className='text-sm font-bold text-gray-900'>Pay at Front Desk</p>
-            <p className='text-xs text-gray-500 max-w-[200px]'>
+            <p className='text-xs text-gray-500 max-w-50'>
               Please make payment at the studio reception before your session
               begins.
             </p>
@@ -298,7 +284,7 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
 
             <div
               onClick={() => fileInputRef.current?.click()}
-              className={`cursor-pointer min-h-[120px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all ${
+              className={`cursor-pointer min-h-30 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all ${
                 previewUrl
                   ? "border-emerald-500 bg-emerald-50"
                   : "border-gray-300 hover:border-emerald-400 hover:bg-gray-50"

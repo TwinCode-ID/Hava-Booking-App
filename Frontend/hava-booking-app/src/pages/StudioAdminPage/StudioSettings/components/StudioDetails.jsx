@@ -11,26 +11,26 @@ import {
   X,
   Building2,
   ImageIcon,
-  Plus,
   Trash2,
-  UploadCloud, // New Icon
+  UploadCloud,
 } from "lucide-react";
 import axiosInstance from "../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../utils/apiPath";
 import { useAuth } from "../../../../context/AuthContext";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
+import uploadStudio from "../../../../utils/uploadStudio";
 
 const StudioDetails = () => {
   const { user } = useAuth();
   const [studio, setStudio] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // --- 1. Fetch Studio Data ---
   const fetchStudio = async () => {
     try {
       setLoading(true);
-
       const response = await axiosInstance.get(
         API_PATHS.STUDIO.GET_STUDIO_BY_ID(user.adminStudioLocation)
       );
@@ -46,32 +46,62 @@ const StudioDetails = () => {
     fetchStudio();
   }, [user]);
 
-  // --- 2. Edit Handler (Supports Files) ---
-  const handleUpdateStudio = async (formDataPayload) => {
+  // --- 2. Edit Handler (FIXED) ---
+  const handleUpdateStudio = async ({ formData, newFiles }) => {
     try {
-      // If formDataPayload is a FormData object (contains files), send as multipart
-      // Otherwise send as JSON
-      const config = {
-        headers: {
-          "Content-Type":
-            formDataPayload instanceof FormData
-              ? "multipart/form-data"
-              : "application/json",
-        },
+      setIsSaving(true);
+
+      let uploadedUrls = [];
+
+      // A. If there are new files, upload them
+      if (newFiles && newFiles.length > 0) {
+        uploadedUrls = await Promise.all(
+          newFiles.map(async (file) => {
+            const response = await uploadStudio(file, user.adminStudioLocation);
+
+            // ✅ FIX: Extract the specific property 'imageUrl' found in your logs
+            const finalUrl = response?.imageUrl || response?.url || response;
+
+            if (typeof finalUrl !== "string") {
+              throw new Error("Could not find image URL in upload response");
+            }
+
+            return finalUrl;
+          })
+        );
+      }
+
+      // B. Merge existing URLs with newly uploaded URLs
+      const finalImageArray = [
+        ...(formData.studioPictures || []),
+        ...uploadedUrls,
+      ];
+
+      // C. Construct payload
+      const payload = {
+        ...formData,
+        studioPictures: finalImageArray,
+        facilities: formData.facilities,
       };
 
-      await axiosInstance.put(`/studio/${studio._id}`, formDataPayload, config);
+      // D. Send JSON Update
+      await axiosInstance.put(
+        API_PATHS.STUDIO.UPDATE_STUDIO_BY_ID(studio._id),
+        payload
+      );
 
-      alert("Studio updated successfully!");
       setIsEditModalOpen(false);
-      fetchStudio(); // Refresh data to get new image URLs from server
+      fetchStudio();
+      alert("Studio updated successfully!");
     } catch (error) {
       console.error("Update failed", error);
       alert("Failed to update studio details.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // --- 3. Data Parsers ---
+  // --- 3. Render Helpers ---
   const facilitiesList = studio?.facilities?.flat() || [];
   const allImages = studio?.studioPictures?.flat() || [];
   const activeImage = allImages[0] || "";
@@ -79,11 +109,10 @@ const StudioDetails = () => {
 
   if (loading)
     return (
-      <div className='min-h-screen rounded-2xl bg-white flex items-center justify-center font-sans'>
+      <div className='min-h-screen flex items-center justify-center'>
         <LoadingSpinner />
       </div>
     );
-
   if (!studio) return <div className='p-10 text-center'>Studio not found.</div>;
 
   return (
@@ -210,7 +239,7 @@ const StudioDetails = () => {
                 {lat.toFixed(4)}, {lng.toFixed(4)}
               </span>
             </div>
-            <div className='flex-1 w-full min-h-[400px] bg-gray-100 rounded-xl overflow-hidden relative border border-gray-200'>
+            <div className='flex-1 w-full min-h-100 bg-gray-100 rounded-xl overflow-hidden relative border border-gray-200'>
               <iframe
                 title='Studio Location'
                 width='100%'
@@ -228,6 +257,7 @@ const StudioDetails = () => {
       {isEditModalOpen && (
         <EditStudioModal
           studio={studio}
+          isSaving={isSaving}
           onClose={() => setIsEditModalOpen(false)}
           onSave={handleUpdateStudio}
         />
@@ -246,20 +276,19 @@ const getFacilityIcon = (name) => {
   return <CheckCircle2 className='w-3 h-3' />;
 };
 
-// --- Sub-Component: Edit Modal (Updated for File Upload) ---
-const EditStudioModal = ({ studio, onClose, onSave }) => {
+// --- Sub-Component: Edit Modal (Refactored for Z-Index/Overlay Fix) ---
+const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
   const [formData, setFormData] = useState({
     studioName: studio.studioName,
     contactNumber: studio.contactNumber,
     address: { ...studio.address },
     facilities: studio.facilities?.flat() || [],
-    studioPictures: studio.studioPictures?.flat() || [], // Existing URLs
+    studioPictures: studio.studioPictures?.flat() || [],
   });
 
-  const [newFiles, setNewFiles] = useState([]); // Stores newly selected File objects
+  const [newFiles, setNewFiles] = useState([]);
   const [newFacility, setNewFacility] = useState("");
 
-  // Field Handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name.includes(".")) {
@@ -282,7 +311,6 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
     }));
   };
 
-  // Facility Handlers
   const addFacility = () => {
     if (newFacility.trim()) {
       setFormData((prev) => ({
@@ -299,9 +327,6 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
     }));
   };
 
-  // --- Image Handling (File Upload) ---
-
-  // 1. Handle File Selection
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
@@ -309,7 +334,6 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
     }
   };
 
-  // 2. Remove Existing Image URL
   const removeExistingImage = (idx) => {
     setFormData((prev) => ({
       ...prev,
@@ -317,71 +341,55 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
     }));
   };
 
-  // 3. Remove Newly Added File
   const removeNewFile = (idx) => {
     setNewFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // 4. Submit Logic (FormData)
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    // If we have new files, we MUST use FormData
-    if (newFiles.length > 0) {
-      const data = new FormData();
-
-      // Append basic fields (stringify nested objects)
-      data.append("studioName", formData.studioName);
-      data.append("contactNumber", formData.contactNumber);
-      data.append("address[street]", formData.address.street);
-      data.append("address[city]", formData.address.city);
-      data.append("address[zip]", formData.address.zip);
-      data.append("address[coordinates][0]", formData.address.coordinates[0]);
-      data.append("address[coordinates][1]", formData.address.coordinates[1]);
-
-      // Append Facilities
-      formData.facilities.forEach((fac) => data.append("facilities[]", fac));
-
-      // Append Existing Images (that weren't deleted)
-      formData.studioPictures.forEach((pic) =>
-        data.append("existingImages[]", pic)
-      );
-
-      // Append New Files
-      newFiles.forEach((file) => data.append("studioPictures", file));
-
-      onSave(data); // Send FormData
-    } else {
-      // If no new files, send JSON (cleaner) or FormData depending on backend preference
-      // Here assuming JSON is fine if no files are involved, but let's be consistent and format properly
-      const payload = {
-        ...formData,
-        facilities: [formData.facilities],
-        studioPictures: [formData.studioPictures],
-      };
-      onSave(payload);
-    }
+    onSave({ formData, newFiles });
   };
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
       <div
         className='absolute inset-0 bg-black/50 backdrop-blur-sm'
-        onClick={onClose}></div>
-      <div className='relative bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto'>
-        <div className='p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10'>
+        onClick={!isSaving ? onClose : undefined}></div>
+
+      {/* FIX: Added 'flex flex-col' and REMOVED 'overflow-y-auto' from this wrapper.
+         This ensures the loading overlay covers the *visible* frame perfectly.
+      */}
+      <div className='relative bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col'>
+        {/* Loading Overlay - Now perfectly centered because parent doesn't scroll */}
+        {isSaving && (
+          <div className='absolute inset-0 z-50 bg-white/80 flex flex-col items-center justify-center'>
+            <LoadingSpinner />
+            <p className='mt-4 text-emerald-900 font-bold animate-pulse'>
+              Uploading Images & Saving...
+            </p>
+          </div>
+        )}
+
+        {/* Header - Removed 'sticky' because it's now static at the top of the flex column */}
+        <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0'>
           <h3 className='text-lg font-bold text-gray-900'>
             Edit Studio Details
           </h3>
-          <button
-            onClick={onClose}
-            className='p-1 rounded-full hover:bg-gray-100'>
-            <X className='w-5 h-5 text-gray-500' />
-          </button>
+          {!isSaving && (
+            <button
+              onClick={onClose}
+              className='p-1 rounded-full hover:bg-gray-100'>
+              <X className='w-5 h-5 text-gray-500' />
+            </button>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} className='p-6 space-y-6'>
-          {/* Basic Info */}
+        {/* FIX: Moved 'overflow-y-auto' to the form and added 'flex-1'.
+            The form now scrolls independently inside the modal frame.
+        */}
+        <form
+          onSubmit={handleSubmit}
+          className='p-6 space-y-6 overflow-y-auto flex-1'>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
             <div>
               <label className='block text-xs font-bold text-gray-700 mb-1'>
@@ -409,7 +417,6 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* Address Section */}
           <div className='pt-4 border-t border-gray-100'>
             <p className='text-xs font-bold text-gray-400 uppercase mb-3'>
               Address & Location
@@ -470,7 +477,6 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* Facilities */}
           <div className='pt-4 border-t border-gray-100'>
             <p className='text-xs font-bold text-gray-400 uppercase mb-3'>
               Facilities
@@ -508,13 +514,11 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* Images Section (UPDATED) */}
           <div className='pt-4 border-t border-gray-100'>
             <p className='text-xs font-bold text-gray-400 uppercase mb-3'>
               Studio Images
             </p>
             <div className='grid grid-cols-4 gap-3 mb-3'>
-              {/* Existing Images */}
               {formData.studioPictures.map((pic, idx) => (
                 <div
                   key={`exist-${idx}`}
@@ -534,8 +538,6 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
                   </div>
                 </div>
               ))}
-
-              {/* New File Previews */}
               {newFiles.map((file, idx) => (
                 <div
                   key={`new-${idx}`}
@@ -556,8 +558,6 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
                   <div className='absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full'></div>
                 </div>
               ))}
-
-              {/* Upload Button */}
               <label className='aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all text-gray-400 hover:text-emerald-600'>
                 <UploadCloud className='w-6 h-6 mb-1' />
                 <span className='text-[10px] font-bold'>Upload</span>
@@ -572,18 +572,25 @@ const EditStudioModal = ({ studio, onClose, onSave }) => {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className='pt-4 flex gap-3 border-t border-gray-100 sticky bottom-0 bg-white'>
             <button
               type='button'
               onClick={onClose}
-              className='flex-1 py-2.5 text-gray-600 font-bold hover:bg-gray-50 rounded-lg'>
+              disabled={isSaving}
+              className='flex-1 py-2.5 text-gray-600 font-bold hover:bg-gray-50 rounded-lg disabled:opacity-50'>
               Cancel
             </button>
             <button
               type='submit'
-              className='flex-1 py-2.5 bg-emerald-900 text-white font-bold hover:bg-emerald-800 rounded-lg shadow-lg flex items-center justify-center gap-2'>
-              <Save className='w-4 h-4' /> Save Changes
+              disabled={isSaving}
+              className='flex-1 py-2.5 bg-emerald-900 text-white font-bold hover:bg-emerald-800 rounded-lg shadow-lg flex items-center justify-center gap-2 disabled:bg-emerald-700 disabled:cursor-wait'>
+              {isSaving ? (
+                <LoadingSpinner size='sm' />
+              ) : (
+                <>
+                  <Save className='w-4 h-4' /> Save Changes
+                </>
+              )}
             </button>
           </div>
         </form>

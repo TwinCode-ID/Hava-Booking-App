@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { X, Calendar, Clock, MapPin, CheckCircle2, Ticket } from "lucide-react";
+import {
+  X,
+  Calendar,
+  Clock,
+  MapPin,
+  CheckCircle2,
+  Ticket,
+  User,
+} from "lucide-react";
 import { format } from "date-fns";
-import axiosInstance from "../../../../utils/axiosInstance";
-import { API_PATHS } from "../../../../utils/apiPath";
-import { useAuth } from "../../../../context/AuthContext";
+import axiosInstance from "../../../../../../utils/axiosInstance";
+import { API_PATHS } from "../../../../../../utils/apiPath";
+import { useAuth } from "../../../../../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const BookingModal = ({ cls, onClose, onConfirm }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [passes, setPasses] = useState([]);
   const [selectedPassId, setSelectedPassId] = useState(null);
@@ -72,6 +82,12 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
     }
   };
 
+  const validPasses = passes.filter(
+    (pass) =>
+      pass.classType === cls.classType &&
+      pass.instructorType === cls.instructorType
+  );
+
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200'>
       <div className='bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto'>
@@ -124,6 +140,16 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
                 <p className='text-xs'>Location</p>
               </div>
             </div>
+
+            <div className='flex items-start gap-3 text-gray-600'>
+              <User className='w-5 h-5 text-emerald-700 shrink-0 mt-0.5' />
+              <div>
+                <p className='text-sm font-bold text-gray-900'>
+                  {cls.instructorId?.fullName}
+                </p>
+                <p className='text-xs'>Instructor</p>
+              </div>
+            </div>
           </div>
 
           {/* 4. Pass Selection Section */}
@@ -136,9 +162,9 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
               <div className='text-center py-4 text-xs text-gray-400'>
                 Loading your packages...
               </div>
-            ) : passes.length > 0 ? (
+            ) : validPasses.length > 0 ? (
               <div className='space-y-2 max-h-40 overflow-y-auto pr-1'>
-                {passes.map((pass) => (
+                {validPasses.map((pass) => (
                   <label
                     key={pass._id}
                     className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
@@ -170,23 +196,24 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
                     </div>
                   </label>
                 ))}
+
+                <div className='bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6'>
+                  <p className='text-amber-800 text-xs font-medium flex items-center gap-2'>
+                    <CheckCircle2 className='w-4 h-4' />1 Credit will be
+                    deducted.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className='p-4 bg-red-50 border border-red-100 rounded-xl text-center'>
                 <p className='text-sm text-red-600 font-bold'>
-                  No Active Packages
+                  Insufficient Credits
                 </p>
                 <p className='text-xs text-red-500 mt-1'>
-                  Please purchase a package to book.
+                  Please purchase a credits to book.
                 </p>
               </div>
             )}
-          </div>
-
-          <div className='bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6'>
-            <p className='text-amber-800 text-xs font-medium flex items-center gap-2'>
-              <CheckCircle2 className='w-4 h-4' />1 Credit will be deducted.
-            </p>
           </div>
 
           {error && (
@@ -194,13 +221,20 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
               {error}
             </p>
           )}
-
-          <button
-            onClick={handleBook}
-            disabled={loading || passes.length === 0}
-            className='w-full py-3.5 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-emerald-900/10'>
-            {loading ? "Confirming..." : "Confirm Booking"}
-          </button>
+          {validPasses.length > 0 ? (
+            <button
+              onClick={handleBook}
+              disabled={loading || passes.length === 0}
+              className='w-full py-3.5 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-emerald-900/10'>
+              {loading ? "Confirming..." : "Confirm Booking"}
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/client-activities")}
+              className='w-full py-3.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-emerald-900/10'>
+              Buy Credits
+            </button>
+          )}
         </div>
       </div>
     </div>

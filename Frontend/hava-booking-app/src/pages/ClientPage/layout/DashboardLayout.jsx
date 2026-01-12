@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { LogOut, Menu, X, User } from "lucide-react";
-import { NAVIGATION_MENU_ADMIN } from "../../../utils/data";
+import { NAVIGATION_MENU_CLIENT } from "../../../utils/data";
 import { useAuth } from "../../../context/AuthContext";
 
 const DashboardLayout = () => {
@@ -22,10 +22,10 @@ const DashboardLayout = () => {
   }, []);
 
   return (
-    <div className='flex h-screen bg-gray-50 font-sans overflow-hidden'>
+    <div className='flex h-screen w-screen bg-gray-50 font-sans overflow-hidden'>
       {/* --- MOBILE HEADER --- */}
       <div className='md:hidden fixed top-0 left-0 right-0 h-16 bg-emerald-900 z-50 flex items-center justify-between px-4 text-white shadow-md'>
-        <div className='font-bold text-lg'>Admin Panel</div>
+        <div className='font-bold text-lg'>User Panel</div>
         <button onClick={() => setIsMobileOpen(!isMobileOpen)}>
           {isMobileOpen ? <X /> : <Menu />}
         </button>
@@ -49,7 +49,7 @@ const DashboardLayout = () => {
         {/* --- PROFILE SECTION (Navigates to Page) --- */}
         <div
           onClick={() => {
-            navigate("/admin-account-settings"); // <--- Navigate to page
+            navigate("/client-account-settings"); // <--- Navigate to page
             setIsMobileOpen(false);
           }}
           className='h-24 flex items-center px-4 border-b border-emerald-800/50 whitespace-nowrap overflow-hidden shrink-0 cursor-pointer hover:bg-emerald-800 transition-colors group'>
@@ -90,7 +90,7 @@ const DashboardLayout = () => {
 
         {/* Navigation */}
         <nav className='flex-1 py-6 space-y-3 px-4 overflow-y-auto overflow-x-hidden'>
-          {NAVIGATION_MENU_ADMIN.map((item) => {
+          {NAVIGATION_MENU_CLIENT.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname.includes(item.id);
 

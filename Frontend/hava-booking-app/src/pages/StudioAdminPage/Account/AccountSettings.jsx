@@ -12,12 +12,12 @@ import {
   EyeOff,
   CheckCircle2,
 } from "lucide-react";
-import { useAuth } from "../../../../context/AuthContext";
-import axiosInstance from "../../../../utils/axiosInstance";
-import uploadStudio from "../../../../utils/uploadStudio";
-import { API_PATHS } from "../../../../utils/apiPath";
+import { useAuth } from "../../../context/AuthContext";
+import axiosInstance from "../../../utils/axiosInstance";
+import uploadStudio from "../../../utils/uploadStudio";
+import { API_PATHS } from "../../../utils/apiPath";
 
-const SettingList = () => {
+const AccountSettings = () => {
   const { user, setUser } = useAuth();
 
   // --- States ---
@@ -421,4 +421,4 @@ const SettingList = () => {
   );
 };
 
-export default SettingList;
+export default AccountSettings;

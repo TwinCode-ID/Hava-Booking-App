@@ -334,7 +334,6 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
   </motion.div>
 );
 
-// --- Form Modal ---
 const PackageFormModal = ({
   isOpen,
   isEdit,
@@ -347,6 +346,8 @@ const PackageFormModal = ({
     errors: {},
     success: false,
   });
+
+  // 1. ADD classType to state
   const [formData, setFormData] = useState({
     packageName: initialData?.packageName || "",
     packageDescription: initialData?.packageDescription || "",
@@ -355,6 +356,7 @@ const PackageFormModal = ({
     validityDays: initialData?.validityDays || "",
     credits: initialData?.credits || "",
     instructorType: initialData?.instructorType || "",
+    classType: initialData?.classType || "Group", // Default
   });
 
   const handleInputChange = (e) => {
@@ -366,22 +368,20 @@ const PackageFormModal = ({
     e.preventDefault();
     setFormState((prev) => ({ ...prev, loading: true }));
     try {
+      const payload = {
+        ...formData,
+        packagePrice: Number(formData.packagePrice),
+        validityDays: Number(formData.validityDays),
+        credits: Number(formData.credits),
+        // classType is sent as string, matches Controller
+      };
+
       if (!initialData) {
-        await axiosInstance.post(API_PATHS.PACKAGES.CREATE_PACKAGE, {
-          ...formData,
-          packagePrice: Number(formData.packagePrice),
-          validityDays: Number(formData.validityDays),
-          credits: Number(formData.credits),
-        });
+        await axiosInstance.post(API_PATHS.PACKAGES.CREATE_PACKAGE, payload);
       } else {
         await axiosInstance.put(
           API_PATHS.PACKAGES.UPDATE_PACKAGE(initialData._id),
-          {
-            ...formData,
-            packagePrice: Number(formData.packagePrice),
-            validityDays: Number(formData.validityDays),
-            credits: Number(formData.credits),
-          }
+          payload
         );
       }
       setFormState((prev) => ({ ...prev, loading: false, success: true }));
@@ -405,23 +405,23 @@ const PackageFormModal = ({
     "Special Instructor",
   ];
 
+  // 2. Add Class Type Options
+  const classTypeOptions = ["Group", "Private", "Duet"];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4'>
-      <motion.div
-        initial={{ scale: 0.95, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 20 }}
-        // --- 2. FIXED MODAL SIZING: Removed h-full, added max-h & overflow ---
-        className='bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto'>
+      <motion.div className='bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto'>
         <h2 className='text-2xl font-bold text-gray-900 mb-6'>
           {initialData ? "Edit Package" : "Create New Package"}
         </h2>
 
         <form onSubmit={handleNewPackageSubmit} className='space-y-4'>
+          {/* ... existing Name and Description inputs ... */}
+
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
               Package Name
@@ -429,25 +429,35 @@ const PackageFormModal = ({
             <input
               type='text'
               name='packageName'
+              required
               value={formData.packageName}
               onChange={handleInputChange}
               className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
-              placeholder='e.g. Drop In - Master'
             />
           </div>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
               Package Description
             </label>
-            <input
-              type='text'
+            <textarea
               name='packageDescription'
               value={formData.packageDescription}
               onChange={handleInputChange}
               className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
             />
           </div>
-          <div className='grid grid-cols-1 gap-4'>
+
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            {/* 3. ADD Class Type Select */}
+            <div>
+              <CustomSelect
+                label='Class Type'
+                options={classTypeOptions}
+                value={formData.classType}
+                onChange={(val) => setFormData({ ...formData, classType: val })}
+                placeholder='Select Type'
+              />
+            </div>
             <div>
               <CustomSelect
                 label='Instructor Category'
@@ -459,15 +469,15 @@ const PackageFormModal = ({
                 placeholder='Select Type'
               />
             </div>
+          </div>
+
+          <div className='grid grid-cols-2 gap-4'>
             <div>
               <label className='block text-sm font-medium text-gray-700 mb-1'>
-                Price (IDR){" "}
-                <span className='text-xs text-red-500 font-bold'>
-                  Numbers only*
-                </span>
+                Price (IDR)
               </label>
               <input
-                type='string'
+                type='number'
                 name='packagePrice'
                 value={formData.packagePrice}
                 onChange={handleInputChange}
@@ -479,19 +489,19 @@ const PackageFormModal = ({
                 Credits
               </label>
               <input
-                type='string'
+                type='number'
                 name='credits'
                 value={formData.credits}
                 onChange={handleInputChange}
                 className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
               />
             </div>
-            <div>
+            <div className='col-span-2'>
               <label className='block text-sm font-medium text-gray-700 mb-1'>
                 Validity (Days)
               </label>
               <input
-                type='string'
+                type='number'
                 name='validityDays'
                 value={formData.validityDays}
                 onChange={handleInputChange}
@@ -509,8 +519,9 @@ const PackageFormModal = ({
             </button>
             <button
               type='submit'
-              className='flex-1 py-3 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 shadow-lg shadow-emerald-900/20'>
-              Save Package
+              disabled={formState.loading}
+              className='flex-1 py-3 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 shadow-lg shadow-emerald-900/20 disabled:opacity-50'>
+              {formState.loading ? "Saving..." : "Save Package"}
             </button>
           </div>
         </form>

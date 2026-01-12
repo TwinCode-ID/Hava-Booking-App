@@ -13,6 +13,8 @@ export const API_PATHS = {
     VERIFY_PASSWORD: "/api/auth/verify-password",
     CHECK_STATUS: "api/auth/check-status",
     SET_NEW_PASSWORD: "api/user/set-password",
+    UPDATE_PROFILE: "api/user/profile",
+    UPDATE_PASSWORD: "api/user/update-password",
   },
 
   IMAGE: {
@@ -39,7 +41,9 @@ export const API_PATHS = {
   PURCHASES: {
     CREATE: "/api/purchases",
     GET_ALL_ADMIN: (studioId) => `/api/purchases/studio/${studioId}`,
+    GET_ALL_USER: (userId) => `/api/purchases/user/${userId}`,
     REVIEW_PURCHASE: (purchaseId) => `/api/purchases/${purchaseId}/review`,
+    UPLOAD_PROOF: (purchaseId) => `/api/purchases/${purchaseId}/proof`,
   },
 
   PASSES: {
@@ -60,6 +64,7 @@ export const API_PATHS = {
   STUDIO: {
     GET_ALL: "/api/studio",
     GET_STUDIO_BY_ID: (studioId) => `/api/studio/${studioId}`,
+    UPDATE_STUDIO_BY_ID: (studioId) => `/api/studio/${studioId}`,
   },
 
   SCHEDULE: {
