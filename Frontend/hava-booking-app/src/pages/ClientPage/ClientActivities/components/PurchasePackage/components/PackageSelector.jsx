@@ -477,7 +477,7 @@ const PackageSelectorView = ({ user }) => {
               initial={{ opacity: 0, y: 100, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 100, scale: 0.95 }}
-              className='relative bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
+              className='relative bg-white w-full max-w-2xl rounded-t-4xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
               <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10'>
                 <h2 className='text-xl font-bold text-gray-900'>Checkout</h2>
                 <button
@@ -1503,7 +1503,7 @@ const InvoicePreviewModal = ({ tx, onClose }) => {
   });
 
   return (
-    <div className='fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 print:p-0 print:bg-white print:static'>
+    <div className='fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 print:p-0 print:bg-white print:static'>
       {/* Styles to handle print visibility */}
       <style>{`
         @media print {
@@ -1738,7 +1738,7 @@ const TransactionDetailModal = ({ tx, onClose }) => {
           initial={{ opacity: 0, y: 100, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 100, scale: 0.95 }}
-          className='relative bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
+          className='relative bg-white w-full max-w-2xl rounded-t-4xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
           {/* Header */}
           <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10'>
             <div>
