@@ -80,6 +80,22 @@ exports.setNewUserPassword = async (req, res) => {
   }
 };
 
+exports.updatePassword = async (req, res) => {
+  const { password, newPassword } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+    if (await user.matchPassword(password)) {
+      user.password = newPassword;
+      await user.save();
+      res.status(201).json({ message: "Success" });
+    } else {
+      throw new Error("Old password not matched.");
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.getPublicProfile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)

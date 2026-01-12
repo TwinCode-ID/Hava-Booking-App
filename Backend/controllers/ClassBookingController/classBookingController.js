@@ -110,6 +110,7 @@ exports.getMyBooking = async (req, res) => {
         select: "className classType startTime endTime duration",
       })
       .populate("studioId", "studioName")
+      .populate("instructorId", "fullName")
       .sort({ bookingDate: -1 });
 
     res.json(bookings);

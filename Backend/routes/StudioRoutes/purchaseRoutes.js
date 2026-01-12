@@ -18,7 +18,7 @@ router.get("/user/:userId", protect, getMyPurchases);
 router.get("/studio/:studioId", protect, getStudioPurchasesHistory);
 
 // POST /api/purchases/:purchaseId/proof - User uploads proof of payment URL
-router.post("/:purchaseId/proof", protect, uploadProof);
+router.put("/:purchaseId/proof", protect, uploadProof);
 
 // POST /api/purchases/:purchaseId/review - Admin approves or rejects payment
 router.post("/:purchaseId/review", protect, adminReviewPayment);
