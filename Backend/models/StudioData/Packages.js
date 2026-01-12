@@ -13,6 +13,10 @@ const packagesSchema = new mongoose.Schema(
       type: String,
       require: true,
     },
+    classType: {
+      type: String,
+      require: true,
+    },
     studioLocation: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
   },
   { timestamps: true }

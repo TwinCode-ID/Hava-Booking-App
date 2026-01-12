@@ -24,7 +24,6 @@ const ClassScheduleSchema = new mongoose.Schema(
     },
     classType: {
       type: String,
-      enum: ["Private", "Duet", "Group", "Special Class"],
       required: true,
     },
 

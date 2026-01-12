@@ -10,6 +10,7 @@ exports.createPackage = async (req, res) => {
       validityDays,
       credits,
       instructorType,
+      classType,
     } = req.body;
     if (!packageName) {
       return res.status(400).json({ message: "Package name is required" });
@@ -22,6 +23,7 @@ exports.createPackage = async (req, res) => {
       currency,
       validityDays,
       instructorType,
+      classType,
       credits,
       studioLocation,
     });
@@ -36,6 +38,7 @@ exports.createPackage = async (req, res) => {
       isActive: package.isActive,
       credits: package.credits,
       instructorType: package.instructorType,
+      classType: package.classType,
       studioLocation: package.studioLocation,
     });
   } catch (err) {
@@ -58,6 +61,7 @@ exports.getPackageById = async (req, res) => {
       validityDays: package.validityDays,
       isActive: package.isActive,
       credits: package.credits,
+      classType: package.classType,
       studioLocation: package.studioLocation,
       instructorType: package.instructorType,
     });
@@ -88,7 +92,10 @@ exports.getPackageByStudio = async (req, res) => {
 
 exports.getAllPackages = async (req, res) => {
   try {
-    const package = await Package.find();
+    const package = await Package.find().populate(
+      "studioLocation",
+      "studioName"
+    );
     res.json(package);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -106,6 +113,7 @@ exports.updatePackage = async (req, res) => {
       isActive,
       credits,
       instructorType,
+      classType,
     } = req.body;
     const package = await Package.findById(req.params.id);
     if (!package) {
@@ -121,6 +129,7 @@ exports.updatePackage = async (req, res) => {
     package.isActive = isActive || package.isActive;
     package.credits = credits || package.credits;
     package.instructorType = instructorType || package.instructorType;
+    package.classType = classType || package.classType;
     await package.save();
 
     res.status(201).json({
@@ -133,6 +142,7 @@ exports.updatePackage = async (req, res) => {
       isActive: package.isActive,
       credits: package.credits,
       instructorType: package.instructorType,
+      classType: package.classType,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

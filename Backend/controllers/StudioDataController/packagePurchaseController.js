@@ -82,10 +82,12 @@ exports.createPurchase = async (req, res) => {
         packageId: packageId,
         purchaseDate: new Date(),
         expiryDate: passExpiry,
-        remainingCredits: packageInfo.credits,
-        issuingStudio: issuingStudio,
+        remainingCredits: purchase.creditsPurchased,
+        initialCredits: purchase.creditsPurchased,
+        issuingStudio: purchase.issuingStudio,
         isActive: true,
-        instructorType: packageInfo.instructorType,
+        classType: packageDetails.classType,
+        instructorType: packageDetails.instructorType,
       });
 
       await newUserPass.save({ session });
@@ -195,8 +197,10 @@ exports.adminReviewPayment = async (req, res) => {
         purchaseDate: new Date(),
         expiryDate: passExpiry,
         remainingCredits: purchase.creditsPurchased,
+        initialCredits: purchase.creditsPurchased,
         issuingStudio: purchase.issuingStudio,
         isActive: true,
+        classType: packageDetails.classType,
         instructorType: packageDetails.instructorType,
       });
 
@@ -267,6 +271,8 @@ exports.getMyPurchases = async (req, res) => {
 
     // 2. Fetch the updated list
     const history = await PackagePurchase.find({ userId })
+      .populate("issuingStudio", "studioName")
+      .populate("userId", "fullName")
       .populate("packageId", "packageName price")
       .sort({ createdAt: -1 });
 

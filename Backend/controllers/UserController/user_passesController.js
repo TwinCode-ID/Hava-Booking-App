@@ -4,8 +4,14 @@ const mongoose = require("mongoose");
 // 1. Assign a New Pass
 exports.assignPassToUser = async (req, res) => {
   try {
-    const { userId, packageId, credits, durationInDays, instructorType } =
-      req.body;
+    const {
+      userId,
+      packageId,
+      credits,
+      durationInDays,
+      instructorType,
+      classType,
+    } = req.body;
 
     const purchaseDate = new Date();
     const expiryDate = new Date();
@@ -18,6 +24,7 @@ exports.assignPassToUser = async (req, res) => {
       expiryDate,
       remainingCredits: credits,
       instructorType,
+      classType,
       isActive: true,
     });
 
@@ -41,6 +48,7 @@ exports.getMyActivePasses = async (req, res) => {
     const activePasses = await UserPasses.find({
       userId: userId,
     })
+      .populate("userId", "fullName")
       .populate("issuingStudio", "studioName")
       .populate("packageId", "packageName")
       // Sort: Active First (Logic: -1), then by Earliest Expiry (Logic: 1)
