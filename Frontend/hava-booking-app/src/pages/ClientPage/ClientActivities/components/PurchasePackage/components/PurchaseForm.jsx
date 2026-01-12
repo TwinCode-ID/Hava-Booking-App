@@ -10,11 +10,11 @@ import {
   Store,
   QrCode,
 } from "lucide-react";
-import axiosInstance from "../../../../utils/axiosInstance";
-import { API_PATHS } from "../../../../utils/apiPath";
-import LoadingSpinner from "../../../../components/LoadingSpinner";
-import CustomSelect from "../../layout/CustomSelect";
-import uploadProof from "../../../../utils/uploadProof";
+import axiosInstance from "../../../../../../utils/axiosInstance";
+import { API_PATHS } from "../../../../../../utils/apiPath";
+import LoadingSpinner from "../../../../../../components/LoadingSpinner";
+import CustomSelect from "../../../../layout/CustomSelect";
+import uploadProof from "../../../../../../utils/uploadProof";
 
 const PurchaseForm = ({ pkg, onCancel, userId }) => {
   // --- Payment Method State ---
@@ -146,22 +146,8 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className='space-y-6'>
+    <form onSubmit={handleSubmit} className='space-y-6 p-4'>
       {/* 1. Order Summary */}
-      <div className='bg-gray-50 p-4 rounded-2xl border border-gray-100 flex justify-between items-center'>
-        <div>
-          <p className='text-xs text-gray-500 font-bold uppercase tracking-wide'>
-            Package
-          </p>
-          <p className='font-bold text-gray-900'>{pkg.packageName}</p>
-        </div>
-        <div className='text-right'>
-          <p className='text-xs text-gray-500 font-bold uppercase tracking-wide'>
-            Total
-          </p>
-          <p className='font-bold text-emerald-700 text-lg'>{formattedPrice}</p>
-        </div>
-      </div>
 
       {/* 2. Payment Method Selector */}
       <div>

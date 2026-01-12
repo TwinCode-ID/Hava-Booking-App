@@ -113,7 +113,7 @@ const AdminDashboard = () => {
   const { scheduledClasses, dailyStats, dailyBookings } = useMemo(() => {
     const todaysBookings = bookings.filter(
       (b) =>
-        isSameDay(new Date(b.classId.startTime), selectedDate) &&
+        isSameDay(new Date(b.classId?.startTime), selectedDate) &&
         b.status !== "Cancelled"
     );
 

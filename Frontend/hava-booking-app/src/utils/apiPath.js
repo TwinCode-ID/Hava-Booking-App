@@ -41,7 +41,9 @@ export const API_PATHS = {
   PURCHASES: {
     CREATE: "/api/purchases",
     GET_ALL_ADMIN: (studioId) => `/api/purchases/studio/${studioId}`,
+    GET_ALL_USER: (userId) => `/api/purchases/user/${userId}`,
     REVIEW_PURCHASE: (purchaseId) => `/api/purchases/${purchaseId}/review`,
+    UPLOAD_PROOF: (purchaseId) => `/api/purchases/${purchaseId}/proof`,
   },
 
   PASSES: {

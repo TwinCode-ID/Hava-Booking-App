@@ -11,24 +11,19 @@ import SignUp from "./pages/Auth/SignUp";
 import BookNow from "./pages/BookingPage/BookNow";
 import ProtectedRoute from "./routers/ProtectedRoute";
 import AdminDashboard from "./pages/StudioAdminPage/Dashboard/AdminDashboard";
-// import ManagePackages from "./pages/StudioAdminPage/StudioActivities/components/ManagePackage/ManagePackage";
-// import ManageBookings from "./pages/StudioAdminPage/ManageBooking/ManageBooking";
-// import ManageInstructors from "./pages/StudioAdminPage/ManageInstructor/ManageInstructor";
 import StudioSettings from "./pages/StudioAdminPage/StudioSettings/StudioSettings";
-// import ManageClient from "./pages/StudioAdminPage/ManageStudioClient/ManageClient";
 import DevelopmentDashboard from "./pages/DevAdminPage/DeveloperDashboard";
 import ClientDashboard from "./pages/ClientPage/Dashboard/ClientDashboard";
-import PurchasePackage from "./pages/ClientPage/PurchasePackage/PurchasePackage";
+import ClientDashboardLayout from "./pages/ClientPage/layout/DashboardLayout";
 import StudioLocation from "./pages/StudioPage/StudioLocation";
 import StudioDetails from "./pages/StudioPage/components/StudioDetails";
-import ManagePackage from "./pages/ClientPage/ManagePackage/ManagePackage";
-import BookClass from "./pages/ClientPage/BookClass/BookClass";
-import ManageBooking from "./pages/ClientPage/ManageBooking/ManageBooking";
-import ManageAccount from "./pages/ClientPage/ManageAccount/ManageAccount";
-import MedicalRecords from "./pages/ClientPage/MedicalRecords/MedicalRecords";
+import ClientAccountSettings from "./pages/ClientPage/ManageAccount/ManageAccount";
 import DashboardLayout from "./pages/StudioAdminPage/layout/DashboardLayout";
 import StudioActivities from "./pages/StudioAdminPage/StudioActivities/ManageStudio";
-import AccountSettings from "./pages/StudioAdminPage/Account/AccountSettings";
+import AdminAccountSettings from "./pages/StudioAdminPage/Account/AccountSettings";
+import ManageClient from "./pages/ClientPage/ClientActivities/ManageClient";
+import BookTheClass from "./pages/ClientPage/ClientActivities/components/BookClass/components/BookTheClass";
+import ManageBooking from "./pages/ClientPage/ClientActivities/components/ManageBooking/ManageBooking";
 
 const App = () => {
   return (
@@ -44,13 +39,15 @@ const App = () => {
           <Route path='/studio-details' element={<StudioDetails />} />
           {/*Protected Routes */}
           <Route element={<ProtectedRoute requiredRole='client' />}>
-            <Route path='/client-dashboard' element={<ClientDashboard />} />
-            <Route path='/purchase-packages' element={<PurchasePackage />} />
-            <Route path='/manage-packages' element={<ManagePackage />} />
-            <Route path='/class-booking' element={<BookClass />} />
-            <Route path='/manage-bookings' element={<ManageBooking />} />
-            <Route path='/manage-account' element={<ManageAccount />} />
-            <Route path='/medical-records' element={<MedicalRecords />} />
+            <Route element={<ClientDashboardLayout />}>
+              <Route path='/client-dashboard' element={<ClientDashboard />} />
+              <Route path='/book-the-class' element={<BookTheClass />} />
+              <Route path='/client-activities' element={<ManageClient />} />
+              <Route
+                path='/client-account-settings'
+                element={<ClientAccountSettings />}
+              />
+            </Route>
           </Route>
           <Route element={<ProtectedRoute requiredRole='devTeam' />}>
             <Route
@@ -63,7 +60,7 @@ const App = () => {
               <Route path='/admin-dashboard' element={<AdminDashboard />} />
               <Route
                 path='/admin-account-settings'
-                element={<AccountSettings />}
+                element={<AdminAccountSettings />}
               />
               <Route path='/studio-activities' element={<StudioActivities />} />
               <Route path='/studio-settings' element={<StudioSettings />} />
