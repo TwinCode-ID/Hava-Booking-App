@@ -20,7 +20,6 @@ import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 // Assuming you want the Footer here as well since it was in the reference
-import Footer from "../../../../../components/Footer";
 
 const InstructorList = () => {
   const [instructors, setInstructors] = useState([]);
@@ -326,8 +325,6 @@ const InstructorList = () => {
           />
         )}
       </AnimatePresence>
-
-      <Footer />
     </div>
   );
 };
