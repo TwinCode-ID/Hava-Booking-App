@@ -41,6 +41,7 @@ import {
   Users,
   Check,
   AlertTriangle,
+  Layers,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
@@ -108,7 +109,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const fetchSchedule = async () => {
     setLoading(true);
     try {
-      // FIX: Used API_PATHS correctly
       const res = await axiosInstance.get(
         API_PATHS.SCHEDULE.GET_BY_STUDIO_ID(user.adminStudioLocation),
         {
@@ -304,7 +304,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
           {loading ? (
             <LoadingSpinner />
           ) : (
-            // Use h-full min-h-[500px] to ensure it fits and scrolls if needed
             <div className='grid grid-cols-7 h-full min-h-125'>
               {weekDays.map((day) => {
                 const dayClasses = classes.filter((c) =>
@@ -427,13 +426,11 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
 
     try {
       if (type === "delete") {
-        // FIX: Using API_PATHS
         await axiosInstance.delete(
           API_PATHS.SCHEDULE.DELETE_SCHEDULE(classData._id),
           { data: { deleteMode: mode } }
         );
       } else if (type === "toggle") {
-        // FIX: Using API_PATHS
         await axiosInstance.put(
           API_PATHS.SCHEDULE.TOGGLE_ISACTIVE_SCHEDULE(classData._id),
           { toggleMode: mode }
@@ -686,6 +683,8 @@ const CreateClassModal = ({
   const [loading, setLoading] = useState(false);
   const [updateMode, setUpdateMode] = useState(null); // 'single' or 'all'
   const [showConfirmation, setShowConfirmation] = useState(false);
+  // NEW: State for picking single vs series when editing recurring
+  const [showRecurrenceSelect, setShowRecurrenceSelect] = useState(false);
 
   const [form, setForm] = useState({
     className: "",
@@ -895,19 +894,18 @@ const CreateClassModal = ({
     e.preventDefault();
     if (!isAvailable) return;
 
+    // Check if this is a recurring class edit and we haven't selected a mode yet
     if (initialData?.isRecurring && !updateMode) {
-      const userChoice = window.confirm(
-        "Update entire series? OK for Yes, Cancel for Just This Class"
-      );
-      setUpdateMode(userChoice ? "all" : "single");
-      handleFinalSubmit(userChoice ? "all" : "single");
+      setShowRecurrenceSelect(true);
       return;
     }
 
-    if (!initialData) {
-      setShowConfirmation(true);
-      return;
-    }
+    setShowConfirmation(true);
+  };
+
+  const handleRecurrenceChoice = (mode) => {
+    setUpdateMode(mode);
+    setShowRecurrenceSelect(false);
     setShowConfirmation(true);
   };
 
@@ -920,7 +918,6 @@ const CreateClassModal = ({
     setLoading(true);
     try {
       if (initialData) {
-        // FIX: Use initialData._id, NOT classData._id to avoid ReferenceError
         await axiosInstance.put(
           API_PATHS.SCHEDULE.UPDATE_SCHEDULE(initialData._id),
           { ...form, updateMode: mode || "single" }
@@ -1190,7 +1187,49 @@ const CreateClassModal = ({
           </form>
         </div>
 
-        {/* Confirmation Overlay */}
+        {/* --- OVERLAY: Recurrence Choice --- */}
+        <AnimatePresence>
+          {showRecurrenceSelect && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className='absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-8 text-center'>
+              <div className='bg-blue-50 p-4 rounded-full mb-4 shadow-sm text-blue-600'>
+                <Layers className='w-8 h-8' />
+              </div>
+              <h3 className='font-bold text-xl text-gray-900 mb-2'>
+                Recurring Class
+              </h3>
+              <p className='text-gray-500 mb-8 max-w-xs mx-auto leading-relaxed'>
+                This class is part of a series. How would you like to apply your
+                changes?
+              </p>
+              <div className='flex flex-col w-full max-w-xs gap-3'>
+                <button
+                  type='button'
+                  onClick={() => handleRecurrenceChoice("single")}
+                  className='w-full py-3.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all'>
+                  Update This Class Only
+                </button>
+                <button
+                  type='button'
+                  onClick={() => handleRecurrenceChoice("all")}
+                  className='w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/20'>
+                  Update Entire Series
+                </button>
+                <button
+                  type='button'
+                  onClick={() => setShowRecurrenceSelect(false)}
+                  className='text-sm text-gray-400 mt-2 hover:text-gray-600'>
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* --- OVERLAY: Final Confirmation --- */}
         <AnimatePresence>
           {showConfirmation && (
             <motion.div
@@ -1209,9 +1248,10 @@ const CreateClassModal = ({
                 <strong className='text-gray-900'>
                   {form.className}
                 </strong>. <br />
-                {form.isRecurring && (
-                  <span className='text-emerald-600 font-medium text-sm block mt-1'>
-                    This is a recurring class ({form.recurrenceRule}).
+                {initialData && updateMode && (
+                  <span className='text-blue-600 font-medium text-xs block mt-2 uppercase tracking-wide bg-blue-50 py-1 px-2 rounded-lg mx-auto w-fit'>
+                    Applying to:{" "}
+                    {updateMode === "all" ? "Series" : "This Class"}
                   </span>
                 )}
               </p>
@@ -1224,7 +1264,9 @@ const CreateClassModal = ({
                 </button>
                 <button
                   type='button'
-                  onClick={() => setShowConfirmation(false)}
+                  onClick={() => {
+                    setShowConfirmation(false), setUpdateMode(null);
+                  }}
                   className='w-full py-3.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors'>
                   Back to Edit
                 </button>
@@ -1236,10 +1278,6 @@ const CreateClassModal = ({
     </div>
   );
 };
-
-// ... (WeekPicker, PDFPreviewModal, CustomDatePicker, CustomTimePicker, CalendarSinglePicker)
-// IMPORTANT: Paste the helper components from the previous response here.
-// I have included placeholders to remind you, but for the code to run, they must be present.
 
 const WeekPicker = ({ selectedDate, onChange }) => {
   const [viewDate, setViewDate] = useState(selectedDate);
