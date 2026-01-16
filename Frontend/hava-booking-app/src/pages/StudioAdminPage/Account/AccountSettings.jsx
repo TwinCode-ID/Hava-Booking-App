@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   User,
   Camera,
@@ -17,7 +17,7 @@ import axiosInstance from "../../../utils/axiosInstance";
 import uploadStudio from "../../../utils/uploadStudio";
 import { API_PATHS } from "../../../utils/apiPath";
 
-const AccountSettings = () => {
+const SettingList = () => {
   const { user, setUser } = useAuth();
 
   // --- States ---
@@ -26,6 +26,11 @@ const AccountSettings = () => {
 
   // Profile State
   const [previewImage, setPreviewImage] = useState(user?.avatar || null);
+
+  // 1. NEW: Create a local baseline to compare against.
+  // This prevents the "Context Lag" issue.
+  const [lastSavedUser, setLastSavedUser] = useState(user || {});
+
   const [profileData, setProfileData] = useState({
     fullName: user?.fullName || "",
     email: user?.email || "",
@@ -45,6 +50,71 @@ const AccountSettings = () => {
     new: false,
     confirm: false,
   });
+
+  // --- SYNC ON LOAD ---
+  // When the component loads, sync both the Form and the Baseline with the User Context.
+  useEffect(() => {
+    if (user) {
+      const cleanUser = {
+        fullName: user.fullName || "",
+        phoneNumber: user.phoneNumber || "",
+        avatar: user.avatar || "",
+        email: user.email || "",
+      };
+
+      // Set the Baseline
+      setLastSavedUser(cleanUser);
+
+      // Set the Form
+      setProfileData((prev) => ({
+        ...prev,
+        ...cleanUser,
+        newAvatarFile: null,
+      }));
+
+      if (!profileData.newAvatarFile) {
+        setPreviewImage(user.avatar || null);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]); // Only re-run if the user ID changes (avoids loops)
+
+  // --- 2. FIXED DIRTY CHECK ---
+  // Compare profileData against 'lastSavedUser' (local) instead of 'user' (global)
+  const isProfileDirty = useMemo(() => {
+    // Helper to ensure we compare strings safely
+    const normalize = (val) => String(val || "").trim();
+
+    return (
+      normalize(profileData.fullName) !== normalize(lastSavedUser.fullName) ||
+      normalize(profileData.phoneNumber) !==
+        normalize(lastSavedUser.phoneNumber) ||
+      profileData.newAvatarFile !== null
+    );
+  }, [profileData, lastSavedUser]);
+
+  const isPasswordDirty = useMemo(() => {
+    return (
+      passwordData.currentPassword !== "" ||
+      passwordData.newPassword !== "" ||
+      passwordData.confirmPassword !== ""
+    );
+  }, [passwordData]);
+
+  const isDirty = isProfileDirty || isPasswordDirty;
+
+  // --- 3. BROWSER NAVIGATION BLOCKING (Safe Method) ---
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "You have unsaved changes.";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   // --- Handlers ---
 
@@ -77,6 +147,7 @@ const AccountSettings = () => {
     try {
       let avatarUrl = profileData.avatar;
 
+      // 1. Upload new image if exists
       if (profileData.newAvatarFile) {
         const uploadRes = await uploadStudio(
           profileData.newAvatarFile,
@@ -91,14 +162,40 @@ const AccountSettings = () => {
         avatar: avatarUrl,
       };
 
-      const response = await axiosInstance.put(
-        API_PATHS.AUTH.UPDATE_PROFILE,
-        payload
-      );
+      // 2. Save data to Server
+      await axiosInstance.put(API_PATHS.AUTH.UPDATE_PROFILE, payload);
 
+      // 3. Fetch fresh data immediately
+      const responseBack = await axiosInstance.get(
+        `${API_PATHS.AUTH.GET_PROFILE}?t=${new Date().getTime()}`
+      );
+      const fetchedUserData = responseBack.data;
+
+      // 4. Update Global Context (Eventual consistency)
       if (setUser) {
-        setUser({ ...user, ...response.data });
+        setUser(fetchedUserData);
       }
+
+      // 5. UPDATE LOCAL STATE IMMEDIATELY (The Fix)
+      // We update both the Form and the Baseline to match the fetched data.
+      // This forces isDirty to become false instantly.
+
+      const cleanFetched = {
+        fullName: fetchedUserData.fullName || "",
+        phoneNumber: fetchedUserData.phoneNumber || "",
+        avatar: fetchedUserData.avatar || "",
+        email: fetchedUserData.email || "",
+      };
+
+      setLastSavedUser(cleanFetched); // Update Baseline
+
+      setProfileData({
+        ...cleanFetched,
+        newAvatarFile: null, // Clear file input
+      });
+
+      // Update the preview to the real URL
+      setPreviewImage(fetchedUserData.avatar || null);
 
       alert("Profile updated successfully!");
     } catch (error) {
@@ -125,13 +222,13 @@ const AccountSettings = () => {
     setIsLoadingPassword(true);
 
     try {
-      // Adjust endpoint to your specific password change route
       await axiosInstance.put(API_PATHS.AUTH.UPDATE_PASSWORD, {
         password: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
 
       alert("Password changed successfully!");
+
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -161,7 +258,7 @@ const AccountSettings = () => {
       </div>
 
       <div className='grid grid-cols-1 lg:grid-cols-12 gap-8'>
-        {/* LEFT COLUMN: Profile Card (Takes 4/12 columns) */}
+        {/* LEFT COLUMN: Profile Card */}
         <div className='lg:col-span-4 space-y-6'>
           <div className='bg-white rounded-2xl p-8 border border-gray-100 shadow-sm flex flex-col items-center text-center'>
             <div className='relative group cursor-pointer mb-6'>
@@ -198,6 +295,7 @@ const AccountSettings = () => {
             </div>
 
             <h2 className='text-xl font-bold text-gray-900'>
+              {/* Note: This might look stale for a second until context updates, but form will be correct */}
               {user?.fullName || "Admin User"}
             </h2>
             <div className='inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold mt-2 border border-emerald-100'>
@@ -205,7 +303,6 @@ const AccountSettings = () => {
             </div>
           </div>
 
-          {/* Optional: Account Stats or Info could go here */}
           <div className='bg-emerald-900 rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/20'>
             <h3 className='font-bold text-lg mb-2'>Security Tip</h3>
             <p className='text-emerald-200 text-sm leading-relaxed'>
@@ -215,7 +312,7 @@ const AccountSettings = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Forms (Takes 8/12 columns) */}
+        {/* RIGHT COLUMN: Forms */}
         <div className='lg:col-span-8 space-y-8'>
           {/* 1. PERSONAL INFO CARD */}
           <div className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden'>
@@ -226,6 +323,12 @@ const AccountSettings = () => {
                 </div>
                 Personal Information
               </h3>
+              {/* Dirty State Indicator */}
+              {isProfileDirty && (
+                <span className='text-xs text-amber-500 font-bold bg-amber-50 px-2 py-1 rounded'>
+                  Unsaved Changes
+                </span>
+              )}
             </div>
 
             <form onSubmit={handleUpdateProfile} className='p-8 space-y-6'>
@@ -286,7 +389,7 @@ const AccountSettings = () => {
               <div className='pt-4 flex justify-end'>
                 <button
                   type='submit'
-                  disabled={isLoadingProfile}
+                  disabled={isLoadingProfile || !isProfileDirty}
                   className='px-6 py-2.5 bg-emerald-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-900/20 hover:bg-emerald-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingProfile ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
@@ -299,7 +402,7 @@ const AccountSettings = () => {
             </form>
           </div>
 
-          {/* 2. SECURITY CARD (Change Password) */}
+          {/* 2. SECURITY CARD */}
           <div className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden'>
             <div className='px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center'>
               <h3 className='font-bold text-gray-900 flex items-center gap-2.5'>
@@ -421,4 +524,4 @@ const AccountSettings = () => {
   );
 };
 
-export default AccountSettings;
+export default SettingList;

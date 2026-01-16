@@ -339,16 +339,16 @@ const ClientDashboard = () => {
                       <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
                         Studio
                       </th>
-                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right'>
+                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
                         Attendance Status
                       </th>
-                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right'>
+                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-center'>
                         Status
                       </th>
                       <th className='py-4 px-6 w-10'></th>
                     </tr>
                   </thead>
-                  <tbody className='divide-y divide-gray-100'>
+                  <tbody className='divide-y divide-gray-50'>
                     {historyClasses.map((item) => {
                       const isCancelled = item.status === "Cancelled";
                       const dateObj = item.classId?.startTime
@@ -359,14 +359,18 @@ const ClientDashboard = () => {
                         <tr
                           key={item._id}
                           onClick={() => setSelectedClass(item)}
-                          className='hover:bg-gray-50/80 transition-colors cursor-pointer group'>
+                          // 1. 'group' allows children to react when row is hovered
+                          // 2. 'cursor-pointer' shows the hand icon
+                          // 3. 'hover:bg-emerald-50' sets the background color (removed /50 opacity so it is visible)
+                          className='group transition-colors duration-200 hover:bg-emerald-50 cursor-pointer'>
+                          {/* Date Column */}
                           <td className='py-4 px-6'>
                             <div className='flex flex-col'>
                               <span
-                                className={`font-bold text-sm ${
+                                className={`font-bold text-sm transition-colors ${
                                   isCancelled
                                     ? "text-gray-400"
-                                    : "text-gray-900"
+                                    : "text-gray-900 group-hover:text-emerald-900"
                                 }`}>
                                 {format(dateObj, "MMM dd, yyyy")}
                               </span>
@@ -375,13 +379,15 @@ const ClientDashboard = () => {
                               </span>
                             </div>
                           </td>
+
+                          {/* Class Name Column */}
                           <td className='py-4 px-6'>
                             <div className='flex flex-col'>
                               <span
-                                className={`font-bold text-sm ${
+                                className={`font-bold text-sm transition-colors ${
                                   isCancelled
                                     ? "text-gray-400"
-                                    : "text-gray-900"
+                                    : "text-gray-900 group-hover:text-emerald-900"
                                 }`}>
                                 {item.classId?.className || "Unknown Class"}
                               </span>
@@ -390,13 +396,18 @@ const ClientDashboard = () => {
                               </span>
                             </div>
                           </td>
-                          <td className='py-4 px-6 text-sm text-gray-500'>
+
+                          {/* Studio Column */}
+                          <td className='py-4 px-6 text-sm text-gray-500 transition-colors group-hover:text-emerald-700'>
                             {item.studioId?.studioName || "N/A"}
                           </td>
-                          {/* ALIGNED TO RIGHT */}
-                          <td className='py-4 px-6 text-sm text-gray-500 text-right'>
+
+                          {/* Attendance Column */}
+                          <td className='py-4 px-6 text-sm text-gray-500 text-left transition-colors group-hover:text-emerald-700'>
                             {item.isAttend ? "Attended" : "Not attended"}
                           </td>
+
+                          {/* Status Badge Column */}
                           <td className='py-4 px-6 text-right'>
                             <div className='flex justify-end'>
                               {isCancelled ? (
@@ -404,14 +415,18 @@ const ClientDashboard = () => {
                                   <XCircle className='w-3 h-3' /> Cancelled
                                 </span>
                               ) : (
-                                <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold border border-gray-200'>
+                                <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold border border-gray-200 group-hover:bg-emerald-200/50 group-hover:border-emerald-200 group-hover:text-emerald-800 transition-all'>
                                   <CheckCircle2 className='w-3 h-3' /> Completed
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className='py-4 px-6 text-right'>
-                            <ChevronRight className='w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors' />
+
+                          {/* NEW: Arrow Column (Matches the empty <th> in your header) */}
+                          <td className='py-4 px-6 text-center w-10'>
+                            <ChevronRight
+                              className={`w-5 h-5 transition-all duration-300 transform text-gray-300 opacity-100 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0`}
+                            />
                           </td>
                         </tr>
                       );

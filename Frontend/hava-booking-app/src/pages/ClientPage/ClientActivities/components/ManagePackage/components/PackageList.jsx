@@ -407,33 +407,29 @@ const PackageSelectorView = ({ user }) => {
             </button>
           </div>
 
-          <motion.div
-            layout
-            className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
-            <AnimatePresence mode='popLayout'>
-              {filteredPackages.length > 0 ? (
-                filteredPackages.map((pkg) => (
-                  <PackageCardMinimal
-                    key={pkg._id}
-                    pkg={pkg}
-                    onPurchase={() => handleOpenPurchase(pkg._id)}
-                  />
-                ))
-              ) : (
-                <div className='col-span-full py-20 text-center'>
-                  <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
-                    <ShoppingBag className='w-8 h-8' />
-                  </div>
-                  <h3 className='text-lg font-bold text-gray-900'>
-                    No packages found
-                  </h3>
-                  <p className='text-gray-500'>
-                    Try adjusting your price range or filters.
-                  </p>
+          <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
+            {filteredPackages.length > 0 ? (
+              filteredPackages.map((pkg) => (
+                <PackageCardMinimal
+                  key={pkg._id}
+                  pkg={pkg}
+                  onPurchase={() => handleOpenPurchase(pkg._id)}
+                />
+              ))
+            ) : (
+              <div className='col-span-full py-20 text-center'>
+                <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
+                  <ShoppingBag className='w-8 h-8' />
                 </div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                <h3 className='text-lg font-bold text-gray-900'>
+                  No packages found
+                </h3>
+                <p className='text-gray-500'>
+                  Try adjusting your price range or filters.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -880,33 +876,29 @@ const PurchaseHistoryView = ({ user }) => {
             </div>
           </div>
 
-          <motion.div
-            layout
-            className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
-            <AnimatePresence mode='popLayout'>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((tx) => (
-                  <TransactionCard
-                    key={tx._id}
-                    tx={tx}
-                    onClick={() => setSelectedTransaction(tx)}
-                  />
-                ))
-              ) : (
-                <div className='col-span-full py-20 text-center'>
-                  <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
-                    <History className='w-8 h-8' />
-                  </div>
-                  <h3 className='text-lg font-bold text-gray-900'>
-                    No transactions found
-                  </h3>
-                  <p className='text-gray-500'>
-                    Try adjusting your filters or search.
-                  </p>
+          <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
+            {filteredTransactions.length > 0 ? (
+              filteredTransactions.map((tx) => (
+                <TransactionCard
+                  key={tx._id}
+                  tx={tx}
+                  onClick={() => setSelectedTransaction(tx)}
+                />
+              ))
+            ) : (
+              <div className='col-span-full py-20 text-center'>
+                <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
+                  <History className='w-8 h-8' />
                 </div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                <h3 className='text-lg font-bold text-gray-900'>
+                  No transactions found
+                </h3>
+                <p className='text-gray-500'>
+                  Try adjusting your filters or search.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
