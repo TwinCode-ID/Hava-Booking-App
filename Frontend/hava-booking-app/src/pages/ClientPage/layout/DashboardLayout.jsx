@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { LogOut, Menu, X, User } from "lucide-react";
+import { LogOut, Menu, X, User, AlertCircle } from "lucide-react";
 import { NAVIGATION_MENU_CLIENT } from "../../../utils/data";
 import { useAuth } from "../../../context/AuthContext";
 
@@ -12,6 +12,9 @@ const DashboardLayout = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  // --- NEW: State for Logout Modal ---
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -20,6 +23,11 @@ const DashboardLayout = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    setShowLogoutConfirm(false);
+  };
 
   return (
     <div className='flex h-screen w-screen bg-gray-50 font-sans overflow-hidden'>
@@ -46,10 +54,10 @@ const DashboardLayout = () => {
               : "w-20"
           }
         `}>
-        {/* --- PROFILE SECTION (Navigates to Page) --- */}
+        {/* --- PROFILE SECTION --- */}
         <div
           onClick={() => {
-            navigate("/client-account-settings"); // <--- Navigate to page
+            navigate("/client-account-settings");
             setIsMobileOpen(false);
           }}
           className='h-24 flex items-center px-4 border-b border-emerald-800/50 whitespace-nowrap overflow-hidden shrink-0 cursor-pointer hover:bg-emerald-800 transition-colors group'>
@@ -131,10 +139,11 @@ const DashboardLayout = () => {
             );
           })}
         </nav>
-        {/* Logout */}
+
+        {/* Logout Button (Modified to trigger popup) */}
         <div className='p-4 border-t border-emerald-800/50 shrink-0'>
           <button
-            onClick={logout}
+            onClick={() => setShowLogoutConfirm(true)} // Changed here
             className='w-full flex items-center p-3 rounded-xl text-emerald-200 hover:bg-emerald-800 hover:text-red-300 transition-colors whitespace-nowrap'>
             <LogOut className='w-6 h-6 shrink-0' />
             <span
@@ -146,7 +155,7 @@ const DashboardLayout = () => {
         </div>
       </aside>
 
-      {/* --- OVERLAY FOR MOBILE --- */}
+      {/* --- OVERLAY FOR MOBILE SIDEBAR --- */}
       {isMobile && isMobileOpen && (
         <div
           className='fixed inset-0 bg-black/50 z-40 backdrop-blur-sm'
@@ -165,6 +174,42 @@ const DashboardLayout = () => {
           </div>
         </div>
       </main>
+
+      {/* --- LOGOUT CONFIRMATION MODAL --- */}
+      {showLogoutConfirm && (
+        <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-emerald-900/40 backdrop-blur-sm'>
+          <div
+            className='bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100'
+            onClick={(e) => e.stopPropagation()}>
+            <div className='p-8 text-center'>
+              <div className='mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-6'>
+                <LogOut className='w-8 h-8 text-red-500' />
+              </div>
+
+              <h3 className='text-xl font-bold text-gray-900 mb-2'>
+                Sign Out?
+              </h3>
+              <p className='text-gray-500 text-sm leading-relaxed mb-8'>
+                Are you sure you want to end your session? You will need to log
+                in again to access your account.
+              </p>
+
+              <div className='flex gap-3'>
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className='flex-1 px-4 py-3 bg-gray-50 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors text-sm'>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className='flex-1 px-4 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 shadow-lg shadow-red-500/30 transition-all transform active:scale-95 text-sm'>
+                  Yes, Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

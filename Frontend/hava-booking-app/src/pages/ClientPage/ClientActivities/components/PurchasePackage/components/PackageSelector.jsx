@@ -34,7 +34,7 @@ import {
   Printer,
   WalletCards,
   QrCode,
-  Copy, // Icon for header
+  Copy,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import Footer from "../../../../../../components/Footer";
@@ -227,6 +227,7 @@ const PackageSelectorView = ({ user }) => {
               ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
               : "hidden lg:block"
           }`}>
+          {/* ... (Filters Content Same as before) ... */}
           <div className='flex items-center justify-between lg:hidden mb-8'>
             <h3 className='font-bold text-xl'>Filters</h3>
             <button
@@ -432,33 +433,29 @@ const PackageSelectorView = ({ user }) => {
             </button>
           </div>
 
-          <motion.div
-            layout
-            className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
-            <AnimatePresence mode='popLayout'>
-              {filteredPackages.length > 0 ? (
-                filteredPackages.map((pkg) => (
-                  <PackageCardMinimal
-                    key={pkg._id}
-                    pkg={pkg}
-                    onPurchase={() => handleOpenPurchase(pkg._id)}
-                  />
-                ))
-              ) : (
-                <div className='col-span-full py-20 text-center'>
-                  <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
-                    <ShoppingBag className='w-8 h-8' />
-                  </div>
-                  <h3 className='text-lg font-bold text-gray-900'>
-                    No packages found
-                  </h3>
-                  <p className='text-gray-500'>
-                    Try adjusting your price range or filters.
-                  </p>
+          <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
+            {filteredPackages.length > 0 ? (
+              filteredPackages.map((pkg) => (
+                <PackageCardMinimal
+                  key={pkg._id}
+                  pkg={pkg}
+                  onPurchase={() => handleOpenPurchase(pkg._id)}
+                />
+              ))
+            ) : (
+              <div className='col-span-full py-20 text-center'>
+                <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
+                  <ShoppingBag className='w-8 h-8' />
                 </div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                <h3 className='text-lg font-bold text-gray-900'>
+                  No packages found
+                </h3>
+                <p className='text-gray-500'>
+                  Try adjusting your price range or filters.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -477,7 +474,7 @@ const PackageSelectorView = ({ user }) => {
               initial={{ opacity: 0, y: 100, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 100, scale: 0.95 }}
-              className='relative bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
+              className='relative bg-white w-full max-w-2xl rounded-t-4xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
               <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10'>
                 <h2 className='text-xl font-bold text-gray-900'>Checkout</h2>
                 <button
@@ -570,7 +567,7 @@ const PackageSelectorView = ({ user }) => {
   );
 };
 
-// =================== =========================================================
+// ============================================================================
 // VIEW 2: MY PASSES (User's Active/Expired Packages)
 // ============================================================================
 const UserPassesView = ({ user }) => {
@@ -669,6 +666,7 @@ const UserPassesView = ({ user }) => {
               ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
               : "hidden lg:block"
           }`}>
+          {/* ... (Filters Content) ... */}
           <div className='flex items-center justify-between lg:hidden mb-8'>
             <h3 className='font-bold text-xl'>Filters</h3>
             <button
@@ -833,31 +831,30 @@ const UserPassesView = ({ user }) => {
             </div>
           </div>
 
-          <motion.div layout className='space-y-6'>
-            <AnimatePresence mode='popLayout'>
-              {filteredData.length > 0 ? (
-                filteredData.map((trx) => (
-                  <PassCard
-                    key={trx._id}
-                    trx={trx}
-                    onClick={() => setSelectedPass(trx)} // CLICK HANDLER
-                  />
-                ))
-              ) : (
-                <div className='py-20 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200'>
-                  <div className='w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm text-gray-300'>
-                    <WalletCards className='w-8 h-8' />
-                  </div>
-                  <h3 className='text-lg font-bold text-gray-900 mb-2'>
-                    No passes found
-                  </h3>
-                  <p className='text-gray-500'>
-                    Try adjusting your filters or search.
-                  </p>
+          {/* GLITCH FIX: Removed 'layout' prop */}
+          <div className='space-y-6'>
+            {filteredData.length > 0 ? (
+              filteredData.map((trx) => (
+                <PassCard
+                  key={trx._id}
+                  trx={trx}
+                  onClick={() => setSelectedPass(trx)}
+                />
+              ))
+            ) : (
+              <div className='py-20 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200'>
+                <div className='w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm text-gray-300'>
+                  <WalletCards className='w-8 h-8' />
                 </div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                <h3 className='text-lg font-bold text-gray-900 mb-2'>
+                  No passes found
+                </h3>
+                <p className='text-gray-500'>
+                  Try adjusting your filters or search.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -874,7 +871,7 @@ const UserPassesView = ({ user }) => {
   );
 };
 
-// --- 2. UPDATED PASS CARD (CLICKABLE) ---
+// --- 2. UPDATED PASS CARD (GLITCH FIX: Removed layout) ---
 const PassCard = ({ trx, onClick }) => {
   const isExpired = !trx.isActive || new Date(trx.expiryDate) < new Date();
 
@@ -884,12 +881,11 @@ const PassCard = ({ trx, onClick }) => {
   );
 
   return (
-    <motion.div
-      layout
+    <div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      onClick={onClick} // Attach Click
+      onClick={onClick}
       className={`relative group overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer ${
         isExpired
           ? "bg-gray-50 border-gray-200 grayscale-[0.5]"
@@ -993,7 +989,7 @@ const PassCard = ({ trx, onClick }) => {
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -1045,7 +1041,6 @@ const PassDetailModal = ({ pass, onClose }) => {
                   ? "bg-gray-50 border-gray-200"
                   : "bg-white border-emerald-500"
               }`}>
-              {/* Replace this SVG with your actual QR Code Component */}
               <div className='w-full h-full rounded-lg overflow-hidden'>
                 <QRCode
                   size={256}
@@ -1211,6 +1206,7 @@ const PurchaseHistoryView = ({ user }) => {
               ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
               : "hidden lg:block"
           }`}>
+          {/* ... (Filters Content) ... */}
           <div className='flex items-center justify-between lg:hidden mb-8'>
             <h3 className='font-bold text-xl'>Filters</h3>
             <button
@@ -1316,33 +1312,30 @@ const PurchaseHistoryView = ({ user }) => {
             </div>
           </div>
 
-          <motion.div
-            layout
-            className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
-            <AnimatePresence mode='popLayout'>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((tx) => (
-                  <TransactionCard
-                    key={tx._id}
-                    tx={tx}
-                    onClick={() => setSelectedTransaction(tx)}
-                  />
-                ))
-              ) : (
-                <div className='col-span-full py-20 text-center'>
-                  <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
-                    <History className='w-8 h-8' />
-                  </div>
-                  <h3 className='text-lg font-bold text-gray-900'>
-                    No transactions found
-                  </h3>
-                  <p className='text-gray-500'>
-                    Try adjusting your filters or search.
-                  </p>
+          {/* GLITCH FIX: Removed 'layout' */}
+          <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
+            {filteredTransactions.length > 0 ? (
+              filteredTransactions.map((tx) => (
+                <TransactionCard
+                  key={tx._id}
+                  tx={tx}
+                  onClick={() => setSelectedTransaction(tx)}
+                />
+              ))
+            ) : (
+              <div className='col-span-full py-20 text-center'>
+                <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300'>
+                  <History className='w-8 h-8' />
                 </div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                <h3 className='text-lg font-bold text-gray-900'>
+                  No transactions found
+                </h3>
+                <p className='text-gray-500'>
+                  Try adjusting your filters or search.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1362,11 +1355,11 @@ const PurchaseHistoryView = ({ user }) => {
 // SHARED & SUB COMPONENTS
 // ============================================================================
 
+// GLITCH FIX: Removed layout prop
 const PackageCardMinimal = ({ pkg, onPurchase }) => {
   const priceFormatted = parseInt(pkg.packagePrice).toLocaleString("id-ID");
   return (
-    <motion.div
-      layout
+    <div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'
@@ -1408,10 +1401,11 @@ const PackageCardMinimal = ({ pkg, onPurchase }) => {
           <ShoppingBag className='w-5 h-5' />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
+// GLITCH FIX: Removed layout prop
 const TransactionCard = ({ tx, onClick }) => {
   const config = STATUS_STYLES[tx.status] || STATUS_STYLES.pending;
   const StatusIcon = config.icon;
@@ -1423,8 +1417,7 @@ const TransactionCard = ({ tx, onClick }) => {
   });
 
   return (
-    <motion.div
-      layout
+    <div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'
@@ -1464,7 +1457,7 @@ const TransactionCard = ({ tx, onClick }) => {
           <ChevronRight className='w-5 h-5' />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -1478,22 +1471,12 @@ const InvoicePreviewModal = ({ tx, onClose }) => {
   };
 
   // --- SAFE DATA HANDLING ---
-  // 1. Fallback for ID if transactionId is missing
   const displayId = tx.transactionId || tx._id;
-
-  // 2. Fallback for Amount (default to 0 if missing)
   const amount = tx.totalAmount ? parseInt(tx.totalAmount) : 0;
-
-  // 3. Fallback for Payment Method
   const method = tx.paymentMethod
     ? tx.paymentMethod.replace(/_/g, " ")
     : "Manual / Unknown";
-
-  // 4. Fallback for Credits
-  // If creditsPurchased is missing, we check totalCredits, otherwise show N/A
   const credits = tx.creditsPurchased || "N/A";
-
-  // 5. Fallback for Description
   const description = tx.packageId?.packageDescription || "Package purchase";
 
   const formattedDate = new Date(tx.createdAt).toLocaleDateString("id-ID", {
@@ -1503,7 +1486,7 @@ const InvoicePreviewModal = ({ tx, onClose }) => {
   });
 
   return (
-    <div className='fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 print:p-0 print:bg-white print:static'>
+    <div className='fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 print:p-0 print:bg-white print:static'>
       {/* Styles to handle print visibility */}
       <style>{`
         @media print {
@@ -1738,7 +1721,7 @@ const TransactionDetailModal = ({ tx, onClose }) => {
           initial={{ opacity: 0, y: 100, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 100, scale: 0.95 }}
-          className='relative bg-white w-full max-w-2xl rounded-t-[2rem] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
+          className='relative bg-white w-full max-w-2xl rounded-t-4xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
           {/* Header */}
           <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10'>
             <div>

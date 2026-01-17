@@ -20,7 +20,6 @@ import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 // Assuming you want the Footer here as well since it was in the reference
-import Footer from "../../../../../components/Footer";
 
 const InstructorList = () => {
   const [instructors, setInstructors] = useState([]);
@@ -286,33 +285,29 @@ const InstructorList = () => {
               </div>
             </div>
 
-            <motion.div
-              layout
-              className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
-              <AnimatePresence mode='popLayout'>
-                {filteredInstructors.length > 0 ? (
-                  filteredInstructors.map((instructor) => (
-                    <InstructorCard
-                      key={instructor._id}
-                      data={instructor}
-                      onClick={() => setSelectedInstructor(instructor)}
-                    />
-                  ))
-                ) : (
-                  <div className='col-span-full py-20 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200'>
-                    <div className='w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm text-gray-300'>
-                      <UserCircle className='w-8 h-8' />
-                    </div>
-                    <h3 className='text-lg font-bold text-gray-900 mb-2'>
-                      No instructors found
-                    </h3>
-                    <p className='text-gray-500'>
-                      Try adjusting your filters or search.
-                    </p>
+            <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
+              {filteredInstructors.length > 0 ? (
+                filteredInstructors.map((instructor) => (
+                  <InstructorCard
+                    key={instructor._id}
+                    data={instructor}
+                    onClick={() => setSelectedInstructor(instructor)}
+                  />
+                ))
+              ) : (
+                <div className='col-span-full py-20 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200'>
+                  <div className='w-16 h-16 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm text-gray-300'>
+                    <UserCircle className='w-8 h-8' />
                   </div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+                  <h3 className='text-lg font-bold text-gray-900 mb-2'>
+                    No instructors found
+                  </h3>
+                  <p className='text-gray-500'>
+                    Try adjusting your filters or search.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -326,8 +321,6 @@ const InstructorList = () => {
           />
         )}
       </AnimatePresence>
-
-      <Footer />
     </div>
   );
 };
@@ -339,11 +332,7 @@ const InstructorCard = ({ data, onClick }) => {
   );
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+    <div
       onClick={onClick}
       className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'>
       {/* Accent Strip */}
@@ -412,7 +401,7 @@ const InstructorCard = ({ data, onClick }) => {
           <ChevronRight className='w-5 h-5' />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
