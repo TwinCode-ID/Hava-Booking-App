@@ -1,14 +1,14 @@
 import { API_PATHS } from "./apiPath";
 import axiosInstance from "./axiosInstance";
 
-const uploadImage = async (imageFile, userId) => {
+const uploadProfile = async (imageFile, userId) => {
   const formData = new FormData();
-  formData.append("adminStudioLocation", userId);
+  formData.append("userId", userId);
   formData.append("image", imageFile);
 
   try {
     const response = await axiosInstance.post(
-      API_PATHS.IMAGE.UPLOAD_IMAGE,
+      API_PATHS.IMAGE.UPLOAD_PROFILE,
       formData,
       {
         headers: {
@@ -23,4 +23,4 @@ const uploadImage = async (imageFile, userId) => {
   }
 };
 
-export default uploadImage;
+export default uploadProfile;

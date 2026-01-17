@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../../context/AuthContext";
 import axiosInstance from "../../../../utils/axiosInstance";
-import uploadStudio from "../../../../utils/uploadStudio";
 import { API_PATHS } from "../../../../utils/apiPath";
+import uploadProfile from "../../../../utils/uploadProfile";
 
 const SettingList = () => {
   const { user, setUser } = useAuth();
@@ -149,9 +149,9 @@ const SettingList = () => {
 
       // 1. Upload new image if exists
       if (profileData.newAvatarFile) {
-        const uploadRes = await uploadStudio(
+        const uploadRes = await uploadProfile(
           profileData.newAvatarFile,
-          user.adminStudioLocation
+          user._id
         );
         avatarUrl = uploadRes?.imageUrl || uploadRes?.url || uploadRes;
       }

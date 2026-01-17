@@ -18,7 +18,7 @@ export const API_PATHS = {
   },
 
   IMAGE: {
-    UPLOAD_IMAGE: "/api/auth/upload-image",
+    UPLOAD_PROFILE: "/api/auth/upload-profile",
     UPLOAD_PROOF: "/api/auth/upload-proof",
     UPLOAD_STUDIO: "/api/auth/upload-studio",
   },
