@@ -18,6 +18,7 @@ import {
   setMinutes,
   isValid,
   getDay,
+  setDay,
   addMinutes,
   isWithinInterval,
 } from "date-fns";
@@ -671,7 +672,7 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
   );
 };
 
-// --- UPDATED CreateClassModal (Handles CREATE & EDIT with Fixes) ---
+// --- UPDATED CreateClassModal (Multi-date error accumulation) ---
 const CreateClassModal = ({
   onClose,
   instructors,
@@ -681,10 +682,13 @@ const CreateClassModal = ({
   initialData,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [updateMode, setUpdateMode] = useState(null); // 'single' or 'all'
+  const [updateMode, setUpdateMode] = useState(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  // NEW: State for picking single vs series when editing recurring
   const [showRecurrenceSelect, setShowRecurrenceSelect] = useState(false);
+
+  // New State for Multi-Select Days
+  // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const [selectedRecurrenceDays, setSelectedRecurrenceDays] = useState([]);
 
   const [form, setForm] = useState({
     className: "",
@@ -697,8 +701,8 @@ const CreateClassModal = ({
     capacity: "",
     isRecurring: false,
     isActive: true,
-    recurrenceRule: "Daily",
-    recurrenceCount: "",
+    recurrenceRule: "Weekly", // Defaulting to Weekly as main logic
+    recurrenceCount: "", // Now acts as "Number of Weeks"
   });
 
   // Populate form if editing
@@ -714,11 +718,28 @@ const CreateClassModal = ({
         duration: initialData.duration,
         capacity: initialData.capacity,
         isRecurring: initialData.isRecurring,
-        recurrenceRule: initialData.recurrenceRule,
+        recurrenceRule: "Weekly",
         recurrenceCount: initialData.recurrenceCount || 1,
       });
+      // If editing a recurring class that was "Weekly", map the days
+      if (initialData.selectedDays && Array.isArray(initialData.selectedDays)) {
+        setSelectedRecurrenceDays(initialData.selectedDays);
+      } else {
+        // Fallback: If no explicit days saved, assume the day of the start time
+        setSelectedRecurrenceDays([getDay(parseISO(initialData.startTime))]);
+      }
+    } else {
+      // For new class, default selected day to the current start date's day
+      setSelectedRecurrenceDays([getDay(new Date())]);
     }
   }, [initialData]);
+
+  // Update selected day default when date changes (if user hasn't manually messed with it too much)
+  useEffect(() => {
+    if (!initialData && !form.isRecurring) {
+      setSelectedRecurrenceDays([getDay(parseISO(form.startTime))]);
+    }
+  }, [form.startTime, initialData, form.isRecurring]);
 
   // State for Availability
   const [isAvailable, setIsAvailable] = useState(true);
@@ -733,7 +754,28 @@ const CreateClassModal = ({
   }, [instructors, studioId]);
 
   const classTypeOptions = ["Group", "Private", "Duet"];
-  const recurrenceOptions = ["Daily", "Weekly", "Monthly"];
+
+  const weekDayButtons = [
+    { label: "Sun", value: 0 },
+    { label: "Mon", value: 1 },
+    { label: "Tue", value: 2 },
+    { label: "Wed", value: 3 },
+    { label: "Thu", value: 4 },
+    { label: "Fri", value: 5 },
+    { label: "Sat", value: 6 },
+  ];
+
+  const toggleDay = (dayIndex) => {
+    setSelectedRecurrenceDays((prev) => {
+      if (prev.includes(dayIndex)) {
+        // Prevent deselecting the last day (must have at least one)
+        if (prev.length === 1) return prev;
+        return prev.filter((d) => d !== dayIndex);
+      } else {
+        return [...prev, dayIndex].sort();
+      }
+    });
+  };
 
   const getMinutes = (timeStr) => {
     const [h, m] = timeStr.split(":").map(Number);
@@ -749,6 +791,7 @@ const CreateClassModal = ({
     form.isRecurring,
     form.recurrenceRule,
     form.recurrenceCount,
+    selectedRecurrenceDays, // Re-check if days change
     existingClasses,
   ]);
 
@@ -769,18 +812,28 @@ const CreateClassModal = ({
     if (!form.isRecurring || (initialData && updateMode === "single")) {
       datesToCheck.push(startDate);
     } else {
-      const count = parseInt(form.recurrenceCount) || 1;
-      for (let i = 0; i < count; i++) {
-        let nextDate = new Date(startDate);
-        if (form.recurrenceRule === "Daily") nextDate = addDays(startDate, i);
-        else if (form.recurrenceRule === "Weekly")
-          nextDate = addWeeks(startDate, i);
-        else if (form.recurrenceRule === "Monthly")
-          nextDate = addMonths(startDate, i);
-        datesToCheck.push(nextDate);
+      const weeksToRun = parseInt(form.recurrenceCount) || 1;
+
+      // LOGIC: For the number of weeks specified, grab the dates for selected days
+      for (let i = 0; i < weeksToRun; i++) {
+        const weekBase = startOfWeek(addWeeks(startDate, i), {
+          weekStartsOn: 0,
+        });
+
+        selectedRecurrenceDays.forEach((dayIndex) => {
+          // Calculate the specific date in that week
+          const targetDate = addDays(weekBase, dayIndex);
+          datesToCheck.push(targetDate);
+        });
       }
     }
 
+    // ACCUMULATE ERRORS
+    let notWorkingDates = [];
+    let timeConflicts = [];
+    let overlapConflicts = [];
+
+    // --- Validation Loop ---
     for (const dateObj of datesToCheck) {
       const dayKey = format(dateObj, "EEEE").toLowerCase();
       const dailyShifts = instructor.workingHours?.[dayKey] || [];
@@ -788,40 +841,25 @@ const CreateClassModal = ({
         (shift) => shift.location?._id === studioId
       );
 
-      if (isSameDay(dateObj, startDate)) setWorkingHoursDisplay(studioShifts);
+      // Only show working hours for the very first checked date to keep UI clean
+      if (datesToCheck.indexOf(dateObj) === 0)
+        setWorkingHoursDisplay(studioShifts);
 
+      // 1. Check Working Hours
       if (studioShifts.length === 0) {
-        setIsAvailable(false);
-        setAvailabilityMessage(`Instructor is not working on ${dayKey}s.`);
-        const allDays = [
-          "monday",
-          "tuesday",
-          "wednesday",
-          "thursday",
-          "friday",
-          "saturday",
-          "sunday",
-        ];
-        const activeDays = allDays
-          .filter((day) =>
-            instructor.workingHours?.[day]?.some(
-              (s) => s.location?._id === studioId
-            )
-          )
-          .map((d) => d.charAt(0).toUpperCase() + d.slice(1));
-        setAvailableDaysSuggestion(
-          activeDays.length > 0
-            ? `Working days: ${activeDays.join(", ")}`
-            : "No working hours assigned."
-        );
-        return;
+        notWorkingDates.push(format(dateObj, "d MMM"));
+        continue; // Skip time check if not working at all
       }
 
-      const classStart = dateObj;
-      const classEnd = addMinutes(dateObj, parseInt(form.duration));
+      const classStart = new Date(dateObj);
+      // Ensure time matches the form start time
+      classStart.setHours(new Date(form.startTime).getHours());
+      classStart.setMinutes(new Date(form.startTime).getMinutes());
+
+      const classEnd = addMinutes(classStart, parseInt(form.duration) || 0);
       const classStartMins =
         classStart.getHours() * 60 + classStart.getMinutes();
-      const classEndMins = classStartMins + parseInt(form.duration);
+      const classEndMins = classStartMins + (parseInt(form.duration) || 0);
 
       let fitsInShift = false;
       for (let shift of studioShifts) {
@@ -834,11 +872,12 @@ const CreateClassModal = ({
       }
 
       if (!fitsInShift) {
-        setIsAvailable(false);
-        setAvailabilityMessage(`Time is outside working hours.`);
-        return;
+        // Accumulate Time Conflict
+        timeConflicts.push(format(classStart, "d MMM"));
+        continue;
       }
 
+      // 2. Check Conflicts with Existing Classes
       const instructorClasses = existingClasses.filter((cls) => {
         const clsInstructorId = cls.instructorId?._id || cls.instructorId;
         const isSelf = initialData && cls._id === initialData._id;
@@ -852,15 +891,46 @@ const CreateClassModal = ({
       for (let existingClass of instructorClasses) {
         const existingStart = parseISO(existingClass.startTime);
         const existingEnd = addMinutes(existingStart, existingClass.duration);
+        // Overlap check
         if (classStart < existingEnd && classEnd > existingStart) {
-          setIsAvailable(false);
-          setAvailabilityMessage(`Conflict with "${existingClass.className}"`);
-          return;
+          overlapConflicts.push(
+            `${format(classStart, "d MMM")} (${existingClass.className})`
+          );
+          break; // Found one conflict for this specific date, move to next date
         }
       }
     }
-    setIsAvailable(true);
-    setAvailabilityMessage("Instructor is available.");
+
+    // --- Final Decision ---
+    if (
+      notWorkingDates.length > 0 ||
+      timeConflicts.length > 0 ||
+      overlapConflicts.length > 0
+    ) {
+      setIsAvailable(false);
+      let messages = [];
+
+      if (notWorkingDates.length > 0) {
+        messages.push(
+          `Instructor not working on: ${notWorkingDates.join(", ")}.`
+        );
+      }
+      if (timeConflicts.length > 0) {
+        messages.push(
+          `Time outside working hours on: ${timeConflicts.join(", ")}.`
+        );
+      }
+      if (overlapConflicts.length > 0) {
+        messages.push(
+          `Conflict with classes on: ${overlapConflicts.join(", ")}.`
+        );
+      }
+
+      setAvailabilityMessage(messages.join(" "));
+    } else {
+      setIsAvailable(true);
+      setAvailabilityMessage("Instructor is available for all sessions.");
+    }
   };
 
   const handleInstructorSelect = (selectedId) => {
@@ -893,13 +963,10 @@ const CreateClassModal = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isAvailable) return;
-
-    // Check if this is a recurring class edit and we haven't selected a mode yet
     if (initialData?.isRecurring && !updateMode) {
       setShowRecurrenceSelect(true);
       return;
     }
-
     setShowConfirmation(true);
   };
 
@@ -917,17 +984,24 @@ const CreateClassModal = ({
   const handleFinalSubmit = async (mode) => {
     setLoading(true);
     try {
+      // Prepare payload with selected days
+      const payload = {
+        ...form,
+        studioId: studioId,
+        isRecurring: Boolean(form.isRecurring),
+        recurrenceRule: "Weekly", // Explicitly set to Weekly for this logic
+        // Send selected days to backend
+        selectedDays: selectedRecurrenceDays,
+        updateMode: mode || "single",
+      };
+
       if (initialData) {
         await axiosInstance.put(
           API_PATHS.SCHEDULE.UPDATE_SCHEDULE(initialData._id),
-          { ...form, updateMode: mode || "single" }
+          payload
         );
       } else {
-        await axiosInstance.post(API_PATHS.SCHEDULE.CREATE_SCHEDULE, {
-          ...form,
-          studioId: studioId,
-          isRecurring: Boolean(form.isRecurring),
-        });
+        await axiosInstance.post(API_PATHS.SCHEDULE.CREATE_SCHEDULE, payload);
       }
       onSuccess();
     } catch (err) {
@@ -966,6 +1040,7 @@ const CreateClassModal = ({
 
         <div className='overflow-y-auto p-6'>
           <form onSubmit={handleSubmit} className='space-y-6'>
+            {/* ... (Previous inputs: Class Name, Description, Instructor, etc. remain unchanged) ... */}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
               <div className='col-span-2'>
                 <label className='block text-sm font-bold text-gray-700 mb-1'>
@@ -1030,7 +1105,7 @@ const CreateClassModal = ({
                   Capacity
                 </label>
                 <input
-                  type='number'
+                  type='string'
                   className='w-full h-10.5 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
                   value={form.capacity}
                   onChange={(e) =>
@@ -1055,10 +1130,10 @@ const CreateClassModal = ({
               </div>
               <div className='col-span-1 md:col-span-2'>
                 <label className='block text-xs font-bold text-gray-700 mb-1'>
-                  Duration (min)
+                  Duration (minutes)
                 </label>
                 <input
-                  type='number'
+                  type='string'
                   className='w-full h-10.5 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
                   value={form.duration}
                   onChange={(e) =>
@@ -1069,59 +1144,58 @@ const CreateClassModal = ({
               </div>
             </div>
 
+            {/* Availability Indicator */}
             {form.instructorId && (
-              <div
-                className={`p-4 rounded-xl border flex items-start gap-3 ${
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-4 rounded-2xl border flex items-start gap-4 ${
                   isAvailable
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    : "bg-red-50 border-red-200 text-red-800"
+                    ? "bg-emerald-50 border-emerald-100"
+                    : "bg-red-50 border-red-100"
                 }`}>
-                {isAvailable ? (
-                  <CheckCircle2 className='w-5 h-5 shrink-0 mt-0.5' />
-                ) : (
-                  <AlertCircle className='w-5 h-5 shrink-0 mt-0.5' />
-                )}
-                <div className='flex-1'>
-                  <p className='font-bold text-sm'>
+                <div
+                  className={`mt-0.5 p-1.5 rounded-full shrink-0 ${
+                    isAvailable
+                      ? "bg-emerald-100 text-emerald-600"
+                      : "bg-red-100 text-red-600"
+                  }`}>
+                  {isAvailable ? (
+                    <CheckCircle2 className='w-5 h-5' />
+                  ) : (
+                    <AlertCircle className='w-5 h-5' />
+                  )}
+                </div>
+                <div>
+                  <h4
+                    className={`font-bold text-base leading-tight ${
+                      isAvailable ? "text-emerald-900" : "text-red-900"
+                    }`}>
                     {isAvailable ? "Available" : "Unavailable"}
-                  </p>
-                  <p className='text-xs mt-1 font-medium'>
+                  </h4>
+                  <p
+                    className={`text-sm mt-1 font-medium leading-relaxed ${
+                      isAvailable ? "text-emerald-700" : "text-red-700"
+                    }`}>
                     {availabilityMessage}
                   </p>
                   {!isAvailable && availableDaysSuggestion && (
-                    <p className='text-xs mt-1 opacity-80'>
+                    <p className='text-xs mt-2 text-red-500 font-semibold bg-red-100/50 px-2 py-1 rounded-md inline-block'>
                       {availableDaysSuggestion}
                     </p>
                   )}
-                  {workingHoursDisplay.length > 0 && (
-                    <div className='mt-2 pt-2 border-t border-black/10'>
-                      <p className='text-xs font-bold uppercase tracking-wider opacity-70 mb-1'>
-                        Working Hours on{" "}
-                        {format(new Date(form.startTime), "EEEE")}
-                      </p>
-                      <div className='flex flex-wrap gap-2'>
-                        {workingHoursDisplay.map((slot, idx) => (
-                          <span
-                            key={idx}
-                            className='text-xs bg-white/50 px-2 py-1 rounded border border-black/10'>
-                            {slot.start} - {slot.end}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {!initialData && (
-              <div className='bg-gray-50 p-4 rounded-xl border border-gray-200'>
+            {/* --- UPDATED: Always show Recurring Section, even in Edit Mode --- */}
+            <div className='bg-gray-50 p-4 rounded-xl border border-gray-200 transition-all'>
+              {!initialData ? (
                 <div className='flex items-center gap-2 mb-4'>
                   <input
                     type='checkbox'
                     id='recurring'
-                    className='w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500'
-                    checked={form.isRecurring}
+                    className='w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 accent-emerald-600'
                     onChange={(e) =>
                       setForm({ ...form, isRecurring: e.target.checked })
                     }
@@ -1129,38 +1203,85 @@ const CreateClassModal = ({
                   <label
                     htmlFor='recurring'
                     className='font-bold text-gray-900 text-sm select-none cursor-pointer'>
-                    Repeat this class
+                    Recurring Class
                   </label>
                 </div>
-                {form.isRecurring && (
-                  <div className='grid grid-cols-2 gap-4'>
-                    <div>
-                      <CustomSelect
-                        label='Frequency'
-                        options={recurrenceOptions}
-                        value={form.recurrenceRule}
-                        onChange={(val) =>
-                          setForm({ ...form, recurrenceRule: val })
-                        }
-                      />
+              ) : initialData && initialData.isRecurring ? (
+                <div className='flex items-center gap-2 mb-4'>
+                  <input
+                    type='checkbox'
+                    id='recurring'
+                    checked={true}
+                    disabled={initialData.isRecurring}
+                    className='w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 accent-emerald-600'
+                    onChange={(e) =>
+                      setForm({ ...form, isRecurring: e.target.checked })
+                    }
+                  />
+                  <label
+                    htmlFor='recurring'
+                    className='font-bold text-gray-900 text-sm select-none cursor-pointer'>
+                    Recurring Class
+                  </label>
+                </div>
+              ) : null}
+
+              {form.isRecurring && (
+                <div className='mt-4 animate-in fade-in slide-in-from-top-2 duration-300'>
+                  <div className='flex flex-col md:flex-row gap-6 items-start'>
+                    {/* Day Selector */}
+                    <div className='flex-1'>
+                      <label className='block text-xs font-bold text-gray-500 mb-2'>
+                        Select Days
+                      </label>
+                      <div className='flex flex-wrap gap-2'>
+                        {weekDayButtons.map((day) => {
+                          const isSelected = selectedRecurrenceDays.includes(
+                            day.value
+                          );
+                          return (
+                            <button
+                              key={day.value}
+                              type='button'
+                              onClick={() => toggleDay(day.value)}
+                              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
+                                isSelected
+                                  ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                                  : "bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50"
+                              }`}>
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div>
-                      <label className='block text-xs font-bold text-gray-500 mb-1'>
-                        Occurrences
+
+                    {/* Weeks Input */}
+                    <div className='w-full md:w-32 shrink-0'>
+                      <label className='block text-xs font-bold text-gray-500 mb-2'>
+                        Duration (Weeks)
                       </label>
                       <input
-                        type='number'
-                        className='w-full h-10.5 p-3 border rounded-xl text-sm bg-white'
+                        type='string'
+                        className='w-full p-2.5 border rounded-xl text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-emerald-500'
                         value={form.recurrenceCount}
                         onChange={(e) =>
-                          setForm({ ...form, recurrenceCount: e.target.value })
+                          setForm({
+                            ...form,
+                            recurrenceCount: e.target.value,
+                          })
                         }
+                        placeholder='1'
                       />
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+                  <p className='text-[10px] text-gray-400 mt-2'>
+                    Class will repeat for {form.recurrenceCount || 1} week(s) on
+                    selected days.
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className='pt-2 flex gap-3 pb-2'>
               <button
@@ -1180,14 +1301,14 @@ const CreateClassModal = ({
                 {loading
                   ? "Saving..."
                   : initialData
-                  ? "Update Class"
-                  : "Create Schedule"}
+                    ? "Update Class"
+                    : "Create Schedule"}
               </button>
             </div>
           </form>
         </div>
 
-        {/* --- OVERLAY: Recurrence Choice --- */}
+        {/* ... (Confirmation Overlays remain the same) ... */}
         <AnimatePresence>
           {showRecurrenceSelect && (
             <motion.div
@@ -1229,7 +1350,7 @@ const CreateClassModal = ({
           )}
         </AnimatePresence>
 
-        {/* --- OVERLAY: Final Confirmation --- */}
+        {/* ... (Final Confirmation Overlay remains the same) ... */}
         <AnimatePresence>
           {showConfirmation && (
             <motion.div
@@ -1265,7 +1386,7 @@ const CreateClassModal = ({
                 <button
                   type='button'
                   onClick={() => {
-                    setShowConfirmation(false), setUpdateMode(null);
+                    (setShowConfirmation(false), setUpdateMode(null));
                   }}
                   className='w-full py-3.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors'>
                   Back to Edit
@@ -1394,7 +1515,7 @@ const PDFPreviewModal = ({ pdfUrl, onClose }) => {
   );
 };
 
-const CustomDatePicker = ({ label, value, onChange }) => {
+const CustomDatePicker = ({ label, value, onChange, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
   const dateValue = value ? new Date(value) : new Date();
@@ -1417,21 +1538,29 @@ const CustomDatePicker = ({ label, value, onChange }) => {
       </label>
       <button
         type='button'
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-10.5 px-3 border rounded-xl flex items-center justify-between transition-all bg-white ${
-          isOpen
-            ? "border-emerald-500 ring-2 ring-emerald-500/20"
-            : "border-gray-200 hover:border-emerald-500"
-        }`}>
-        <span className='text-sm font-medium text-gray-900 flex items-center gap-2'>
-          <CalendarIcon className='w-4 h-4 text-gray-500' />
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`w-full h-10.5 px-3 border rounded-xl flex items-center justify-between transition-all ${
+          disabled
+            ? "bg-gray-100 border-gray-200 cursor-not-allowed"
+            : "bg-white border-gray-200 hover:border-emerald-500"
+        } ${isOpen ? "border-emerald-500 ring-2 ring-emerald-500/20" : ""}`}>
+        <span
+          className={`text-sm font-medium flex items-center gap-2 ${
+            disabled ? "text-gray-400" : "text-gray-900"
+          }`}>
+          <CalendarIcon
+            className={`w-4 h-4 ${disabled ? "text-gray-400" : "text-gray-500"}`}
+          />
           {value ? format(dateValue, "dd MMM yyyy") : "Select Date"}
         </span>
-        <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
+        {!disabled && (
+          <ChevronDown
+            className={`w-4 h-4 text-gray-400 transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        )}
       </button>
       <AnimatePresence>
         {isOpen && (
@@ -1620,7 +1749,7 @@ const CalendarSinglePicker = ({ selectedDate, onChange }) => {
         </button>
       </div>
       <div className='grid grid-cols-7 mb-2 text-center text-xs font-bold text-gray-400'>
-        {["M", "T", "W", "T", "F", "S", "S"].map((d) => (
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
           <span key={d}>{d}</span>
         ))}
       </div>
