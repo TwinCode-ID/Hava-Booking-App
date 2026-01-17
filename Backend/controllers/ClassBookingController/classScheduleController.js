@@ -135,59 +135,152 @@ exports.getStudioClasses = async (req, res) => {
 
 // --- 3. UPDATE CLASS ---
 exports.updateClass = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { id } = req.params;
     const { updateMode, ...updateData } = req.body;
 
-    const targetClass = await ClassSchedule.findById(id);
+    const targetClass = await ClassSchedule.findById(id).session(session);
     if (!targetClass) throw new Error("Class not found");
 
-    // Case A: Update Single
+    // --- CASE A: Update Single Class ---
     if (!updateMode || updateMode === "single") {
       if (updateData.startTime || updateData.duration) {
         const newStart = updateData.startTime
           ? new Date(updateData.startTime)
-          : targetClass.startTime;
+          : new Date(targetClass.startTime);
+
         const dur = updateData.duration || targetClass.duration;
         const newEnd = new Date(newStart.getTime() + dur * 60000);
 
-        if (
-          await checkConflicts(targetClass.instructorId, newStart, newEnd, id)
-        ) {
-          throw new Error("Cannot move class: Time conflict.");
+        // Conflict Check
+        const hasConflict = await checkConflicts(
+          updateData.instructorId || targetClass.instructorId,
+          newStart,
+          newEnd,
+          id
+        );
+
+        if (hasConflict) {
+          throw new Error(`Time conflict detected for this class.`);
         }
+
         updateData.endTime = newEnd;
       }
 
       const updated = await ClassSchedule.findByIdAndUpdate(id, updateData, {
         new: true,
+        session,
       });
+
+      await session.commitTransaction();
       return res.status(200).json(updated);
     }
 
-    // Case B: Update Series
+    // --- CASE B: Update Entire Series ---
     if (updateMode === "all" && targetClass.recurrenceGroupId) {
-      if (updateData.startTime) {
-        return res
-          .status(400)
-          .json({ error: "Cannot update Start Time for bulk series." });
+      // 1. Fetch all classes in the series
+      const seriesClasses = await ClassSchedule.find({
+        recurrenceGroupId: targetClass.recurrenceGroupId,
+      }).session(session);
+
+      const bulkOps = [];
+
+      // 2. Iterate through EVERY class in the series
+      for (const currentClass of seriesClasses) {
+        let newStart = new Date(currentClass.startTime);
+        let newEnd = new Date(currentClass.endTime);
+        let isTimeChanged = false;
+
+        // A. Handle Time Change (Apply new HH:MM to existing Date)
+        if (updateData.startTime) {
+          const requestedTime = new Date(updateData.startTime);
+
+          // Set the hours/minutes from the request, but keep the original Year/Month/Day
+          newStart.setHours(
+            requestedTime.getHours(),
+            requestedTime.getMinutes(),
+            0,
+            0
+          );
+          isTimeChanged = true;
+        }
+
+        // B. Handle Duration Change
+        if (updateData.duration || isTimeChanged) {
+          const duration = updateData.duration || currentClass.duration;
+          newEnd = new Date(newStart.getTime() + duration * 60000);
+        }
+
+        // C. Check Conflicts for THIS specific instance
+        if (
+          updateData.startTime ||
+          updateData.duration ||
+          updateData.instructorId
+        ) {
+          const instructorToCheck =
+            updateData.instructorId || currentClass.instructorId;
+
+          // We must check if this specific calculated slot is free
+          const hasConflict = await checkConflicts(
+            instructorToCheck,
+            newStart,
+            newEnd,
+            currentClass._id // Exclude itself
+          );
+
+          if (hasConflict) {
+            throw new Error(
+              `Conflict detected for class on ${newStart.toDateString()} at ${newStart.toTimeString()}. Update aborted.`
+            );
+          }
+        }
+
+        // D. Prepare the update object
+        const finalUpdateData = { ...updateData };
+
+        // If we calculated new times, explicitly set them
+        if (isTimeChanged || updateData.duration) {
+          finalUpdateData.startTime = newStart;
+          finalUpdateData.endTime = newEnd;
+        } else {
+          // If time wasn't touched, remove startTime from updateData
+          // to prevent overwriting dates with the single date from req.body
+          delete finalUpdateData.startTime;
+          delete finalUpdateData.endTime;
+        }
+
+        // E. Add to Bulk Operations
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: currentClass._id },
+            update: { $set: finalUpdateData },
+          },
+        });
       }
-      const result = await ClassSchedule.updateMany(
-        { recurrenceGroupId: targetClass.recurrenceGroupId },
-        { $set: updateData }
-      );
+
+      // 3. Execute all updates at once
+      if (bulkOps.length > 0) {
+        await ClassSchedule.bulkWrite(bulkOps, { session });
+      }
+
+      await session.commitTransaction();
       return res.status(200).json({
-        message: "Series updated",
-        modifiedCount: result.modifiedCount,
+        message: "Series updated successfully",
+        modifiedCount: bulkOps.length,
       });
     }
 
     res.status(400).json({ error: "Invalid update mode" });
   } catch (error) {
+    await session.abortTransaction();
     res.status(400).json({ error: error.message });
+  } finally {
+    session.endSession();
   }
 };
-
 // --- 4. DELETE CLASS ---
 exports.toggleClass = async (req, res) => {
   try {

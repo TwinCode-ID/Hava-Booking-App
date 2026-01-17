@@ -70,6 +70,10 @@ exports.createPurchase = async (req, res) => {
 
     await newPurchase.save({ session });
 
+    const packageDetails = await Packages.findById(
+      newPurchase.packageId
+    ).session(session);
+
     // --- AUTO-CONFIRM LOGIC (For Direct Payment or Manual Admin) ---
     if (paymentStatus === "confirmed") {
       const passExpiry = new Date();
@@ -82,9 +86,9 @@ exports.createPurchase = async (req, res) => {
         packageId: packageId,
         purchaseDate: new Date(),
         expiryDate: passExpiry,
-        remainingCredits: purchase.creditsPurchased,
-        initialCredits: purchase.creditsPurchased,
-        issuingStudio: purchase.issuingStudio,
+        remainingCredits: newPurchase.creditsPurchased,
+        initialCredits: newPurchase.creditsPurchased,
+        issuingStudio: newPurchase.issuingStudio,
         isActive: true,
         classType: packageDetails.classType,
         instructorType: packageDetails.instructorType,
