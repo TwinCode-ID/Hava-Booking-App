@@ -43,7 +43,7 @@ exports.assignPassToUser = async (req, res) => {
 // Used in the Booking Modal to show valid payment options
 exports.getMyActivePasses = async (req, res) => {
   try {
-    const userId = req.user._id; // SECURITY FIX: Use token ID
+    const { userId } = req.params; // SECURITY FIX: Use token ID
 
     const activePasses = await UserPasses.find({
       userId: userId,

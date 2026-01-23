@@ -44,9 +44,6 @@ exports.createPurchase = async (req, res) => {
 
     // Determine status
     if (paymentMethod === "pay_at_studio" || paymentMethod === "manual_admin") {
-      // If admin creates it ("manual_admin") or "pay_at_studio", we can set it to confirmed immediately if desired,
-      // OR keep it pending.
-      // Based on your frontend code, you send status: "confirmed" for manual_admin.
       paymentStatus = req.body.status || "pending";
     } else if (paymentMethod === "direct_payment") {
       paymentStatus = "confirmed";
@@ -74,7 +71,7 @@ exports.createPurchase = async (req, res) => {
     if (paymentStatus === "confirmed") {
       const passExpiry = new Date();
       passExpiry.setDate(
-        passExpiry.getDate() + (packageInfo.validityDays || 30)
+        passExpiry.getDate() + (packageInfo.validityDays || 30),
       );
 
       const newUserPass = new UserPasses({
@@ -82,12 +79,14 @@ exports.createPurchase = async (req, res) => {
         packageId: packageId,
         purchaseDate: new Date(),
         expiryDate: passExpiry,
-        remainingCredits: purchase.creditsPurchased,
-        initialCredits: purchase.creditsPurchased,
-        issuingStudio: purchase.issuingStudio,
+        // FIX 1: Use 'newPurchase' instead of undefined 'purchase'
+        remainingCredits: newPurchase.creditsPurchased,
+        initialCredits: newPurchase.creditsPurchased,
+        issuingStudio: newPurchase.issuingStudio,
         isActive: true,
-        classType: packageDetails.classType,
-        instructorType: packageDetails.instructorType,
+        // FIX 2: Use 'packageInfo' instead of undefined 'packageDetails'
+        classType: packageInfo.classType,
+        instructorType: packageInfo.instructorType,
       });
 
       await newUserPass.save({ session });
@@ -108,13 +107,14 @@ exports.createPurchase = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
+    console.error("Purchase Error:", error); // Helpful for debugging
     res.status(400).json({ error: error.message });
   } finally {
     session.endSession();
   }
 };
 
-// --- 2. UPLOAD PROOF (User Action) ---
+// ... (Rest of the file remains unchanged: uploadProof, adminReviewPayment, getMyPurchases, etc.)
 exports.uploadProof = async (req, res) => {
   try {
     const { purchaseId } = req.params;
@@ -154,20 +154,17 @@ exports.uploadProof = async (req, res) => {
   }
 };
 
-// --- 3. ADMIN REVIEW (Approve or Reject) ---
 exports.adminReviewPayment = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { purchaseId } = req.params;
-    // Get rejectionReason from body
     const { action, rejectionReason, paymentIssuer } = req.body;
 
     let purchase = await PackagePurchase.findById(purchaseId).session(session);
     if (!purchase) throw new Error("Purchase record not found.");
 
-    // 1. Manual Time Check inside Transaction
     if (new Date() > purchase.paymentWindowExpiry) {
       purchase.status = "expired";
       await purchase.save({ session });
@@ -178,17 +175,17 @@ exports.adminReviewPayment = async (req, res) => {
       });
     }
 
-    // --- SCENARIO A: APPROVE ---
     if (action === "approve") {
       if (purchase.status === "confirmed") throw new Error("Already confirmed");
 
+      // Here 'packageDetails' IS defined correctly because we fetch it freshly
       const packageDetails = await Packages.findById(
-        purchase.packageId
+        purchase.packageId,
       ).session(session);
 
       const passExpiry = new Date();
       passExpiry.setDate(
-        passExpiry.getDate() + (packageDetails.validityDays || 30)
+        passExpiry.getDate() + (packageDetails.validityDays || 30),
       );
 
       const newUserPass = new UserPasses({
@@ -216,20 +213,14 @@ exports.adminReviewPayment = async (req, res) => {
       return res
         .status(200)
         .json({ message: "Payment confirmed.", passId: newUserPass._id });
-    }
-
-    // --- SCENARIO B: REJECT ---
-    else if (action === "reject") {
+    } else if (action === "reject") {
       const now = new Date();
 
-      // If time is up, force expire
       if (now > purchase.paymentWindowExpiry) {
         purchase.status = "expired";
         purchase.rejectionReason = "Payment window expired.";
       } else {
-        // Time remains: Allow re-upload
         purchase.status = "payment_rejected";
-        // Save the admin's note
         purchase.rejectionReason =
           rejectionReason || "Proof rejected. Please upload a valid proof.";
       }
@@ -251,25 +242,20 @@ exports.adminReviewPayment = async (req, res) => {
   }
 };
 
-// --- 4. GET MY PURCHASES (With Auto-Expiry Check) ---
 exports.getMyPurchases = async (req, res) => {
   try {
     const { userId } = req.params;
-
-    // 1. First, find any "pending" or "payment_rejected" items that have passed their deadline
-    // and bulk update them to "expired" so the user sees the correct status.
     await PackagePurchase.updateMany(
       {
         userId: userId,
         status: { $in: ["pending", "payment_rejected"] },
-        paymentWindowExpiry: { $lt: new Date() }, // Time is up
+        paymentWindowExpiry: { $lt: new Date() },
       },
       {
         $set: { status: "expired" },
-      }
+      },
     );
 
-    // 2. Fetch the updated list
     const history = await PackagePurchase.find({ userId })
       .populate("issuingStudio", "studioName")
       .populate("userId", "fullName")
@@ -285,21 +271,17 @@ exports.getMyPurchases = async (req, res) => {
 exports.getStudioPurchasesHistory = async (req, res) => {
   try {
     const { studioId } = req.params;
-
-    // 1. First, find any "pending" or "payment_rejected" items that have passed their deadline
-    // and bulk update them to "expired" so the user sees the correct status.
     await PackagePurchase.updateMany(
       {
         issuingStudio: studioId,
         status: { $in: ["pending", "payment_rejected"] },
-        paymentWindowExpiry: { $lt: new Date() }, // Time is up
+        paymentWindowExpiry: { $lt: new Date() },
       },
       {
         $set: { status: "expired" },
-      }
+      },
     );
 
-    // 2. Fetch the updated list
     const history = await PackagePurchase.find({ issuingStudio: studioId })
       .populate("userId", "fullName")
       .populate("packageId", "packageName price")

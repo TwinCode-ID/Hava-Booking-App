@@ -82,5 +82,6 @@ export const API_PATHS = {
     CREATE_BOOKING: "/api/bookings",
     CANCEL_BOOKING: "/api/bookings/cancel",
     STUDENT_CHECK_IN: (bookingId) => `/api/bookings/${bookingId}`,
+    GET_CLASS_BOOKINGS: (classId) => `/api/bookings/class/${classId}`,
   },
 };

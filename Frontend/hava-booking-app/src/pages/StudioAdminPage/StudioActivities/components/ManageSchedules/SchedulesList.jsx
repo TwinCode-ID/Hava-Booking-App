@@ -43,6 +43,7 @@ import {
   Check,
   AlertTriangle,
   Layers,
+  Search, // Added Search Icon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
@@ -114,7 +115,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
         API_PATHS.SCHEDULE.GET_BY_STUDIO_ID(user.adminStudioLocation),
         {
           params: { studioId: user.adminStudioLocation },
-        }
+        },
       );
       setClasses(res.data);
     } catch (error) {
@@ -149,11 +150,11 @@ const SchedulesList = ({ isEmbedded = false }) => {
     doc.setTextColor(100);
     const startStr = format(
       startOfWeek(currentDate, { weekStartsOn: 1 }),
-      "dd MMM yyyy"
+      "dd MMM yyyy",
     );
     const endStr = format(
       endOfWeek(currentDate, { weekStartsOn: 1 }),
-      "dd MMM yyyy"
+      "dd MMM yyyy",
     );
     doc.text(`Week: ${startStr} - ${endStr}`, 14, 30);
     const tableRows = classes.map((cls) => [
@@ -178,7 +179,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }).map((_, i) =>
-    addDays(weekStart, i)
+    addDays(weekStart, i),
   );
   const nextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
   const prevWeek = () => setCurrentDate(subWeeks(currentDate, 1));
@@ -308,7 +309,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
             <div className='grid grid-cols-7 h-full min-h-125'>
               {weekDays.map((day) => {
                 const dayClasses = classes.filter((c) =>
-                  isSameDay(parseISO(c.startTime), day)
+                  isSameDay(parseISO(c.startTime), day),
                 );
                 return (
                   <div
@@ -400,12 +401,128 @@ const SchedulesList = ({ isEmbedded = false }) => {
   );
 };
 
-// --- COMPONENT: Class Details Modal ---
+// --- COMPONENT: Updated Class Details Modal with Client Management ---
 const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
+  const [activeTab, setActiveTab] = useState("details"); // 'details' or 'attendees'
+  const [bookings, setBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+
+  // States for Adding a Student
+  const [showAddStudent, setShowAddStudent] = useState(false);
+  const [users, setUsers] = useState([]); // All users list
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userPasses, setUserPasses] = useState([]);
+  const [selectedPass, setSelectedPass] = useState(null);
+  const [bookingProcessing, setBookingProcessing] = useState(false);
+
+  // States for Confirmation
   const [actionLoading, setActionLoading] = useState(false);
   const [showRecurrenceOption, setShowRecurrenceOption] = useState(null);
   const [confirmationData, setConfirmationData] = useState(null);
 
+  // --- 1. Fetch Bookings for this Class ---
+  const fetchBookings = async () => {
+    setLoadingBookings(true);
+    try {
+      const res = await axiosInstance.get(
+        API_PATHS.BOOKING.GET_CLASS_BOOKINGS(classData._id),
+      );
+      setBookings(res.data);
+    } catch (error) {
+      console.error("Failed to fetch bookings", error);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "attendees") {
+      fetchBookings();
+    }
+  }, [activeTab, classData._id]);
+
+  // --- 2. Fetch All Users (For Dropdown) ---
+  const fetchUsers = async () => {
+    try {
+      const res = await axiosInstance.get(API_PATHS.AUTH.GET_ALL_USERS);
+      setUsers(res.data);
+    } catch (e) {
+      console.error("Failed to load users", e);
+    }
+  };
+
+  // --- 3. When User Selected, Fetch Their Passes ---
+  const handleUserSelect = async (userId) => {
+    const user = users.find((u) => u._id === userId);
+    setSelectedUser(user);
+    setSelectedPass(null);
+    if (!user) return;
+
+    try {
+      // Fetch active passes for this specific user
+      const res = await axiosInstance.get(
+        API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(userId),
+      );
+      setUserPasses(
+        res.data.filter((p) => p.isActive && p.remainingCredits > 0),
+      );
+    } catch (e) {
+      console.error("Failed to fetch passes", e);
+    }
+  };
+
+  // --- 4. Submit New Booking ---
+  const handleAddStudent = async () => {
+    if (!selectedUser || !selectedPass) return;
+    setBookingProcessing(true);
+    try {
+      await axiosInstance.post(API_PATHS.BOOKING.CREATE_BOOKING, {
+        classId: classData._id,
+        passId: selectedPass,
+        targetUserId: selectedUser._id, // Sending target user for Admin override
+      });
+      setShowAddStudent(false);
+      setSelectedUser(null);
+      setSelectedPass(null);
+      fetchBookings(); // Refresh list
+      onRefresh(); // Refresh parent schedule (for capacity count)
+    } catch (error) {
+      alert(error.response?.data?.error || "Booking failed");
+    } finally {
+      setBookingProcessing(false);
+    }
+  };
+
+  // --- 5. Toggle Check In ---
+  const handleCheckIn = async (bookingId) => {
+    try {
+      await axiosInstance.put(API_PATHS.BOOKING.STUDENT_CHECK_IN(bookingId));
+      fetchBookings();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // --- 6. Cancel Booking ---
+  const handleCancelBooking = async (bookingId) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to remove this student? Credits will be refunded.",
+      )
+    )
+      return;
+    try {
+      await axiosInstance.post(API_PATHS.BOOKING.CANCEL_BOOKING, {
+        bookingId,
+      });
+      fetchBookings();
+      onRefresh();
+    } catch (error) {
+      alert(error.response?.data?.error || "Cancel failed");
+    }
+  };
+
+  // --- Existing Logic for Class Actions ---
   const handleInitialClick = (actionType) => {
     if (classData.isRecurring) {
       setShowRecurrenceOption(actionType);
@@ -424,23 +541,21 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
     if (!confirmationData) return;
     setActionLoading(true);
     const { type, mode } = confirmationData;
-
     try {
       if (type === "delete") {
         await axiosInstance.delete(
           API_PATHS.SCHEDULE.DELETE_SCHEDULE(classData._id),
-          { data: { deleteMode: mode } }
+          { data: { deleteMode: mode } },
         );
       } else if (type === "toggle") {
         await axiosInstance.put(
           API_PATHS.SCHEDULE.TOGGLE_ISACTIVE_SCHEDULE(classData._id),
-          { toggleMode: mode }
+          { toggleMode: mode },
         );
       }
       onClose();
       onRefresh();
     } catch (error) {
-      console.error(error);
       alert("Action failed: " + (error.response?.data?.error || error.message));
     } finally {
       setActionLoading(false);
@@ -450,10 +565,7 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+      <div
         onClick={onClose}
         className='absolute inset-0 bg-black/50 backdrop-blur-sm'
       />
@@ -461,107 +573,273 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className='relative bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden'>
-        {/* Header */}
-        <div
-          className={`p-6 border-b ${
-            classData.isActive ? "bg-white" : "bg-gray-100"
-          }`}>
-          <div className='flex justify-between items-start'>
-            <div>
-              <h2
-                className={`text-xl font-bold ${
-                  classData.isActive ? "text-gray-900" : "text-gray-500"
+        className='relative bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]'>
+        {/* Header with Tabs */}
+        <div className='border-b bg-white z-10'>
+          <div className='flex justify-between items-center p-4 pb-0'>
+            <div className='flex gap-4'>
+              <button
+                onClick={() => setActiveTab("details")}
+                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${
+                  activeTab === "details"
+                    ? "border-emerald-500 text-emerald-700"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
                 }`}>
-                {classData.className}
-              </h2>
-              <p className='text-sm text-gray-500 mt-1 flex items-center gap-1'>
-                {classData.isActive ? (
-                  <CheckCircle2 className='w-4 h-4 text-emerald-600' />
-                ) : (
-                  <AlertCircle className='w-4 h-4 text-red-500' />
-                )}
-                {classData.isActive ? "Active" : "Inactive"}
-              </p>
+                Class Details
+              </button>
+              <button
+                onClick={() => setActiveTab("attendees")}
+                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${
+                  activeTab === "attendees"
+                    ? "border-emerald-500 text-emerald-700"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}>
+                Attendees ({classData.currentEnrollment}/{classData.capacity})
+              </button>
             </div>
-            <button onClick={onClose}>
+            <button onClick={onClose} className='mb-3'>
               <X className='w-6 h-6 text-gray-400 hover:text-gray-600' />
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className='p-6 space-y-4'>
-          <div className='flex items-center gap-3'>
-            <div className='bg-blue-50 p-2 rounded-lg text-blue-600'>
-              <Clock className='w-5 h-5' />
+        {/* --- TAB 1: DETAILS --- */}
+        {activeTab === "details" && (
+          <div className='p-6 space-y-4 overflow-y-auto'>
+            <div className='flex items-center gap-3'>
+              <div className='bg-blue-50 p-2 rounded-lg text-blue-600'>
+                <Clock className='w-5 h-5' />
+              </div>
+              <div>
+                <p className='text-xs text-gray-400 font-bold uppercase'>
+                  Time
+                </p>
+                <p className='font-medium text-gray-900'>
+                  {format(parseISO(classData.startTime), "EEEE, dd MMM")} •{" "}
+                  {format(parseISO(classData.startTime), "HH:mm")} (
+                  {classData.duration}m)
+                </p>
+              </div>
             </div>
-            <div>
-              <p className='text-xs text-gray-400 font-bold uppercase'>Time</p>
-              <p className='font-medium text-gray-900'>
-                {format(parseISO(classData.startTime), "EEEE, dd MMM yyyy")}{" "}
-                <br />
-                {format(parseISO(classData.startTime), "HH:mm")} -{" "}
-                {format(
-                  addMinutes(parseISO(classData.startTime), classData.duration),
-                  "HH:mm"
-                )}{" "}
-                ({classData.duration} min)
-              </p>
+            <div className='flex items-center gap-3'>
+              <div className='bg-orange-50 p-2 rounded-lg text-orange-600'>
+                <BadgeCheck className='w-5 h-5' />
+              </div>
+              <div>
+                <p className='text-xs text-gray-400 font-bold uppercase'>
+                  Instructor
+                </p>
+                <p className='font-medium text-gray-900'>
+                  {classData.instructorId?.fullName || "Unassigned"}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className='flex items-center gap-3'>
-            <div className='bg-orange-50 p-2 rounded-lg text-orange-600'>
-              <BadgeCheck className='w-5 h-5' />
+            <div className='flex items-center gap-3'>
+              <div className='bg-purple-50 p-2 rounded-lg text-purple-600'>
+                <Users className='w-5 h-5' />
+              </div>
+              <div>
+                <p className='text-xs text-gray-400 font-bold uppercase'>
+                  Info
+                </p>
+                <p className='font-medium text-gray-900'>
+                  {classData.classType} • {classData.capacity} Slots
+                </p>
+              </div>
             </div>
-            <div>
-              <p className='text-xs text-gray-400 font-bold uppercase'>
-                Instructor
-              </p>
-              <p className='font-medium text-gray-900'>
-                {classData.instructorId?.fullName || "Unassigned"}
-              </p>
-              <p className='text-xs text-gray-500'>
-                {classData.instructorType}
-              </p>
-            </div>
-          </div>
-          <div className='flex items-center gap-3'>
-            <div className='bg-purple-50 p-2 rounded-lg text-purple-600'>
-              <Users className='w-5 h-5' />
-            </div>
-            <div>
-              <p className='text-xs text-gray-400 font-bold uppercase'>
-                Details
-              </p>
-              <p className='font-medium text-gray-900'>
-                {classData.classType} • Capacity: {classData.capacity}
-              </p>
-            </div>
-          </div>
-          {classData.description && (
-            <div className='bg-gray-50 p-3 rounded-xl text-sm text-gray-600 italic'>
-              "{classData.description}"
-            </div>
-          )}
-        </div>
+            {classData.description && (
+              <div className='bg-gray-50 p-3 rounded-xl text-sm text-gray-600 italic'>
+                "{classData.description}"
+              </div>
+            )}
 
-        {/* --- OVERLAY 1: Recurrence Option --- */}
+            {/* Footer Actions for Details */}
+            <div className='pt-6 border-t border-gray-100 flex gap-2'>
+              <button
+                onClick={() => handleInitialClick("toggle")}
+                className={`flex-1 py-3 rounded-xl font-bold transition-colors ${
+                  classData.isActive
+                    ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }`}>
+                {classData.isActive ? "Deactivate" : "Activate"}
+              </button>
+              <button
+                onClick={onEdit}
+                className='flex-1 py-3 rounded-xl bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition-colors'>
+                Edit
+              </button>
+              <button
+                onClick={() => handleInitialClick("delete")}
+                className='px-4 py-3 rounded-xl bg-red-50 text-red-700 font-bold hover:bg-red-100 transition-colors'>
+                <Trash2 className='w-4 h-4' />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* --- TAB 2: ATTENDEES (MANAGE CLIENT) --- */}
+        {activeTab === "attendees" && (
+          <div className='flex-1 flex flex-col overflow-hidden'>
+            {/* Add Student Toggle */}
+            {!showAddStudent ? (
+              <div className='p-4 border-b bg-gray-50 flex justify-between items-center'>
+                <h4 className='text-sm font-bold text-gray-700'>
+                  Student List
+                </h4>
+                <button
+                  disabled={classData.currentEnrollment >= classData.capacity}
+                  onClick={() => {
+                    setShowAddStudent(true);
+                    fetchUsers();
+                  }}
+                  className='flex items-center gap-2 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors'>
+                  <Plus className='w-3 h-3' /> Add Student
+                </button>
+              </div>
+            ) : (
+              <div className='p-4 bg-gray-50 border-b space-y-3 animate-in slide-in-from-top-2'>
+                <div className='flex justify-between items-center'>
+                  <h4 className='text-sm font-bold text-gray-900'>
+                    Add Student to Class
+                  </h4>
+                  <button onClick={() => setShowAddStudent(false)}>
+                    <X className='w-4 h-4 text-gray-500 hover:text-gray-700' />
+                  </button>
+                </div>
+
+                {/* 1. Select User */}
+                <CustomSelect
+                  label='Select Student'
+                  options={users}
+                  getLabel={(u) => `${u.fullName} (${u.phoneNumber})`}
+                  getValue={(u) => u._id}
+                  value={selectedUser?._id}
+                  onChange={handleUserSelect}
+                  placeholder='Search student...'
+                />
+
+                {/* 2. Select Pass */}
+                {selectedUser && (
+                  <div className='space-y-2'>
+                    <label className='text-xs font-bold text-gray-500'>
+                      Select Active Pass
+                    </label>
+                    {userPasses.length > 0 ? (
+                      <div className='grid gap-2 max-h-32 overflow-y-auto'>
+                        {userPasses.map((pass) => (
+                          <div
+                            key={pass._id}
+                            onClick={() => setSelectedPass(pass._id)}
+                            className={`p-2 border rounded-lg cursor-pointer flex justify-between items-center transition-all ${
+                              selectedPass === pass._id
+                                ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500"
+                                : "border-gray-200 bg-white hover:border-emerald-300"
+                            }`}>
+                            <div>
+                              <p className='text-xs font-bold text-gray-800'>
+                                {pass.passName || pass.instructorType}
+                              </p>
+                              <p className='text-[10px] text-gray-500'>
+                                Exp:{" "}
+                                {format(
+                                  new Date(pass.expiryDate),
+                                  "dd MMM yyyy",
+                                )}
+                              </p>
+                            </div>
+                            <div className='text-xs font-bold text-emerald-600'>
+                              {pass.remainingCredits} Credits
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className='text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100'>
+                        No valid passes found for this user.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  disabled={!selectedUser || !selectedPass || bookingProcessing}
+                  onClick={handleAddStudent}
+                  className='w-full py-2 bg-emerald-900 text-white rounded-lg text-sm font-bold disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-emerald-800 transition-colors'>
+                  {bookingProcessing ? "Processing..." : "Confirm Booking"}
+                </button>
+              </div>
+            )}
+
+            {/* Booking List */}
+            <div className='flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50'>
+              {loadingBookings ? (
+                <LoadingSpinner />
+              ) : bookings.length === 0 ? (
+                <div className='text-center py-8 text-gray-400 text-sm'>
+                  No students booked yet.
+                </div>
+              ) : (
+                bookings.map((booking) => (
+                  <div
+                    key={booking._id}
+                    className='bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between'>
+                    <div className='flex items-center gap-3'>
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                          booking.isAttend
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}>
+                        {booking.userId.fullName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className='text-sm font-bold text-gray-900'>
+                          {booking.userId.fullName}
+                        </p>
+                        <p className='text-[10px] text-gray-500'>
+                          {booking.passId?.passName || "Pass Used"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <button
+                        onClick={() => handleCheckIn(booking._id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          booking.isAttend
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        }`}>
+                        {booking.isAttend ? "Checked In" : "Check In"}
+                      </button>
+                      <button
+                        onClick={() => handleCancelBooking(booking._id)}
+                        className='p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors'>
+                        <X className='w-4 h-4' />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* --- OVERLAYS --- */}
         <AnimatePresence>
           {showRecurrenceOption && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className='absolute inset-0 bg-white/95 z-10 flex flex-col items-center justify-center p-6 text-center'>
+              className='absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center p-6 text-center'>
               <h3 className='font-bold text-lg text-gray-900 mb-2'>
                 {showRecurrenceOption === "delete"
                   ? "Delete Class"
                   : "Change Status"}
               </h3>
               <p className='text-sm text-gray-500 mb-6'>
-                This is a repeating class. Apply to just this one, or the entire
-                series?
+                Apply to just this one, or the entire series?
               </p>
               <div className='flex flex-col gap-3 w-full'>
                 <button
@@ -582,16 +860,13 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
 
-        {/* --- OVERLAY 2: Final Confirmation --- */}
-        <AnimatePresence>
           {confirmationData && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className='absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center p-6 text-center'>
+              className='absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center p-6 text-center'>
               <div
                 className={`p-4 rounded-full mb-4 ${
                   confirmationData.type === "delete"
@@ -609,18 +884,8 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
               </h3>
               <p className='text-sm text-gray-500 mb-6 max-w-xs'>
                 {confirmationData.type === "delete"
-                  ? `You are about to delete ${
-                      confirmationData.mode === "all"
-                        ? "the entire series of"
-                        : "this"
-                    } class.`
-                  : `You are about to ${
-                      classData.isActive ? "deactivate" : "activate"
-                    } ${
-                      confirmationData.mode === "all"
-                        ? "the entire series"
-                        : "this class"
-                    }.`}
+                  ? "You are about to delete this class."
+                  : "You are about to change the status of this class."}
               </p>
               <div className='flex flex-col gap-3 w-full'>
                 <button
@@ -628,8 +893,8 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
                   disabled={actionLoading}
                   className={`w-full py-3 rounded-xl text-white font-bold transition-colors shadow-lg ${
                     confirmationData.type === "delete"
-                      ? "bg-red-600 hover:bg-red-700 shadow-red-200"
-                      : "bg-amber-500 hover:bg-amber-600 shadow-amber-200"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-amber-500 hover:bg-amber-600"
                   }`}>
                   {actionLoading ? "Processing..." : "Yes, Confirm"}
                 </button>
@@ -643,30 +908,6 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Footer Actions */}
-        <div className='p-4 border-t border-gray-100 flex gap-2'>
-          <button
-            onClick={() => handleInitialClick("toggle")}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-colors ${
-              classData.isActive
-                ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
-                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            }`}>
-            <Power className='w-4 h-4' />{" "}
-            {classData.isActive ? "Deactivate" : "Activate"}
-          </button>
-          <button
-            onClick={onEdit}
-            className='flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition-colors'>
-            <Edit className='w-4 h-4' /> Edit
-          </button>
-          <button
-            onClick={() => handleInitialClick("delete")}
-            className='flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-50 text-red-700 font-bold hover:bg-red-100 transition-colors'>
-            <Trash2 className='w-4 h-4' />
-          </button>
-        </div>
       </motion.div>
     </div>
   );
@@ -749,11 +990,11 @@ const CreateClassModal = ({
 
   const availableInstructors = useMemo(() => {
     return instructors.filter((inst) =>
-      inst.assignedStudiosId.some((s) => s._id === studioId)
+      inst.assignedStudiosId.some((s) => s._id === studioId),
     );
   }, [instructors, studioId]);
 
-  const classTypeOptions = ["Group", "Private", "Duet"];
+  const classTypeOptions = ["Group", "Mat Group", "Private", "Duet"];
 
   const weekDayButtons = [
     { label: "Sun", value: 0 },
@@ -838,7 +1079,7 @@ const CreateClassModal = ({
       const dayKey = format(dateObj, "EEEE").toLowerCase();
       const dailyShifts = instructor.workingHours?.[dayKey] || [];
       const studioShifts = dailyShifts.filter(
-        (shift) => shift.location?._id === studioId
+        (shift) => shift.location?._id === studioId,
       );
 
       // Only show working hours for the very first checked date to keep UI clean
@@ -894,7 +1135,7 @@ const CreateClassModal = ({
         // Overlap check
         if (classStart < existingEnd && classEnd > existingStart) {
           overlapConflicts.push(
-            `${format(classStart, "d MMM")} (${existingClass.className})`
+            `${format(classStart, "d MMM")} (${existingClass.className})`,
           );
           break; // Found one conflict for this specific date, move to next date
         }
@@ -912,17 +1153,17 @@ const CreateClassModal = ({
 
       if (notWorkingDates.length > 0) {
         messages.push(
-          `Instructor not working on: ${notWorkingDates.join(", ")}.`
+          `Instructor not working on: ${notWorkingDates.join(", ")}.`,
         );
       }
       if (timeConflicts.length > 0) {
         messages.push(
-          `Time outside working hours on: ${timeConflicts.join(", ")}.`
+          `Time outside working hours on: ${timeConflicts.join(", ")}.`,
         );
       }
       if (overlapConflicts.length > 0) {
         messages.push(
-          `Conflict with classes on: ${overlapConflicts.join(", ")}.`
+          `Conflict with classes on: ${overlapConflicts.join(", ")}.`,
         );
       }
 
@@ -998,7 +1239,7 @@ const CreateClassModal = ({
       if (initialData) {
         await axiosInstance.put(
           API_PATHS.SCHEDULE.UPDATE_SCHEDULE(initialData._id),
-          payload
+          payload,
         );
       } else {
         await axiosInstance.post(API_PATHS.SCHEDULE.CREATE_SCHEDULE, payload);
@@ -1237,7 +1478,7 @@ const CreateClassModal = ({
                       <div className='flex flex-wrap gap-2'>
                         {weekDayButtons.map((day) => {
                           const isSelected = selectedRecurrenceDays.includes(
-                            day.value
+                            day.value,
                           );
                           return (
                             <button
@@ -1428,7 +1669,7 @@ const WeekPicker = ({ selectedDate, onChange }) => {
           {isToday && (
             <div className='absolute bottom-1 w-1 h-1 bg-emerald-500 rounded-full'></div>
           )}
-        </div>
+        </div>,
       );
       day = addDays(day, 1);
     }
@@ -1446,7 +1687,7 @@ const WeekPicker = ({ selectedDate, onChange }) => {
           <div className='absolute inset-0 border-2 border-emerald-100 rounded-lg pointer-events-none' />
         )}
         {days}
-      </div>
+      </div>,
     );
     days = [];
   }
@@ -1607,7 +1848,7 @@ const CustomTimePicker = ({ label, value, onChange }) => {
   for (let h = 6; h <= 21; h++) {
     for (let m = 0; m < 60; m += 15) {
       timeSlots.push(
-        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
+        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
       );
     }
   }
@@ -1720,14 +1961,14 @@ const CalendarSinglePicker = ({ selectedDate, onChange }) => {
               : ""
           }`}>
           {format(day, "d")}
-        </div>
+        </div>,
       );
       day = addDays(day, 1);
     }
     rows.push(
       <div key={day} className='grid grid-cols-7 gap-1'>
         {days}
-      </div>
+      </div>,
     );
     days = [];
   }
