@@ -5,9 +5,9 @@ const axiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 80000,
   headers: {
+    "x-api-key": import.meta.env.VITE_INTERNAL_API_KEY,
     "Content-Type": "application/json",
     Accept: "application/json",
-    "x-api-key": import.meta.env.VITE_INTERNAL_API_KEY,
   },
 });
 

@@ -7,6 +7,7 @@ const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 
+// Route Imports
 const authRoutes = require("./routes/UserRoutes/authRoutes");
 const userRoutes = require("./routes/UserRoutes/userRoutes");
 const studioRoutes = require("./routes/StudioRoutes/studioRoutes");
@@ -17,9 +18,15 @@ const scheduleRoutes = require("./routes/BookingRoutes/scheduleRoutes");
 const purchaseRoutes = require("./routes/StudioRoutes/purchaseRoutes");
 const userPassRoutes = require("./routes/UserRoutes/user_passesRoutes");
 const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
-const { env } = require("process");
 
 const app = express();
+
+// 1. Core Configurations
+app.set("trust proxy", 1);
+connectDB();
+
+// 2. Global Middleware (Order matters!)
+app.use(express.json()); // Body parser must be before routes
 
 app.use((req, res, next) => {
   Object.defineProperty(req, "query", {
@@ -31,66 +38,70 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(helmet());
+// 3. CORS & Security
+app.use(
+  cors({
+    origin: "https://bookingservice.my.id",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
+  }),
+);
+
+app.use(
+  helmet({
+    // Fixes the "Cancelled load" error for images in your screenshot
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
 app.use(mongoSanitize());
 
+// 4. Custom Middleware Logic
 const protectAPI = (req, res, next) => {
-  // 1. Get the secret from the request headers
-  const clientSecret = req.headers["x-api-key"];
+  // Fixes the 502/Preflight error: Browsers don't send x-api-key on OPTIONS
+  if (req.method === "OPTIONS") {
+    return next();
+  }
 
-  // 2. Compare it to your server-side environment variable
+  const clientSecret = req.headers["x-api-key"];
   if (clientSecret === process.env.INTERNAL_API_KEY) {
-    next(); // Valid key, proceed to the routes
+    next();
   } else {
-    // 3. Block everything else (Postman, other scripts)
-    res.status(403).json({
-      message:
-        "Forbidden: Direct API access is restricted to the authorized application only.",
-    });
+    res.status(403).json({ message: "Forbidden: Invalid API Key" });
   }
 };
 
+// 5. Rate Limiters
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   limit: 100,
-  message: "Too many requests from this IP, please try again after 15 minutes",
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: "Too many requests, please try again after 15 minutes",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-// 2. Strict limiter for Auth: Max 5 attempts per 15 minutes
+// Increased from 5 to 20 to prevent "re-login lockout" during testing
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 5,
+  limit: 20,
   message: "Too many login attempts. Please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-app.set("trust proxy", 1);
+// 6. Routes (Limiter and ProtectAPI MUST come before the routes)
+app.use("/api/auth", protectAPI, authLimiter, authRoutes); // Corrected order
+app.use("/api/user", protectAPI, generalLimiter, userRoutes);
+app.use("/api/studio", protectAPI, generalLimiter, studioRoutes);
+app.use("/api/package", protectAPI, generalLimiter, packagesRoutes);
+app.use("/api/instructor", protectAPI, generalLimiter, instructorsRoutes);
+app.use("/api/bookings", protectAPI, generalLimiter, bookingRoutes);
+app.use("/api/schedule", protectAPI, generalLimiter, scheduleRoutes);
+app.use("/api/purchases", protectAPI, generalLimiter, purchaseRoutes);
+app.use("/api/passes", protectAPI, generalLimiter, userPassRoutes);
+app.use("/api/medical", protectAPI, generalLimiter, medicalRoutes);
 
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
-connectDB();
-
-app.use(express.json());
-
-app.use("/api/auth", protectAPI, authRoutes, authLimiter);
-app.use("/api/user", protectAPI, userRoutes, generalLimiter);
-app.use("/api/studio", protectAPI, studioRoutes, generalLimiter);
-app.use("/api/package", protectAPI, packagesRoutes, generalLimiter);
-app.use("/api/instructor", protectAPI, instructorsRoutes, generalLimiter);
-app.use("/api/bookings", protectAPI, bookingRoutes, generalLimiter);
-app.use("/api/schedule", protectAPI, scheduleRoutes, generalLimiter);
-app.use("/api/purchases", protectAPI, purchaseRoutes, generalLimiter);
-app.use("/api/passes", protectAPI, userPassRoutes, generalLimiter);
-app.use("/api/medical", protectAPI, medicalRoutes, generalLimiter);
-
+// Static files (Images)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const PORT = process.env.PORT || 5000;
