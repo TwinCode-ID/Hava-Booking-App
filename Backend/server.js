@@ -34,8 +34,6 @@ app.use((req, res, next) => {
 app.use(helmet());
 app.use(mongoSanitize());
 
-const allowedOrigins = [process.env.DOMAIN_URL_1, process.env.DOMAIN_URL_2];
-
 const protectAPI = (req, res, next) => {
   // 1. Get the secret from the request headers
   const clientSecret = req.headers["x-api-key"];
@@ -73,14 +71,7 @@ app.set("trust proxy", 1);
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // REMOVED !origin check to block tools that don't send an origin header
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
