@@ -31,7 +31,7 @@ exports.createClass = async (req, res) => {
     // Initial Conflict Check
     if (await checkConflicts(instructorId, start, end)) {
       throw new Error(
-        `Instructor conflict detected on ${start.toDateString()} at ${start.toTimeString()}`
+        `Instructor conflict detected on ${start.toDateString()} at ${start.toTimeString()}`,
       );
     }
 
@@ -59,7 +59,7 @@ exports.createClass = async (req, res) => {
         // Check Conflict for this specific instance
         if (await checkConflicts(instructorId, currentStart, currentEnd)) {
           throw new Error(
-            `Conflict detected for recurrence #${i + 1} at ${currentStart}`
+            `Conflict detected for recurrence #${i + 1} at ${currentStart}`,
           );
         }
       }
@@ -123,7 +123,7 @@ exports.getStudioClasses = async (req, res) => {
     const { id } = req.params;
 
     const classes = await ClassSchedule.find({ studioId: id })
-      .populate("instructorId", "fullName")
+      .populate("instructorId", "fullName instructorType")
       .populate("studioId", "studioName") // Adjusted based on your likely Studio model
       .sort({ startTime: 1 });
 
@@ -174,7 +174,7 @@ exports.updateClass = async (req, res) => {
       }
       const result = await ClassSchedule.updateMany(
         { recurrenceGroupId: targetClass.recurrenceGroupId },
-        { $set: updateData }
+        { $set: updateData },
       );
       return res.status(200).json({
         message: "Series updated",
@@ -202,12 +202,12 @@ exports.toggleClass = async (req, res) => {
       if (targetClass.isActive) {
         await ClassSchedule.updateMany(
           { recurrenceGroupId: targetClass.recurrenceGroupId },
-          { isActive: false }
+          { isActive: false },
         );
       } else {
         await ClassSchedule.updateMany(
           { recurrenceGroupId: targetClass.recurrenceGroupId },
-          { isActive: true }
+          { isActive: true },
         );
       }
 

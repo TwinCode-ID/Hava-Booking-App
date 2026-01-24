@@ -706,7 +706,8 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
                   Instructor
                 </p>
                 <p className='font-medium text-gray-900'>
-                  {classData.instructorId?.fullName || "Unassigned"}
+                  {classData.instructorId?.fullName || "Unassigned"} -{" "}
+                  {classData.instructorId?.instructorType || "Unassigned"}
                 </p>
               </div>
             </div>
