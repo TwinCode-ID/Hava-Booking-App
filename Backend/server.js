@@ -23,7 +23,7 @@ const app = express();
 app.use(helmet());
 app.use(mongoSanitize());
 
-const allowedOrigins = [env.DOMAIN_URL_1, env.DOMAIN_URL_2, env.APMLIFY_URL];
+const allowedOrigins = [env.DOMAIN_URL_1, env.DOMAIN_URL_2];
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
