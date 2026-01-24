@@ -12,7 +12,7 @@ import {
   Search,
   Power,
   AlertTriangle,
-  Package, // Added Icon
+  Package,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../../context/AuthContext";
@@ -33,7 +33,7 @@ const AdminPackages = ({ isEmbedded = false }) => {
   const fetchPackages = async () => {
     try {
       const response = await axiosInstance.get(
-        API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(user.adminStudioLocation)
+        API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(user.adminStudioLocation),
       );
       setPackages(response.data);
     } catch (error) {
@@ -70,7 +70,7 @@ const AdminPackages = ({ isEmbedded = false }) => {
   };
 
   const filteredPackages = packages.filter((pkg) =>
-    pkg.packageName.toLowerCase().includes(searchQuery.toLowerCase())
+    pkg.packageName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -106,7 +106,6 @@ const AdminPackages = ({ isEmbedded = false }) => {
 
         {/* Right: Count & Add Button */}
         <div className='flex items-center gap-4 w-full md:w-auto justify-end'>
-          {/* --- NEW: Package Count Note --- */}
           <div className='text-sm text-gray-500 font-medium whitespace-nowrap hidden md:block'>
             Showing{" "}
             <span className='text-gray-900 font-bold'>
@@ -347,7 +346,6 @@ const PackageFormModal = ({
     success: false,
   });
 
-  // 1. ADD classType to state
   const [formData, setFormData] = useState({
     packageName: initialData?.packageName || "",
     packageDescription: initialData?.packageDescription || "",
@@ -356,7 +354,7 @@ const PackageFormModal = ({
     validityDays: initialData?.validityDays || "",
     credits: initialData?.credits || "",
     instructorType: initialData?.instructorType || "",
-    classType: initialData?.classType || "Group", // Default
+    classType: initialData?.classType || "Group",
   });
 
   const handleInputChange = (e) => {
@@ -373,7 +371,6 @@ const PackageFormModal = ({
         packagePrice: Number(formData.packagePrice),
         validityDays: Number(formData.validityDays),
         credits: Number(formData.credits),
-        // classType is sent as string, matches Controller
       };
 
       if (!initialData) {
@@ -381,7 +378,7 @@ const PackageFormModal = ({
       } else {
         await axiosInstance.put(
           API_PATHS.PACKAGES.UPDATE_PACKAGE(initialData._id),
-          payload
+          payload,
         );
       }
       setFormState((prev) => ({ ...prev, loading: false, success: true }));
@@ -405,8 +402,8 @@ const PackageFormModal = ({
     "Special Instructor",
   ];
 
-  // 2. Add Class Type Options
-  const classTypeOptions = ["Group", "Private", "Duet"];
+  // UPDATED Class Type Options
+  const classTypeOptions = ["Group", "Mat Group", "Private", "Duet"];
 
   return (
     <motion.div
@@ -420,8 +417,6 @@ const PackageFormModal = ({
         </h2>
 
         <form onSubmit={handleNewPackageSubmit} className='space-y-4'>
-          {/* ... existing Name and Description inputs ... */}
-
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
               Package Name
@@ -448,7 +443,6 @@ const PackageFormModal = ({
           </div>
 
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            {/* 3. ADD Class Type Select */}
             <div>
               <CustomSelect
                 label='Class Type'

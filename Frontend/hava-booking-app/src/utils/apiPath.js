@@ -18,7 +18,7 @@ export const API_PATHS = {
   },
 
   IMAGE: {
-    UPLOAD_IMAGE: "/api/auth/upload-image",
+    UPLOAD_PROFILE: "/api/auth/upload-profile",
     UPLOAD_PROOF: "/api/auth/upload-proof",
     UPLOAD_STUDIO: "/api/auth/upload-studio",
   },
@@ -82,5 +82,6 @@ export const API_PATHS = {
     CREATE_BOOKING: "/api/bookings",
     CANCEL_BOOKING: "/api/bookings/cancel",
     STUDENT_CHECK_IN: (bookingId) => `/api/bookings/${bookingId}`,
+    GET_CLASS_BOOKINGS: (classId) => `/api/bookings/class/${classId}`,
   },
 };

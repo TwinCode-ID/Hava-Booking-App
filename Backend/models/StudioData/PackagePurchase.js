@@ -32,7 +32,7 @@ const PackagePurchaseSchema = new mongoose.Schema(
     proofOfPayment: { type: String, default: null },
     issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Package_Purchase", PackagePurchaseSchema);

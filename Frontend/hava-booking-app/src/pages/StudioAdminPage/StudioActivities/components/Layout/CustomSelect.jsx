@@ -1,35 +1,23 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { ChevronDown, Check, X, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Check } from "lucide-react";
 
 const CustomSelect = ({
   label,
   value,
   onChange,
   options,
-  placeholder = "Select option",
-  getLabel, // New Prop: Function to get the display text
-  getValue, // New Prop: Function to get the unique ID value
+  getLabel,
+  getValue,
+  placeholder = "Select...",
+  searchable = false, // Enable search capability
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
-  // Helper to safely get the display label
-  const getOptionLabel = (option) => {
-    if (getLabel) return getLabel(option);
-    return option; // Fallback for simple string arrays
-  };
-
-  // Helper to safely get the unique key/value
-  const getOptionValue = (option) => {
-    if (getValue) return getValue(option);
-    return option; // Fallback for simple string arrays
-  };
-
-  // Find the selected object to display its label in the input
-  const selectedOption = options.find((opt) => getOptionValue(opt) === value);
-  const displayValue = selectedOption ? getOptionLabel(selectedOption) : value;
-
+  // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -37,76 +25,133 @@ const CustomSelect = ({
         !containerRef.current.contains(event.target)
       ) {
         setIsOpen(false);
+        setSearchTerm(""); // Reset search on close
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Auto-focus search input when opened
+  useEffect(() => {
+    if (isOpen && searchable && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen, searchable]);
+
+  // Find the selected object based on the ID (value)
+  const selectedOption = options.find((opt) => getValue(opt) === value);
+
+  // Filter options based on search term
+  const filteredOptions = searchable
+    ? options.filter((opt) =>
+        getLabel(opt).toLowerCase().includes(searchTerm.toLowerCase()),
+      )
+    : options;
+
+  const handleSelect = (opt) => {
+    onChange(getValue(opt));
+    setIsOpen(false);
+    setSearchTerm("");
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation(); // Prevent opening the menu
+    onChange(null); // Send null to parent to clear selection
+    setSearchTerm("");
+  };
+
   return (
-    <div className='relative w-full mb-4' ref={containerRef}>
+    <div className='relative w-full' ref={containerRef}>
       {label && (
         <label className='block text-xs font-bold text-gray-700 mb-1'>
           {label}
         </label>
       )}
-      <button
-        type='button'
+
+      {/* Trigger Button */}
+      <div
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-10.5 px-4 rounded-xl border bg-white flex items-center justify-between transition-all outline-none text-sm font-medium shadow-sm ${
+        className={`w-full p-3 border rounded-xl flex items-center justify-between cursor-pointer bg-white transition-all ${
           isOpen
             ? "border-emerald-500 ring-2 ring-emerald-500/20"
             : "border-gray-200 hover:border-emerald-500"
         }`}>
         <span
-          className={`block truncate ${
-            displayValue ? "text-gray-900" : "text-gray-400"
+          className={`text-sm truncate pr-2 ${
+            selectedOption ? "text-gray-900 font-medium" : "text-gray-400"
           }`}>
-          {displayValue || placeholder}
+          {selectedOption ? getLabel(selectedOption) : placeholder}
         </span>
-        <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
 
+        <div className='flex items-center gap-1'>
+          {/* Clear Button (Only show if value is selected) */}
+          {selectedOption && (
+            <button
+              onClick={handleClear}
+              className='p-1 rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors mr-1'>
+              <X className='w-4 h-4' />
+            </button>
+          )}
+          <ChevronDown
+            className={`w-4 h-4 text-gray-400 transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </div>
+      </div>
+
+      {/* Dropdown Menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className='absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto'>
-            {options.map((option) => {
-              const optValue = getOptionValue(option);
-              const optLabel = getOptionLabel(option);
-              const isSelected = value === optValue;
-
-              return (
-                <div
-                  key={optValue}
-                  onClick={() => {
-                    onChange(optValue); // Pass back the ID/Value, not the whole object
-                    setIsOpen(false);
-                  }}
-                  className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${
-                    isSelected
-                      ? "bg-emerald-50 text-emerald-900 font-bold"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-emerald-800"
-                  }`}>
-                  {optLabel}
-                  {isSelected && (
-                    <Check className='w-3.5 h-3.5 text-emerald-600' />
-                  )}
+            exit={{ opacity: 0, y: 5 }}
+            className='absolute z-50 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden'>
+            {/* Search Input (Sticky Top) */}
+            {searchable && (
+              <div className='p-2 border-b border-gray-100 bg-gray-50'>
+                <div className='relative'>
+                  <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
+                  <input
+                    ref={searchInputRef}
+                    type='text'
+                    className='w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                    placeholder='Type to search...'
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onClick={(e) => e.stopPropagation()} // Prevent closing when clicking input
+                  />
                 </div>
-              );
-            })}
-            {options.length === 0 && (
-              <div className='p-4 text-center text-gray-400 text-xs'>
-                No options found
               </div>
             )}
+
+            {/* Options List */}
+            <div className='max-h-60 overflow-y-auto p-1'>
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((opt) => {
+                  const isSelected = getValue(opt) === value;
+                  return (
+                    <div
+                      key={getValue(opt)}
+                      onClick={() => handleSelect(opt)}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-emerald-50 text-emerald-700 font-bold"
+                          : "text-gray-700 hover:bg-gray-50"
+                      }`}>
+                      <span>{getLabel(opt)}</span>
+                      {isSelected && <Check className='w-4 h-4' />}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className='p-4 text-center text-sm text-gray-400'>
+                  No results found.
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
