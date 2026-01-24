@@ -20,6 +20,17 @@ const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
 const { env } = require("process");
 
 const app = express();
+
+app.use((req, res, next) => {
+  Object.defineProperty(req, "query", {
+    value: { ...req.query },
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
+  next();
+});
+
 app.use(helmet());
 app.use(mongoSanitize());
 
@@ -27,7 +38,7 @@ const allowedOrigins = [process.env.DOMAIN_URL_1, process.env.DOMAIN_URL_2];
 
 const protectAPI = (req, res, next) => {
   // 1. Get the secret from the request headers
-  const clientSecret = req.headers["x-api-secret"];
+  const clientSecret = req.headers["x-api-key"];
 
   // 2. Compare it to your server-side environment variable
   if (clientSecret === process.env.INTERNAL_API_KEY) {
@@ -71,7 +82,7 @@ app.use(
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-api-secret"], // Add your secret header here
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 connectDB();
