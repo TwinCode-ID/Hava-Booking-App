@@ -23,7 +23,23 @@ const app = express();
 app.use(helmet());
 app.use(mongoSanitize());
 
-const allowedOrigins = [env.DOMAIN_URL_1, env.DOMAIN_URL_2];
+const allowedOrigins = [process.env.DOMAIN_URL_1, process.env.DOMAIN_URL_2];
+
+const protectAPI = (req, res, next) => {
+  // 1. Get the secret from the request headers
+  const clientSecret = req.headers["x-api-secret"];
+
+  // 2. Compare it to your server-side environment variable
+  if (clientSecret === process.env.INTERNAL_API_KEY) {
+    next(); // Valid key, proceed to the routes
+  } else {
+    // 3. Block everything else (Postman, other scripts)
+    res.status(403).json({
+      message:
+        "Forbidden: Direct API access is restricted to the authorized application only.",
+    });
+  }
+};
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -47,31 +63,31 @@ app.set("trust proxy", 1);
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // REMOVED !origin check to block tools that don't send an origin header
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-api-secret"], // Add your secret header here
   }),
 );
-
 connectDB();
 
 app.use(express.json());
 
-app.use("/api/auth", authRoutes, authLimiter);
-app.use("/api/user", userRoutes, generalLimiter);
-app.use("/api/studio", studioRoutes, generalLimiter);
-app.use("/api/package", packagesRoutes, generalLimiter);
-app.use("/api/instructor", instructorsRoutes, generalLimiter);
-app.use("/api/bookings", bookingRoutes, generalLimiter);
-app.use("/api/schedule", scheduleRoutes, generalLimiter);
-app.use("/api/purchases", purchaseRoutes, generalLimiter);
-app.use("/api/passes", userPassRoutes, generalLimiter);
-app.use("/api/medical", medicalRoutes, generalLimiter);
+app.use("/api/auth", protectAPI, authRoutes, authLimiter);
+app.use("/api/user", protectAPI, userRoutes, generalLimiter);
+app.use("/api/studio", protectAPI, studioRoutes, generalLimiter);
+app.use("/api/package", protectAPI, packagesRoutes, generalLimiter);
+app.use("/api/instructor", protectAPI, instructorsRoutes, generalLimiter);
+app.use("/api/bookings", protectAPI, bookingRoutes, generalLimiter);
+app.use("/api/schedule", protectAPI, scheduleRoutes, generalLimiter);
+app.use("/api/purchases", protectAPI, purchaseRoutes, generalLimiter);
+app.use("/api/passes", protectAPI, userPassRoutes, generalLimiter);
+app.use("/api/medical", protectAPI, medicalRoutes, generalLimiter);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

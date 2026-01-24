@@ -5,6 +5,7 @@ const axiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 80000,
   headers: {
+    "x-api-secret": import.meta.env.VITE_INTERNAL_API_KEY,
     "Content-Type": "application/json",
     Accept: "application/json",
   },
@@ -21,7 +22,7 @@ axiosInstance.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // // Response Interceptor
