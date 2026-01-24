@@ -183,6 +183,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
         ...instructorColumns,
       ];
 
+      // 3. Setup Days & Hours (07:00 - 19:00)
       const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
       const weekDays = Array.from({ length: 7 }).map((_, i) =>
         addDays(weekStart, i),
@@ -190,6 +191,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
 
       const hours = Array.from({ length: 13 }, (_, i) => i + 7);
 
+      // 4. Loop through days
       weekDays.forEach((dayDate, dayIndex) => {
         if (dayIndex > 0) {
           doc.addPage();
@@ -355,7 +357,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
         </div>
 
         <div className='flex items-center gap-3'>
-          {/* Direct Print Button */}
           <button
             disabled={isPrinting}
             onClick={handleGenerateMasterPDF}
@@ -404,7 +405,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
           })}
         </div>
 
-        {/* Scrollable Schedule Body */}
         <div className='flex-1 overflow-y-auto py-2'>
           {loading ? (
             <LoadingSpinner />
@@ -749,7 +749,6 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
           </div>
         )}
 
-        {/* --- IMPROVED ATTENDEES VIEW --- */}
         {activeTab === "attendees" && (
           <div className='flex-1 flex flex-col h-full overflow-hidden bg-gray-50'>
             {/* Header / Add Form Area */}
@@ -775,7 +774,7 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
                   </button>
                 </div>
               ) : (
-                <div
+                <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   className='p-5 space-y-4 bg-white shadow-sm relative'>
@@ -809,7 +808,7 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
 
                   <AnimatePresence>
                     {selectedUser && (
-                      <div
+                      <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className='space-y-3'>
@@ -818,7 +817,6 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
                             Available Passes
                           </label>
                         </div>
-
                         {userPasses.length > 0 ? (
                           <div className='grid gap-3 max-h-48 overflow-y-auto pr-1'>
                             {userPasses.map((pass) => {
@@ -870,7 +868,6 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
                             </div>
                           </div>
                         )}
-
                         <button
                           disabled={
                             !selectedUser || !selectedPass || bookingProcessing
@@ -886,10 +883,10 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
                             ? "Processing..."
                             : "Confirm Booking"}
                         </button>
-                      </div>
+                      </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </motion.div>
               )}
             </div>
 
@@ -958,7 +955,6 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
           </div>
         )}
 
-        {/* ... (Recurrence/Confirmation Modals remain the same) ... */}
         <AnimatePresence>
           {showRecurrenceOption && (
             <motion.div
@@ -1022,9 +1018,7 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
   );
 };
 
-// ... (CreateClassModal, WeekPicker, PDFPreviewModal, CustomDatePicker, CustomTimePicker) ...
-// Use existing implementations.
-
+// --- UPDATED (RESTORED): CreateClassModal ---
 const CreateClassModal = ({
   onClose,
   instructors,
@@ -1339,12 +1333,14 @@ const CreateClassModal = ({
     }
   };
 
+  // --- RECURRING TOGGLE LOGIC ---
+  // Show toggle ONLY if it's a NEW class OR if the existing class is ALREADY recurring.
+  const showRecurringSection =
+    !initialData || (initialData && initialData.isRecurring);
+
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+      <div
         onClick={onClose}
         className='absolute inset-0 bg-black/50 backdrop-blur-sm'
       />
@@ -1515,80 +1511,102 @@ const CreateClassModal = ({
               </motion.div>
             )}
 
-            <div className='bg-gray-50 p-4 rounded-xl border border-gray-200 transition-all'>
-              <div className='flex items-center gap-2 mb-4'>
-                <input
-                  type='checkbox'
-                  id='recurring'
-                  className='w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 accent-emerald-600'
-                  onChange={(e) =>
-                    setForm({ ...form, isRecurring: e.target.checked })
-                  }
-                  checked={form.isRecurring}
-                />
-                <label
-                  htmlFor='recurring'
-                  className='font-bold text-gray-900 text-sm select-none cursor-pointer'>
-                  Recurring Class
-                </label>
-              </div>
+            {/* --- UPDATED RECURRING SECTION --- */}
+            {showRecurringSection && (
+              <div className='bg-gray-50 p-4 rounded-xl border border-gray-200 transition-all'>
+                {!initialData ? (
+                  <div className='flex items-center gap-2 mb-4'>
+                    <input
+                      type='checkbox'
+                      id='recurring'
+                      className='w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 accent-emerald-600'
+                      onChange={(e) =>
+                        setForm({ ...form, isRecurring: e.target.checked })
+                      }
+                    />
+                    <label
+                      htmlFor='recurring'
+                      className='font-bold text-gray-900 text-sm select-none cursor-pointer'>
+                      Recurring Class
+                    </label>
+                  </div>
+                ) : initialData && initialData.isRecurring ? (
+                  <div className='flex items-center gap-2 mb-4'>
+                    <input
+                      type='checkbox'
+                      id='recurring'
+                      checked={true}
+                      disabled={initialData.isRecurring}
+                      className='w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 accent-emerald-600'
+                      onChange={(e) =>
+                        setForm({ ...form, isRecurring: e.target.checked })
+                      }
+                    />
+                    <label
+                      htmlFor='recurring'
+                      className='font-bold text-gray-900 text-sm select-none cursor-pointer'>
+                      Recurring Class
+                    </label>
+                  </div>
+                ) : null}
 
-              {form.isRecurring && (
-                <div className='mt-4 animate-in fade-in slide-in-from-top-2 duration-300'>
-                  <div className='flex flex-col md:flex-row gap-6 items-start'>
-                    {/* Day Selector */}
-                    <div className='flex-1'>
-                      <label className='block text-xs font-bold text-gray-500 mb-2'>
-                        Select Days
-                      </label>
-                      <div className='flex flex-wrap gap-2'>
-                        {weekDayButtons.map((day) => {
-                          const isSelected = selectedRecurrenceDays.includes(
-                            day.value,
-                          );
-                          return (
-                            <button
-                              key={day.value}
-                              type='button'
-                              onClick={() => toggleDay(day.value)}
-                              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
-                                isSelected
-                                  ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
-                                  : "bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50"
-                              }`}>
-                              {day.label}
-                            </button>
-                          );
-                        })}
+                {form.isRecurring && (
+                  <div className='mt-4 animate-in fade-in slide-in-from-top-2 duration-300'>
+                    <div className='flex flex-col md:flex-row gap-6 items-start'>
+                      {/* Day Selector */}
+                      <div className='flex-1'>
+                        <label className='block text-xs font-bold text-gray-500 mb-2'>
+                          Select Days
+                        </label>
+                        <div className='flex flex-wrap gap-2'>
+                          {weekDayButtons.map((day) => {
+                            const isSelected = selectedRecurrenceDays.includes(
+                              day.value,
+                            );
+                            return (
+                              <button
+                                key={day.value}
+                                type='button'
+                                onClick={() => toggleDay(day.value)}
+                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
+                                  isSelected
+                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                                    : "bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50"
+                                }`}>
+                                {day.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Weeks Input */}
+                      <div className='w-full md:w-32 shrink-0'>
+                        <label className='block text-xs font-bold text-gray-500 mb-2'>
+                          Duration (Weeks)
+                        </label>
+                        <input
+                          type='string'
+                          className='w-full p-2.5 border rounded-xl text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-emerald-500'
+                          value={form.recurrenceCount}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              recurrenceCount: e.target.value,
+                            })
+                          }
+                          placeholder='1'
+                        />
                       </div>
                     </div>
-
-                    {/* Weeks Input */}
-                    <div className='w-full md:w-32 shrink-0'>
-                      <label className='block text-xs font-bold text-gray-500 mb-2'>
-                        Duration (Weeks)
-                      </label>
-                      <input
-                        type='string'
-                        className='w-full p-2.5 border rounded-xl text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-emerald-500'
-                        value={form.recurrenceCount}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            recurrenceCount: e.target.value,
-                          })
-                        }
-                        placeholder='1'
-                      />
-                    </div>
+                    <p className='text-[10px] text-gray-400 mt-2'>
+                      Class will repeat for {form.recurrenceCount || 1} week(s)
+                      on selected days.
+                    </p>
                   </div>
-                  <p className='text-[10px] text-gray-400 mt-2'>
-                    Class will repeat for {form.recurrenceCount || 1} week(s) on
-                    selected days.
-                  </p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             <div className='pt-2 flex gap-3 pb-2'>
               <button
