@@ -72,7 +72,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
   const fetchPurchases = async () => {
     try {
       const response = await axiosInstance.get(
-        API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation)
+        API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
       );
       setPurchases(response.data);
     } catch (error) {
@@ -207,7 +207,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
           action,
           rejectionReason: action === "reject" ? rejectionReason : null,
           ...extraData,
-        }
+        },
       );
 
       setPurchases((prev) =>
@@ -218,8 +218,8 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
                 status: action === "approve" ? "confirmed" : "payment_rejected",
                 paymentIssuer: extraData.paymentIssuer || p.paymentIssuer,
               }
-            : p
-        )
+            : p,
+        ),
       );
       setSelectedPurchase(null);
       setRejectionReason("");
@@ -233,7 +233,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
   // Derive unique issuers for filter options
   const issuerOptions = useMemo(() => {
     const issuers = new Set(
-      purchases.map((p) => p.paymentIssuer).filter(Boolean)
+      purchases.map((p) => p.paymentIssuer).filter(Boolean),
     );
     return [
       { id: "all", label: "All" },
