@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Plus,
-  MoreHorizontal,
   Calendar,
   X,
   Edit2,
@@ -11,12 +10,13 @@ import {
   Power,
   Building2,
   Save,
-  Eye,
   CheckCircle2,
   AlertTriangle,
   User,
   AlertCircle,
-  Clock, // Icon for errors
+  Clock,
+  MapPin,
+  Camera,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -38,15 +38,14 @@ const ManageInstructors = ({ isEmbedded = false }) => {
   const [deleteId, setDeleteId] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
 
-  // --- Alert State (Replaces window.alert) ---
+  // --- Alert State ---
   const [alertState, setAlertState] = useState({
     isOpen: false,
     title: "",
     message: "",
-    type: "error", // 'error' or 'info'
+    type: "error",
   });
 
-  // Helper to trigger alert
   const showAlert = (title, message, type = "error") => {
     setAlertState({ isOpen: true, title, message, type });
   };
@@ -65,11 +64,12 @@ const ManageInstructors = ({ isEmbedded = false }) => {
       ]);
 
       const myStudioId = user.adminStudioLocation;
+      // Filter to show only instructors associated with this admin's studio
       const filteredByStudio = instRes.data.filter((inst) =>
         inst.assignedStudiosId.some(
           (studio) =>
-            (typeof studio === "string" ? studio : studio._id) === myStudioId
-        )
+            (typeof studio === "string" ? studio : studio._id) === myStudioId,
+        ),
       );
 
       setInstructors(filteredByStudio);
@@ -92,7 +92,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
     if (!deleteId) return;
     try {
       await axiosInstance.delete(
-        API_PATHS.INSTRUCTOR.DELETE_INSTRUCTOR(deleteId)
+        API_PATHS.INSTRUCTOR.DELETE_INSTRUCTOR(deleteId),
       );
       fetchData();
       setDeleteId(null);
@@ -106,7 +106,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
       setActionMenuOpen(null);
       await axiosInstance.put(
         API_PATHS.INSTRUCTOR.TOGGLE_INSTRUCTOR(instructor._id),
-        { isActive: !instructor.isActive }
+        { isActive: !instructor.isActive },
       );
       fetchData();
     } catch (error) {
@@ -116,19 +116,18 @@ const ManageInstructors = ({ isEmbedded = false }) => {
 
   const handleFormSubmit = async (formData) => {
     try {
-      let avatarUrl = formData.avatar; // Default to existing string/URL
+      let avatarUrl = formData.avatar;
 
-      // --- LOGIC FIX: Only upload if it is a NEW file ---
       if (formData.avatar instanceof File) {
         try {
           const imgUploadRes = await uploadStudio(
             formData.avatar,
-            user.adminStudioLocation
+            user.adminStudioLocation,
           );
           avatarUrl = imgUploadRes.imageUrl || "";
         } catch (uploadError) {
           showAlert("Upload Failed", "Failed to upload the profile picture.");
-          return; // Stop submission
+          return;
         }
       }
 
@@ -137,19 +136,19 @@ const ManageInstructors = ({ isEmbedded = false }) => {
         bio: formData.bio,
         instructorType: formData.instructorType,
         assignedStudiosId: formData.assignedStudiosId,
-        avatar: avatarUrl, // Send string (URL)
+        avatar: avatarUrl,
         workingHours: formData.workingHours,
       };
 
       if (editingInstructor) {
         await axiosInstance.put(
           API_PATHS.INSTRUCTOR.UPDATE_INSTRUCTOR(editingInstructor._id),
-          payload
+          payload,
         );
       } else {
         await axiosInstance.post(
           API_PATHS.INSTRUCTOR.CREATE_INSTRUCTOR,
-          payload
+          payload,
         );
       }
       setIsFormOpen(false);
@@ -159,7 +158,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
       console.error("Save failed", error);
       showAlert(
         "Save Failed",
-        error.response?.data?.message || "Failed to save instructor data."
+        error.response?.data?.message || "Failed to save instructor data.",
       );
     }
   };
@@ -169,7 +168,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
     return instructors.filter(
       (inst) =>
         inst.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inst.instructorType.toLowerCase().includes(searchQuery.toLowerCase())
+        inst.instructorType.toLowerCase().includes(searchQuery.toLowerCase()),
     );
   }, [instructors, searchQuery]);
 
@@ -240,7 +239,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
               onToggleMenu={(e) => {
                 e.stopPropagation();
                 setActionMenuOpen(
-                  actionMenuOpen === inst._id ? null : inst._id
+                  actionMenuOpen === inst._id ? null : inst._id,
                 );
               }}
               onEdit={() => {
@@ -267,7 +266,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
             initialData={editingInstructor}
             studios={studios}
             onSubmit={handleFormSubmit}
-            showAlert={showAlert} // Pass alert handler down
+            showAlert={showAlert}
           />
         )}
       </AnimatePresence>
@@ -382,7 +381,7 @@ const InstructorCard = ({
         </span>
         <span
           className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeColor(
-            instructor.instructorType
+            instructor.instructorType,
           )}`}>
           {instructor.instructorType}
         </span>
@@ -410,7 +409,7 @@ const InstructorCard = ({
   );
 };
 
-// --- Sub-Component: Create/Edit Modal with Confirmations & File Upload ---
+// --- Sub-Component: Create/Edit Modal ---
 const InstructorFormModal = ({
   isOpen,
   onClose,
@@ -419,14 +418,17 @@ const InstructorFormModal = ({
   onSubmit,
   showAlert,
 }) => {
+  const { user } = useAuth();
+
   const [formData, setFormData] = useState({
     fullName: initialData?.fullName || "",
     bio: initialData?.bio || "",
     instructorType: initialData?.instructorType || "Apprentice Instructor",
+    // Default to admin studio if creating new
     assignedStudiosId:
       initialData?.assignedStudiosId?.map((s) =>
-        typeof s === "object" ? s._id : s
-      ) || [],
+        typeof s === "object" ? s._id : s,
+      ) || (user?.adminStudioLocation ? [user.adminStudioLocation] : []),
     avatar: initialData?.avatar || "",
     workingHours: initialData?.workingHours || {
       monday: [],
@@ -442,7 +444,6 @@ const InstructorFormModal = ({
   const [shiftDay, setShiftDay] = useState("monday");
   const [shiftStart, setShiftStart] = useState("");
   const [shiftEnd, setShiftEnd] = useState("");
-  const [shiftLocation, setShiftLocation] = useState("");
   const [avatarPreview, setAvatarPreview] = useState(initialData?.avatar || "");
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -452,6 +453,11 @@ const InstructorFormModal = ({
     "w-full h-[46px] px-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400 flex items-center";
   const textareaClass =
     "w-full p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400";
+
+  // Determine current studio name
+  const currentStudioName =
+    studios.find((s) => s._id === user.adminStudioLocation)?.studioName ||
+    "Current Studio";
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -481,18 +487,16 @@ const InstructorFormModal = ({
     });
   };
 
-  // --- LOGIC FIX: Check for collisions ---
   const isOverlapping = (start1, end1, start2, end2) => {
-    // Standard string comparison works for 24hr format
     return start1 < end2 && start2 < end1;
   };
 
   const addShift = () => {
-    if (!shiftStart || !shiftEnd || !shiftLocation) {
-      showAlert(
-        "Missing Information",
-        "Please fill in start time, end time, and location."
-      );
+    // Hardcode location to current admin studio
+    const shiftLocation = user.adminStudioLocation;
+
+    if (!shiftStart || !shiftEnd) {
+      showAlert("Missing Information", "Please fill in start and end time.");
       return;
     }
 
@@ -501,10 +505,9 @@ const InstructorFormModal = ({
       return;
     }
 
-    // Collision Check
     const existingShifts = formData.workingHours[shiftDay] || [];
     const hasCollision = existingShifts.some((existing) =>
-      isOverlapping(shiftStart, shiftEnd, existing.start, existing.end)
+      isOverlapping(shiftStart, shiftEnd, existing.start, existing.end),
     );
 
     if (hasCollision) {
@@ -512,7 +515,7 @@ const InstructorFormModal = ({
         "Schedule Conflict",
         `This shift overlaps with an existing shift on ${
           shiftDay.charAt(0).toUpperCase() + shiftDay.slice(1)
-        }.`
+        }.`,
       );
       return;
     }
@@ -544,7 +547,6 @@ const InstructorFormModal = ({
 
   const handleSaveClick = (e) => {
     e.preventDefault();
-    // Validate required fields
     if (!formData.fullName) {
       showAlert("Missing Name", "Please enter a full name.");
       return;
@@ -610,7 +612,7 @@ const InstructorFormModal = ({
               Basic Information
             </h3>
             <div className='flex items-center gap-4'>
-              <div className='w-16 h-16 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0'>
+              <div className='relative w-20 h-20 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0 group'>
                 {avatarPreview ? (
                   <img
                     src={avatarPreview}
@@ -620,17 +622,21 @@ const InstructorFormModal = ({
                 ) : (
                   <User className='w-8 h-8 text-gray-400' />
                 )}
-              </div>
-              <div className='flex-1'>
-                <label className='block text-xs font-bold text-gray-700 mb-1'>
-                  Profile Picture
-                </label>
+                <div className='absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer'>
+                  <Camera className='w-6 h-6 text-white' />
+                </div>
                 <input
                   type='file'
                   accept='image/*'
                   onChange={handleFileChange}
-                  className='block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all'
+                  className='absolute inset-0 opacity-0 cursor-pointer'
                 />
+              </div>
+              <div className='flex-1'>
+                <p className='text-sm font-bold text-gray-900'>Profile Photo</p>
+                <p className='text-xs text-gray-500 mb-2'>
+                  Click to upload. PNG, JPG or GIF (max. 2MB)
+                </p>
               </div>
             </div>
 
@@ -677,23 +683,32 @@ const InstructorFormModal = ({
 
           <div className='space-y-3'>
             <h3 className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
-              Location
+              Assigned Locations
             </h3>
             <div className='flex flex-wrap gap-2'>
               {studios.map((studio) => {
                 const isSelected = formData.assignedStudiosId.includes(
-                  studio._id
+                  studio._id,
                 );
+                const isAllowed = studio._id === user.adminStudioLocation;
+
                 return (
                   <button
                     key={studio._id}
                     type='button'
+                    disabled={!isAllowed}
                     onClick={() => toggleStudio(studio._id)}
-                    className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${
-                      isSelected
-                        ? "bg-emerald-100 border-emerald-200 text-emerald-800"
-                        : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-emerald-200"
-                    }`}>
+                    className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 
+                      ${
+                        isSelected
+                          ? "bg-emerald-100 border-emerald-200 text-emerald-800"
+                          : "bg-white border-gray-200 text-gray-500"
+                      } 
+                      ${
+                        isAllowed
+                          ? "hover:border-emerald-300 cursor-pointer"
+                          : "opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border-gray-100"
+                      }`}>
                     {isSelected ? (
                       <CheckCircle2 className='w-4 h-4' />
                     ) : (
@@ -708,8 +723,9 @@ const InstructorFormModal = ({
 
           <div className='space-y-4 pt-2 border-t border-gray-100'>
             <h3 className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
-              Working Hours
+              Manage Schedule
             </h3>
+            {/* Shift Input Box */}
             <div className='bg-gray-50 p-4 rounded-2xl border border-gray-200 grid grid-cols-1 md:grid-cols-12 gap-3 items-end'>
               <div className='md:col-span-3'>
                 <CustomSelect
@@ -719,9 +735,9 @@ const InstructorFormModal = ({
                   onChange={(val) => setShiftDay(val.toLowerCase())}
                 />
               </div>
-              <div className='md:col-span-2'>
+              <div className='md:col-span-3'>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
-                  Start
+                  Start Time
                 </label>
                 <input
                   type='time'
@@ -730,9 +746,9 @@ const InstructorFormModal = ({
                   className={inputClass}
                 />
               </div>
-              <div className='md:col-span-2'>
+              <div className='md:col-span-3'>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
-                  End
+                  End Time
                 </label>
                 <input
                   type='time'
@@ -741,34 +757,31 @@ const InstructorFormModal = ({
                   className={inputClass}
                 />
               </div>
-              <div className='md:col-span-3'>
-                <CustomSelect
-                  label='Studio'
-                  value={
-                    studios.find((s) => s._id === shiftLocation)?.studioName ||
-                    ""
-                  }
-                  options={studios
-                    .filter((s) => formData.assignedStudiosId.includes(s._id))
-                    .map((s) => s.studioName)}
-                  onChange={(val) => {
-                    const found = studios.find((s) => s.studioName === val);
-                    if (found) setShiftLocation(found._id);
-                  }}
-                  placeholder='Select Studio'
-                />
+              {/* Location display - read only */}
+              <div className='md:col-span-3 hidden'>
+                {/* Hidden logic for location tracking if needed, visual is below */}
               </div>
-              <div className='md:col-span-2'>
+              <div className='md:col-span-3'>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  Location
+                </label>
+                <div className='w-full h-[46px] px-3 border border-gray-200 bg-gray-100 text-gray-500 rounded-xl text-xs flex items-center font-bold cursor-not-allowed'>
+                  <MapPin className='w-3.5 h-3.5 mr-2' />
+                  <span className='truncate'>{currentStudioName}</span>
+                </div>
+              </div>
+              <div className='md:col-span-12 mt-2'>
                 <button
                   type='button'
                   onClick={addShift}
-                  className='w-full h-11.5 bg-emerald-900 text-white rounded-xl text-sm font-bold hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-900/20'>
-                  Add
+                  className='w-full h-11 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-lg shadow-gray-900/10 flex items-center justify-center gap-2'>
+                  <Plus className='w-4 h-4' /> Add Shift
                 </button>
               </div>
             </div>
 
-            <div className='space-y-1'>
+            {/* Shift List */}
+            <div className='space-y-2 mt-4'>
               {days.map((day) => {
                 const shifts = formData.workingHours[day] || [];
                 if (shifts.length === 0) return null;
@@ -787,18 +800,18 @@ const InstructorFormModal = ({
                         return (
                           <div
                             key={idx}
-                            className='group flex items-center gap-2 bg-white border border-gray-200 pl-3 pr-2 py-1.5 rounded-lg text-xs shadow-sm hover:border-red-200 transition-colors'>
+                            className='group flex items-center gap-2 bg-white border border-gray-200 pl-3 pr-2 py-1.5 rounded-lg text-xs shadow-sm hover:border-emerald-200 transition-colors'>
                             <Clock className='w-3 h-3 text-emerald-600' />
                             <span className='font-bold text-gray-900'>
                               {shift.start} - {shift.end}
                             </span>
-                            <span className='text-gray-400'>|</span>
-                            <span className='text-gray-600 truncate max-w-50'>
+                            <span className='text-gray-300 mx-1'>|</span>
+                            <span className='text-gray-500 truncate max-w-[100px]'>
                               {studioName}
                             </span>
                             <button
                               onClick={() => removeShift(day, idx)}
-                              className='ml-1 p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors'>
+                              className='ml-1 p-1 rounded-md text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors'>
                               <X className='w-3 h-3' />
                             </button>
                           </div>
@@ -857,7 +870,7 @@ const InstructorFormModal = ({
   );
 };
 
-// --- Generic Alert Modal (Replaces window.alert) ---
+// --- Generic Alert Modal ---
 const GenericAlertModal = ({ title, message, type, onClose }) => {
   return (
     <div className='fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs'>
