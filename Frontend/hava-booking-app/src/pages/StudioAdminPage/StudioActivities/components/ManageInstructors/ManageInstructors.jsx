@@ -25,6 +25,7 @@ import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { useAuth } from "../../../../../context/AuthContext";
 import CustomSelect from "../../../layout/CustomSelect";
 import uploadStudio from "../../../../../utils/uploadStudio";
+import { fetchImage } from "../../../../../utils/helper";
 
 const ManageInstructors = ({ isEmbedded = false }) => {
   const { user } = useAuth();
@@ -317,7 +318,7 @@ const InstructorCard = ({ instructor, onEdit, onDelete, onToggleStatus }) => {
           <div className='w-14 h-14 rounded-2xl bg-gray-100 overflow-hidden relative'>
             {instructor.avatar ? (
               <img
-                src={instructor.avatar}
+                src={fetchImage(instructor.avatar)}
                 alt={instructor.fullName}
                 className='w-full h-full object-cover'
               />

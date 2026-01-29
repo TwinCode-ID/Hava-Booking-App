@@ -122,8 +122,6 @@ const ManagePackage = () => {
           )}
         </AnimatePresence>
       </div>
-
-      <Footer />
     </div>
   );
 };

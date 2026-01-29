@@ -18,12 +18,13 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
 import { useAuth } from "../../../context/AuthContext";
+import { fetchImage } from "../../../utils/helper";
 
 const StudioDetails = () => {
-  const [user] = useAuth();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const studioId = user.adminStudioLocation;
+  const studioId = searchParams.get("id");
 
   const [studio, setStudio] = useState(null);
   const [isLoading, setLoading] = useState(true);
@@ -34,7 +35,7 @@ const StudioDetails = () => {
       if (!studioId) return;
       try {
         const response = await axiosInstance.get(
-          API_PATHS.STUDIOS.GET_STUDIO_BY_ID(studioId)
+          API_PATHS.STUDIOS.GET_STUDIO_BY_ID(studioId),
         );
         setStudio(response.data);
       } catch (error) {
@@ -53,7 +54,7 @@ const StudioDetails = () => {
     e?.stopPropagation();
     if (displayImages.length > 0) {
       setCurrentImageIndex((prev) =>
-        prev === displayImages.length - 1 ? 0 : prev + 1
+        prev === displayImages.length - 1 ? 0 : prev + 1,
       );
     }
   };
@@ -62,7 +63,7 @@ const StudioDetails = () => {
     e?.stopPropagation();
     if (displayImages.length > 0) {
       setCurrentImageIndex((prev) =>
-        prev === 0 ? displayImages.length - 1 : prev - 1
+        prev === 0 ? displayImages.length - 1 : prev - 1,
       );
     }
   };
@@ -76,7 +77,7 @@ const StudioDetails = () => {
     return <Star className='w-4 h-4' />;
   };
 
-  if (loading)
+  if (isLoading)
     return (
       <div className='min-h-screen rounded-2xl bg-white  flex items-center font-sans'>
         <LoadingSpinner />
@@ -118,7 +119,7 @@ const StudioDetails = () => {
               <AnimatePresence mode='wait'>
                 <motion.img
                   key={currentImageIndex}
-                  src={displayImages[currentImageIndex]}
+                  src={fetchImage(displayImages[currentImageIndex])}
                   alt='Studio View'
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}

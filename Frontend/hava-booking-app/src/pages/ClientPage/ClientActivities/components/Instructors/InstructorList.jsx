@@ -19,6 +19,7 @@ import {
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
+import { fetchImage } from "../../../../../utils/helper";
 // Assuming you want the Footer here as well since it was in the reference
 
 const InstructorList = () => {
@@ -67,7 +68,7 @@ const InstructorList = () => {
     ...new Set(
       instructors
         .flatMap((i) => i.assignedStudiosId.map((s) => s.studioName))
-        .filter(Boolean)
+        .filter(Boolean),
     ),
   ];
 
@@ -82,7 +83,7 @@ const InstructorList = () => {
       selectedTypes.includes(instructor.instructorType);
 
     const instructorStudios = instructor.assignedStudiosId.map(
-      (s) => s.studioName
+      (s) => s.studioName,
     );
     const matchStudio =
       selectedStudios.length === 0 ||
@@ -94,7 +95,7 @@ const InstructorList = () => {
         (day) =>
           instructor.workingHours &&
           instructor.workingHours[day] &&
-          instructor.workingHours[day].length > 0
+          instructor.workingHours[day].length > 0,
       );
 
     return matchSearch && matchType && matchStudio && matchDay;
@@ -104,7 +105,7 @@ const InstructorList = () => {
     setter((prev) =>
       prev.includes(value)
         ? prev.filter((item) => item !== value)
-        : [...prev, value]
+        : [...prev, value],
     );
   };
 
@@ -208,7 +209,7 @@ const InstructorList = () => {
                         toggleFilter(
                           selectedStudios,
                           setSelectedStudios,
-                          studio
+                          studio,
                         )
                       }
                     />
@@ -328,7 +329,7 @@ const InstructorList = () => {
 // --- Sub-Component: Clickable Instructor Card ---
 const InstructorCard = ({ data, onClick }) => {
   const activeDays = Object.keys(data.workingHours || {}).filter(
-    (day) => data.workingHours[day] && data.workingHours[day].length > 0
+    (day) => data.workingHours[day] && data.workingHours[day].length > 0,
   );
 
   return (
@@ -341,7 +342,7 @@ const InstructorCard = ({ data, onClick }) => {
       <div className='flex items-start justify-between mb-6'>
         <div className='w-16 h-16 rounded-full p-1 bg-gradient-to-br from-emerald-100 to-white shadow-sm'>
           <img
-            src={data.avatar || "https://via.placeholder.com/150"}
+            src={fetchImage(data.avatar) || "https://via.placeholder.com/150"}
             alt={data.fullName}
             className='w-full h-full object-cover rounded-full bg-gray-100'
           />
@@ -457,7 +458,10 @@ const InstructorDetailModal = ({ instructor, onClose }) => {
           <div className='flex flex-col items-center text-center mb-8'>
             <div className='w-24 h-24 rounded-full p-1 bg-gradient-to-br from-emerald-200 to-emerald-50 mb-4 shadow-lg'>
               <img
-                src={instructor.avatar || "https://via.placeholder.com/150"}
+                src={
+                  fetchImage(instructor.avatar) ||
+                  "https://via.placeholder.com/150"
+                }
                 alt={instructor.fullName}
                 className='w-full h-full object-cover rounded-full bg-white border-4 border-white'
               />

@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { LogOut, Menu, X, User } from "lucide-react";
 import { NAVIGATION_MENU_ADMIN } from "../../../utils/data";
 import { useAuth } from "../../../context/AuthContext";
+import { fetchImage } from "../../../utils/helper";
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
@@ -42,8 +43,8 @@ const DashboardLayout = () => {
                 ? "translate-x-0 w-64 pt-16"
                 : "-translate-x-full w-64"
               : isHovered
-              ? "w-64"
-              : "w-20"
+                ? "w-64"
+                : "w-20"
           }
         `}>
         {/* --- PROFILE SECTION (Navigates to Page) --- */}
@@ -61,7 +62,7 @@ const DashboardLayout = () => {
                 }  flex items-center justify-center text-emerald-900 font-bold shrink-0 overflow-hidden border-2 border-transparent group-hover:border-emerald-400 transition-all`}>
                 {user?.avatar ? (
                   <img
-                    src={user.avatar}
+                    src={fetchImage(user.avatar)}
                     alt='Profile'
                     className='w-full h-full object-cover'
                   />

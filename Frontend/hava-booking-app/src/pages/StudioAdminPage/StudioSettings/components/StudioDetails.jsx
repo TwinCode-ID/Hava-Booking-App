@@ -19,6 +19,7 @@ import { API_PATHS } from "../../../../utils/apiPath";
 import { useAuth } from "../../../../context/AuthContext";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import uploadStudio from "../../../../utils/uploadStudio";
+import { fetchImage } from "../../../../utils/helper";
 
 const StudioDetails = () => {
   const { user } = useAuth();
@@ -32,7 +33,7 @@ const StudioDetails = () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get(
-        API_PATHS.STUDIO.GET_STUDIO_BY_ID(user.adminStudioLocation)
+        API_PATHS.STUDIO.GET_STUDIO_BY_ID(user.adminStudioLocation),
       );
       setStudio(response.data);
     } catch (err) {
@@ -67,7 +68,7 @@ const StudioDetails = () => {
             }
 
             return finalUrl;
-          })
+          }),
         );
       }
 
@@ -87,7 +88,7 @@ const StudioDetails = () => {
       // D. Send JSON Update
       await axiosInstance.put(
         API_PATHS.STUDIO.UPDATE_STUDIO_BY_ID(studio._id),
-        payload
+        payload,
       );
 
       setIsEditModalOpen(false);
@@ -140,7 +141,7 @@ const StudioDetails = () => {
             <div className='h-64 w-full rounded-xl overflow-hidden bg-gray-100 relative group'>
               {activeImage ? (
                 <img
-                  src={activeImage}
+                  src={fetchImage(activeImage)}
                   alt='Studio Hero'
                   className='w-full h-full object-cover'
                 />
@@ -166,7 +167,7 @@ const StudioDetails = () => {
                 {allImages.map((img, idx) => (
                   <img
                     key={idx}
-                    src={img}
+                    src={fetchImage(img)}
                     alt={`Gallery ${idx}`}
                     className='w-20 h-20 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity'
                   />
@@ -524,7 +525,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                   key={`exist-${idx}`}
                   className='relative group aspect-square rounded-lg overflow-hidden border border-gray-200'>
                   <img
-                    src={pic}
+                    src={fetchImage(pic)}
                     alt='Preview'
                     className='w-full h-full object-cover'
                   />
