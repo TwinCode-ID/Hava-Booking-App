@@ -168,7 +168,7 @@ const PackageSelectorView = ({ user }) => {
   ];
   const uniqueStudioLocation = [
     ...new Set(
-      packages.map((p) => p.studioLocation?.studioName).filter(Boolean)
+      packages.map((p) => p.studioLocation?.studioName).filter(Boolean),
     ),
   ];
 
@@ -203,7 +203,7 @@ const PackageSelectorView = ({ user }) => {
     setter((prev) =>
       prev.includes(value)
         ? prev.filter((item) => item !== value)
-        : [...prev, value]
+        : [...prev, value],
     );
   };
 
@@ -282,7 +282,7 @@ const PackageSelectorView = ({ user }) => {
                       toggleFilter(
                         selectedStudioLocations,
                         setSelectedStudioLocations,
-                        type
+                        type,
                       )
                     }
                   />
@@ -328,7 +328,7 @@ const PackageSelectorView = ({ user }) => {
                       toggleFilter(
                         selectedInstructorTypes,
                         setSelectedInstructorTypes,
-                        type
+                        type,
                       )
                     }
                   />
@@ -505,7 +505,7 @@ const PackageSelectorView = ({ user }) => {
                       <h3 className='font-bold text-emerald-600 text-2xl font-mono'>
                         IDR{" "}
                         {parseInt(selectedPackage.packagePrice).toLocaleString(
-                          "id-ID"
+                          "id-ID",
                         )}
                       </h3>
                     </div>
@@ -590,7 +590,7 @@ const UserPassesView = ({ user }) => {
       try {
         setLoading(true);
         const response = await axiosInstance.get(
-          API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id)
+          API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id),
         );
         setTransactions(response.data);
       } catch (error) {
@@ -605,7 +605,7 @@ const UserPassesView = ({ user }) => {
   // --- Derived Data ---
   const uniqueStudios = [
     ...new Set(
-      transactions.map((t) => t.issuingStudio?.studioName).filter(Boolean)
+      transactions.map((t) => t.issuingStudio?.studioName).filter(Boolean),
     ),
   ];
 
@@ -637,7 +637,7 @@ const UserPassesView = ({ user }) => {
     setSelectedStudios((prev) =>
       prev.includes(studioName)
         ? prev.filter((item) => item !== studioName)
-        : [...prev, studioName]
+        : [...prev, studioName],
     );
   };
 
@@ -645,7 +645,7 @@ const UserPassesView = ({ user }) => {
     setSelectedStatusFilters((prev) =>
       prev.includes(status)
         ? prev.filter((item) => item !== status)
-        : [...prev, status]
+        : [...prev, status],
     );
   };
 
@@ -877,7 +877,7 @@ const PassCard = ({ trx, onClick }) => {
 
   const progressPercent = Math.min(
     (trx.remainingCredits / (trx.initialCredits || 10)) * 100,
-    100
+    100,
   );
 
   return (
@@ -1158,7 +1158,7 @@ const PurchaseHistoryView = ({ user }) => {
     const fetchData = async () => {
       try {
         const response = await axiosInstance.get(
-          API_PATHS.PURCHASES.GET_ALL_USER(user._id)
+          API_PATHS.PURCHASES.GET_ALL_USER(user._id),
         );
         setTransactions(response.data);
       } catch (error) {
@@ -1185,7 +1185,7 @@ const PurchaseHistoryView = ({ user }) => {
     setSelectedStatuses((prev) =>
       prev.includes(value)
         ? prev.filter((item) => item !== value)
-        : [...prev, value]
+        : [...prev, value],
     );
   };
 
@@ -1377,12 +1377,14 @@ const PackageCardMinimal = ({ pkg, onPurchase }) => {
         <p className='text-gray-500 text-sm line-clamp-2 mb-4'>
           {pkg.packageDescription}
         </p>
-        <div className='grid grid-cols-2 gap-4 text-sm mt-auto pt-2'>
-          <div className='flex items-center gap-2 text-gray-700 bg-gray-50 px-1 py-3 rounded-lg'>
+        <div className='text-sm mt-auto pt-2'>
+          <div className='flex items-center gap-2 text-gray-700'>
             <CalendarDays className='w-4 h-4 text-gray-400' />
             <span className='font-medium'>{pkg.credits} Sessions</span>
           </div>
-          <div className='flex items-center gap-2 text-gray-700 bg-gray-50 px-1 py-3 rounded-lg'>
+        </div>
+        <div className='text-sm mt-auto pt-2'>
+          <div className='flex items-center gap-2 text-gray-700'>
             <Clock className='w-4 h-4 text-gray-400' />
             <span className='font-medium'>{pkg.validityDays} Days</span>
           </div>
@@ -1746,8 +1748,8 @@ const TransactionDetailModal = ({ tx, onClose }) => {
                 isRejected
                   ? "border-red-200 bg-[#FEF2F2]"
                   : tx.status === "confirmed"
-                  ? "border-emerald-100 bg-emerald-50"
-                  : "border-orange-100 bg-[#FFFBEB]"
+                    ? "border-emerald-100 bg-emerald-50"
+                    : "border-orange-100 bg-[#FFFBEB]"
               }`}>
               {isRejected ? (
                 <>
@@ -1796,8 +1798,8 @@ const TransactionDetailModal = ({ tx, onClose }) => {
                       {tx.status === "pending"
                         ? "Please complete your payment."
                         : tx.status === "confirmed"
-                        ? "Your transaction has been verified."
-                        : "Waiting for verification."}
+                          ? "Your transaction has been verified."
+                          : "Waiting for verification."}
                     </p>
                   </div>
                 </div>
