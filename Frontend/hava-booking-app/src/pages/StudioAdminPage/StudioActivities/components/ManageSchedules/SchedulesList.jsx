@@ -40,6 +40,7 @@ import {
   MapPin,
   Lock,
   Building2,
+  CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
@@ -57,7 +58,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const [loading, setLoading] = useState(false);
 
   // --- VIEW MODE STATE (ALL vs LOCAL) ---
-  const [viewMode, setViewMode] = useState("ALL");
+  const [viewMode, setViewMode] = useState("LOCAL");
 
   // Printing State
   const [isPrinting, setIsPrinting] = useState(false);
@@ -434,7 +435,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
                   className='absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-[320px] z-50'>
-                  <MiniCalendar
+                  <HeaderWeekCalendar
                     selectedDate={currentDate}
                     onChange={(date) => {
                       setCurrentDate(date);
@@ -489,7 +490,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
         </div>
       </div>
 
-      {/* --- Calendar Container (Matches Payment Page Layout) --- */}
+      {/* --- Calendar Container --- */}
       <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
         {/* Header Row */}
         <div className='grid grid-cols-7 border-b border-gray-100 bg-gray-50/80'>
@@ -518,7 +519,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
           })}
         </div>
 
-        {/* Calendar Grid Body - Infinite Height (No Internal Scroll) */}
+        {/* Calendar Grid Body */}
         {loading ? (
           <div className='p-20'>
             <LoadingSpinner />
@@ -639,8 +640,8 @@ const SchedulesList = ({ isEmbedded = false }) => {
   );
 };
 
-// --- MINI CALENDAR (WEEK BLOCK LOGIC) ---
-const MiniCalendar = ({ selectedDate, onChange }) => {
+// --- 1. HEADER WEEK CALENDAR (For top navigation) ---
+const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
   const [currentMonth, setCurrentMonth] = useState(selectedDate);
 
   useEffect(() => {
@@ -655,7 +656,6 @@ const MiniCalendar = ({ selectedDate, onChange }) => {
   const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
-  const dateFormat = "d";
   const rows = [];
   let days = [];
   let day = startDate;
@@ -663,9 +663,8 @@ const MiniCalendar = ({ selectedDate, onChange }) => {
 
   while (day <= endDate) {
     for (let i = 0; i < 7; i++) {
-      formattedDate = format(day, dateFormat);
+      formattedDate = format(day, "d");
       const cloneDay = day;
-
       const isWeekSelected = isSameWeek(day, selectedDate, { weekStartsOn: 1 });
       const isSpecificDay = isSameDay(day, selectedDate);
       const isCurrentMonth = isSameMonth(day, monthStart);
@@ -673,14 +672,11 @@ const MiniCalendar = ({ selectedDate, onChange }) => {
       days.push(
         <button
           key={day.toString()}
+          type='button' // Important: Prevents form submission
           onClick={() => onChange(cloneDay)}
           className={`
             w-full h-9 flex items-center justify-center text-xs font-bold transition-all relative
-            ${
-              isWeekSelected
-                ? "bg-emerald-50 text-emerald-900"
-                : "hover:bg-gray-50 text-gray-700"
-            }
+            ${isWeekSelected ? "bg-emerald-50 text-emerald-900" : "hover:bg-gray-50 text-gray-700"}
             ${!isCurrentMonth && !isWeekSelected ? "text-gray-300" : ""}
             ${isWeekSelected && i === 0 ? "rounded-l-lg" : ""}
             ${isWeekSelected && i === 6 ? "rounded-r-lg" : ""}
@@ -714,6 +710,7 @@ const MiniCalendar = ({ selectedDate, onChange }) => {
         </h3>
         <div className='flex gap-1'>
           <button
+            type='button'
             onClick={(e) => {
               e.stopPropagation();
               prevMonth();
@@ -722,6 +719,7 @@ const MiniCalendar = ({ selectedDate, onChange }) => {
             <ChevronLeft className='w-4 h-4' />
           </button>
           <button
+            type='button'
             onClick={(e) => {
               e.stopPropagation();
               nextMonth();
@@ -736,6 +734,102 @@ const MiniCalendar = ({ selectedDate, onChange }) => {
           <div
             key={d}
             className='text-[10px] font-bold text-gray-400 uppercase'>
+            {d}
+          </div>
+        ))}
+      </div>
+      <div>{rows}</div>
+    </div>
+  );
+};
+
+// --- 2. INPUT DATE PICKER (For Modal Form) ---
+const InputDatePicker = ({ selectedDate, onChange }) => {
+  const [currentMonth, setCurrentMonth] = useState(selectedDate);
+
+  useEffect(() => {
+    setCurrentMonth(selectedDate);
+  }, [selectedDate]);
+
+  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  const rows = [];
+  let days = [];
+  let day = startDate;
+  let formattedDate = "";
+
+  while (day <= endDate) {
+    for (let i = 0; i < 7; i++) {
+      formattedDate = format(day, "d");
+      const cloneDay = day;
+      const isSpecificDay = isSameDay(day, selectedDate);
+      const isCurrentMonth = isSameMonth(day, monthStart);
+
+      days.push(
+        <button
+          key={day.toString()}
+          type='button' // CRITICAL: PREVENTS FORM SUBMISSION
+          onClick={(e) => {
+            e.stopPropagation(); // Stop bubbling
+            e.preventDefault(); // Stop default form action
+            onChange(cloneDay);
+          }}
+          className={`
+            w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all
+            ${!isCurrentMonth ? "text-gray-300" : "text-gray-700 hover:bg-gray-100"}
+            ${isSpecificDay ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700" : ""}
+          `}>
+          {formattedDate}
+        </button>,
+      );
+      day = addDays(day, 1);
+    }
+    rows.push(
+      <div className='flex justify-between mb-1' key={day.toString()}>
+        {days}
+      </div>,
+    );
+    days = [];
+  }
+
+  return (
+    <div className='p-3'>
+      <div className='flex justify-between items-center mb-4 px-1'>
+        <h3 className='font-bold text-gray-900 text-sm'>
+          {format(currentMonth, "MMMM yyyy")}
+        </h3>
+        <div className='flex gap-1'>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              prevMonth();
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronLeft className='w-4 h-4' />
+          </button>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              nextMonth();
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronRight className='w-4 h-4' />
+          </button>
+        </div>
+      </div>
+      <div className='flex justify-between mb-2 text-center'>
+        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
+          <div
+            key={d}
+            className='w-8 text-[10px] font-bold text-gray-400 uppercase'>
             {d}
           </div>
         ))}
@@ -836,7 +930,6 @@ const ClassDetailsModal = ({
     }
   };
 
-  // ... (Other handlers like handleAddStudent, etc. logic is standard, abbreviated for clarity)
   const handleAddStudent = async () => {
     if (!selectedUser || !selectedPass) return;
     setBookingProcessing(true);
@@ -905,384 +998,280 @@ const ClassDetailsModal = ({
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
-      <div
-        onClick={onClose}
-        className='absolute inset-0 bg-black/50 backdrop-blur-sm'
-      />
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className='relative bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]'>
-        <div className='border-b bg-white z-10'>
-          <div className='flex justify-between items-center p-4 pb-0'>
-            <div className='flex gap-4'>
-              <button
-                onClick={() => setActiveTab("details")}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === "details" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
-                Details
-              </button>
-              <button
-                onClick={() => setActiveTab("attendees")}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === "attendees" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
-                Attendees ({classData.currentEnrollment}/{classData.capacity})
-              </button>
-            </div>
-            <button onClick={onClose} className='mb-3'>
-              <X className='w-6 h-6 text-gray-400' />
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'>
+      <div className='bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] shadow-xl'>
+        {/* Header */}
+        <div className='flex justify-between items-center p-4 border-b'>
+          <div className='flex gap-4'>
+            <button
+              onClick={() => setActiveTab("details")}
+              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "details" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
+              Details
+            </button>
+            <button
+              onClick={() => setActiveTab("attendees")}
+              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "attendees" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
+              Attendees
             </button>
           </div>
+          <button
+            onClick={onClose}
+            className='p-1 hover:bg-gray-100 rounded-full'>
+            <X className='w-5 h-5 text-gray-400' />
+          </button>
         </div>
 
-        {activeTab === "details" && (
-          <div className='p-6 space-y-4 overflow-y-auto'>
-            {/* ... Details Content ... */}
-            <div className='flex items-center gap-3'>
-              {" "}
-              <div className='bg-blue-50 p-2 rounded-lg text-blue-600'>
-                {" "}
-                <Clock className='w-5 h-5' />{" "}
-              </div>{" "}
-              <div>
-                {" "}
-                <p className='text-xs text-gray-400 font-bold uppercase'>
-                  Time
-                </p>{" "}
-                <p className='font-medium text-gray-900'>
-                  {format(parseISO(classData.startTime), "EEEE, dd MMM")} •{" "}
-                  {format(parseISO(classData.startTime), "HH:mm")}
-                </p>{" "}
-              </div>{" "}
-            </div>
-            <div className='flex items-center gap-3'>
-              {" "}
-              <div className='bg-orange-50 p-2 rounded-lg text-orange-600'>
-                {" "}
-                <BadgeCheck className='w-5 h-5' />{" "}
-              </div>{" "}
-              <div>
-                {" "}
-                <p className='text-xs text-gray-400 font-bold uppercase'>
-                  Instructor
-                </p>{" "}
-                <p className='font-medium text-gray-900'>
-                  {classData.instructorId?.fullName} -{" "}
-                  {classData.instructorId?.instructorType}
-                </p>{" "}
-              </div>{" "}
-            </div>
-            <div className='flex items-center gap-3'>
-              {" "}
-              <div className='bg-purple-50 p-2 rounded-lg text-purple-600'>
-                {" "}
-                <Users className='w-5 h-5' />{" "}
-              </div>{" "}
-              <div>
-                {" "}
-                <p className='text-xs text-gray-400 font-bold uppercase'>
-                  Info
-                </p>{" "}
-                <p className='font-medium text-gray-900'>
-                  {classData.classType} • Capacity: {classData.capacity}
-                </p>{" "}
-              </div>{" "}
-            </div>
-            <div className='flex items-center gap-3'>
-              {" "}
-              <div className='bg-gray-100 p-2 rounded-lg text-gray-600'>
-                {" "}
-                <MapPin className='w-5 h-5' />{" "}
-              </div>{" "}
-              <div>
-                {" "}
-                <p className='text-xs text-gray-400 font-bold uppercase'>
-                  Location
-                </p>{" "}
-                <p className='font-medium text-gray-900'>
-                  {typeof classData.studioId === "object"
-                    ? classData.studioId.studioName
-                    : "External Studio"}
-                </p>{" "}
-              </div>{" "}
-            </div>
-            {classData.description && (
-              <div className='bg-gray-50 p-3 rounded-xl text-sm text-gray-600 italic'>
-                "{classData.description}"
-              </div>
-            )}
-
-            {canEdit && (
-              <div className='pt-6 border-t border-gray-100 flex gap-2'>
-                <button
-                  onClick={() => handleInitialClick("toggle")}
-                  className={`flex-1 py-3 rounded-xl font-bold ${classData.isActive ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
-                  {classData.isActive ? "Deactivate" : "Activate"}
-                </button>
-                <button
-                  onClick={onEdit}
-                  className='flex-1 py-3 rounded-xl bg-blue-50 text-blue-700 font-bold'>
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleInitialClick("delete")}
-                  className='px-4 py-3 rounded-xl bg-red-50 text-red-700 font-bold'>
-                  <Trash2 className='w-4 h-4' />
-                </button>
-              </div>
-            )}
-            {!canEdit && (
-              <div className='pt-4 text-center'>
-                <p className='text-xs text-gray-400 bg-gray-50 p-2 rounded-lg'>
-                  View Only Mode: This class is managed by another studio.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "attendees" && (
-          <div className='flex-1 flex flex-col h-full overflow-hidden bg-gray-50'>
-            <div className='bg-white border-b border-gray-100 z-10 shrink-0'>
-              {!showAddStudent ? (
-                <div className='p-4 flex justify-between items-center'>
-                  <div>
-                    {" "}
-                    <h4 className='text-sm font-bold text-gray-900'>
-                      Class Roster
-                    </h4>{" "}
-                    <p className='text-xs text-gray-500 mt-0.5'>
-                      {bookings.length} / {classData.capacity} spots filled
-                    </p>{" "}
-                  </div>
-                  {canEdit && (
-                    <button
-                      disabled={
-                        classData.currentEnrollment >= classData.capacity
-                      }
-                      onClick={() => {
-                        setShowAddStudent(true);
-                        fetchUsers();
-                      }}
-                      className='flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-sm shadow-emerald-200'>
-                      <Plus className='w-4 h-4' /> Add Student
-                    </button>
-                  )}
+        {/* Content */}
+        <div className='flex-1 overflow-y-auto'>
+          {activeTab === "details" && (
+            <div className='p-6 space-y-4'>
+              <div className='flex items-center gap-3'>
+                <div className='bg-blue-50 p-2 rounded-lg text-blue-600'>
+                  <Clock className='w-5 h-5' />
                 </div>
-              ) : (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  className='p-5 space-y-4 bg-white shadow-sm relative'>
-                  <div className='flex justify-between items-center mb-2'>
-                    {" "}
-                    <h4 className='text-sm font-bold text-gray-900'>
-                      Add New Booking
-                    </h4>{" "}
-                    <button
-                      onClick={() => {
-                        setShowAddStudent(false);
-                        setSelectedUser(null);
-                        setSelectedPass(null);
-                      }}
-                      className='p-1 hover:bg-gray-100 rounded-full transition-colors'>
-                      <X className='w-5 h-5 text-gray-400' />
-                    </button>{" "}
-                  </div>
-                  <div className='relative'>
-                    {" "}
-                    <CustomSelect
-                      label='Select Student'
-                      options={users}
-                      getLabel={(u) => `${u.fullName}`}
-                      getValue={(u) => u._id}
-                      value={selectedUser?._id}
-                      onChange={handleUserSelect}
-                      placeholder='Search by name...'
-                      searchable={true}
-                    />{" "}
-                  </div>
-                  <AnimatePresence>
-                    {selectedUser && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className='space-y-3'>
-                        <div className='flex justify-between items-end'>
-                          {" "}
-                          <label className='text-xs font-bold text-gray-500 uppercase tracking-wider'>
-                            Available Passes
-                          </label>{" "}
-                        </div>
-                        {userPasses.length > 0 ? (
-                          <div className='grid gap-3 max-h-48 overflow-y-auto p-3'>
-                            {userPasses.map((pass) => {
-                              const isSelected = selectedPass === pass._id;
-                              return (
-                                <div
-                                  key={pass._id}
-                                  onClick={() => setSelectedPass(pass._id)}
-                                  className={`relative p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${isSelected ? "border-emerald-500 bg-emerald-50/50 shadow-sm" : "border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm"}`}>
-                                  <div className='flex justify-between items-start'>
-                                    {" "}
-                                    <div>
-                                      {" "}
-                                      <p
-                                        className={`text-sm font-bold ${isSelected ? "text-emerald-900" : "text-gray-800"}`}>
-                                        {pass.passName || pass.instructorType}
-                                      </p>{" "}
-                                      <p className='text-xs text-gray-500 mt-0.5'>
-                                        Expires:{" "}
-                                        {format(
-                                          new Date(pass.expiryDate),
-                                          "dd MMM yyyy",
-                                        )}
-                                      </p>{" "}
-                                    </div>{" "}
-                                    <div
-                                      className={`px-2 py-1 rounded-lg text-xs font-bold ${isSelected ? "bg-emerald-200 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
-                                      {pass.remainingCredits} Credits
-                                    </div>{" "}
-                                  </div>
-                                  {isSelected && (
-                                    <div className='absolute -top-2 -right-2 w-5 h-5 bg-emerald-500 text-white rounded-full shadow-sm flex items-center justify-center'>
-                                      <Check className='w-3 h-3' />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className='p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3'>
-                            {" "}
-                            <AlertCircle className='w-5 h-5 text-red-500 mt-0.5 shrink-0' />{" "}
-                            <div>
-                              {" "}
-                              <p className='text-sm font-bold text-red-800'>
-                                No Eligible Passes
-                              </p>{" "}
-                              <p className='text-xs text-red-600 mt-1'>
-                                Student has no active passes matching class type
-                                ({classData.classType}).
-                              </p>{" "}
-                            </div>{" "}
-                          </div>
-                        )}
-                        <button
-                          disabled={
-                            !selectedUser || !selectedPass || bookingProcessing
-                          }
-                          onClick={handleAddStudent}
-                          className='w-full py-3.5 bg-emerald-900 text-white rounded-xl text-sm font-bold disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed hover:bg-emerald-800 hover:shadow-lg transition-all flex justify-center items-center gap-2'>
-                          {" "}
-                          {bookingProcessing ? (
-                            <Loader2 className='w-4 h-4 animate-spin' />
-                          ) : (
-                            <CheckCircle2 className='w-4 h-4' />
-                          )}{" "}
-                          {bookingProcessing
-                            ? "Processing..."
-                            : "Confirm Booking"}{" "}
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Time
+                  </p>
+                  <p className='font-bold text-gray-900'>
+                    {format(parseISO(classData.startTime), "EEEE, dd MMM")} •{" "}
+                    {format(parseISO(classData.startTime), "HH:mm")}
+                  </p>
+                </div>
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <div className='bg-orange-50 p-2 rounded-lg text-orange-600'>
+                  <BadgeCheck className='w-5 h-5' />
+                </div>
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Instructor
+                  </p>
+                  <p className='font-medium text-gray-900'>
+                    {classData.instructorId?.fullName} -{" "}
+                    {classData.instructorId?.instructorType}
+                  </p>
+                </div>
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <div className='bg-purple-50 p-2 rounded-lg text-purple-600'>
+                  <Users className='w-5 h-5' />
+                </div>
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Capacity
+                  </p>
+                  <p className='font-bold text-gray-900'>
+                    {classData.currentEnrollment} / {classData.capacity}
+                  </p>
+                </div>
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <div className='bg-gray-100 p-2 rounded-lg text-gray-600'>
+                  <MapPin className='w-5 h-5' />
+                </div>
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Location
+                  </p>
+                  <p className='font-medium text-gray-900'>
+                    {typeof classData.studioId === "object"
+                      ? classData.studioId.studioName
+                      : "External Studio"}
+                  </p>
+                </div>
+              </div>
+
+              {canEdit && (
+                <div className='pt-6 border-t flex gap-2'>
+                  <button
+                    onClick={() => handleInitialClick("toggle")}
+                    className={`flex-1 py-3 font-bold rounded-xl ${classData.isActive ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                    {classData.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                  <button
+                    onClick={onEdit}
+                    className='flex-1 py-3 font-bold bg-blue-50 text-blue-700 rounded-xl'>
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleInitialClick("delete")}
+                    className='px-4 py-3 bg-red-50 text-red-700 rounded-xl'>
+                    <Trash2 className='w-5 h-5' />
+                  </button>
+                </div>
               )}
             </div>
-            <div className='flex-1 overflow-y-auto p-4 md:p-6 space-y-3'>
-              {/* Roster List */}
-              {loadingBookings ? (
-                <div className='flex justify-center py-10'>
-                  <LoadingSpinner />
-                </div>
-              ) : bookings.length === 0 ? (
-                <div className='flex flex-col items-center justify-center h-full text-center py-10 opacity-50'>
-                  {" "}
-                  <div className='w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4'>
-                    {" "}
-                    <Users className='w-8 h-8 text-gray-400' />{" "}
-                  </div>{" "}
-                  <p className='text-gray-900 font-bold'>Class is Empty</p>{" "}
-                </div>
-              ) : (
-                bookings.map((booking) => (
-                  <motion.div
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={booking._id}
-                    className='group bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between'>
-                    <div className='flex items-center gap-4'>
-                      {" "}
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-inner ${booking.isAttend ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                        {booking.userId.fullName.charAt(0)}
-                      </div>{" "}
-                      <div>
-                        {" "}
-                        <p className='text-sm font-bold text-gray-900'>
-                          {booking.userId.fullName}
-                        </p>{" "}
-                        <div className='flex items-center gap-2 mt-0.5'>
-                          {" "}
-                          <span className='text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200'>
-                            {booking.passId?.passName || "Pass Used"}
-                          </span>{" "}
-                          {booking.isAttend && (
-                            <span className='text-[10px] font-bold text-emerald-600 flex items-center gap-1'>
-                              <CheckCircle2 className='w-3 h-3' /> Present
-                            </span>
-                          )}{" "}
-                        </div>{" "}
-                      </div>{" "}
+          )}
+
+          {activeTab === "attendees" && (
+            <div className='p-0 h-full flex flex-col'>
+              {canEdit ? (
+                <>
+                  {/* Add Student Header */}
+                  {!showAddStudent ? (
+                    <div className='p-4 flex justify-between items-center border-b'>
+                      <h4 className='font-bold'>Roster</h4>
+                      <button
+                        onClick={() => {
+                          setShowAddStudent(true);
+                          fetchUsers();
+                        }}
+                        className='flex items-center gap-2 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold'>
+                        <Plus className='w-3 h-3' /> Add Student
+                      </button>
                     </div>
-                    {canEdit && (
-                      <div className='flex items-center gap-2'>
-                        {" "}
-                        <button
-                          onClick={() => handleCheckIn(booking._id)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${booking.isAttend ? "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"}`}>
-                          {booking.isAttend ? "Checked In" : "Check In"}
-                        </button>{" "}
-                        <button
-                          onClick={() => handleCancelBooking(booking._id)}
-                          className='p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors'
-                          title='Remove Student'>
-                          <Trash2 className='w-4 h-4' />
-                        </button>{" "}
+                  ) : (
+                    <div className='p-4 border-b bg-gray-50'>
+                      <div className='flex justify-between mb-2'>
+                        <h4 className='font-bold text-sm'>Add Booking</h4>
+                        <button onClick={() => setShowAddStudent(false)}>
+                          <X className='w-4 h-4' />
+                        </button>
+                      </div>
+                      <CustomSelect
+                        label='Student'
+                        options={users}
+                        getLabel={(u) => u.fullName}
+                        getValue={(u) => u._id}
+                        onChange={handleUserSelect}
+                        value={selectedUser?._id}
+                        placeholder='Search student...'
+                        searchable
+                      />
+                      {selectedUser && (
+                        <div className='mt-3 space-y-2'>
+                          {userPasses.length > 0 ? (
+                            userPasses.map((p) => (
+                              <div
+                                key={p._id}
+                                onClick={() => setSelectedPass(p._id)}
+                                className={`p-2 border rounded-lg cursor-pointer text-xs ${selectedPass === p._id ? "border-emerald-500 bg-emerald-50" : "bg-white"}`}>
+                                <div className='font-bold'>{p.passName}</div>
+                                <div>Credits: {p.remainingCredits}</div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className='text-red-500 text-xs'>
+                              No valid passes.
+                            </div>
+                          )}
+                          <button
+                            disabled={!selectedPass || bookingProcessing}
+                            onClick={handleAddStudent}
+                            className='w-full py-2 bg-emerald-900 text-white rounded-lg text-xs font-bold mt-2'>
+                            Confirm
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* List */}
+                  <div className='flex-1 overflow-y-auto p-4 space-y-2'>
+                    {bookings.map((b) => (
+                      <div
+                        key={b._id}
+                        className='flex justify-between items-center p-3 border rounded-xl'>
+                        <div>
+                          <p className='font-bold text-sm'>
+                            {b.userId.fullName}
+                          </p>
+                          <p className='text-xs text-gray-500'>
+                            {b.passId?.passName}
+                          </p>
+                        </div>
+                        <div className='flex gap-2'>
+                          <button
+                            onClick={() => handleCheckIn(b._id)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border ${b.isAttend ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-white border-gray-200"}`}>
+                            {b.isAttend ? "Present" : "Check In"}
+                          </button>
+                          <button
+                            onClick={() => handleCancelBooking(b._id)}
+                            className='p-1 text-gray-400 hover:text-red-500'>
+                            <Trash2 className='w-4 h-4' />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {bookings.length === 0 && (
+                      <div className='text-center text-gray-400 py-10'>
+                        No bookings yet.
                       </div>
                     )}
-                  </motion.div>
-                ))
+                  </div>
+                </>
+              ) : (
+                <div className='flex flex-col items-center justify-center h-full text-center p-8 text-gray-500'>
+                  <Lock className='w-8 h-8 mb-2 text-gray-300' />
+                  <p className='font-bold'>View Only</p>
+                  <p className='text-xs'>
+                    Attendee list is restricted for external studios.
+                  </p>
+                </div>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Confirmations */}
         <AnimatePresence>
           {confirmationData && (
-            <motion.div className='absolute inset-0 bg-white/95 z-50 flex items-center justify-center p-8'>
-              <h3 className='font-bold mb-4'>Confirm Action?</h3>
-              <button
-                onClick={executeAction}
-                className='bg-red-600 text-white px-6 py-2 rounded-xl'>
-                Yes
-              </button>
-              <button
-                onClick={() => setConfirmationData(null)}
-                className='ml-4 text-gray-500'>
-                Cancel
-              </button>
-            </motion.div>
+            <div className='absolute inset-0 bg-white/90 z-50 flex items-center justify-center'>
+              <div className='text-center p-6'>
+                <h3 className='font-bold text-lg mb-4'>Are you sure?</h3>
+                <div className='flex gap-3 justify-center'>
+                  <button
+                    onClick={() => setConfirmationData(null)}
+                    className='text-gray-500 font-bold'>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeAction}
+                    className='bg-red-600 text-white px-6 py-2 rounded-xl font-bold'>
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </div>
   );
 };
 
-// ... (CreateClassModal, PDFPreviewModal, CustomDatePicker, CustomTimePicker stay the same) ...
-// (Assume standard implementations are here to complete the file)
+const CustomTimePicker = ({ label, value, onChange }) => (
+  <div>
+    <label className='text-xs font-bold'>{label}</label>
+    <input
+      type='time'
+      className='w-full p-3 border rounded-xl'
+      value={value ? format(new Date(value), "HH:mm") : ""}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  </div>
+);
+
+const PDFPreviewModal = ({ pdfUrl, onClose }) => (
+  <div className='fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75'>
+    <div className='bg-white w-full max-w-4xl h-[85vh] rounded-3xl overflow-hidden flex flex-col'>
+      <div className='flex justify-between p-4 border-b'>
+        <h3 className='font-bold'>Preview</h3>
+        <button onClick={onClose}>
+          <X />
+        </button>
+      </div>
+      <iframe src={pdfUrl} className='w-full h-full' title='PDF' />
+    </div>
+  </div>
+);
+
+// --- MODIFIED CREATE CLASS MODAL WITH CUSTOM DATE PICKER ---
 const CreateClassModal = ({
   onClose,
   instructors,
@@ -1299,6 +1288,10 @@ const CreateClassModal = ({
   // New State for Multi-Select Days
   const [selectedRecurrenceDays, setSelectedRecurrenceDays] = useState([]);
 
+  // --- NEW: State for Date Picker Popover ---
+  const [showCalendarPopover, setShowCalendarPopover] = useState(false);
+  const calendarRef = useRef(null);
+
   const [form, setForm] = useState({
     className: "",
     description: "",
@@ -1313,6 +1306,19 @@ const CreateClassModal = ({
     recurrenceRule: "Weekly",
     recurrenceCount: "",
   });
+
+  // Handle outside click for calendar popover
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+        setShowCalendarPopover(false);
+      }
+    };
+    if (showCalendarPopover) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCalendarPopover]);
 
   useEffect(() => {
     if (initialData) {
@@ -1400,6 +1406,7 @@ const CreateClassModal = ({
   ]);
 
   const checkAvailability = () => {
+    // ... (Availability check logic remains exact same as previous) ...
     setAvailableDaysSuggestion("");
     setWorkingHoursDisplay([]);
     setIsAvailable(true);
@@ -1537,6 +1544,7 @@ const CreateClassModal = ({
     const updated = new Date(newDate);
     updated.setHours(current.getHours(), current.getMinutes());
     setForm({ ...form, startTime: updated.toISOString() });
+    setShowCalendarPopover(false); // Close popover on selection
   };
 
   const handleTimeChange = (timeStr) => {
@@ -1598,7 +1606,6 @@ const CreateClassModal = ({
   };
 
   // --- RECURRING TOGGLE LOGIC ---
-  // Show toggle ONLY if it's a NEW class OR if the existing class is ALREADY recurring.
   const showRecurringSection =
     !initialData || (initialData && initialData.isRecurring);
 
@@ -1682,8 +1689,8 @@ const CreateClassModal = ({
                   label='Class Type'
                   placeholder='Select Type'
                   options={classTypeOptions}
-                  getLabel={(option) => option} // String is the label
-                  getValue={(option) => option} // String is the value
+                  getLabel={(option) => option}
+                  getValue={(option) => option}
                   value={form.classType}
                   onChange={(val) => setForm({ ...form, classType: val })}
                 />
@@ -1702,13 +1709,39 @@ const CreateClassModal = ({
                   required
                 />
               </div>
-              <div>
-                <CustomDatePicker
-                  label='Date'
-                  value={form.startTime}
-                  onChange={handleDateChange}
-                />
+
+              {/* --- CUSTOM DATE PICKER (REPLACED NATIVE) --- */}
+              <div className='relative'>
+                <label className='block text-xs font-bold text-gray-700 mb-1'>
+                  Date
+                </label>
+                <div ref={calendarRef}>
+                  <button
+                    type='button'
+                    onClick={() => setShowCalendarPopover(!showCalendarPopover)}
+                    className='w-full p-3 border rounded-xl text-left flex items-center gap-2 text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none'>
+                    <CalendarDays className='w-4 h-4 text-emerald-600' />
+                    {form.startTime
+                      ? format(parseISO(form.startTime), "dd/MM/yyyy")
+                      : "Select Date"}
+                  </button>
+                  <AnimatePresence>
+                    {showCalendarPopover && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className='absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-[320px] z-50'>
+                        <InputDatePicker
+                          selectedDate={parseISO(form.startTime)}
+                          onChange={handleDateChange}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
+
               <div>
                 <CustomTimePicker
                   label='Start Time'
@@ -1732,6 +1765,7 @@ const CreateClassModal = ({
               </div>
             </div>
 
+            {/* ... Rest of the form logic ... */}
             {form.instructorId && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -1973,43 +2007,5 @@ const CreateClassModal = ({
     </div>
   );
 };
-
-const PDFPreviewModal = ({ pdfUrl, onClose }) => (
-  <div className='fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75'>
-    <div className='bg-white w-full max-w-4xl h-[85vh] rounded-3xl overflow-hidden flex flex-col'>
-      <div className='flex justify-between p-4 border-b'>
-        <h3 className='font-bold'>Preview</h3>
-        <button onClick={onClose}>
-          <X />
-        </button>
-      </div>
-      <iframe src={pdfUrl} className='w-full h-full' title='PDF' />
-    </div>
-  </div>
-);
-
-const CustomDatePicker = ({ label, value, onChange }) => (
-  <div>
-    <label className='text-xs font-bold'>{label}</label>
-    <input
-      type='date'
-      className='w-full p-3 border rounded-xl'
-      value={value ? format(new Date(value), "yyyy-MM-dd") : ""}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  </div>
-);
-
-const CustomTimePicker = ({ label, value, onChange }) => (
-  <div>
-    <label className='text-xs font-bold'>{label}</label>
-    <input
-      type='time'
-      className='w-full p-3 border rounded-xl'
-      value={value ? format(new Date(value), "HH:mm") : ""}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  </div>
-);
 
 export default SchedulesList;

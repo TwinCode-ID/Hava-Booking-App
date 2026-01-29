@@ -113,10 +113,6 @@ exports.getPublicProfile = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const studioLocation = req.user.adminStudioLocation;
-    if (!studioLocation) {
-      return res.status(401).json({ message: "Unauthorized user" });
-    }
     const users = await User.find({ role: "client" })
       .select("fullName email phoneNumber _id")
       .sort({ createdAt: -1 });

@@ -17,6 +17,7 @@ import {
   Clock,
   MapPin,
   Camera,
+  Lock,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -63,16 +64,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
         axiosInstance.get(API_PATHS.STUDIO.GET_ALL),
       ]);
 
-      const myStudioId = user.adminStudioLocation;
-      // Filter to show only instructors associated with this admin's studio
-      const filteredByStudio = instRes.data.filter((inst) =>
-        inst.assignedStudiosId.some(
-          (studio) =>
-            (typeof studio === "string" ? studio : studio._id) === myStudioId,
-        ),
-      );
-
-      setInstructors(filteredByStudio);
+      setInstructors(instRes.data);
       setStudios(studiosRes.data);
     } catch (err) {
       console.error("Failed to fetch data", err);
@@ -302,14 +294,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
 };
 
 // --- Sub-Component: Instructor Card ---
-const InstructorCard = ({
-  instructor,
-  isMenuOpen,
-  onToggleMenu,
-  onEdit,
-  onDelete,
-  onToggleStatus,
-}) => {
+const InstructorCard = ({ instructor, onEdit, onDelete, onToggleStatus }) => {
   const getTypeColor = (type) => {
     if (type?.includes("Master"))
       return "bg-purple-50 text-purple-700 border-purple-100";
@@ -411,7 +396,6 @@ const InstructorCard = ({
 
 // --- Sub-Component: Create/Edit Modal ---
 const InstructorFormModal = ({
-  isOpen,
   onClose,
   initialData,
   studios,
@@ -448,16 +432,17 @@ const InstructorFormModal = ({
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  // Common Input Styles
+  // Auto-set the shift location to the admin's studio
+  const shiftLocation = user?.adminStudioLocation;
+
+  const currentStudioName =
+    studios.find((s) => s._id === user.adminStudioLocation)?.studioName ||
+    "Current Studio";
+
   const inputClass =
     "w-full h-[46px] px-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400 flex items-center";
   const textareaClass =
     "w-full p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400";
-
-  // Determine current studio name
-  const currentStudioName =
-    studios.find((s) => s._id === user.adminStudioLocation)?.studioName ||
-    "Current Studio";
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -492,9 +477,6 @@ const InstructorFormModal = ({
   };
 
   const addShift = () => {
-    // Hardcode location to current admin studio
-    const shiftLocation = user.adminStudioLocation;
-
     if (!shiftStart || !shiftEnd) {
       showAlert("Missing Information", "Please fill in start and end time.");
       return;
@@ -690,7 +672,9 @@ const InstructorFormModal = ({
                 const isSelected = formData.assignedStudiosId.includes(
                   studio._id,
                 );
-                const isAllowed = studio._id === user.adminStudioLocation;
+                // Strict check: IDs must match exactly as strings
+                const isAllowed =
+                  String(studio._id) === String(user.adminStudioLocation);
 
                 return (
                   <button
@@ -700,17 +684,34 @@ const InstructorFormModal = ({
                     onClick={() => toggleStudio(studio._id)}
                     className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 
                       ${
-                        isSelected
+                        isSelected && isAllowed
                           ? "bg-emerald-100 border-emerald-200 text-emerald-800"
-                          : "bg-white border-gray-200 text-gray-500"
+                          : ""
                       } 
                       ${
-                        isAllowed
-                          ? "hover:border-emerald-300 cursor-pointer"
-                          : "opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border-gray-100"
-                      }`}>
+                        isSelected && !isAllowed
+                          ? "bg-gray-100 border-gray-200 text-gray-500 opacity-70 cursor-not-allowed"
+                          : ""
+                      }
+                      ${
+                        !isSelected && isAllowed
+                          ? "bg-white border-gray-200 text-gray-500 hover:border-emerald-300 cursor-pointer"
+                          : ""
+                      }
+                      ${
+                        !isSelected && !isAllowed
+                          ? "bg-gray-50 border-gray-100 text-gray-300 opacity-50 cursor-not-allowed"
+                          : ""
+                      }
+                    `}>
                     {isSelected ? (
-                      <CheckCircle2 className='w-4 h-4' />
+                      isAllowed ? (
+                        <CheckCircle2 className='w-4 h-4' />
+                      ) : (
+                        <Lock className='w-3.5 h-3.5' />
+                      )
+                    ) : !isAllowed ? (
+                      <Lock className='w-3.5 h-3.5' />
                     ) : (
                       <div className='w-4 h-4 rounded-full border border-gray-300' />
                     )}
@@ -757,17 +758,14 @@ const InstructorFormModal = ({
                   className={inputClass}
                 />
               </div>
-              {/* Location display - read only */}
-              <div className='md:col-span-3 hidden'>
-                {/* Hidden logic for location tracking if needed, visual is below */}
-              </div>
+              {/* Auto-Locked Location Display */}
               <div className='md:col-span-3'>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
                   Location
                 </label>
-                <div className='w-full h-[46px] px-3 border border-gray-200 bg-gray-100 text-gray-500 rounded-xl text-xs flex items-center font-bold cursor-not-allowed'>
-                  <MapPin className='w-3.5 h-3.5 mr-2' />
-                  <span className='truncate'>{currentStudioName}</span>
+                <div className='w-full h-[46px] px-3 border border-gray-200 bg-gray-100 text-gray-500 rounded-xl text-xs flex items-center font-bold cursor-not-allowed select-none'>
+                  <MapPin className='w-3.5 h-3.5 mr-2 shrink-0' />
+                  <span>{currentStudioName}</span>
                 </div>
               </div>
               <div className='md:col-span-12 mt-2'>
@@ -794,26 +792,57 @@ const InstructorFormModal = ({
                     </div>
                     <div className='flex-1 flex flex-wrap gap-2'>
                       {shifts.map((shift, idx) => {
+                        const shiftLocId =
+                          typeof shift.location === "object"
+                            ? shift.location._id
+                            : shift.location;
+                        const isMyStudio =
+                          String(shiftLocId) ===
+                          String(user.adminStudioLocation);
+
+                        // Find studio name safely
+                        const studioObj = studios.find(
+                          (s) => String(s._id) === String(shiftLocId),
+                        );
                         const studioName =
-                          studios.find((s) => s._id === shift.location)
-                            ?.studioName || shift.location.studioName;
+                          studioObj?.studioName ||
+                          (typeof shift.location === "object"
+                            ? shift.location.studioName
+                            : "Unknown");
+
                         return (
                           <div
                             key={idx}
-                            className='group flex items-center gap-2 bg-white border border-gray-200 pl-3 pr-2 py-1.5 rounded-lg text-xs shadow-sm hover:border-emerald-200 transition-colors'>
-                            <Clock className='w-3 h-3 text-emerald-600' />
-                            <span className='font-bold text-gray-900'>
+                            className={`group flex items-center gap-2 border pl-3 pr-2 py-1.5 rounded-lg text-xs shadow-sm transition-colors ${
+                              isMyStudio
+                                ? "bg-white border-gray-200 hover:border-emerald-200"
+                                : "bg-gray-50 border-gray-100 text-gray-500 opacity-80"
+                            }`}>
+                            <Clock
+                              className={`w-3 h-3 ${isMyStudio ? "text-emerald-600" : "text-gray-400"}`}
+                            />
+                            <span
+                              className={`font-bold ${isMyStudio ? "text-gray-900" : "text-gray-500"}`}>
                               {shift.start} - {shift.end}
                             </span>
                             <span className='text-gray-300 mx-1'>|</span>
-                            <span className='text-gray-500 truncate max-w-[100px]'>
+                            <span
+                              className={`${isMyStudio ? "text-gray-500" : "text-gray-400"} truncate max-w-[150px]`}>
                               {studioName}
                             </span>
-                            <button
-                              onClick={() => removeShift(day, idx)}
-                              className='ml-1 p-1 rounded-md text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors'>
-                              <X className='w-3 h-3' />
-                            </button>
+
+                            {/* Only allow deleting if it's the admin's studio */}
+                            {isMyStudio ? (
+                              <button
+                                onClick={() => removeShift(day, idx)}
+                                className='ml-1 p-1 rounded-md text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors'>
+                                <X className='w-3 h-3' />
+                              </button>
+                            ) : (
+                              <div className='ml-1 p-1'>
+                                <Lock className='w-3 h-3 text-gray-300' />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
