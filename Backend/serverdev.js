@@ -63,7 +63,7 @@ const protectAPI = (req, res, next) => {
     return next();
   }
 
-  const clientSecret = req.headers["x-api-key"];
+  const clientSecret = req.headers["x-api-key"] || req.query["x-api-key"];
   if (clientSecret === process.env.INTERNAL_API_KEY) {
     next();
   } else {
@@ -102,7 +102,11 @@ app.use("/api/passes", protectAPI, userPassRoutes);
 app.use("/api/medical", protectAPI, medicalRoutes);
 
 // Static files (Images)
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+  "/uploads",
+  protectAPI,
+  express.static(path.join(__dirname, "uploads")),
+);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
