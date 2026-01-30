@@ -110,7 +110,7 @@ const StudioActivities = () => {
       <div className='bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center gap-3 relative z-20 shadow-sm shrink-0'>
         <div className='overflow-hidden min-w-0 flex-1'>
           <div className='flex gap-2 overflow-x-auto scrollbar-hide w-full'>
-            <AnimatePresence mode='wait'>
+            <AnimatePresence>
               {displayedTabs.map(renderTabButton)}
             </AnimatePresence>
           </div>
@@ -134,7 +134,7 @@ const StudioActivities = () => {
       {/* --- CONTENT AREA (SCROLL FIX APPLIED HERE) --- */}
       {/* We use overflow-y-auto ALWAYS, so if the child (ScheduleList) is tall, this container scrolls. */}
       <div className='flex-1 overflow-y-auto p-0 relative w-full'>
-        <AnimatePresence mode='wait'>
+        <AnimatePresence>
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 10 }}

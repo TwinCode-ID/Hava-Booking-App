@@ -30,6 +30,7 @@
     "react-dom": "^19.2.0",
     "react-qr-code": "^2.0.18",
     "react-router-dom": "^7.10.1",
+    "socket.io-client": "^4.8.3",
     "tailwindcss": "^4.1.17"
   },
   "devDependencies": {

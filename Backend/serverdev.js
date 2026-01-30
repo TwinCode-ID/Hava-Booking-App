@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express = require("express");
+const http = require("http"); // 1. Import HTTP
+const { Server } = require("socket.io"); // 2. Import Socket.io
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
@@ -20,13 +22,48 @@ const userPassRoutes = require("./routes/UserRoutes/user_passesRoutes");
 const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
 
 const app = express();
+const server = http.createServer(app);
 
-// 1. Core Configurations
+// Initialize Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Matches your Frontend
+    methods: ["GET", "POST"],
+  },
+});
+
+app.set("io", io);
+
+io.on("connection", (socket) => {
+  console.log(`Socket Connected: ${socket.id}`);
+
+  // Admin Room
+  socket.on("join_studio_admin_room", (studioId) => {
+    if (studioId) {
+      socket.join(studioId);
+      console.log(`Socket ${socket.id} joined STUDIO admin room: ${studioId}`);
+    }
+  });
+
+  // Client Room
+  socket.on("join_user_room", (userId) => {
+    if (userId) {
+      socket.join(userId);
+      console.log(`Socket ${socket.id} joined USER room: ${userId}`);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Socket Disconnected", socket.id);
+  });
+});
+
+// --- CORE CONFIGURATIONS ---
 app.set("trust proxy", 1);
 connectDB();
 
-// 2. Global Middleware (Order matters!)
-app.use(express.json()); // Body parser must be before routes
+// --- GLOBAL MIDDLEWARE ---
+app.use(express.json());
 
 app.use((req, res, next) => {
   Object.defineProperty(req, "query", {
@@ -38,7 +75,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 3. CORS & Security
+// CORS & Security
 app.use(
   cors({
     origin: "*",
@@ -49,16 +86,14 @@ app.use(
 
 app.use(
   helmet({
-    // Fixes the "Cancelled load" error for images in your screenshot
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 
 app.use(mongoSanitize());
 
-// 4. Custom Middleware Logic
+// --- CUSTOM MIDDLEWARE ---
 const protectAPI = (req, res, next) => {
-  // Fixes the 502/Preflight error: Browsers don't send x-api-key on OPTIONS
   if (req.method === "OPTIONS") {
     return next();
   }
@@ -71,7 +106,7 @@ const protectAPI = (req, res, next) => {
   }
 };
 
-// 5. Rate Limiters
+// --- RATE LIMITERS ---
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100,
@@ -80,7 +115,6 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Increased from 5 to 20 to prevent "re-login lockout" during testing
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -89,8 +123,8 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 6. Routes (Limiter and ProtectAPI MUST come before the routes)
-app.use("/api/auth", protectAPI, authLimiter, authRoutes); // Corrected order
+// --- ROUTES ---
+app.use("/api/auth", protectAPI, authLimiter, authRoutes);
 app.use("/api/user", protectAPI, userRoutes);
 app.use("/api/studio", protectAPI, studioRoutes);
 app.use("/api/package", protectAPI, packagesRoutes);
@@ -101,12 +135,15 @@ app.use("/api/purchases", protectAPI, purchaseRoutes);
 app.use("/api/passes", protectAPI, userPassRoutes);
 app.use("/api/medical", protectAPI, medicalRoutes);
 
-// Static files (Images)
+// Static files
 app.use(
   "/uploads",
   protectAPI,
   express.static(path.join(__dirname, "uploads")),
 );
 
+// --- SERVER LISTEN ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// IMPORTANT: Change app.listen -> server.listen
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

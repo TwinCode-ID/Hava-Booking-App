@@ -9,6 +9,7 @@ import {
   Send,
   Info,
 } from "lucide-react";
+import { fetchImage } from "../../../../../../utils/helper";
 
 const ReviewModal = ({
   purchase,
@@ -21,7 +22,7 @@ const ReviewModal = ({
 }) => {
   // 1. Initialize with existing issuer if available
   const [studioIssuer, setStudioIssuer] = useState(
-    purchase.paymentIssuer || ""
+    purchase.paymentIssuer || "",
   );
   const [confirmationStep, setConfirmationStep] = useState("initial");
 
@@ -140,7 +141,7 @@ const ReviewModal = ({
                 <div className='bg-gray-100 rounded-xl overflow-hidden border border-gray-200 min-h-[300px] flex items-center justify-center relative'>
                   {purchase.proofOfPayment ? (
                     <img
-                      src={purchase.proofOfPayment}
+                      src={fetchImage(purchase.proofOfPayment)}
                       alt='Proof'
                       className='w-full h-full object-contain'
                     />

@@ -116,7 +116,7 @@ const StudioDetails = () => {
             className='container mx-auto px-4 md:px-6'>
             {/* Image Carousel */}
             <div className='relative w-full h-[300px] md:h-[500px] rounded-4xl overflow-hidden shadow-lg group'>
-              <AnimatePresence mode='wait'>
+              <AnimatePresence>
                 <motion.img
                   key={currentImageIndex}
                   src={fetchImage(displayImages[currentImageIndex])}
