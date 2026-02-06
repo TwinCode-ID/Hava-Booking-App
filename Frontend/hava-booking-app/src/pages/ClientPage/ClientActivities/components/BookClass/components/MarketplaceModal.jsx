@@ -11,6 +11,7 @@ const MarketplaceModal = ({
   onPurchaseSuccess,
   requiredClassType,
   requiredInstructorType,
+  requiredStudioId,
 }) => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ const MarketplaceModal = ({
 
       // Filter by Instructor Type (Strict match)
       if (
+        pkg.studioLocation._id === requiredStudioId &&
         requiredInstructorType &&
         pkg.instructorType !== requiredInstructorType
       ) {
@@ -48,6 +50,7 @@ const MarketplaceModal = ({
       // Filter by Class Type (Optional: only if your packages specify class types)
       // If your packages are generic for all class types, remove the inner if statement.
       if (
+        pkg.studioLocation._id === requiredStudioId &&
         requiredClassType &&
         pkg.classType &&
         pkg.classType !== requiredClassType
@@ -60,9 +63,7 @@ const MarketplaceModal = ({
     .sort((a, b) => parseInt(a.packagePrice) - parseInt(b.packagePrice)); // Sort cheap to expensive
 
   const handleSuccess = async () => {
-    // 1. Close internal purchase state
     setSelectedPackage(null);
-    // 2. Notify parent (BookingModal) to refresh data and close this modal
     onPurchaseSuccess();
   };
 
@@ -183,7 +184,6 @@ const MarketplaceModal = ({
                 userId={user._id}
                 onCancel={() => setSelectedPackage(null)}
                 onSuccess={handleSuccess}
-                // IMPORTANT: Ensure your PurchaseForm calls onSuccess() when the API returns 200 OK
               />
             </div>
           </div>

@@ -50,6 +50,7 @@ export const API_PATHS = {
     GET_ALL_ACTIVE_PASS: (userId) => `/api/passes/user/active/${userId}`,
     GET_ALL_INACTIVE_PASS: (userId) => `/api/passes/user/inactive/${userId}`,
     GET_ALL_ADMIN: (studioId) => `/api/passes/history/${studioId}`,
+    UPDATE_PASS: (passId) => `/api/passes/update/${passId}`,
   },
 
   INSTRUCTOR: {
@@ -83,5 +84,11 @@ export const API_PATHS = {
     CANCEL_BOOKING: "/api/bookings/cancel",
     STUDENT_CHECK_IN: (bookingId) => `/api/bookings/${bookingId}`,
     GET_CLASS_BOOKINGS: (classId) => `/api/bookings/class/${classId}`,
+  },
+
+  CONFIG: {
+    GET: (studioId) => `/api/config/${studioId}`,
+    ADD: (studioId) => `/api/config/add/${studioId}`,
+    REMOVE: (studioId) => `/api/config/remove/${studioId}`,
   },
 };

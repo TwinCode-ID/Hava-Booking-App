@@ -4,6 +4,7 @@ const {
   assignPassToUser,
   getMyActivePasses,
   deductCredits,
+  updateUserPass,
   getUserPassHistory,
   getMyInactivePasses,
 } = require("../../controllers/UserController/user_passesController");
@@ -17,6 +18,9 @@ router.get("/user/inactive/:userId", protect, getMyInactivePasses);
 
 // GET /api/passes/history/:userId - Get all pass history (Debug/Admin)
 router.get("/history/:studioId", protect, getUserPassHistory);
+
+// PUT /api/passes/update/:passId - Update a user pass (Admin)
+router.put("/update/:passId", protect, updateUserPass);
 
 // POST /api/passes/assign - Manually assign a pass (Admin/System)
 router.post("/assign", protect, assignPassToUser);

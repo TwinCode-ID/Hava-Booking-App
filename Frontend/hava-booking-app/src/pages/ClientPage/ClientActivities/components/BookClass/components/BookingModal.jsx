@@ -51,7 +51,8 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
       const validForThisClass = passList.find(
         (p) =>
           p.classType === cls.classType &&
-          p.instructorType === cls.instructorType,
+          p.instructorType === cls.instructorType &&
+          p.issuingStudio._id === cls.studioId._id,
       );
 
       if (validForThisClass) {
@@ -90,8 +91,8 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
 
   // 3. Callback when purchase completes in the popup
   const handlePurchaseComplete = () => {
-    setShowMarketplace(false); // Close the popup
-    fetchPasses(); // Re-fetch data to show the new credits
+    setShowMarketplace(false);
+    fetchPasses();
   };
 
   // 4. Booking Logic
@@ -292,6 +293,7 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
           onPurchaseSuccess={handlePurchaseComplete}
           requiredInstructorType={cls.instructorType}
           requiredClassType={cls.classType}
+          requiredStudioId={cls.studioId._id}
         />
       )}
     </>

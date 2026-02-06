@@ -15,9 +15,11 @@ import {
   User,
   AlertCircle,
   Clock,
+  PlusCircle,
   MapPin,
   Camera,
   Lock,
+  Settings,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -29,6 +31,8 @@ import { fetchImage } from "../../../../../utils/helper";
 
 const ManageInstructors = ({ isEmbedded = false }) => {
   const { user } = useAuth();
+  const [config, setConfig] = useState({ instructorTypes: [] });
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [instructors, setInstructors] = useState([]);
   const [studios, setStudios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,12 +64,14 @@ const ManageInstructors = ({ isEmbedded = false }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [instRes, studiosRes] = await Promise.all([
+      const [instRes, studiosRes, configRes] = await Promise.all([
         axiosInstance.get(API_PATHS.INSTRUCTOR.GET_ALL),
         axiosInstance.get(API_PATHS.STUDIO.GET_ALL),
+        axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
       ]);
 
       setInstructors(instRes.data);
+      setConfig(configRes.data);
       setStudios(studiosRes.data);
     } catch (err) {
       console.error("Failed to fetch data", err);
@@ -210,6 +216,13 @@ const ManageInstructors = ({ isEmbedded = false }) => {
             </span>{" "}
             instructors
           </div>
+
+          <button
+            onClick={() => setIsConfigModalOpen(true)}
+            className='bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-colors font-bold text-sm shadow-sm'>
+            <Settings className='w-4 h-4' /> Class Type Setting
+          </button>
+
           <button
             onClick={() => {
               setEditingInstructor(null);
@@ -287,6 +300,18 @@ const ManageInstructors = ({ isEmbedded = false }) => {
             message={alertState.message}
             type={alertState.type}
             onClose={closeAlert}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isConfigModalOpen && (
+          <ManageTypesModal
+            isOpen={isConfigModalOpen}
+            onClose={() => setIsConfigModalOpen(false)}
+            config={config}
+            studioId={user.adminStudioLocation}
+            onUpdate={(newConfig) => setConfig(newConfig)}
           />
         )}
       </AnimatePresence>
@@ -971,5 +996,87 @@ const ConfirmationModal = ({
     </motion.div>
   </div>
 );
+
+const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
+  const [activeTab] = useState("classTypes");
+  const [newItem, setNewItem] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!newItem.trim()) return;
+    setLoading(true);
+    try {
+      const res = await axiosInstance.post(API_PATHS.CONFIG.ADD(studioId), {
+        category: activeTab,
+        type: newItem,
+      });
+      onUpdate(res.data);
+      setNewItem("");
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to add");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemove = async (type) => {
+    if (!window.confirm(`Delete "${type}"?`)) return;
+    try {
+      const res = await axiosInstance.post(API_PATHS.CONFIG.REMOVE(studioId), {
+        category: activeTab,
+        type: type,
+      });
+      onUpdate(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className='fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className='bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-hidden'>
+        <div className='flex justify-between items-center mb-6'>
+          <h3 className='text-xl font-bold'>Manage Class Types</h3>
+          <button onClick={onClose}>
+            <X className='text-gray-400 hover:text-gray-600' />
+          </button>
+        </div>
+
+        <form onSubmit={handleAdd} className='flex gap-2 mb-4'>
+          <input
+            value={newItem}
+            onChange={(e) => setNewItem(e.target.value)}
+            placeholder={`New ${activeTab === "classTypes" ? "Class" : "Level"}...`}
+            className='flex-1 border border-gray-300 rounded-xl px-4 outline-none focus:border-emerald-500'
+          />
+          <button
+            disabled={loading}
+            className='bg-emerald-900 text-white p-3 rounded-xl hover:bg-emerald-800 disabled:opacity-50'>
+            <PlusCircle className='w-5 h-5' />
+          </button>
+        </form>
+
+        <div className='space-y-2 max-h-60 overflow-y-auto custom-scrollbar'>
+          {config[activeTab]?.map((item) => (
+            <div
+              key={item}
+              className='flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100 group'>
+              <span className='font-medium text-gray-700 text-sm'>{item}</span>
+              <button
+                onClick={() => handleRemove(item)}
+                className='text-gray-300 hover:text-red-500'>
+                <Trash2 className='w-4 h-4' />
+              </button>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 export default ManageInstructors;

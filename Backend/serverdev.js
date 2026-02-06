@@ -20,6 +20,7 @@ const scheduleRoutes = require("./routes/BookingRoutes/scheduleRoutes");
 const purchaseRoutes = require("./routes/StudioRoutes/purchaseRoutes");
 const userPassRoutes = require("./routes/UserRoutes/user_passesRoutes");
 const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
+const studioConfigRoutes = require("./routes/StudioRoutes/studioConfigRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -124,7 +125,7 @@ const authLimiter = rateLimit({
 });
 
 // --- ROUTES ---
-app.use("/api/auth", protectAPI, authLimiter, authRoutes);
+app.use("/api/auth", protectAPI, authRoutes);
 app.use("/api/user", protectAPI, userRoutes);
 app.use("/api/studio", protectAPI, studioRoutes);
 app.use("/api/package", protectAPI, packagesRoutes);
@@ -134,6 +135,7 @@ app.use("/api/schedule", protectAPI, scheduleRoutes);
 app.use("/api/purchases", protectAPI, purchaseRoutes);
 app.use("/api/passes", protectAPI, userPassRoutes);
 app.use("/api/medical", protectAPI, medicalRoutes);
+app.use("/api/config", protectAPI, studioConfigRoutes);
 
 // Static files
 app.use(

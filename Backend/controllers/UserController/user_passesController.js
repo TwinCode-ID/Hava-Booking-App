@@ -9,13 +9,19 @@ exports.assignPassToUser = async (req, res) => {
       packageId,
       credits,
       durationInDays,
-      instructorType,
-      classType,
+      instructorType, // Expecting Array: ["Junior", "Senior"]
+      classType, // Expecting Array: ["Mat", "Reformer"]
     } = req.body;
 
     const purchaseDate = new Date();
     const expiryDate = new Date();
     expiryDate.setDate(purchaseDate.getDate() + durationInDays);
+
+    // Ensure inputs are arrays (handling legacy data or single string inputs)
+    const instructorArray = Array.isArray(instructorType)
+      ? instructorType
+      : [instructorType];
+    const classArray = Array.isArray(classType) ? classType : [classType];
 
     const newPass = new UserPasses({
       userId,
@@ -23,8 +29,9 @@ exports.assignPassToUser = async (req, res) => {
       purchaseDate,
       expiryDate,
       remainingCredits: credits,
-      instructorType,
-      classType,
+      initialCredits: credits,
+      instructorType: instructorArray,
+      classType: classArray,
       isActive: true,
     });
 
@@ -39,8 +46,81 @@ exports.assignPassToUser = async (req, res) => {
   }
 };
 
-// 2. Get User's "Wallet" (Active Passes)
-// Used in the Booking Modal to show valid payment options
+// 6. Admin: Update User Pass
+exports.updateUserPass = async (req, res) => {
+  try {
+    const { passId } = req.params;
+    const { remainingCredits, expiryDate, instructorType, classType } =
+      req.body;
+
+    const pass = await UserPasses.findById(passId);
+    if (!pass) return res.status(404).json({ error: "Pass not found" });
+
+    if (remainingCredits !== undefined)
+      pass.remainingCredits = Number(remainingCredits);
+    if (expiryDate) pass.expiryDate = new Date(expiryDate);
+
+    // Update Arrays directly
+    if (instructorType) pass.instructorType = instructorType;
+    if (classType) pass.classType = classType;
+
+    // Recalculate Active Status
+    const now = new Date();
+    const currentExpiry = pass.expiryDate;
+    const isNotExpired = currentExpiry > now;
+    const hasCredits = pass.remainingCredits > 0;
+
+    pass.isActive = isNotExpired && hasCredits;
+
+    await pass.save();
+
+    res.status(200).json({
+      message: "Pass updated successfully",
+      pass,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deductCredits = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { userId, passId, creditsToDeduct } = req.body;
+
+    const userPass = await UserPasses.findOne({
+      _id: passId,
+      userId: userId,
+    }).session(session);
+
+    if (!userPass) throw new Error("Pass not found.");
+    if (!userPass.isActive) throw new Error("This pass is inactive.");
+    if (new Date() > userPass.expiryDate)
+      throw new Error("This pass has expired.");
+    if (userPass.remainingCredits < creditsToDeduct)
+      throw new Error("Insufficient credits.");
+
+    userPass.remainingCredits -= creditsToDeduct;
+
+    if (userPass.remainingCredits === 0) userPass.isActive = false;
+
+    await userPass.save({ session });
+    await session.commitTransaction();
+
+    res.status(200).json({
+      message: "Credits deducted successfully",
+      remaining: userPass.remainingCredits,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ error: error.message });
+  } finally {
+    session.endSession();
+  }
+};
+
 exports.getMyActivePasses = async (req, res) => {
   try {
     const { userId } = req.params; // SECURITY FIX: Use token ID
@@ -83,46 +163,6 @@ exports.getMyInactivePasses = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-// 4. Deduct Credits (Backend Utility)
-exports.deductCredits = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { userId, passId, creditsToDeduct } = req.body;
-
-    const userPass = await UserPasses.findOne({
-      _id: passId,
-      userId: userId,
-    }).session(session);
-
-    if (!userPass) throw new Error("Pass not found.");
-    if (!userPass.isActive) throw new Error("This pass is inactive.");
-    if (new Date() > userPass.expiryDate)
-      throw new Error("This pass has expired.");
-    if (userPass.remainingCredits < creditsToDeduct)
-      throw new Error("Insufficient credits.");
-
-    userPass.remainingCredits -= creditsToDeduct;
-
-    if (userPass.remainingCredits === 0) userPass.isActive = false;
-
-    await userPass.save({ session });
-    await session.commitTransaction();
-
-    res.status(200).json({
-      message: "Credits deducted successfully",
-      remaining: userPass.remainingCredits,
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(400).json({ error: error.message });
-  } finally {
-    session.endSession();
-  }
-};
-
 // 5. Admin: Get User History
 exports.getUserPassHistory = async (req, res) => {
   try {

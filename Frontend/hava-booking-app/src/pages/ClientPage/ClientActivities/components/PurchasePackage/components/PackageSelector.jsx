@@ -554,6 +554,7 @@ const PackageSelectorView = ({ user }) => {
                 <PurchaseForm
                   pkg={selectedPackage}
                   onCancel={handleClosePurchase}
+                  onSuccess={handleClosePurchase}
                   userId={user._id}
                 />
               </div>

@@ -47,21 +47,15 @@ const GlobalSocketListener = () => {
 
         if (data.role === "client") {
           if (data.type === "PAYMENT_APPROVED") {
-            // A. Alert User
-            alert(data.message);
-
-            // B. Broadcast Event to the rest of the app
             window.dispatchEvent(new Event("credits-updated"));
           } else if (data.type === "PAYMENT_REJECTED") {
-            alert(`❌ Payment Rejected: ${data.message}`);
+            window.dispatchEvent(new Event("payment-rejected"));
           }
         } else if (data.role === "admin") {
           if (data.type === "NEW_PURCHASE") {
-            alert(`🔔 New Purchase: ${data.message}`);
             window.dispatchEvent(new Event("admin-data-updated"));
           } else if (data.type === "PROOF_UPLOADED") {
-            alert(`🔔 Proof Uploaded: ${data.message}`);
-            window.dispatchEvent(new Event("admin-data-updated"));
+            window.dispatchEvent(new Event("proof-data-updated"));
           }
         }
       });

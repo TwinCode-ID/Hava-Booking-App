@@ -2,24 +2,34 @@ const mongoose = require("mongoose");
 
 const user_passesSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Packages" },
-    purchaseDate: { type: Date, require: true },
-    expiryDate: { type: Date, require: true },
-    initialCredits: { type: Number, require: true },
-    remainingCredits: { type: Number, require: true },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    packageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Packages",
+      required: true,
+    },
     issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
-    isActive: { type: Boolean, require: true },
+    purchaseDate: { type: Date, required: true },
+    expiryDate: { type: Date, required: true },
+    initialCredits: { type: Number, required: true },
+    remainingCredits: { type: Number, required: true },
+    isActive: { type: Boolean, required: true, default: true },
     instructorType: {
-      type: String,
-      require: true,
+      type: [String],
+      required: true,
+      default: [],
     },
     classType: {
-      type: String,
-      require: true,
+      type: [String],
+      required: true,
+      default: [],
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("User_Passes", user_passesSchema);
