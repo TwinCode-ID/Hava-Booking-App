@@ -101,7 +101,7 @@ const ClientDashboard = () => {
 
       upcoming.sort(
         (a, b) =>
-          new Date(a.classId?.startTime) - new Date(b.classId?.startTime)
+          new Date(a.classId?.startTime) - new Date(b.classId?.startTime),
       );
 
       history.sort((a, b) => {
@@ -115,12 +115,12 @@ const ClientDashboard = () => {
       });
 
       const passRes = await axiosInstance.get(
-        API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id)
+        API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id),
       );
       const passes = passRes.data;
       const totalCredits = passes.reduce(
         (sum, p) => sum + p.remainingCredits,
-        0
+        0,
       );
 
       setCredits(totalCredits);
@@ -145,7 +145,7 @@ const ClientDashboard = () => {
     }
     const hoursUntil = differenceInHours(
       new Date(booking.classId?.startTime),
-      new Date()
+      new Date(),
     );
     if (hoursUntil < 24) {
       alert("Cancellation is not allowed less than 24 hours before class.");
@@ -265,7 +265,7 @@ const ClientDashboard = () => {
                             <Clock className='w-4 h-4 text-emerald-600' />
                             {format(
                               new Date(item.classId?.startTime),
-                              "h:mm a"
+                              "h:mm a",
                             )}{" "}
                             -{" "}
                             {format(new Date(item.classId?.endTime), "h:mm a")}
@@ -325,7 +325,64 @@ const ClientDashboard = () => {
               </h2>
             </div>
 
-            <div className='bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden'>
+            {/* --- MOBILE CARD VIEW (Visible on Small Screens) --- */}
+            <div className='md:hidden space-y-4'>
+              {historyClasses.map((item) => {
+                const isCancelled = item.status === "Cancelled";
+                const dateObj = item.classId?.startTime
+                  ? new Date(item.classId?.startTime)
+                  : new Date(item.createdAt);
+
+                return (
+                  <div
+                    key={item._id}
+                    onClick={() => setSelectedClass(item)}
+                    className='bg-white p-5 rounded-2xl border border-gray-100 shadow-sm active:bg-gray-50 transition-colors'>
+                    <div className='flex justify-between items-start mb-3'>
+                      <div>
+                        <p className='text-xs font-bold text-gray-400 uppercase mb-1'>
+                          {format(dateObj, "MMM dd, yyyy")} •{" "}
+                          {format(dateObj, "h:mm a")}
+                        </p>
+                        <h3 className='font-bold text-lg text-gray-900 leading-tight'>
+                          {item.classId?.className || "Unknown Class"}
+                        </h3>
+                        <p className='text-sm text-gray-500 mt-1'>
+                          {item.instructorId?.fullName}
+                        </p>
+                      </div>
+                      {isCancelled ? (
+                        <div className='bg-red-50 text-red-600 p-1.5 rounded-lg'>
+                          <XCircle className='w-5 h-5' />
+                        </div>
+                      ) : (
+                        <div className='bg-emerald-50 text-emerald-600 p-1.5 rounded-lg'>
+                          <CheckCircle2 className='w-5 h-5' />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className='flex justify-between items-center pt-3 border-t border-gray-50'>
+                      <div className='flex items-center gap-1 text-xs font-bold text-gray-500'>
+                        <MapPin className='w-3 h-3' />
+                        {item.studioId?.studioName || "N/A"}
+                      </div>
+                      <span
+                        className={`text-xs font-bold px-2 py-1 rounded-md ${
+                          item.isAttend
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-gray-100 text-gray-600"
+                        }`}>
+                        {item.isAttend ? "Attended" : "Not Attended"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* --- DESKTOP TABLE VIEW (Hidden on Mobile) --- */}
+            <div className='hidden md:block bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden'>
               <div className='overflow-x-auto'>
                 <table className='w-full text-left border-collapse'>
                   <thead className='bg-gray-50 border-b border-gray-100'>
@@ -359,11 +416,7 @@ const ClientDashboard = () => {
                         <tr
                           key={item._id}
                           onClick={() => setSelectedClass(item)}
-                          // 1. 'group' allows children to react when row is hovered
-                          // 2. 'cursor-pointer' shows the hand icon
-                          // 3. 'hover:bg-emerald-50' sets the background color (removed /50 opacity so it is visible)
                           className='group transition-colors duration-200 hover:bg-emerald-50 cursor-pointer'>
-                          {/* Date Column */}
                           <td className='py-4 px-6'>
                             <div className='flex flex-col'>
                               <span
@@ -379,8 +432,6 @@ const ClientDashboard = () => {
                               </span>
                             </div>
                           </td>
-
-                          {/* Class Name Column */}
                           <td className='py-4 px-6'>
                             <div className='flex flex-col'>
                               <span
@@ -396,18 +447,12 @@ const ClientDashboard = () => {
                               </span>
                             </div>
                           </td>
-
-                          {/* Studio Column */}
                           <td className='py-4 px-6 text-sm text-gray-500 transition-colors group-hover:text-emerald-700'>
                             {item.studioId?.studioName || "N/A"}
                           </td>
-
-                          {/* Attendance Column */}
                           <td className='py-4 px-6 text-sm text-gray-500 text-left transition-colors group-hover:text-emerald-700'>
                             {item.isAttend ? "Attended" : "Not attended"}
                           </td>
-
-                          {/* Status Badge Column */}
                           <td className='py-4 px-6 text-right'>
                             <div className='flex justify-end'>
                               {isCancelled ? (
@@ -421,8 +466,6 @@ const ClientDashboard = () => {
                               )}
                             </div>
                           </td>
-
-                          {/* NEW: Arrow Column (Matches the empty <th> in your header) */}
                           <td className='py-4 px-6 text-center w-10'>
                             <ChevronRight
                               className={`w-5 h-5 transition-all duration-300 transform text-gray-300 opacity-100 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0`}
@@ -465,7 +508,6 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
     !booking.isAttend && booking.status !== "Cancelled" && hoursUntil >= 24;
 
   const isCancelled = booking.status === "Cancelled";
-  const qrValue = booking._id || "error-no-id";
 
   return (
     <div className='fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm'>
@@ -473,9 +515,7 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        // 1. ADDED 'flex flex-col' so children respect height hierarchy
         className='relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden text-center max-h-[90vh] flex flex-col'>
-        {/* Header - Stays fixed at the top because of flex column */}
         <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10 shrink-0'>
           <h2 className='text-xl font-bold text-gray-900'>Booking Pass</h2>
           <button
@@ -485,9 +525,7 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
           </button>
         </div>
 
-        {/* 2. ADDED 'flex-1' ensures this takes remaining height and scrolls internally */}
         <div className='p-4 overflow-y-auto flex-1'>
-          {/* Added extra padding-bottom so content isn't flush with edge when scrolling */}
           <div className='px-3 py-2 pb-6 rounded-2xl'>
             <div className='w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4'>
               <Ticket className='w-8 h-8 text-emerald-600' />

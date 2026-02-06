@@ -24,10 +24,12 @@ import AdminAccountSettings from "./pages/StudioAdminPage/Account/AccountSetting
 import ManageClient from "./pages/ClientPage/ClientActivities/ManageClient";
 import BookTheClass from "./pages/ClientPage/ClientActivities/components/BookClass/components/BookTheClass";
 import ManageBooking from "./pages/ClientPage/ClientActivities/components/ManageBooking/ManageBooking";
+import GlobalSocketListener from "./components/GlobalSocketListener";
 
 const App = () => {
   return (
     <AuthProvider>
+      <GlobalSocketListener />
       <Router>
         <Routes>
           {/*Public Routes */}

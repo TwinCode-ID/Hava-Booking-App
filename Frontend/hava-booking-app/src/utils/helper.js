@@ -1,3 +1,12 @@
+export const fetchImage = (url) => {
+  if (!url) {
+    return null;
+  }
+  const separator = url.includes("?") ? "&" : "?";
+  const finalUrl = `${url}${separator}x-api-key=${import.meta.env.VITE_INTERNAL_API_KEY}`;
+  return finalUrl;
+};
+
 //Validate Email
 export const validateEmail = (email) => {
   if (!email.trim()) return "Email is required";

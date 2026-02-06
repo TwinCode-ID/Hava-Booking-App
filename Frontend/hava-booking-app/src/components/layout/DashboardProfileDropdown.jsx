@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { fetchImage } from "../../utils/helper";
 
 const ProfileDropdown = ({
   isOpen,
@@ -18,7 +19,7 @@ const ProfileDropdown = ({
         className='flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-50 transition-colors duration-200'>
         {avatar ? (
           <img
-            src={avatar}
+            src={fetchImage(avatar)}
             alt='Avatar'
             className='h-9 w-9 object-cover rounded-xl'
           />

@@ -8,6 +8,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { href } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { fetchImage } from "../../../utils/helper";
 
 const Hero = () => {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ const Hero = () => {
                 {/* Image Section */}
                 <div className='h-[280px] w-full relative'>
                   <img
-                    src={studio.studioPictures[0] || " "}
+                    src={fetchImage(studio.studioPictures[0]) || " "}
                     alt={studio.studioPictures[0] || " "}
                     className='w-full h-full object-cover'
                   />
@@ -103,7 +104,7 @@ const Hero = () => {
                         // FIX 2: Corrected the URL (use 'https' and removed double slash)
                         window.open(
                           `https://wa.me/${studio.contactNumber}`,
-                          "_blank"
+                          "_blank",
                         );
                       }}>
                       {/* Removed the extra div wrapper and margins to fix alignment */}

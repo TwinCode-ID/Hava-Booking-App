@@ -149,13 +149,7 @@ exports.cancelBooking = async (req, res) => {
     const userRole = req.user.role ? req.user.role.toLowerCase() : "user";
 
     // FIX: Added "studioadmin" and "devteam"
-    const isAdmin = [
-      "admin",
-      "superadmin",
-      "owner",
-      "studioadmin",
-      "devteam",
-    ].includes(userRole);
+    const isAdmin = ["studioAdmin", "devTeam"].includes(userRole);
 
     const isOwner = booking.userId.toString() === req.user._id.toString();
 

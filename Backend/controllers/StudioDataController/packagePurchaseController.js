@@ -17,7 +17,6 @@ const checkAndExpire = async (purchase) => {
 
 // --- 1. CREATE PURCHASE ---
 exports.createPurchase = async (req, res) => {
-  // 1. Initialize Session at the very start
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -29,20 +28,17 @@ exports.createPurchase = async (req, res) => {
       paymentIssuer,
       issuingStudio,
       proofOfPayment,
-      userId, // Allow passing userId directly (for Admin Assign)
+      userId,
     } = req.body;
 
-    // Use req.user._id only if userId is not in body (User Purchase flow)
     const finalUserId = userId || req.user._id;
 
     const packageInfo = await Packages.findById(packageId).session(session);
     if (!packageInfo) throw new Error("Package not found");
 
-    // Set 24 Hour Payment Window
     let paymentStatus;
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Determine status
     if (paymentMethod === "pay_at_studio" || paymentMethod === "manual_admin") {
       paymentStatus = req.body.status || "pending";
     } else if (paymentMethod === "direct_payment") {
@@ -67,11 +63,25 @@ exports.createPurchase = async (req, res) => {
 
     await newPurchase.save({ session });
 
-    const packageDetails = await Packages.findById(
-      newPurchase.packageId,
-    ).session(session);
+    // --- PREPARE NOTIFICATION DATA ---
+    const notificationData = await PackagePurchase.findById(newPurchase._id)
+      .populate("userId", "fullName")
+      .populate("packageId", "packageName")
+      .session(session);
 
-    // --- AUTO-CONFIRM LOGIC (For Direct Payment or Manual Admin) ---
+    const sendNotification = () => {
+      const io = req.app.get("io");
+      if (io) {
+        io.to(issuingStudio._id.toString()).emit("purchase_notification", {
+          role: "admin",
+          type: "NEW_PURCHASE",
+          message: `New purchase initiated by ${notificationData.userId?.fullName || "Client"}`,
+          data: notificationData,
+        });
+      }
+    };
+
+    // --- AUTO-CONFIRM LOGIC ---
     if (paymentStatus === "confirmed") {
       const passExpiry = new Date();
       passExpiry.setDate(
@@ -87,14 +97,13 @@ exports.createPurchase = async (req, res) => {
         initialCredits: newPurchase.creditsPurchased,
         issuingStudio: newPurchase.issuingStudio,
         isActive: true,
-        // FIX 2: Use 'packageInfo' instead of undefined 'packageDetails'
         classType: packageInfo.classType,
         instructorType: packageInfo.instructorType,
       });
 
       await newUserPass.save({ session });
 
-      await session.commitTransaction(); // Commit here for confirmed flow
+      await session.commitTransaction();
       return res.status(200).json({
         message: "Purchase confirmed & Pass created.",
         purchase: newPurchase,
@@ -102,7 +111,9 @@ exports.createPurchase = async (req, res) => {
     }
 
     // --- STANDARD FLOW ---
-    await session.commitTransaction(); // Commit for standard flow
+    sendNotification();
+
+    await session.commitTransaction();
     res.status(201).json({
       message: "Purchase initiated.",
       purchaseId: newPurchase._id,
@@ -110,14 +121,14 @@ exports.createPurchase = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    console.error("Purchase Error:", error); // Helpful for debugging
+    console.error("Purchase Error:", error);
     res.status(400).json({ error: error.message });
   } finally {
     session.endSession();
   }
 };
 
-// ... (Rest of the file remains unchanged: uploadProof, adminReviewPayment, getMyPurchases, etc.)
+// --- 2. UPLOAD PROOF ---
 exports.uploadProof = async (req, res) => {
   try {
     const { purchaseId } = req.params;
@@ -126,37 +137,40 @@ exports.uploadProof = async (req, res) => {
     let purchase = await PackagePurchase.findById(purchaseId);
     if (!purchase) throw new Error("Purchase not found");
 
-    // Check if expired
     purchase = await checkAndExpire(purchase);
 
     if (purchase.status === "expired") {
-      return res.status(400).json({
-        error: "Payment window has expired. Please make a new purchase.",
-      });
+      return res.status(400).json({ error: "Payment window has expired." });
     }
-
     if (purchase.status === "confirmed") {
       return res.status(400).json({ error: "Payment already confirmed." });
     }
 
-    // Update status
     purchase.proofOfPayment = proofUrl;
     purchase.status = "waiting_confirmation";
-
-    // --- IMPORTANT: Clear any previous rejection reason on new upload ---
     purchase.rejectionReason = null;
 
     await purchase.save();
 
-    res.status(200).json({
-      message: "Proof uploaded. Waiting for admin confirmation.",
-      purchase,
-    });
+    // Notify Admin
+    const io = req.app.get("io");
+    if (io) {
+      await purchase.populate("userId", "fullName");
+      io.to(purchase.issuingStudio.toString()).emit("purchase_notification", {
+        role: "admin",
+        type: "PROOF_UPLOADED",
+        message: `Payment proof uploaded by ${purchase.userId?.fullName}`,
+        data: purchase,
+      });
+    }
+
+    res.status(200).json({ message: "Proof uploaded.", purchase });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
+// --- 3. ADMIN REVIEW ---
 exports.adminReviewPayment = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -168,24 +182,12 @@ exports.adminReviewPayment = async (req, res) => {
     let purchase = await PackagePurchase.findById(purchaseId).session(session);
     if (!purchase) throw new Error("Purchase record not found.");
 
-    if (new Date() > purchase.paymentWindowExpiry) {
-      purchase.status = "expired";
-      await purchase.save({ session });
-      await session.commitTransaction();
-      return res.status(400).json({
-        error: "Payment window expired during review.",
-        status: "expired",
-      });
-    }
-
     if (action === "approve") {
       if (purchase.status === "confirmed") throw new Error("Already confirmed");
 
-      // Here 'packageDetails' IS defined correctly because we fetch it freshly
       const packageDetails = await Packages.findById(
         purchase.packageId,
       ).session(session);
-
       const passExpiry = new Date();
       passExpiry.setDate(
         passExpiry.getDate() + (packageDetails.validityDays || 30),
@@ -209,33 +211,41 @@ exports.adminReviewPayment = async (req, res) => {
       purchase.status = "confirmed";
       purchase.rejectionReason = null;
       purchase.paymentIssuer = paymentIssuer;
-
       await purchase.save({ session });
+
+      // Notify Client
+      const io = req.app.get("io");
+      if (io) {
+        io.to(purchase.userId.toString()).emit("purchase_notification", {
+          role: "client",
+          type: "PAYMENT_APPROVED",
+          message: `Your payment for ${packageDetails.packageName} has been confirmed!`,
+        });
+      }
 
       await session.commitTransaction();
       return res
         .status(200)
         .json({ message: "Payment confirmed.", passId: newUserPass._id });
     } else if (action === "reject") {
-      const now = new Date();
+      purchase.status = "payment_rejected";
+      purchase.rejectionReason = rejectionReason || "Proof rejected.";
+      await purchase.save({ session });
 
-      if (now > purchase.paymentWindowExpiry) {
-        purchase.status = "expired";
-        purchase.rejectionReason = "Payment window expired.";
-      } else {
-        purchase.status = "payment_rejected";
-        purchase.rejectionReason =
-          rejectionReason || "Proof rejected. Please upload a valid proof.";
+      // Notify Client
+      const io = req.app.get("io");
+      if (io) {
+        io.to(purchase.userId.toString()).emit("purchase_notification", {
+          role: "client",
+          type: "PAYMENT_REJECTED",
+          message: `Payment rejected: ${purchase.rejectionReason}`,
+        });
       }
 
-      await purchase.save({ session });
       await session.commitTransaction();
-
-      return res.status(200).json({
-        message: "Payment status updated.",
-        status: purchase.status,
-        reason: purchase.rejectionReason,
-      });
+      return res
+        .status(200)
+        .json({ message: "Payment rejected.", status: purchase.status });
     }
   } catch (error) {
     await session.abortTransaction();
@@ -245,6 +255,7 @@ exports.adminReviewPayment = async (req, res) => {
   }
 };
 
+// ... (Rest of exports like getMyPurchases remain unchanged)
 exports.getMyPurchases = async (req, res) => {
   try {
     const { userId } = req.params;

@@ -10,17 +10,15 @@ import {
   addMonths,
   isSameDay,
   isSameWeek,
-  startOfMonth,
-  endOfMonth,
-  isSameMonth,
   parseISO,
   setHours,
   setMinutes,
-  isValid,
   getDay,
-  setDay,
   addMinutes,
-  isWithinInterval,
+  startOfMonth,
+  endOfMonth,
+  isSameMonth,
+  differenceInMinutes,
 } from "date-fns";
 import {
   ChevronLeft,
@@ -31,21 +29,18 @@ import {
   Repeat,
   X,
   Printer,
-  FileText,
-  ChevronDown,
   BadgeCheck,
   AlertCircle,
   CheckCircle2,
   Trash2,
-  Edit,
-  Power,
   Users,
   Check,
-  AlertTriangle,
   Layers,
-  Search,
   Loader2,
-  User,
+  MapPin,
+  Lock,
+  Building2,
+  CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
@@ -61,6 +56,9 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // --- VIEW MODE STATE (ALL vs LOCAL) ---
+  const [viewMode, setViewMode] = useState("LOCAL");
 
   // Printing State
   const [isPrinting, setIsPrinting] = useState(false);
@@ -93,10 +91,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    fetchSchedule();
-  }, [currentDate, user.adminStudioLocation]);
-
+  // 1. Fetch Instructors
   useEffect(() => {
     const fetchInstructors = async () => {
       try {
@@ -109,14 +104,70 @@ const SchedulesList = ({ isEmbedded = false }) => {
     fetchInstructors();
   }, []);
 
-  const fetchSchedule = async () => {
-    setLoading(true);
+  // 2. Fetch Schedules
+  useEffect(() => {
+    if (instructors.length > 0) {
+      fetchAllSchedules();
+    } else {
+      fetchLocalSchedule();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, user.adminStudioLocation, instructors]);
+
+  const fetchLocalSchedule = async () => {
     try {
       const res = await axiosInstance.get(
         API_PATHS.SCHEDULE.GET_BY_STUDIO_ID(user.adminStudioLocation),
         { params: { studioId: user.adminStudioLocation } },
       );
-      setClasses(res.data);
+      return res.data;
+    } catch (error) {
+      console.error("Local schedule error", error);
+      return [];
+    }
+  };
+
+  const fetchAllSchedules = async () => {
+    setLoading(true);
+    try {
+      // A. Fetch Local Studio Schedule
+      const localData = await fetchLocalSchedule();
+
+      // B. Fetch External Schedules
+      const otherStudioIds = new Set();
+      instructors.forEach((inst) => {
+        if (inst.assignedStudiosId && Array.isArray(inst.assignedStudiosId)) {
+          inst.assignedStudiosId.forEach((studio) => {
+            const sId = typeof studio === "object" ? studio._id : studio;
+            if (sId !== user.adminStudioLocation) {
+              otherStudioIds.add(sId);
+            }
+          });
+        }
+      });
+
+      const externalPromises = Array.from(otherStudioIds).map((sId) =>
+        axiosInstance
+          .get(API_PATHS.SCHEDULE.GET_BY_STUDIO_ID(sId), {
+            params: { studioId: sId },
+          })
+          .then((res) => res.data)
+          .catch(() => []),
+      );
+
+      const externalResults = await Promise.all(externalPromises);
+      const allExternalClasses = externalResults.flat();
+
+      const ourInstructorIds = new Set(instructors.map((i) => i._id));
+      const relevantExternalClasses = allExternalClasses.filter((cls) => {
+        const iId =
+          typeof cls.instructorId === "object"
+            ? cls.instructorId._id
+            : cls.instructorId;
+        return ourInstructorIds.has(iId);
+      });
+
+      setClasses([...localData, ...relevantExternalClasses]);
     } catch (error) {
       console.error(error);
     } finally {
@@ -124,8 +175,21 @@ const SchedulesList = ({ isEmbedded = false }) => {
     }
   };
 
+  // --- FILTER LOGIC ---
+  const filteredClasses = useMemo(() => {
+    if (viewMode === "ALL") return classes;
+    return classes.filter((cls) => {
+      const clsStudioId =
+        typeof cls.studioId === "object" ? cls.studioId._id : cls.studioId;
+      return clsStudioId === user.adminStudioLocation;
+    });
+  }, [classes, viewMode, user.adminStudioLocation]);
+
   const handleClassClick = (cls) => {
-    setSelectedClass(cls);
+    const clsStudioId =
+      typeof cls.studioId === "object" ? cls.studioId._id : cls.studioId;
+    const isExternal = clsStudioId !== user.adminStudioLocation;
+    setSelectedClass({ ...cls, isExternal });
     setShowDetailModal(true);
   };
 
@@ -140,7 +204,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
     setEditingClass(null);
   };
 
-  // --- Master Grid PDF Generation ---
+  // --- PDF GENERATION ---
   const handleGenerateMasterPDF = async () => {
     setIsPrinting(true);
     try {
@@ -149,7 +213,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
       );
       const allBookings = bookingsRes.data;
 
-      // Helper: Get UNIQUE student names for a specific class ID
       const getStudentNames = (classId) => {
         const classBookings = allBookings.filter((b) => {
           const bClassId =
@@ -158,7 +221,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
         });
 
         if (classBookings.length === 0) return "";
-
         const uniqueNames = new Set(
           classBookings.map((b) => b.userId?.fullName).filter(Boolean),
         );
@@ -171,19 +233,16 @@ const SchedulesList = ({ isEmbedded = false }) => {
         a.fullName.localeCompare(b.fullName),
       );
 
-      const instructorColumns = activeInstructors.map((inst) => {
-        return {
-          header: `${inst.fullName.split(" ")[0].toUpperCase()}`,
-          dataKey: inst._id,
-        };
-      });
+      const instructorColumns = activeInstructors.map((inst) => ({
+        header: inst.fullName.toUpperCase(),
+        dataKey: inst._id,
+      }));
 
       const columns = [
-        { header: "Time", dataKey: "time" },
+        { header: "TIME", dataKey: "time" },
         ...instructorColumns,
       ];
 
-      // 3. Setup Days & Hours (07:00 - 19:00)
       const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
       const weekDays = Array.from({ length: 7 }).map((_, i) =>
         addDays(weekStart, i),
@@ -191,25 +250,42 @@ const SchedulesList = ({ isEmbedded = false }) => {
 
       const hours = Array.from({ length: 13 }, (_, i) => i + 7);
 
-      // 4. Loop through days
       weekDays.forEach((dayDate, dayIndex) => {
         if (dayIndex > 0) {
           doc.addPage();
         }
 
-        doc.setFontSize(14);
-        doc.setTextColor(50, 50, 50);
-        doc.text(format(dayDate, "EEEE, dd MMMM yyyy"), 14, 15);
+        // Header Styling
+        doc.setFillColor(6, 78, 59); // Emerald 900
+        doc.rect(0, 0, 297, 24, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text(format(dayDate, "EEEE, dd MMMM yyyy"), 14, 16);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          `Generated: ${format(new Date(), "dd MMM yyyy HH:mm")}`,
+          282,
+          16,
+          { align: "right" },
+        );
 
         let dayTableData = [];
+        let occupied = {};
 
         hours.forEach((hour) => {
           const row = {
-            time: `${hour.toString().padStart(2, "0")}.00`,
+            time: `${hour.toString().padStart(2, "0")}:00`,
           };
 
           activeInstructors.forEach((inst) => {
-            const foundClass = classes.find((cls) => {
+            if (occupied[inst._id] && occupied[inst._id] > 0) {
+              occupied[inst._id]--;
+              return;
+            }
+
+            const foundClass = filteredClasses.find((cls) => {
               const clsDate = parseISO(cls.startTime);
               const clsInstrId = cls.instructorId?._id || cls.instructorId;
               return (
@@ -220,12 +296,34 @@ const SchedulesList = ({ isEmbedded = false }) => {
             });
 
             if (foundClass) {
+              const start = parseISO(foundClass.startTime);
+              const end = parseISO(foundClass.endTime);
+              const durationMinutes = differenceInMinutes(end, start);
+              let span = Math.ceil(durationMinutes / 60);
+              if (span < 1) span = 1;
+
               const students = getStudentNames(foundClass._id);
-              let cellContent = foundClass.className;
+              const startStr = format(start, "HH:mm");
+              const endStr = format(end, "HH:mm");
+
+              let cellContent = `${startStr} - ${endStr}\n${foundClass.className}\n[${foundClass.classType}]`;
               if (students) {
-                cellContent += `\n(${students})`;
+                cellContent += `\n\nStudents: ${students}`;
               }
-              row[inst._id] = cellContent;
+
+              row[inst._id] = {
+                content: cellContent,
+                rowSpan: span,
+                styles: {
+                  valign: "middle",
+                  halign: "center",
+                  fillColor: [255, 255, 255],
+                },
+              };
+
+              if (span > 1) {
+                occupied[inst._id] = span - 1;
+              }
             } else {
               row[inst._id] = "";
             }
@@ -236,36 +334,35 @@ const SchedulesList = ({ isEmbedded = false }) => {
         autoTable(doc, {
           columns: columns,
           body: dayTableData,
-          startY: 20,
+          startY: 30,
           theme: "grid",
           styles: {
             fontSize: 8,
-            cellPadding: 3,
-            lineColor: [200, 200, 200],
-            lineWidth: 0.1,
+            cellPadding: 2,
             halign: "center",
             valign: "middle",
-            textColor: [0, 0, 0],
+            lineColor: [220, 220, 220],
+            lineWidth: 0.1,
             overflow: "linebreak",
-            cellWidth: "auto",
           },
           headStyles: {
-            fillColor: [240, 240, 240],
-            textColor: [0, 0, 0],
+            fillColor: [16, 185, 129],
+            textColor: [255, 255, 255],
             fontStyle: "bold",
             halign: "center",
-            lineColor: [180, 180, 180],
-            lineWidth: 0.1,
+            valign: "middle",
+            minCellHeight: 10,
           },
           columnStyles: {
             time: {
-              fillColor: [250, 250, 250],
+              fillColor: [245, 245, 245],
               fontStyle: "bold",
-              cellWidth: 15,
+              cellWidth: 18,
+              textColor: [50, 50, 50],
             },
           },
           alternateRowStyles: {
-            fillColor: [255, 255, 255],
+            fillColor: [250, 253, 250],
           },
         });
       });
@@ -290,17 +387,17 @@ const SchedulesList = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`h-full flex flex-col bg-gray-50 ${isEmbedded ? "p-8" : "p-6"}`}>
-      {/* Header Controls */}
-      <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm shrink-0 z-30 relative'>
-        <div className='flex items-center gap-4 relative'>
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 min-h-screen relative`}>
+      {/* --- Header Controls --- */}
+      <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-20'>
+        <div className='flex items-center gap-4 relative w-full md:w-auto'>
           <div className='relative' ref={headerCalendarRef}>
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
               className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all border ${
                 showDatePicker
                   ? "bg-emerald-50 border-emerald-200 ring-2 ring-emerald-100"
-                  : "bg-white border-transparent hover:bg-gray-50"
+                  : "bg-white border-transparent hover:bg-gray-100"
               }`}>
               <div className='bg-emerald-100 text-emerald-700 p-2 rounded-lg'>
                 <CalendarIcon className='w-5 h-5' />
@@ -338,7 +435,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
                   className='absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-[320px] z-50'>
-                  <WeekPicker
+                  <HeaderWeekCalendar
                     selectedDate={currentDate}
                     onChange={(date) => {
                       setCurrentDate(date);
@@ -351,53 +448,70 @@ const SchedulesList = ({ isEmbedded = false }) => {
           </div>
           <button
             onClick={goToToday}
-            className='text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors ml-2'>
-            Jump to Current Week
+            className='text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors ml-2 whitespace-nowrap hidden md:block'>
+            Current Week
           </button>
         </div>
 
-        <div className='flex items-center gap-3'>
+        <div className='flex items-center justify-end gap-3 w-full md:w-auto'>
+          {/* --- Studio Filter --- */}
+          <div className='flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm'>
+            <button
+              onClick={() => setViewMode("ALL")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${viewMode === "ALL" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+              <Layers className='w-3.5 h-3.5' /> All
+            </button>
+            <button
+              onClick={() => setViewMode("LOCAL")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${viewMode === "LOCAL" ? "bg-emerald-50 text-emerald-700" : "text-gray-500 hover:text-gray-700"}`}>
+              <Building2 className='w-3.5 h-3.5' /> My Studio
+            </button>
+          </div>
+
           <button
             disabled={isPrinting}
             onClick={handleGenerateMasterPDF}
-            className='flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-wait'>
+            className='flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-wait whitespace-nowrap'>
             {isPrinting ? (
               <Loader2 className='w-5 h-5 animate-spin' />
             ) : (
               <Printer className='w-5 h-5' />
             )}
             <span className='hidden md:inline'>
-              {isPrinting ? "Generating..." : "Print Master Schedule"}
+              {isPrinting ? "Printing..." : "Print"}
             </span>
           </button>
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className='flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-shadow shadow-lg shadow-gray-900/20'>
-            <Plus className='w-5 h-5' /> Schedule Class
+            className='flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-shadow shadow-lg shadow-gray-900/20 whitespace-nowrap'>
+            <Plus className='w-5 h-5' /> Schedule
           </button>
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className='flex-1 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col min-h-0 z-0'>
-        <div className='grid grid-cols-7 border-b border-gray-100 bg-gray-50/50 sticky top-0 z-20'>
+      {/* --- Calendar Container --- */}
+      <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
+        {/* Header Row */}
+        <div className='grid grid-cols-7 border-b border-gray-100 bg-gray-50/80'>
           {weekDays.map((day) => {
             const isToday = isSameDay(day, new Date());
             return (
               <div
                 key={day.toString()}
-                className={`py-4 text-center border-r border-gray-100 last:border-r-0 transition-colors ${
-                  isToday ? "bg-emerald-50/60" : ""
-                }`}>
+                className={`py-4 text-center border-r border-gray-100 last:border-r-0 ${isToday ? "bg-emerald-50/50" : ""}`}>
                 <p
                   className={`text-xs font-bold uppercase mb-1 ${isToday ? "text-emerald-600" : "text-gray-400"}`}>
                   {format(day, "EEE")}
                 </p>
                 <div className='flex justify-center'>
                   <span
-                    className={`text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full ${isToday ? "bg-emerald-500 text-white shadow-md shadow-emerald-200" : "text-gray-900"}`}>
-                    {format(day, "d")}
+                    className={`text-sm font-bold px-2 py-1 rounded-full ${
+                      isToday
+                        ? "bg-emerald-500 text-white shadow-sm"
+                        : "text-gray-900"
+                    }`}>
+                    {format(day, "dd MMM")}
                   </span>
                 </div>
               </div>
@@ -405,59 +519,92 @@ const SchedulesList = ({ isEmbedded = false }) => {
           })}
         </div>
 
-        <div className='flex-1 overflow-y-auto py-2'>
-          {loading ? (
+        {/* Calendar Grid Body */}
+        {loading ? (
+          <div className='p-20'>
             <LoadingSpinner />
-          ) : (
-            <div className='grid grid-cols-7 h-full min-h-125'>
-              {weekDays.map((day) => {
-                const dayClasses = classes.filter((c) =>
-                  isSameDay(parseISO(c.startTime), day),
-                );
-                return (
-                  <div
-                    key={day.toString()}
-                    className={`px-2 py-2 border-r border-gray-100 last:border-r-0 space-y-3 ${isSameDay(day, new Date()) ? "bg-gray-50/30" : ""}`}>
-                    {dayClasses.map((cls) => (
+          </div>
+        ) : (
+          <div className='grid grid-cols-7 divide-x divide-gray-100 min-h-[500px]'>
+            {weekDays.map((day) => {
+              const dayClasses = filteredClasses
+                .filter((c) => isSameDay(parseISO(c.startTime), day))
+                .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+              return (
+                <div
+                  key={day.toString()}
+                  className={`p-2 space-y-3 ${isSameDay(day, new Date()) ? "bg-gray-50/30" : ""}`}>
+                  {dayClasses.map((cls) => {
+                    const clsStudioId =
+                      typeof cls.studioId === "object"
+                        ? cls.studioId._id
+                        : cls.studioId;
+                    const isExternal = clsStudioId !== user.adminStudioLocation;
+                    const studioName =
+                      typeof cls.studioId === "object"
+                        ? cls.studioId.studioName
+                        : "External Studio";
+
+                    return (
                       <motion.div
                         key={cls._id}
                         onClick={() => handleClassClick(cls)}
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
                         whileHover={{ scale: 1.02, y: -2 }}
-                        className={`p-3 rounded-xl border border-l-4 shadow-sm cursor-pointer transition-all bg-white hover:shadow-md ${!cls.isActive ? "opacity-60 grayscale bg-gray-50 border-gray-200" : "border-l-emerald-500 border-gray-200"}`}>
-                        <p className='text-xs font-bold text-emerald-700 mb-1 flex items-center gap-1'>
-                          <Clock className='w-3 h-3' />
-                          {format(parseISO(cls.startTime), "HH:mm")} -{" "}
-                          {format(parseISO(cls.endTime), "HH:mm")}
-                        </p>
+                        className={`p-3 rounded-xl border border-l-4 shadow-sm transition-all relative group
+                            ${
+                              isExternal
+                                ? "bg-gray-50 border-gray-200 border-l-gray-400 opacity-80"
+                                : `cursor-pointer hover:shadow-md bg-white border-gray-200 ${!cls.isActive ? "opacity-60 grayscale bg-gray-50" : "border-l-emerald-500"}`
+                            }`}>
+                        <div className='flex justify-between items-start mb-1'>
+                          <p
+                            className={`text-xs font-bold flex items-center gap-1 ${isExternal ? "text-gray-500" : "text-emerald-700"}`}>
+                            <Clock className='w-3 h-3' />
+                            {format(parseISO(cls.startTime), "HH:mm")}
+                          </p>
+                          {cls.isRecurring && !isExternal && (
+                            <Repeat className='w-3 h-3 text-gray-300' />
+                          )}
+                          {isExternal && (
+                            <Lock className='w-3 h-3 text-gray-300' />
+                          )}
+                        </div>
+
                         <h4
-                          className={`font-bold text-sm leading-tight mb-1 ${!cls.isActive ? "text-gray-500" : "text-gray-900"}`}>
+                          className={`font-bold text-sm leading-tight mb-1 ${isExternal || !cls.isActive ? "text-gray-500" : "text-gray-900"}`}>
                           {cls.className}
                         </h4>
                         <p className='text-xs text-gray-500 mb-2 truncate'>
                           {cls.instructorId?.fullName || "No Instructor"}
                         </p>
-                        <div className='flex items-center justify-between pt-2 border-t border-gray-100'>
+
+                        <div className='flex items-center gap-1.5 pt-2 border-t border-gray-100'>
                           <span
-                            className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${cls.classType === "Private" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              isExternal
+                                ? "bg-gray-200 text-gray-600"
+                                : cls.classType === "Private"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-100"
+                                  : "bg-blue-50 text-blue-700 border border-blue-100"
+                            }`}>
                             {cls.classType}
                           </span>
-                          {cls.isRecurring && (
-                            <Repeat className='w-3 h-3 text-gray-400' />
-                          )}
                         </div>
                       </motion.div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
+        {/* ... (Modals) ... */}
         {showCreateModal && (
           <CreateClassModal
             onClose={handleModalClose}
@@ -467,7 +614,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
             initialData={editingClass}
             onSuccess={() => {
               handleModalClose();
-              fetchSchedule();
+              fetchAllSchedules();
             }}
           />
         )}
@@ -477,7 +624,8 @@ const SchedulesList = ({ isEmbedded = false }) => {
             classData={selectedClass}
             onClose={() => setShowDetailModal(false)}
             onEdit={() => handleEditClick(selectedClass)}
-            onRefresh={fetchSchedule}
+            onRefresh={fetchAllSchedules}
+            canEdit={!selectedClass.isExternal}
           />
         )}
 
@@ -492,8 +640,213 @@ const SchedulesList = ({ isEmbedded = false }) => {
   );
 };
 
-// --- COMPONENT: Class Details Modal with Client Management ---
-const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
+// --- 1. HEADER WEEK CALENDAR (For top navigation) ---
+const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
+  const [currentMonth, setCurrentMonth] = useState(selectedDate);
+
+  useEffect(() => {
+    setCurrentMonth(selectedDate);
+  }, [selectedDate]);
+
+  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  const rows = [];
+  let days = [];
+  let day = startDate;
+  let formattedDate = "";
+
+  while (day <= endDate) {
+    for (let i = 0; i < 7; i++) {
+      formattedDate = format(day, "d");
+      const cloneDay = day;
+      const isWeekSelected = isSameWeek(day, selectedDate, { weekStartsOn: 1 });
+      const isSpecificDay = isSameDay(day, selectedDate);
+      const isCurrentMonth = isSameMonth(day, monthStart);
+
+      days.push(
+        <button
+          key={day.toString()}
+          type='button' // Important: Prevents form submission
+          onClick={() => onChange(cloneDay)}
+          className={`
+            w-full h-9 flex items-center justify-center text-xs font-bold transition-all relative
+            ${isWeekSelected ? "bg-emerald-50 text-emerald-900" : "hover:bg-gray-50 text-gray-700"}
+            ${!isCurrentMonth && !isWeekSelected ? "text-gray-300" : ""}
+            ${isWeekSelected && i === 0 ? "rounded-l-lg" : ""}
+            ${isWeekSelected && i === 6 ? "rounded-r-lg" : ""}
+          `}>
+          <span
+            className={`
+            flex items-center justify-center w-7 h-7 rounded-full
+            ${isSpecificDay ? "bg-emerald-600 text-white shadow-md" : ""}
+          `}>
+            {formattedDate}
+          </span>
+        </button>,
+      );
+      day = addDays(day, 1);
+    }
+    rows.push(
+      <div
+        className='grid grid-cols-7 gap-y-1 gap-x-0 mb-1'
+        key={day.toString()}>
+        {days}
+      </div>,
+    );
+    days = [];
+  }
+
+  return (
+    <div className='p-2'>
+      <div className='flex justify-between items-center mb-4 px-1'>
+        <h3 className='font-bold text-gray-900'>
+          {format(currentMonth, "MMMM yyyy")}
+        </h3>
+        <div className='flex gap-1'>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              prevMonth();
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronLeft className='w-4 h-4' />
+          </button>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              nextMonth();
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronRight className='w-4 h-4' />
+          </button>
+        </div>
+      </div>
+      <div className='grid grid-cols-7 gap-x-0 mb-2 text-center'>
+        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
+          <div
+            key={d}
+            className='text-[10px] font-bold text-gray-400 uppercase'>
+            {d}
+          </div>
+        ))}
+      </div>
+      <div>{rows}</div>
+    </div>
+  );
+};
+
+// --- 2. INPUT DATE PICKER (For Modal Form) ---
+const InputDatePicker = ({ selectedDate, onChange }) => {
+  const [currentMonth, setCurrentMonth] = useState(selectedDate);
+
+  useEffect(() => {
+    setCurrentMonth(selectedDate);
+  }, [selectedDate]);
+
+  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  const rows = [];
+  let days = [];
+  let day = startDate;
+  let formattedDate = "";
+
+  while (day <= endDate) {
+    for (let i = 0; i < 7; i++) {
+      formattedDate = format(day, "d");
+      const cloneDay = day;
+      const isSpecificDay = isSameDay(day, selectedDate);
+      const isCurrentMonth = isSameMonth(day, monthStart);
+
+      days.push(
+        <button
+          key={day.toString()}
+          type='button' // CRITICAL: PREVENTS FORM SUBMISSION
+          onClick={(e) => {
+            e.stopPropagation(); // Stop bubbling
+            e.preventDefault(); // Stop default form action
+            onChange(cloneDay);
+          }}
+          className={`
+            w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all
+            ${!isCurrentMonth ? "text-gray-300" : "text-gray-700 hover:bg-gray-100"}
+            ${isSpecificDay ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700" : ""}
+          `}>
+          {formattedDate}
+        </button>,
+      );
+      day = addDays(day, 1);
+    }
+    rows.push(
+      <div className='flex justify-between mb-1' key={day.toString()}>
+        {days}
+      </div>,
+    );
+    days = [];
+  }
+
+  return (
+    <div className='p-3'>
+      <div className='flex justify-between items-center mb-4 px-1'>
+        <h3 className='font-bold text-gray-900 text-sm'>
+          {format(currentMonth, "MMMM yyyy")}
+        </h3>
+        <div className='flex gap-1'>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              prevMonth();
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronLeft className='w-4 h-4' />
+          </button>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              nextMonth();
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronRight className='w-4 h-4' />
+          </button>
+        </div>
+      </div>
+      <div className='flex justify-between mb-2 text-center'>
+        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
+          <div
+            key={d}
+            className='w-8 text-[10px] font-bold text-gray-400 uppercase'>
+            {d}
+          </div>
+        ))}
+      </div>
+      <div>{rows}</div>
+    </div>
+  );
+};
+
+// --- CLASS DETAILS MODAL ---
+const ClassDetailsModal = ({
+  classData,
+  onClose,
+  onEdit,
+  onRefresh,
+  canEdit = true,
+}) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("details");
   const [bookings, setBookings] = useState([]);
@@ -542,7 +895,6 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
       setUserPasses([]);
       return;
     }
-
     const userObj = users.find((u) => u._id === userId);
     setSelectedUser(userObj);
     setSelectedPass(null);
@@ -555,22 +907,20 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
       );
 
       const validPasses = res.data.filter((p) => {
-        const isActive =
-          p.isActive &&
-          p.remainingCredits > 0 &&
-          p.classType.toLowerCase() === classData.classType.toLowerCase() &&
-          p.instructorType.toLowerCase() ===
-            classData.instructorType.toLowerCase() &&
-          new Date(p.expiryDate) > new Date();
-
         const passStudioId =
           typeof p.issuingStudio === "object"
             ? p.issuingStudio._id
             : p.issuingStudio;
         const currentStudioId = user.adminStudioLocation;
-        const isStudioMatch = String(passStudioId) === String(currentStudioId);
 
-        return isActive && isStudioMatch;
+        return (
+          p.isActive &&
+          p.remainingCredits > 0 &&
+          p.classType === classData.classType &&
+          // p.instructorType === classData.instructorType && // Relaxed check
+          new Date(p.expiryDate) > new Date() &&
+          String(passStudioId) === String(currentStudioId)
+        );
       });
 
       setUserPasses(validPasses);
@@ -600,7 +950,6 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
       setBookingProcessing(false);
     }
   };
-
   const handleCheckIn = async (bookingId) => {
     try {
       await axiosInstance.put(API_PATHS.BOOKING.STUDENT_CHECK_IN(bookingId));
@@ -609,23 +958,20 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
       console.error(error);
     }
   };
-
   const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm("Remove student? Credits will be refunded.")) return;
+    if (!window.confirm("Remove?")) return;
     try {
       await axiosInstance.post(API_PATHS.BOOKING.CANCEL_BOOKING, { bookingId });
       fetchBookings();
       onRefresh();
     } catch (error) {
-      alert(error.response?.data?.error || "Cancel failed");
+      alert("Cancel failed");
     }
   };
-
   const handleInitialClick = (actionType) => {
     if (classData.isRecurring) setShowRecurrenceOption(actionType);
     else setConfirmationData({ type: actionType, mode: "single" });
   };
-
   const executeAction = async () => {
     if (!confirmationData) return;
     setActionLoading(true);
@@ -652,373 +998,280 @@ const ClassDetailsModal = ({ classData, onClose, onEdit, onRefresh }) => {
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
-      <div
-        onClick={onClose}
-        className='absolute inset-0 bg-black/50 backdrop-blur-sm'
-      />
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className='relative bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]'>
-        <div className='border-b bg-white z-10'>
-          <div className='flex justify-between items-center p-4 pb-0'>
-            <div className='flex gap-4'>
-              <button
-                onClick={() => setActiveTab("details")}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === "details" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
-                Details
-              </button>
-              <button
-                onClick={() => setActiveTab("attendees")}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === "attendees" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
-                Attendees ({classData.currentEnrollment}/{classData.capacity})
-              </button>
-            </div>
-            <button onClick={onClose} className='mb-3'>
-              <X className='w-6 h-6 text-gray-400' />
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'>
+      <div className='bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] shadow-xl'>
+        {/* Header */}
+        <div className='flex justify-between items-center p-4 border-b'>
+          <div className='flex gap-4'>
+            <button
+              onClick={() => setActiveTab("details")}
+              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "details" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
+              Details
+            </button>
+            <button
+              onClick={() => setActiveTab("attendees")}
+              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "attendees" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
+              Attendees
             </button>
           </div>
+          <button
+            onClick={onClose}
+            className='p-1 hover:bg-gray-100 rounded-full'>
+            <X className='w-5 h-5 text-gray-400' />
+          </button>
         </div>
 
-        {activeTab === "details" && (
-          <div className='p-6 space-y-4 overflow-y-auto'>
-            <div className='flex items-center gap-3'>
-              <div className='bg-blue-50 p-2 rounded-lg text-blue-600'>
-                <Clock className='w-5 h-5' />
-              </div>
-              <div>
-                <p className='text-xs text-gray-400 font-bold uppercase'>
-                  Time
-                </p>
-                <p className='font-medium text-gray-900'>
-                  {format(parseISO(classData.startTime), "EEEE, dd MMM")} •{" "}
-                  {format(parseISO(classData.startTime), "HH:mm")}
-                </p>
-              </div>
-            </div>
-            <div className='flex items-center gap-3'>
-              <div className='bg-orange-50 p-2 rounded-lg text-orange-600'>
-                <BadgeCheck className='w-5 h-5' />
-              </div>
-              <div>
-                <p className='text-xs text-gray-400 font-bold uppercase'>
-                  Instructor
-                </p>
-                <p className='font-medium text-gray-900'>
-                  {classData.instructorId?.fullName || "Unassigned"} -{" "}
-                  {classData.instructorId?.instructorType || "Unassigned"}
-                </p>
-              </div>
-            </div>
-            <div className='flex items-center gap-3'>
-              <div className='bg-purple-50 p-2 rounded-lg text-purple-600'>
-                <Users className='w-5 h-5' />
-              </div>
-              <div>
-                <p className='text-xs text-gray-400 font-bold uppercase'>
-                  Info
-                </p>
-                <p className='font-medium text-gray-900'>
-                  {classData.classType} • Capacity: {classData.capacity}
-                </p>
-              </div>
-            </div>
-            {classData.description && (
-              <div className='bg-gray-50 p-3 rounded-xl text-sm text-gray-600 italic'>
-                "{classData.description}"
-              </div>
-            )}
-            <div className='pt-6 border-t border-gray-100 flex gap-2'>
-              <button
-                onClick={() => handleInitialClick("toggle")}
-                className={`flex-1 py-3 rounded-xl font-bold ${classData.isActive ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
-                {classData.isActive ? "Deactivate" : "Activate"}
-              </button>
-              <button
-                onClick={onEdit}
-                className='flex-1 py-3 rounded-xl bg-blue-50 text-blue-700 font-bold'>
-                Edit
-              </button>
-              <button
-                onClick={() => handleInitialClick("delete")}
-                className='px-4 py-3 rounded-xl bg-red-50 text-red-700 font-bold'>
-                <Trash2 className='w-4 h-4' />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "attendees" && (
-          <div className='flex-1 flex flex-col h-full overflow-hidden bg-gray-50'>
-            {/* Header / Add Form Area */}
-            <div className='bg-white border-b border-gray-100 z-10 shrink-0'>
-              {!showAddStudent ? (
-                <div className='p-4 flex justify-between items-center'>
-                  <div>
-                    <h4 className='text-sm font-bold text-gray-900'>
-                      Class Roster
-                    </h4>
-                    <p className='text-xs text-gray-500 mt-0.5'>
-                      {bookings.length} / {classData.capacity} spots filled
-                    </p>
-                  </div>
-                  <button
-                    disabled={classData.currentEnrollment >= classData.capacity}
-                    onClick={() => {
-                      setShowAddStudent(true);
-                      fetchUsers();
-                    }}
-                    className='flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-sm shadow-emerald-200'>
-                    <Plus className='w-4 h-4' /> Add Student
-                  </button>
+        {/* Content */}
+        <div className='flex-1 overflow-y-auto'>
+          {activeTab === "details" && (
+            <div className='p-6 space-y-4'>
+              <div className='flex items-center gap-3'>
+                <div className='bg-blue-50 p-2 rounded-lg text-blue-600'>
+                  <Clock className='w-5 h-5' />
                 </div>
-              ) : (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  className='p-5 space-y-4 bg-white shadow-sm relative'>
-                  <div className='flex justify-between items-center mb-2'>
-                    <h4 className='text-sm font-bold text-gray-900'>
-                      Add New Booking
-                    </h4>
-                    <button
-                      onClick={() => {
-                        setShowAddStudent(false);
-                        setSelectedUser(null);
-                        setSelectedPass(null);
-                      }}
-                      className='p-1 hover:bg-gray-100 rounded-full transition-colors'>
-                      <X className='w-5 h-5 text-gray-400' />
-                    </button>
-                  </div>
-
-                  <div className='relative'>
-                    <CustomSelect
-                      label='Select Student'
-                      options={users}
-                      getLabel={(u) => `${u.fullName}`}
-                      getValue={(u) => u._id}
-                      value={selectedUser?._id}
-                      onChange={handleUserSelect}
-                      placeholder='Search by name...'
-                      searchable={true}
-                    />
-                  </div>
-
-                  <AnimatePresence>
-                    {selectedUser && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className='space-y-3'>
-                        <div className='flex justify-between items-end'>
-                          <label className='text-xs font-bold text-gray-500 uppercase tracking-wider'>
-                            Available Passes
-                          </label>
-                        </div>
-                        {userPasses.length > 0 ? (
-                          <div className='grid gap-3 max-h-48 overflow-y-auto pr-1'>
-                            {userPasses.map((pass) => {
-                              const isSelected = selectedPass === pass._id;
-                              return (
-                                <div
-                                  key={pass._id}
-                                  onClick={() => setSelectedPass(pass._id)}
-                                  className={`relative p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 ${isSelected ? "border-emerald-500 bg-emerald-50/50 shadow-sm" : "border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm"}`}>
-                                  <div className='flex justify-between items-start'>
-                                    <div>
-                                      <p
-                                        className={`text-sm font-bold ${isSelected ? "text-emerald-900" : "text-gray-800"}`}>
-                                        {pass.passName || pass.instructorType}
-                                      </p>
-                                      <p className='text-xs text-gray-500 mt-0.5'>
-                                        Expires:{" "}
-                                        {format(
-                                          new Date(pass.expiryDate),
-                                          "dd MMM yyyy",
-                                        )}
-                                      </p>
-                                    </div>
-                                    <div
-                                      className={`px-2 py-1 rounded-lg text-xs font-bold ${isSelected ? "bg-emerald-200 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
-                                      {pass.remainingCredits} Credits
-                                    </div>
-                                  </div>
-                                  {isSelected && (
-                                    <div className='absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-sm'>
-                                      <Check className='w-3 h-3' />
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className='p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3'>
-                            <AlertCircle className='w-5 h-5 text-red-500 mt-0.5 shrink-0' />
-                            <div>
-                              <p className='text-sm font-bold text-red-800'>
-                                No Eligible Passes
-                              </p>
-                              <p className='text-xs text-red-600 mt-1'>
-                                Student has no active passes matching class type
-                                ({classData.classType}).
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        <button
-                          disabled={
-                            !selectedUser || !selectedPass || bookingProcessing
-                          }
-                          onClick={handleAddStudent}
-                          className='w-full py-3.5 bg-emerald-900 text-white rounded-xl text-sm font-bold disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed hover:bg-emerald-800 hover:shadow-lg transition-all flex justify-center items-center gap-2'>
-                          {bookingProcessing ? (
-                            <Loader2 className='w-4 h-4 animate-spin' />
-                          ) : (
-                            <CheckCircle2 className='w-4 h-4' />
-                          )}
-                          {bookingProcessing
-                            ? "Processing..."
-                            : "Confirm Booking"}
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Roster List */}
-            <div className='flex-1 overflow-y-auto p-4 md:p-6 space-y-3'>
-              {loadingBookings ? (
-                <div className='flex justify-center py-10'>
-                  <LoadingSpinner />
-                </div>
-              ) : bookings.length === 0 ? (
-                <div className='flex flex-col items-center justify-center h-full text-center py-10 opacity-50'>
-                  <div className='w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4'>
-                    <Users className='w-8 h-8 text-gray-400' />
-                  </div>
-                  <p className='text-gray-900 font-bold'>Class is Empty</p>
-                  <p className='text-sm text-gray-500 mt-1'>
-                    Add students to get started.
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Time
+                  </p>
+                  <p className='font-bold text-gray-900'>
+                    {format(parseISO(classData.startTime), "EEEE, dd MMM")} •{" "}
+                    {format(parseISO(classData.startTime), "HH:mm")}
                   </p>
                 </div>
-              ) : (
-                bookings.map((booking) => (
-                  <motion.div
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={booking._id}
-                    className='group bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between'>
-                    <div className='flex items-center gap-4'>
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-inner ${booking.isAttend ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                        {booking.userId.fullName.charAt(0)}
-                      </div>
-                      <div>
-                        <p className='text-sm font-bold text-gray-900'>
-                          {booking.userId.fullName}
-                        </p>
-                        <div className='flex items-center gap-2 mt-0.5'>
-                          <span className='text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200'>
-                            {booking.passId?.passName || "Pass Used"}
-                          </span>
-                          {booking.isAttend && (
-                            <span className='text-[10px] font-bold text-emerald-600 flex items-center gap-1'>
-                              <CheckCircle2 className='w-3 h-3' /> Present
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                      <button
-                        onClick={() => handleCheckIn(booking._id)}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${booking.isAttend ? "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"}`}>
-                        {booking.isAttend ? "Checked In" : "Check In"}
-                      </button>
-                      <button
-                        onClick={() => handleCancelBooking(booking._id)}
-                        className='p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors'
-                        title='Remove Student'>
-                        <Trash2 className='w-4 h-4' />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <div className='bg-orange-50 p-2 rounded-lg text-orange-600'>
+                  <BadgeCheck className='w-5 h-5' />
+                </div>
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Instructor
+                  </p>
+                  <p className='font-medium text-gray-900'>
+                    {classData.instructorId?.fullName} -{" "}
+                    {classData.instructorId?.instructorType}
+                  </p>
+                </div>
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <div className='bg-purple-50 p-2 rounded-lg text-purple-600'>
+                  <Users className='w-5 h-5' />
+                </div>
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Capacity
+                  </p>
+                  <p className='font-bold text-gray-900'>
+                    {classData.currentEnrollment} / {classData.capacity}
+                  </p>
+                </div>
+              </div>
+
+              <div className='flex items-center gap-3'>
+                <div className='bg-gray-100 p-2 rounded-lg text-gray-600'>
+                  <MapPin className='w-5 h-5' />
+                </div>
+                <div>
+                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                    Location
+                  </p>
+                  <p className='font-medium text-gray-900'>
+                    {typeof classData.studioId === "object"
+                      ? classData.studioId.studioName
+                      : "External Studio"}
+                  </p>
+                </div>
+              </div>
+
+              {canEdit && (
+                <div className='pt-6 border-t flex gap-2'>
+                  <button
+                    onClick={() => handleInitialClick("toggle")}
+                    className={`flex-1 py-3 font-bold rounded-xl ${classData.isActive ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                    {classData.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                  <button
+                    onClick={onEdit}
+                    className='flex-1 py-3 font-bold bg-blue-50 text-blue-700 rounded-xl'>
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleInitialClick("delete")}
+                    className='px-4 py-3 bg-red-50 text-red-700 rounded-xl'>
+                    <Trash2 className='w-5 h-5' />
+                  </button>
+                </div>
               )}
             </div>
-          </div>
-        )}
-
-        <AnimatePresence>
-          {showRecurrenceOption && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className='absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center p-6 text-center'>
-              <h3 className='font-bold text-lg mb-4'>Recurring Class</h3>
-              <button
-                onClick={() => {
-                  setConfirmationData({
-                    type: showRecurrenceOption,
-                    mode: "single",
-                  });
-                  setShowRecurrenceOption(null);
-                }}
-                className='w-full py-3 border rounded-xl mb-2'>
-                This Class Only
-              </button>
-              <button
-                onClick={() => {
-                  setConfirmationData({
-                    type: showRecurrenceOption,
-                    mode: "all",
-                  });
-                  setShowRecurrenceOption(null);
-                }}
-                className='w-full py-3 bg-gray-900 text-white rounded-xl'>
-                Entire Series
-              </button>
-              <button
-                onClick={() => setShowRecurrenceOption(null)}
-                className='mt-2 text-sm text-gray-500'>
-                Cancel
-              </button>
-            </motion.div>
           )}
+
+          {activeTab === "attendees" && (
+            <div className='p-0 h-full flex flex-col'>
+              {canEdit ? (
+                <>
+                  {/* Add Student Header */}
+                  {!showAddStudent ? (
+                    <div className='p-4 flex justify-between items-center border-b'>
+                      <h4 className='font-bold'>Roster</h4>
+                      <button
+                        onClick={() => {
+                          setShowAddStudent(true);
+                          fetchUsers();
+                        }}
+                        className='flex items-center gap-2 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold'>
+                        <Plus className='w-3 h-3' /> Add Student
+                      </button>
+                    </div>
+                  ) : (
+                    <div className='p-4 border-b bg-gray-50'>
+                      <div className='flex justify-between mb-2'>
+                        <h4 className='font-bold text-sm'>Add Booking</h4>
+                        <button onClick={() => setShowAddStudent(false)}>
+                          <X className='w-4 h-4' />
+                        </button>
+                      </div>
+                      <CustomSelect
+                        label='Student'
+                        options={users}
+                        getLabel={(u) => u.fullName}
+                        getValue={(u) => u._id}
+                        onChange={handleUserSelect}
+                        value={selectedUser?._id}
+                        placeholder='Search student...'
+                        searchable
+                      />
+                      {selectedUser && (
+                        <div className='mt-3 space-y-2'>
+                          {userPasses.length > 0 ? (
+                            userPasses.map((p) => (
+                              <div
+                                key={p._id}
+                                onClick={() => setSelectedPass(p._id)}
+                                className={`p-2 border rounded-lg cursor-pointer text-xs ${selectedPass === p._id ? "border-emerald-500 bg-emerald-50" : "bg-white"}`}>
+                                <div className='font-bold'>{p.passName}</div>
+                                <div>Credits: {p.remainingCredits}</div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className='text-red-500 text-xs'>
+                              No valid passes.
+                            </div>
+                          )}
+                          <button
+                            disabled={!selectedPass || bookingProcessing}
+                            onClick={handleAddStudent}
+                            className='w-full py-2 bg-emerald-900 text-white rounded-lg text-xs font-bold mt-2'>
+                            Confirm
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* List */}
+                  <div className='flex-1 overflow-y-auto p-4 space-y-2'>
+                    {bookings.map((b) => (
+                      <div
+                        key={b._id}
+                        className='flex justify-between items-center p-3 border rounded-xl'>
+                        <div>
+                          <p className='font-bold text-sm'>
+                            {b.userId.fullName}
+                          </p>
+                          <p className='text-xs text-gray-500'>
+                            {b.passId?.passName}
+                          </p>
+                        </div>
+                        <div className='flex gap-2'>
+                          <button
+                            onClick={() => handleCheckIn(b._id)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border ${b.isAttend ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-white border-gray-200"}`}>
+                            {b.isAttend ? "Present" : "Check In"}
+                          </button>
+                          <button
+                            onClick={() => handleCancelBooking(b._id)}
+                            className='p-1 text-gray-400 hover:text-red-500'>
+                            <Trash2 className='w-4 h-4' />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {bookings.length === 0 && (
+                      <div className='text-center text-gray-400 py-10'>
+                        No bookings yet.
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className='flex flex-col items-center justify-center h-full text-center p-8 text-gray-500'>
+                  <Lock className='w-8 h-8 mb-2 text-gray-300' />
+                  <p className='font-bold'>View Only</p>
+                  <p className='text-xs'>
+                    Attendee list is restricted for external studios.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Confirmations */}
+        <AnimatePresence>
           {confirmationData && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className='absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center p-6 text-center'>
-              <h3 className='font-bold text-xl mb-4'>Are you sure?</h3>
-              <button
-                onClick={executeAction}
-                disabled={actionLoading}
-                className='w-full py-3 bg-red-600 text-white rounded-xl mb-2 font-bold'>
-                Yes, Confirm
-              </button>
-              <button
-                onClick={() => setConfirmationData(null)}
-                className='w-full py-3 border rounded-xl'>
-                Cancel
-              </button>
-            </motion.div>
+            <div className='absolute inset-0 bg-white/90 z-50 flex items-center justify-center'>
+              <div className='text-center p-6'>
+                <h3 className='font-bold text-lg mb-4'>Are you sure?</h3>
+                <div className='flex gap-3 justify-center'>
+                  <button
+                    onClick={() => setConfirmationData(null)}
+                    className='text-gray-500 font-bold'>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeAction}
+                    className='bg-red-600 text-white px-6 py-2 rounded-xl font-bold'>
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </div>
   );
 };
 
-// --- UPDATED (RESTORED): CreateClassModal ---
+const CustomTimePicker = ({ label, value, onChange }) => (
+  <div>
+    <label className='text-xs font-bold'>{label}</label>
+    <input
+      type='time'
+      className='w-full p-3 border rounded-xl'
+      value={value ? format(new Date(value), "HH:mm") : ""}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  </div>
+);
+
+const PDFPreviewModal = ({ pdfUrl, onClose }) => (
+  <div className='fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75'>
+    <div className='bg-white w-full max-w-4xl h-[85vh] rounded-3xl overflow-hidden flex flex-col'>
+      <div className='flex justify-between p-4 border-b'>
+        <h3 className='font-bold'>Preview</h3>
+        <button onClick={onClose}>
+          <X />
+        </button>
+      </div>
+      <iframe src={pdfUrl} className='w-full h-full' title='PDF' />
+    </div>
+  </div>
+);
+
+// --- MODIFIED CREATE CLASS MODAL WITH CUSTOM DATE PICKER ---
 const CreateClassModal = ({
   onClose,
   instructors,
@@ -1035,6 +1288,10 @@ const CreateClassModal = ({
   // New State for Multi-Select Days
   const [selectedRecurrenceDays, setSelectedRecurrenceDays] = useState([]);
 
+  // --- NEW: State for Date Picker Popover ---
+  const [showCalendarPopover, setShowCalendarPopover] = useState(false);
+  const calendarRef = useRef(null);
+
   const [form, setForm] = useState({
     className: "",
     description: "",
@@ -1049,6 +1306,19 @@ const CreateClassModal = ({
     recurrenceRule: "Weekly",
     recurrenceCount: "",
   });
+
+  // Handle outside click for calendar popover
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+        setShowCalendarPopover(false);
+      }
+    };
+    if (showCalendarPopover) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCalendarPopover]);
 
   useEffect(() => {
     if (initialData) {
@@ -1136,6 +1406,7 @@ const CreateClassModal = ({
   ]);
 
   const checkAvailability = () => {
+    // ... (Availability check logic remains exact same as previous) ...
     setAvailableDaysSuggestion("");
     setWorkingHoursDisplay([]);
     setIsAvailable(true);
@@ -1273,6 +1544,7 @@ const CreateClassModal = ({
     const updated = new Date(newDate);
     updated.setHours(current.getHours(), current.getMinutes());
     setForm({ ...form, startTime: updated.toISOString() });
+    setShowCalendarPopover(false); // Close popover on selection
   };
 
   const handleTimeChange = (timeStr) => {
@@ -1334,7 +1606,6 @@ const CreateClassModal = ({
   };
 
   // --- RECURRING TOGGLE LOGIC ---
-  // Show toggle ONLY if it's a NEW class OR if the existing class is ALREADY recurring.
   const showRecurringSection =
     !initialData || (initialData && initialData.isRecurring);
 
@@ -1418,8 +1689,8 @@ const CreateClassModal = ({
                   label='Class Type'
                   placeholder='Select Type'
                   options={classTypeOptions}
-                  getLabel={(option) => option} // String is the label
-                  getValue={(option) => option} // String is the value
+                  getLabel={(option) => option}
+                  getValue={(option) => option}
                   value={form.classType}
                   onChange={(val) => setForm({ ...form, classType: val })}
                 />
@@ -1438,13 +1709,39 @@ const CreateClassModal = ({
                   required
                 />
               </div>
-              <div>
-                <CustomDatePicker
-                  label='Date'
-                  value={form.startTime}
-                  onChange={handleDateChange}
-                />
+
+              {/* --- CUSTOM DATE PICKER (REPLACED NATIVE) --- */}
+              <div className='relative'>
+                <label className='block text-xs font-bold text-gray-700 mb-1'>
+                  Date
+                </label>
+                <div ref={calendarRef}>
+                  <button
+                    type='button'
+                    onClick={() => setShowCalendarPopover(!showCalendarPopover)}
+                    className='w-full p-3 border rounded-xl text-left flex items-center gap-2 text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none'>
+                    <CalendarDays className='w-4 h-4 text-emerald-600' />
+                    {form.startTime
+                      ? format(parseISO(form.startTime), "dd/MM/yyyy")
+                      : "Select Date"}
+                  </button>
+                  <AnimatePresence>
+                    {showCalendarPopover && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className='absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-[320px] z-50'>
+                        <InputDatePicker
+                          selectedDate={parseISO(form.startTime)}
+                          onChange={handleDateChange}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
+
               <div>
                 <CustomTimePicker
                   label='Start Time'
@@ -1468,6 +1765,7 @@ const CreateClassModal = ({
               </div>
             </div>
 
+            {/* ... Rest of the form logic ... */}
             {form.instructorId && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -1633,7 +1931,7 @@ const CreateClassModal = ({
           </form>
         </div>
 
-        {/* ... (Confirmation Overlays remain the same) ... */}
+        {/* ... (Confirmation Overlays) ... */}
         <AnimatePresence>
           {showRecurrenceSelect && (
             <motion.div
@@ -1709,60 +2007,5 @@ const CreateClassModal = ({
     </div>
   );
 };
-
-const WeekPicker = ({ selectedDate, onChange }) => {
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-  const days = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
-  return (
-    <div className='grid grid-cols-7 gap-1 text-center'>
-      {days.map((d) => (
-        <button
-          key={d}
-          onClick={() => onChange(d)}
-          className={`p-2 rounded-lg ${isSameDay(d, selectedDate) ? "bg-emerald-100 text-emerald-700 font-bold" : "hover:bg-gray-100"}`}>
-          {format(d, "d")}
-        </button>
-      ))}
-    </div>
-  );
-};
-
-const PDFPreviewModal = ({ pdfUrl, onClose }) => (
-  <div className='fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75'>
-    <div className='bg-white w-full max-w-4xl h-[85vh] rounded-3xl overflow-hidden flex flex-col'>
-      <div className='flex justify-between p-4 border-b'>
-        <h3 className='font-bold'>Preview</h3>
-        <button onClick={onClose}>
-          <X />
-        </button>
-      </div>
-      <iframe src={pdfUrl} className='w-full h-full' title='PDF' />
-    </div>
-  </div>
-);
-
-const CustomDatePicker = ({ label, value, onChange }) => (
-  <div>
-    <label className='text-xs font-bold'>{label}</label>
-    <input
-      type='date'
-      className='w-full p-3 border rounded-xl'
-      value={value ? format(new Date(value), "yyyy-MM-dd") : ""}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  </div>
-);
-
-const CustomTimePicker = ({ label, value, onChange }) => (
-  <div>
-    <label className='text-xs font-bold'>{label}</label>
-    <input
-      type='time'
-      className='w-full p-3 border rounded-xl'
-      value={value ? format(new Date(value), "HH:mm") : ""}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  </div>
-);
 
 export default SchedulesList;

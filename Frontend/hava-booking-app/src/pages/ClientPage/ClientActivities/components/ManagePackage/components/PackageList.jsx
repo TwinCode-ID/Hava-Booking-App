@@ -164,7 +164,7 @@ const PackageSelectorView = ({ user }) => {
   ];
   const uniqueStudioLocation = [
     ...new Set(
-      packages.map((p) => p.studioLocation?.studioName).filter(Boolean)
+      packages.map((p) => p.studioLocation?.studioName).filter(Boolean),
     ),
   ];
 
@@ -199,7 +199,7 @@ const PackageSelectorView = ({ user }) => {
     setter((prev) =>
       prev.includes(value)
         ? prev.filter((item) => item !== value)
-        : [...prev, value]
+        : [...prev, value],
     );
   };
 
@@ -276,7 +276,7 @@ const PackageSelectorView = ({ user }) => {
                       toggleFilter(
                         selectedStudioLocations,
                         setSelectedStudioLocations,
-                        type
+                        type,
                       )
                     }
                   />
@@ -320,7 +320,7 @@ const PackageSelectorView = ({ user }) => {
                       toggleFilter(
                         selectedInstructorTypes,
                         setSelectedInstructorTypes,
-                        type
+                        type,
                       )
                     }
                   />
@@ -480,7 +480,7 @@ const PackageSelectorView = ({ user }) => {
                       <h3 className='font-bold text-emerald-600 text-2xl font-mono'>
                         IDR{" "}
                         {parseInt(selectedPackage.packagePrice).toLocaleString(
-                          "id-ID"
+                          "id-ID",
                         )}
                       </h3>
                     </div>
@@ -531,6 +531,7 @@ const PackageSelectorView = ({ user }) => {
                 <PurchaseForm
                   pkg={selectedPackage}
                   onCancel={handleClosePurchase}
+                  onSuccess={handleClosePurchase}
                   userId={user._id}
                 />
               </div>
@@ -555,7 +556,7 @@ const UserPassesView = ({ user }) => {
       try {
         setLoading(true);
         const response = await axiosInstance.get(
-          API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id)
+          API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id),
         );
         setTransactions(response.data);
       } catch (error) {
@@ -570,7 +571,7 @@ const UserPassesView = ({ user }) => {
   const filteredData = transactions.filter((t) =>
     activeSubTab === "active"
       ? t.isActive && new Date(t.expiryDate) > new Date()
-      : !t.isActive || new Date(t.expiryDate) < new Date()
+      : !t.isActive || new Date(t.expiryDate) < new Date(),
   );
 
   if (loading)
@@ -725,7 +726,7 @@ const PurchaseHistoryView = ({ user }) => {
     const fetchData = async () => {
       try {
         const response = await axiosInstance.get(
-          API_PATHS.PURCHASES.GET_ALL_USER(user._id)
+          API_PATHS.PURCHASES.GET_ALL_USER(user._id),
         );
         setTransactions(response.data);
       } catch (error) {
@@ -752,7 +753,7 @@ const PurchaseHistoryView = ({ user }) => {
     setSelectedStatuses((prev) =>
       prev.includes(value)
         ? prev.filter((item) => item !== value)
-        : [...prev, value]
+        : [...prev, value],
     );
   };
 

@@ -16,7 +16,7 @@ import LoadingSpinner from "../../../../../../components/LoadingSpinner";
 import CustomSelect from "../../../../layout/CustomSelect";
 import uploadProof from "../../../../../../utils/uploadProof";
 
-const PurchaseForm = ({ pkg, onCancel, userId }) => {
+const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
   // --- Payment Method State ---
   const [paymentMethod, setPaymentMethod] = useState("manual_transfer");
 
@@ -112,7 +112,7 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
     } catch (err) {
       console.error(err);
       setError(
-        err.response?.data?.message || "Purchase failed. Please try again."
+        err.response?.data?.message || "Purchase failed. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -137,7 +137,7 @@ const PurchaseForm = ({ pkg, onCancel, userId }) => {
             : "Your payment proof has been sent. We will verify it shortly."}
         </p>
         <button
-          onClick={onCancel}
+          onClick={onSuccess}
           className='bg-emerald-900 text-white px-8 py-3 rounded-xl font-bold'>
           Done
         </button>

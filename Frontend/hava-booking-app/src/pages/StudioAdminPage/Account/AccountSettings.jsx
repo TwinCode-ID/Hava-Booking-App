@@ -16,6 +16,7 @@ import { useAuth } from "../../../context/AuthContext";
 import axiosInstance from "../../../utils/axiosInstance";
 import uploadStudio from "../../../utils/uploadStudio";
 import { API_PATHS } from "../../../utils/apiPath";
+import { fetchImage } from "../../../utils/helper";
 
 const SettingList = () => {
   const { user, setUser } = useAuth();
@@ -151,7 +152,7 @@ const SettingList = () => {
       if (profileData.newAvatarFile) {
         const uploadRes = await uploadStudio(
           profileData.newAvatarFile,
-          user.adminStudioLocation
+          user.adminStudioLocation,
         );
         avatarUrl = uploadRes?.imageUrl || uploadRes?.url || uploadRes;
       }
@@ -167,7 +168,7 @@ const SettingList = () => {
 
       // 3. Fetch fresh data immediately
       const responseBack = await axiosInstance.get(
-        `${API_PATHS.AUTH.GET_PROFILE}?t=${new Date().getTime()}`
+        `${API_PATHS.AUTH.GET_PROFILE}?t=${new Date().getTime()}`,
       );
       const fetchedUserData = responseBack.data;
 
@@ -238,7 +239,7 @@ const SettingList = () => {
       console.error("Password update failed", error);
       alert(
         error.response?.data?.message ||
-          "Failed to update password. Check your current password."
+          "Failed to update password. Check your current password.",
       );
     } finally {
       setIsLoadingPassword(false);
@@ -269,11 +270,19 @@ const SettingList = () => {
                     : "border-white ring-4 ring-transparent group-hover:ring-white"
                 }  transition-all duration-300`}>
                 {previewImage ? (
-                  <img
-                    src={previewImage}
-                    alt='Preview'
-                    className='w-full h-full object-cover'
-                  />
+                  isProfileDirty ? (
+                    <img
+                      src={previewImage}
+                      alt='Preview'
+                      className='w-full h-full object-cover'
+                    />
+                  ) : (
+                    <img
+                      src={fetchImage(previewImage)}
+                      alt='Preview'
+                      className='w-full h-full object-cover'
+                    />
+                  )
                 ) : (
                   <div className='w-full h-full bg-emerald-50 flex items-center justify-center text-emerald-300'>
                     <User className='w-12 h-12' />

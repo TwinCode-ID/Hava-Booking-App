@@ -36,12 +36,12 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
     setFetchingPasses(true);
     try {
       const res = await axiosInstance.get(
-        API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id)
+        API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id),
       );
 
       // Filter: Active AND has remaining credits
       const passList = res.data.filter(
-        (ps) => ps.isActive && ps.remainingCredits > 0
+        (ps) => ps.isActive && ps.remainingCredits > 0,
       );
 
       setPasses(passList);
@@ -51,7 +51,8 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
       const validForThisClass = passList.find(
         (p) =>
           p.classType === cls.classType &&
-          p.instructorType === cls.instructorType
+          p.instructorType === cls.instructorType &&
+          p.issuingStudio._id === cls.studioId._id,
       );
 
       if (validForThisClass) {
@@ -67,13 +68,31 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
 
   // 2. Initial Fetch on Mount
   useEffect(() => {
+    // Initial Fetch
     fetchPasses();
+
+    // Define Listener
+    const handleUpdate = () => {
+      console.log(
+        "⚡ [BOOKING MODAL] Global update received! Refreshing passes...",
+      );
+      setShowMarketplace(false); // Close the marketplace if open
+      fetchPasses(); // Refresh data
+    };
+
+    // Attach Listener
+    window.addEventListener("credits-updated", handleUpdate);
+
+    // Cleanup Listener
+    return () => {
+      window.removeEventListener("credits-updated", handleUpdate);
+    };
   }, []);
 
   // 3. Callback when purchase completes in the popup
   const handlePurchaseComplete = () => {
-    setShowMarketplace(false); // Close the popup
-    fetchPasses(); // Re-fetch data to show the new credits
+    setShowMarketplace(false);
+    fetchPasses();
   };
 
   // 4. Booking Logic
@@ -97,7 +116,7 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
       setError(
         err.response?.data?.error ||
           err.response?.data?.message ||
-          "Booking failed. Please try again."
+          "Booking failed. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -108,7 +127,7 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
   const validPasses = passes.filter(
     (pass) =>
       pass.classType === cls.classType &&
-      pass.instructorType === cls.instructorType
+      pass.instructorType === cls.instructorType,
   );
 
   return (
@@ -274,6 +293,7 @@ const BookingModal = ({ cls, onClose, onConfirm }) => {
           onPurchaseSuccess={handlePurchaseComplete}
           requiredInstructorType={cls.instructorType}
           requiredClassType={cls.classType}
+          requiredStudioId={cls.studioId._id}
         />
       )}
     </>
