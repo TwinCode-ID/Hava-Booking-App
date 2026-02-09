@@ -40,6 +40,8 @@ import {
   QrCode,
   ScanLine,
   MapPin,
+  CalendarClock,
+  AlertTriangle,
 } from "lucide-react";
 
 import axiosInstance from "../../../utils/axiosInstance";
@@ -61,7 +63,10 @@ const AdminDashboard = () => {
   // Search & Scan State
   const [searchQuery, setSearchQuery] = useState("");
   const [showScanner, setShowScanner] = useState(false);
-  const [scannedBooking, setScannedBooking] = useState(null);
+
+  // --- NEW STATES FOR SCANNER ---
+  const [scannedBooking, setScannedBooking] = useState(null); // For Success Modal
+  const [scanError, setScanError] = useState(null); // For Error Overlay
 
   // Modals State
   const [selectedClassDetails, setSelectedClassDetails] = useState(null);
@@ -204,8 +209,11 @@ const AdminDashboard = () => {
     setSelectedClassDetails(null);
   };
 
-  // --- QR Scan Handler ---
+  // --- QR Scan Handler (Updated UI Logic) ---
   const handleScanResult = (results) => {
+    // Prevent multiple scans/errors from stacking
+    if (scanError || scannedBooking) return;
+
     if (!results || results.length === 0) return;
     const rawValue = results[0]?.rawValue;
     if (!rawValue) return;
@@ -214,31 +222,52 @@ const AdminDashboard = () => {
     const foundBooking = bookings.find((b) => b._id === rawValue.trim());
 
     if (foundBooking) {
-      setScannedBooking(foundBooking); // Open the check-in modal
-      setShowScanner(false); // Close the scanner
+      const today = new Date();
+      const classDate = new Date(foundBooking.classId.startTime);
+
+      if (isSameDay(today, classDate)) {
+        // Correct Day -> Open Success Modal
+        setScannedBooking(foundBooking);
+        setShowScanner(false);
+      } else {
+        // Wrong Day -> Show Error Overlay inside Scanner
+        setScanError({
+          type: "wrong_date",
+          title: "Wrong Class Date",
+          message: `This ticket is for a class scheduled on:`,
+          detail: format(classDate, "dd MMMM yyyy"),
+          icon: <CalendarClock className='w-8 h-8 text-amber-600' />,
+          color: "amber",
+        });
+      }
     } else {
-      alert(
-        "Booking not found in current records. Please check if the pass is for a different studio or date.",
-      );
-      setShowScanner(false);
+      // Not Found -> Show Error Overlay inside Scanner
+      setScanError({
+        type: "not_found",
+        title: "Booking Not Found",
+        message: "We couldn't find this booking in current records.",
+        detail: "Check studio location.",
+        icon: <AlertTriangle className='w-8 h-8 text-red-600' />,
+        color: "red",
+      });
     }
   };
 
-  // --- FULL PDF GENERATOR (RESTORED) ---
+  // --- PDF GENERATOR ---
   const generatePDF = () => {
     const doc = new jsPDF();
     const dateStr = format(selectedDate, "EEEE, d MMMM yyyy");
 
-    // 1. Header
+    // Header
     doc.setFontSize(22);
-    doc.setTextColor(6, 78, 59); // Emerald Color
+    doc.setTextColor(6, 78, 59);
     doc.text("Daily Studio Report", 14, 20);
 
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26);
 
-    // 2. Studio Details Table
+    // Metadata Table
     autoTable(doc, {
       startY: 32,
       head: [["Date", "Studio Location", "Admin"]],
@@ -254,7 +283,7 @@ const AdminDashboard = () => {
       headStyles: { fontStyle: "bold" },
     });
 
-    // 3. Summary Stats
+    // Stats Section
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text("Summary Stats", 14, doc.lastAutoTable.finalY + 15);
@@ -278,9 +307,8 @@ const AdminDashboard = () => {
 
     let finalY = doc.lastAutoTable.finalY + 15;
 
-    // 4. Class Overview & Details
+    // Class Overview
     if (scheduledClasses.length > 0) {
-      // 4a. Overview Table
       doc.setFontSize(14);
       doc.text("Class Overview", 14, finalY);
 
@@ -309,13 +337,12 @@ const AdminDashboard = () => {
 
       finalY = doc.lastAutoTable.finalY + 15;
 
-      // Page Break Check
       if (finalY > 250) {
         doc.addPage();
         finalY = 20;
       }
 
-      // 4b. Detailed Student Lists
+      // Detailed Lists
       doc.setFontSize(14);
       doc.setTextColor(6, 78, 59);
       doc.text("Detailed Student Lists", 14, finalY);
@@ -329,23 +356,19 @@ const AdminDashboard = () => {
           s.isAttend ? "Present" : "Absent",
         ]);
 
-        if (studentBody.length === 0) {
+        if (studentBody.length === 0)
           studentBody.push(["No students enrolled", "-", "-", "-"]);
-        }
 
         if (finalY > 260) {
           doc.addPage();
           finalY = 20;
         }
 
-        const safeInstructorName =
-          cls.instructorId?.fullName || "Unknown Instructor";
-
         doc.setFontSize(11);
         doc.setTextColor(0);
         doc.setFont(undefined, "bold");
         doc.text(
-          `${format(new Date(cls.startTime), "HH:mm")} - ${cls.className} - ${safeInstructorName}`,
+          `${format(new Date(cls.startTime), "HH:mm")} - ${cls.className}`,
           14,
           finalY,
         );
@@ -362,19 +385,12 @@ const AdminDashboard = () => {
             textColor: 0,
             fontStyle: "bold",
           },
-          columnStyles: {
-            0: { cellWidth: 60 },
-            1: { cellWidth: 40 },
-            2: { cellWidth: 60 },
-            3: { fontStyle: "bold" },
-          },
           didParseCell: function (data) {
             if (data.section === "body" && data.column.index === 3) {
-              if (data.cell.raw === "Present") {
+              if (data.cell.raw === "Present")
                 data.cell.styles.textColor = [5, 150, 105];
-              } else if (data.cell.raw === "Absent") {
+              else if (data.cell.raw === "Absent")
                 data.cell.styles.textColor = [220, 38, 38];
-              }
             }
           },
         });
@@ -384,12 +400,11 @@ const AdminDashboard = () => {
     } else {
       doc.setFontSize(12);
       doc.setTextColor(100);
-      doc.setFont(undefined, "italic");
       doc.text("No classes scheduled for this date.", 14, finalY);
       finalY += 20;
     }
 
-    // 5. Footer / Signatures
+    // Footer
     if (finalY > 240) {
       doc.addPage();
       finalY = 40;
@@ -398,7 +413,6 @@ const AdminDashboard = () => {
     }
 
     const startYFooter = finalY;
-
     doc.setFont(undefined, "bold");
     doc.setFontSize(10);
     doc.setTextColor(0);
@@ -408,24 +422,7 @@ const AdminDashboard = () => {
     doc.setTextColor(80);
     doc.text(studio?.studioName || "HAVA Studio", 14, startYFooter + 6);
 
-    // Address handling
-    if (studio?.address && typeof studio.address === "string") {
-      doc.text(studio.address, 14, startYFooter + 11);
-    } else if (studio?.address?.street) {
-      doc.text(studio.address.street, 14, startYFooter + 11);
-    }
-
-    // Phone handling
-    if (studio?.contactNumber) {
-      doc.text(`+${studio.contactNumber}`, 14, startYFooter + 16);
-    } else if (studio?.phoneNumber) {
-      const hasAddress =
-        typeof studio?.address === "string" || studio?.address?.street;
-      const contactY = hasAddress ? startYFooter + 16 : startYFooter + 11;
-      doc.text(`Phone: ${studio.phoneNumber}`, 14, contactY);
-    }
-
-    // Admin Signature Line
+    // Signatures
     const sigX = 130;
     doc.setFont(undefined, "normal");
     doc.setTextColor(0);
@@ -449,8 +446,7 @@ const AdminDashboard = () => {
 
   const handlePreviewReport = () => {
     const doc = generatePDF();
-    const pdfBlobUrl = doc.output("bloburl");
-    setPdfUrl(pdfBlobUrl);
+    setPdfUrl(doc.output("bloburl"));
     setShowPdfPreview(true);
   };
 
@@ -489,7 +485,6 @@ const AdminDashboard = () => {
               </button>
             </div>
           </div>
-
           <div className='flex items-center justify-between mb-3'>
             <div className='flex items-center gap-2'>
               <button
@@ -519,7 +514,7 @@ const AdminDashboard = () => {
               </button>
             </div>
           </div>
-
+          {/* Mobile Stats */}
           <div
             className={`grid gap-4 ${isToday ? "grid-cols-2" : "grid-cols-3"}`}>
             <div className='flex-1 flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-100'>
@@ -570,16 +565,15 @@ const AdminDashboard = () => {
                 Today's Studio Schedule
               </p>
             </div>
-
             <div className='flex items-center gap-3 flex-1 justify-end'>
               <div className='relative w-full max-w-md group flex items-center gap-2'>
                 <div className='relative flex-1'>
                   <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                    <Search className='h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors' />
+                    <Search className='h-5 w-5 text-gray-400' />
                   </div>
                   <input
                     type='text'
-                    className='block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 sm:text-sm transition-all shadow-sm hover:border-gray-300'
+                    className='block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 sm:text-sm transition-all shadow-sm'
                     placeholder='Search...'
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -605,11 +599,7 @@ const AdminDashboard = () => {
                   onClick={() => setSelectedClassDetails(cls)}
                   className='bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group overflow-hidden'>
                   <div
-                    className={`h-1.5 w-full ${
-                      cls.classType === "Private"
-                        ? "bg-purple-500"
-                        : "bg-blue-500"
-                    }`}></div>
+                    className={`h-1.5 w-full ${cls.classType === "Private" ? "bg-purple-500" : "bg-blue-500"}`}></div>
                   <div className='p-5 md:p-6'>
                     <div className='flex justify-between items-start mb-3'>
                       <div className='flex items-center gap-3'>
@@ -621,11 +611,7 @@ const AdminDashboard = () => {
                           {format(new Date(cls.endTime), "HH:mm")}
                         </div>
                         <span
-                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                            cls.classType === "Private"
-                              ? "bg-purple-50 text-purple-700 border border-purple-100"
-                              : "bg-blue-50 text-blue-700 border border-blue-100"
-                          }`}>
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${cls.classType === "Private" ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
                           {cls.classType}
                         </span>
                       </div>
@@ -677,11 +663,10 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* RIGHT COLUMN (Calendar & Stats) */}
+      {/* RIGHT COLUMN */}
       <div className='hidden lg:flex w-100 xl:w-112.5 bg-white border-l border-gray-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
         <div className='space-y-4'>
           <DigitalClock />
-
           {!isSameDay(selectedDate, new Date()) && (
             <button
               onClick={jumpToToday}
@@ -689,7 +674,6 @@ const AdminDashboard = () => {
               Jump to Today
             </button>
           )}
-
           <MiniCalendar
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
@@ -735,7 +719,6 @@ const AdminDashboard = () => {
                 View Details
               </span>
             </div>
-
             <div className='mb-2 flex justify-between text-xs font-medium text-gray-500'>
               <span>{dailyStats.totalAttended} Present</span>
               <span>
@@ -759,7 +742,6 @@ const AdminDashboard = () => {
                 <p className='text-xs text-gray-500'>Preview & Download PDF</p>
               </div>
             </div>
-
             <button
               onClick={handlePreviewReport}
               className='w-full flex items-center justify-center gap-2 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-md'>
@@ -771,7 +753,7 @@ const AdminDashboard = () => {
 
       {/* --- MODALS --- */}
 
-      {/* 1. QR Scanner Modal */}
+      {/* 1. QR Scanner Modal (with Error Overlay) */}
       <AnimatePresence>
         {showScanner && (
           <motion.div
@@ -783,13 +765,17 @@ const AdminDashboard = () => {
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
-              className='bg-white w-full max-w-sm rounded-3xl overflow-hidden relative shadow-2xl'>
+              className='bg-white w-full max-w-sm rounded-3xl overflow-hidden relative shadow-2xl flex flex-col h-[500px]'>
               <button
-                onClick={() => setShowScanner(false)}
+                onClick={() => {
+                  setShowScanner(false);
+                  setScanError(null);
+                }}
                 className='absolute top-4 right-4 z-20 p-2 bg-black/30 text-white rounded-full hover:bg-black/50 backdrop-blur-md transition-colors'>
                 <X className='w-5 h-5' />
               </button>
-              <div className='p-6 pb-2 text-center'>
+
+              <div className='p-6 pb-2 text-center bg-white z-10 relative'>
                 <h3 className='text-xl font-bold text-gray-900'>
                   Scan QR Code
                 </h3>
@@ -797,55 +783,92 @@ const AdminDashboard = () => {
                   Point camera at booking ticket
                 </p>
               </div>
-              <div className='relative aspect-square bg-black overflow-hidden m-4 rounded-2xl'>
-                <Scanner
-                  onScan={handleScanResult}
-                  components={{
-                    audio: false,
-                    onOff: false,
-                    torch: false,
-                    zoom: false,
-                    finder: false,
-                  }}
-                  styles={{
-                    container: { width: "100%", height: "100%" },
-                    video: {
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    },
-                  }}
-                />
-                <div className='absolute inset-0 pointer-events-none flex items-center justify-center z-10'>
-                  <div className='w-48 h-48 border-2 border-white/50 rounded-xl relative'>
-                    <ScanLine className='w-full h-full text-emerald-500/50 animate-pulse p-4' />
-                    <div className='absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-emerald-500 -mt-1 -ml-1 rounded-tl-lg'></div>
-                    <div className='absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-emerald-500 -mt-1 -mr-1 rounded-tr-lg'></div>
-                    <div className='absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-emerald-500 -mb-1 -ml-1 rounded-bl-lg'></div>
-                    <div className='absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-emerald-500 -mb-1 -mr-1 rounded-br-lg'></div>
-                  </div>
-                </div>
+
+              <div className='flex-1 relative bg-black overflow-hidden m-4 rounded-2xl'>
+                {!scanError && (
+                  <>
+                    <Scanner
+                      onScan={handleScanResult}
+                      components={{
+                        audio: false,
+                        onOff: false,
+                        torch: false,
+                        zoom: false,
+                        finder: false,
+                      }}
+                      styles={{
+                        container: { width: "100%", height: "100%" },
+                        video: {
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        },
+                      }}
+                    />
+                    <div className='absolute inset-0 pointer-events-none flex items-center justify-center z-10'>
+                      <div className='w-56 h-56 border-2 border-white/50 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'>
+                        <ScanLine className='w-full h-full text-emerald-500/80 animate-pulse p-4' />
+                        <div className='absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-emerald-500 -mt-1 -ml-1 rounded-tl-lg'></div>
+                        <div className='absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-emerald-500 -mt-1 -mr-1 rounded-tr-lg'></div>
+                        <div className='absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-emerald-500 -mb-1 -ml-1 rounded-bl-lg'></div>
+                        <div className='absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-emerald-500 -mb-1 -mr-1 rounded-br-lg'></div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* ERROR OVERLAY */}
+                <AnimatePresence>
+                  {scanError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 20 }}
+                      className='absolute inset-0 z-30 bg-white/10 backdrop-blur-md flex items-center justify-center p-6'>
+                      <div className='bg-white w-full rounded-2xl shadow-2xl p-6 text-center animate-in zoom-in-95 duration-200'>
+                        <div
+                          className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${scanError.color === "amber" ? "bg-amber-50" : "bg-red-50"}`}>
+                          {scanError.icon}
+                        </div>
+                        <h4 className='text-xl font-bold text-gray-900 mb-2'>
+                          {scanError.title}
+                        </h4>
+                        <p className='text-sm text-gray-500 mb-1'>
+                          {scanError.message}
+                        </p>
+                        <p className='text-base font-bold text-gray-900 mb-6'>
+                          {scanError.detail}
+                        </p>
+                        <button
+                          onClick={() => setScanError(null)}
+                          className='w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-lg'>
+                          Scan Again
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 2. Scan Result Modal */}
+      {/* 2. Success Result Modal */}
       <AnimatePresence>
         {scannedBooking && (
           <ScanResultModal
             booking={scannedBooking}
             onClose={() => setScannedBooking(null)}
             onSuccess={() => {
-              fetchData(); // Refresh list to show green check
+              fetchData();
               setScannedBooking(null);
             }}
           />
         )}
       </AnimatePresence>
 
-      {/* 3. Existing Modals */}
+      {/* 3. Helper Modals */}
       <AnimatePresence>
         {selectedClassDetails && (
           <ClassDetailsModal
@@ -855,7 +878,6 @@ const AdminDashboard = () => {
           />
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {showAttendanceDetails && (
           <AttendanceSummaryModal
@@ -865,7 +887,6 @@ const AdminDashboard = () => {
           />
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {showCalendarModal && (
           <motion.div
@@ -891,7 +912,6 @@ const AdminDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {showPdfPreview && pdfUrl && (
           <motion.div
@@ -926,7 +946,6 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               </div>
-
               <div className='flex-1 bg-gray-100'>
                 <iframe
                   src={pdfUrl}
@@ -942,7 +961,8 @@ const AdminDashboard = () => {
   );
 };
 
-// ... (Helper components remain unchanged below) ...
+// --- HELPER COMPONENTS ---
+
 const DigitalClock = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -963,7 +983,6 @@ const DigitalClock = () => {
 
 const ScanResultModal = ({ booking, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-
   const handleCheckIn = async () => {
     setLoading(true);
     try {
@@ -977,7 +996,6 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
       setLoading(false);
     }
   };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -994,7 +1012,6 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
           className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors'>
           <X className='w-5 h-5 text-gray-600' />
         </button>
-
         <div className='p-8 text-center'>
           <div
             className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${booking.isAttend ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"}`}>
@@ -1004,12 +1021,10 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
               <UserCheck className='w-10 h-10' />
             )}
           </div>
-
           <h2 className='text-2xl font-bold text-gray-900 mb-1'>
             {booking.userId?.fullName}
           </h2>
           <p className='text-gray-500 text-sm mb-6'>{booking.userId?.email}</p>
-
           <div className='bg-gray-50 rounded-2xl p-4 text-left space-y-3 mb-6'>
             <div>
               <p className='text-xs font-bold text-gray-400 uppercase'>Class</p>
@@ -1039,15 +1054,10 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
               </div>
             </div>
           </div>
-
           <button
             onClick={handleCheckIn}
             disabled={loading}
-            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
-              booking.isAttend
-                ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                : "bg-emerald-600 text-white hover:bg-emerald-700"
-            }`}>
+            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${booking.isAttend ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
             {loading ? (
               <LoadingSpinner size='sm' />
             ) : booking.isAttend ? (
@@ -1164,7 +1174,6 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
   const [attendanceState, setAttendanceState] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
   useEffect(() => {
     const initial = {};
     cls.students.forEach((s) => {
@@ -1184,7 +1193,6 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
   const toggleAttendance = (bookingId) => {
     setAttendanceState((prev) => ({ ...prev, [bookingId]: !prev[bookingId] }));
   };
-
   const handleSaveChanges = async () => {
     setIsSaving(true);
     try {
@@ -1205,7 +1213,6 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
       setShowConfirm(false);
     }
   };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1380,7 +1387,6 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
     setViewDate(setMonth(viewDate, months.indexOf(e.target.value)));
   const handleYearChange = (e) =>
     setViewDate(setYear(viewDate, parseInt(e.target.value)));
-
   return (
     <div className='bg-gray-50 p-4 rounded-2xl border border-gray-200 select-none'>
       <div className='flex justify-between items-center mb-4 gap-2'>
