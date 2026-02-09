@@ -94,6 +94,7 @@ exports.createPurchase = async (req, res) => {
         purchaseDate: new Date(),
         expiryDate: passExpiry,
         remainingCredits: newPurchase.creditsPurchased,
+        validityDuration: packageInfo.validityDays || 30,
         initialCredits: newPurchase.creditsPurchased,
         issuingStudio: newPurchase.issuingStudio,
         isActive: true,

@@ -11,8 +11,9 @@ import {
   X,
   Edit2,
   ArrowUpDown,
-  Eye,
   Settings,
+  Check, // Added Check icon
+  Calendar as CalendarIcon, // Renamed to avoid conflict
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -36,16 +37,20 @@ const ClientManager = ({ isEmbedded = false }) => {
   const [viewingPass, setViewingPass] = useState(null);
   const [editingPass, setEditingPass] = useState(null);
 
-  const [showPdfPreview, setShowPdfPreview] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState(null);
+  // Config State for dynamic dropdowns
+  const [config, setConfig] = useState({ classTypes: [], instructorTypes: [] });
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await axiosInstance.get(
-        API_PATHS.PASSES.GET_ALL_ADMIN(user.adminStudioLocation),
-      );
+      const [res, configRes] = await Promise.all([
+        axiosInstance.get(
+          API_PATHS.PASSES.GET_ALL_ADMIN(user.adminStudioLocation),
+        ),
+        axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
+      ]);
       setPurchases(res.data);
+      setConfig(configRes.data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -98,28 +103,60 @@ const ClientManager = ({ isEmbedded = false }) => {
   };
 
   const handleAssignSubmit = async (formData) => {
-    // ... (Use previous implementation or standard assign logic)
-    // NOTE: Ensure your assign logic sends Arrays for types now
-    setShowAssignModal(false);
-    fetchData();
+    try {
+      setLoading(true);
+      let targetUserId = formData.userId;
+
+      if (formData.isNewClient) {
+        const userRes = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
+          ...formData.newClientData,
+          role: "client",
+          password: "",
+        });
+        targetUserId = userRes.data.user?._id || userRes.data._id;
+      }
+
+      await axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
+        userId: targetUserId,
+        packageId: formData.packageId,
+        paymentMethod: "direct_payment",
+        totalAmount: formData.totalAmount,
+        paymentIssuer: formData.paymentIssuer,
+        proofOfPayment: "Manual Assignment",
+        issuingStudio: user.adminStudioLocation,
+        status: "confirmed",
+      });
+
+      alert("Pass assigned successfully!");
+      setShowAssignModal(false);
+      fetchData();
+    } catch (error) {
+      console.error("Assign failed", error);
+      alert(error.response?.data?.message || "Failed to assign pass");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "-");
 
-  // Helper to display arrays nicely in table
   const renderArrayTag = (arr) => {
     if (!arr || arr.length === 0)
-      return <span className='text-gray-400 text-xs'>None</span>;
-    // Join with comma if multiple
+      return <span className='text-gray-400 text-xs italic'>All Access</span>;
     return (
       <div className='flex flex-wrap gap-1'>
-        {arr.map((item, idx) => (
+        {arr.slice(0, 2).map((item, idx) => (
           <span
             key={idx}
-            className='text-[10px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap'>
+            className='text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap font-medium'>
             {item}
           </span>
         ))}
+        {arr.length > 2 && (
+          <span className='text-[10px] text-gray-400'>
+            +{arr.length - 2} more
+          </span>
+        )}
       </div>
     );
   };
@@ -128,7 +165,7 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 relative`}>
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 relative min-h-screen`}>
       {!isEmbedded && (
         <div className='flex justify-between items-center mb-8'>
           <h1 className='text-2xl font-bold text-gray-900'>
@@ -146,18 +183,18 @@ const ClientManager = ({ isEmbedded = false }) => {
             placeholder='Search client...'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className='w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500'
+            className='w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 shadow-sm'
           />
         </div>
         <div className='flex gap-3'>
           <button
             onClick={() => setShowAssignModal(true)}
-            className='px-4 py-2.5 bg-emerald-900 text-white rounded-xl text-sm font-bold flex items-center gap-2'>
+            className='px-4 py-2.5 bg-emerald-900 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/20 hover:bg-emerald-800 transition-all'>
             <Plus className='w-4 h-4' /> Assign Pass
           </button>
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`p-2.5 rounded-xl border ${isFilterOpen ? "bg-gray-800 text-white" : "bg-white"}`}>
+            className={`p-2.5 rounded-xl border transition-colors ${isFilterOpen ? "bg-gray-800 text-white border-gray-800" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
             <Filter className='w-5 h-5' />
           </button>
         </div>
@@ -170,7 +207,7 @@ const ClientManager = ({ isEmbedded = false }) => {
             <tr>
               <th
                 onClick={() => handleSort("clientName")}
-                className='py-4 px-6 text-xs font-bold text-gray-500 uppercase cursor-pointer'>
+                className='py-4 px-6 text-xs font-bold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors'>
                 Client
               </th>
               <th className='py-4 px-6 text-xs font-bold text-gray-500 uppercase'>
@@ -178,18 +215,18 @@ const ClientManager = ({ isEmbedded = false }) => {
               </th>
               <th
                 onClick={() => handleSort("remainingCredits")}
-                className='py-4 px-6 text-xs font-bold text-gray-500 uppercase cursor-pointer'>
+                className='py-4 px-6 text-xs font-bold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors'>
                 Credits
               </th>
               <th className='py-4 px-6 text-xs font-bold text-gray-500 uppercase'>
-                Allowed Classes
+                Classes
               </th>
               <th className='py-4 px-6 text-xs font-bold text-gray-500 uppercase'>
-                Allowed Instructors
+                Instructors
               </th>
               <th
                 onClick={() => handleSort("expiryDate")}
-                className='py-4 px-6 text-xs font-bold text-gray-500 uppercase cursor-pointer'>
+                className='py-4 px-6 text-xs font-bold text-gray-500 uppercase cursor-pointer hover:bg-gray-100 transition-colors'>
                 Expiry
               </th>
               <th className='py-4 px-6 text-xs font-bold text-gray-500 uppercase'>
@@ -202,33 +239,30 @@ const ClientManager = ({ isEmbedded = false }) => {
               <tr
                 key={item._id}
                 onClick={() => setViewingPass(item)}
-                className='hover:bg-emerald-50 transition-colors cursor-pointer'>
+                className='hover:bg-emerald-50/50 transition-colors cursor-pointer group'>
                 <td className='py-4 px-6 font-bold text-gray-900'>
                   {item.userId?.fullName}
                 </td>
-                <td className='py-4 px-6 text-sm text-gray-700'>
+                <td className='py-4 px-6 text-sm text-gray-600'>
                   {item.packageId?.packageName}
                 </td>
-                <td className='py-4 px-6 font-mono font-bold'>
+                <td className='py-4 px-6 font-mono font-bold text-emerald-900'>
                   {item.remainingCredits}
                 </td>
-
-                {/* Display Arrays */}
                 <td className='py-4 px-6'>{renderArrayTag(item.classType)}</td>
                 <td className='py-4 px-6'>
                   {renderArrayTag(item.instructorType)}
                 </td>
-
                 <td className='py-4 px-6 text-sm text-gray-500'>
                   {formatDate(item.expiryDate)}
                 </td>
                 <td className='py-4 px-6'>
                   {item.isActive ? (
-                    <span className='inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700'>
+                    <span className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700'>
                       <CheckCircle2 className='w-3 h-3' /> Active
                     </span>
                   ) : (
-                    <span className='inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500'>
+                    <span className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500'>
                       <XCircle className='w-3 h-3' /> Inactive
                     </span>
                   )}
@@ -241,7 +275,6 @@ const ClientManager = ({ isEmbedded = false }) => {
 
       {/* Modals */}
       <AnimatePresence>
-        {/* Pass Details Modal */}
         {viewingPass && (
           <PassDetailsModal
             pass={viewingPass}
@@ -252,10 +285,10 @@ const ClientManager = ({ isEmbedded = false }) => {
             }}
           />
         )}
-        {/* Edit Pass Modal - Supports Arrays */}
         {editingPass && (
           <EditPassModal
             pass={editingPass}
+            config={config} // Pass the config for dynamic checkboxes
             onClose={() => setEditingPass(null)}
             onSubmit={() => {
               setEditingPass(null);
@@ -263,76 +296,108 @@ const ClientManager = ({ isEmbedded = false }) => {
             }}
           />
         )}
+        {showAssignModal && (
+          <AssignPassModal
+            onClose={() => setShowAssignModal(false)}
+            onSubmit={handleAssignSubmit}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
 };
 
-// --- View Details Modal ---
+// --- 1. Pass Details Modal (Redesigned) ---
 const PassDetailsModal = ({ pass, onClose, onEdit }) => (
   <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'>
     <motion.div
-      initial={{ scale: 0.95 }}
-      animate={{ scale: 1 }}
-      className='bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden'>
-      <div className='p-6 border-b flex justify-between items-center'>
-        <h3 className='text-lg font-bold'>Pass Details</h3>
-        <button onClick={onClose}>
-          <X className='w-5 h-5 text-gray-500' />
+      initial={{ scale: 0.95, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.95, opacity: 0 }}
+      className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden'>
+      {/* Header */}
+      <div className='px-6 py-5 border-b border-gray-100 flex justify-between items-center'>
+        <h3 className='text-lg font-bold text-gray-900'>Pass Details</h3>
+        <button
+          onClick={onClose}
+          className='p-1 rounded-full hover:bg-gray-100 transition-colors'>
+          <X className='w-5 h-5 text-gray-400' />
         </button>
       </div>
 
       <div className='p-6 space-y-6'>
-        {/* Status Banner */}
+        {/* Active Banner */}
         <div
-          className={`p-4 rounded-xl border flex items-center gap-3 ${pass.isActive ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}`}>
+          className={`p-5 rounded-2xl flex items-center justify-between ${pass.isActive ? "bg-emerald-50" : "bg-gray-50"}`}>
           <div>
-            <p className='font-bold'>{pass.isActive ? "Active" : "Inactive"}</p>
-            <p className='text-xs text-gray-500'>
+            <h4
+              className={`text-lg font-bold ${pass.isActive ? "text-emerald-900" : "text-gray-900"}`}>
+              {pass.isActive ? "Active" : "Inactive"}
+            </h4>
+            <p
+              className={`text-sm ${pass.isActive ? "text-emerald-700" : "text-gray-500"}`}>
               {pass.isActive
-                ? `Expires: ${new Date(pass.expiryDate).toLocaleDateString()}`
-                : "Expired/Empty"}
+                ? `Expires: ${new Date(pass.expiryDate).toLocaleDateString("en-GB")}`
+                : "This pass is no longer valid"}
             </p>
           </div>
-          <div className='ml-auto text-right'>
-            <p className='text-2xl font-bold'>{pass.remainingCredits}</p>
-            <p className='text-xs font-bold text-gray-400 uppercase'>Credits</p>
+          <div className='text-right'>
+            <span
+              className={`text-3xl font-bold ${pass.isActive ? "text-emerald-900" : "text-gray-900"}`}>
+              {pass.remainingCredits}
+            </span>
+            <p className='text-[10px] font-bold uppercase tracking-wider text-gray-400'>
+              CREDITS
+            </p>
           </div>
         </div>
 
-        {/* RESTRICTIONS DISPLAY (ARRAYS) */}
-        <div className='bg-blue-50 p-4 rounded-xl border border-blue-100'>
+        {/* Allowed Access Section */}
+        <div className='bg-blue-50/50 p-5 rounded-2xl border border-blue-100/50'>
           <div className='flex items-start gap-3'>
-            <Settings className='w-5 h-5 text-blue-600 mt-0.5' />
-            <div>
-              <h4 className='text-sm font-bold text-blue-900'>
+            <Settings className='w-5 h-5 text-blue-500 mt-0.5 shrink-0' />
+            <div className='w-full'>
+              <h4 className='text-sm font-bold text-blue-900 mb-3'>
                 Allowed Access
               </h4>
 
-              <div className='mt-2'>
-                <p className='text-xs text-blue-700 font-bold mb-1'>Classes:</p>
-                <div className='flex flex-wrap gap-1'>
+              <div className='mb-3'>
+                <p className='text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1.5'>
+                  Classes
+                </p>
+                <div className='flex flex-wrap gap-2'>
+                  {(!pass.classType || pass.classType.length === 0) && (
+                    <span className='text-sm text-gray-400 italic'>
+                      No restrictions
+                    </span>
+                  )}
                   {pass.classType &&
                     pass.classType.map((t) => (
                       <span
                         key={t}
-                        className='px-2 py-0.5 bg-white text-blue-800 text-xs rounded border border-blue-200'>
+                        className='px-2.5 py-1 bg-white text-blue-700 text-xs font-bold rounded-lg border border-blue-100 shadow-sm'>
                         {t}
                       </span>
                     ))}
                 </div>
               </div>
 
-              <div className='mt-2'>
-                <p className='text-xs text-blue-700 font-bold mb-1'>
-                  Instructors:
+              <div>
+                <p className='text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1.5'>
+                  Instructors
                 </p>
-                <div className='flex flex-wrap gap-1'>
+                <div className='flex flex-wrap gap-2'>
+                  {(!pass.instructorType ||
+                    pass.instructorType.length === 0) && (
+                    <span className='text-sm text-gray-400 italic'>
+                      No restrictions
+                    </span>
+                  )}
                   {pass.instructorType &&
                     pass.instructorType.map((t) => (
                       <span
                         key={t}
-                        className='px-2 py-0.5 bg-white text-blue-800 text-xs rounded border border-blue-200'>
+                        className='px-2.5 py-1 bg-white text-blue-700 text-xs font-bold rounded-lg border border-blue-100 shadow-sm'>
                         {t}
                       </span>
                     ))}
@@ -343,15 +408,15 @@ const PassDetailsModal = ({ pass, onClose, onEdit }) => (
         </div>
       </div>
 
-      <div className='p-4 bg-gray-50 flex gap-3'>
+      <div className='p-5 border-t border-gray-100 flex gap-3'>
         <button
           onClick={onClose}
-          className='flex-1 py-2 font-bold text-gray-600 hover:bg-gray-200 rounded-xl'>
+          className='flex-1 py-3 font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all'>
           Close
         </button>
         <button
           onClick={onEdit}
-          className='flex-1 py-2 bg-emerald-900 text-white font-bold rounded-xl flex justify-center items-center gap-2'>
+          className='flex-1 py-3 bg-emerald-900 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 hover:bg-emerald-800 transition-all flex justify-center items-center gap-2'>
           <Edit2 className='w-4 h-4' /> Edit Pass
         </button>
       </div>
@@ -359,12 +424,11 @@ const PassDetailsModal = ({ pass, onClose, onEdit }) => (
   </div>
 );
 
-// --- Edit Pass Modal (Supports Multiple Selection) ---
-const EditPassModal = ({ pass, onClose, onSubmit }) => {
+// --- 2. Edit Pass Modal (Redesigned with Custom Date Picker & Checkboxes) ---
+const EditPassModal = ({ pass, config, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     remainingCredits: pass.remainingCredits,
     expiryDate: pass.expiryDate ? pass.expiryDate.split("T")[0] : "",
-    // Ensure these are arrays
     instructorType: Array.isArray(pass.instructorType)
       ? pass.instructorType
       : [],
@@ -372,25 +436,15 @@ const EditPassModal = ({ pass, onClose, onSubmit }) => {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Available Options (You can add to this list freely now without DB errors)
-  const availableInstructors = [
-    "Apprentice Instructor",
-    "Junior Instructor",
-    "Senior Instructor",
-    "Master Instructor",
-    "Principal Instructor",
-    "Special Instructor",
-    "Visiting Expert", // Example of a new one
-  ];
-
-  const availableClasses = [
-    "Group",
-    "Mat Group",
-    "Private",
-    "Duet",
-    "Workshop",
-    "Special Event", // Example of new ones
-  ];
+  // Fallback options if config is empty
+  const availableInstructors =
+    config?.instructorTypes?.length > 0
+      ? config.instructorTypes
+      : ["Apprentice Instructor", "Junior Instructor", "Senior Instructor"];
+  const availableClasses =
+    config?.classTypes?.length > 0
+      ? config.classTypes
+      : ["Group", "Private", "Duet"];
 
   const handleToggle = (field, value) => {
     setFormData((prev) => {
@@ -411,115 +465,361 @@ const EditPassModal = ({ pass, onClose, onSubmit }) => {
     setIsLoading(true);
     try {
       await axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(pass._id), formData);
-      alert("Pass updated successfully");
       onSubmit();
     } catch (error) {
-      console.error("Update failed", error);
+      console.error(error);
       alert("Failed to update pass");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Custom Checkbox Component matching Screenshot
+  const SelectionItem = ({ label, isSelected, onClick }) => (
+    <div
+      onClick={onClick}
+      className={`
+        flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200
+        ${
+          isSelected
+            ? "border-blue-500 bg-blue-50/50"
+            : "border-gray-200 bg-white hover:border-gray-300"
+        }
+      `}>
+      <div
+        className={`
+        w-5 h-5 rounded-[6px] flex items-center justify-center transition-colors border
+        ${isSelected ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"}
+      `}>
+        {isSelected && (
+          <Check size={14} className='text-white' strokeWidth={4} />
+        )}
+      </div>
+      <span
+        className={`text-sm font-semibold ${isSelected ? "text-blue-900" : "text-gray-600"}`}>
+        {label}
+      </span>
+    </div>
+  );
+
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className='bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto'>
-        <div className='p-6 border-b bg-gray-50'>
-          <h3 className='text-lg font-bold'>Edit Pass</h3>
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col'>
+        <div className='px-6 py-5 border-b border-gray-100 bg-white'>
+          <h3 className='text-xl font-bold text-gray-900'>Edit Pass</h3>
         </div>
 
-        <form onSubmit={handleSave} className='p-6 space-y-4'>
-          {/* Credits & Date */}
+        <form
+          onSubmit={handleSave}
+          className='flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar'>
+          {/* Top Row: Credits & Date */}
           <div className='grid grid-cols-2 gap-4'>
             <div>
-              <label className='block text-xs font-bold text-gray-500 uppercase mb-1'>
-                Credits
+              <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1'>
+                CREDITS
+              </label>
+              <div className='relative'>
+                <input
+                  type='number'
+                  value={formData.remainingCredits}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      remainingCredits: e.target.value,
+                    })
+                  }
+                  className='w-full h-12 px-4 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-gray-900 focus:outline-none transition-colors'
+                />
+              </div>
+            </div>
+
+            {/* Custom Styled Date Picker Trigger */}
+            <div>
+              <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1'>
+                EXPIRY DATE
+              </label>
+              <div className='relative group'>
+                <input
+                  type='date'
+                  value={formData.expiryDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, expiryDate: e.target.value })
+                  }
+                  className='w-full h-12 px-4 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-gray-900 focus:outline-none transition-colors appearance-none bg-white relative z-10'
+                />
+                <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-0 pointer-events-none group-hover:text-gray-600 transition-colors' />
+              </div>
+            </div>
+          </div>
+
+          <hr className='border-gray-100' />
+
+          {/* Classes Grid */}
+          <div>
+            <p className='text-xs font-bold text-gray-900 mb-3 uppercase tracking-wide'>
+              Allowed Class Types
+            </p>
+            <div className='grid grid-cols-2 gap-3'>
+              {availableClasses.map((cls) => (
+                <SelectionItem
+                  key={cls}
+                  label={cls}
+                  isSelected={formData.classType.includes(cls)}
+                  onClick={() => handleToggle("classType", cls)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Instructors Grid */}
+          <div>
+            <p className='text-xs font-bold text-gray-900 mb-3 uppercase tracking-wide'>
+              Allowed Instructor Levels
+            </p>
+            <div className='grid grid-cols-2 gap-3'>
+              {availableInstructors.map((inst) => (
+                <SelectionItem
+                  key={inst}
+                  label={inst}
+                  isSelected={formData.instructorType.includes(inst)}
+                  onClick={() => handleToggle("instructorType", inst)}
+                />
+              ))}
+            </div>
+          </div>
+        </form>
+
+        <div className='p-5 border-t border-gray-100 bg-gray-50 flex gap-3'>
+          <button
+            type='button'
+            onClick={onClose}
+            className='flex-1 py-3.5 text-gray-600 font-bold hover:bg-gray-200 rounded-xl transition-colors text-sm'>
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isLoading}
+            className='flex-1 py-3.5 bg-emerald-900 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-800 transition-colors text-sm disabled:opacity-50'>
+            {isLoading ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// --- 3. Assign Pass Modal ---
+const AssignPassModal = ({ onClose, onSubmit }) => {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("existing");
+  const [users, setUsers] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  const [formData, setFormData] = useState({
+    userId: "",
+    packageId: "",
+    paymentIssuer: "",
+    totalAmount: "",
+    isNewClient: false,
+    newClientData: { fullName: "", email: "", phone: "" },
+  });
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const [u, p] = await Promise.all([
+          axiosInstance.get(API_PATHS.AUTH.GET_ALL_USERS),
+          axiosInstance.get(
+            API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(user.adminStudioLocation),
+          ),
+        ]);
+        setUsers(u.data);
+        setPackages(p.data);
+      } catch (err) {
+        console.error("Failed to load options", err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    init();
+  }, [user.adminStudioLocation]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({
+      ...formData,
+      isNewClient: activeTab === "new",
+      userId: activeTab === "new" ? null : formData.userId,
+    });
+  };
+
+  const isFormValid =
+    formData.packageId &&
+    formData.paymentIssuer &&
+    (activeTab === "existing"
+      ? formData.userId
+      : formData.newClientData.fullName && formData.newClientData.email);
+
+  return (
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className='bg-white w-full max-w-xl rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto'>
+        <div className='flex justify-between mb-6 border-b pb-4'>
+          <div>
+            <h2 className='text-xl font-bold text-gray-900'>Assign Pass</h2>
+            <p className='text-sm text-gray-500'>
+              Manually assign a package to a client
+            </p>
+          </div>
+          <button onClick={onClose}>
+            <X className='text-gray-400 hover:text-gray-600' />
+          </button>
+        </div>
+
+        <div className='flex p-1 bg-gray-100 rounded-xl mb-6'>
+          <button
+            type='button'
+            onClick={() => setActiveTab("existing")}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === "existing" ? "bg-white shadow text-emerald-900" : "text-gray-500"}`}>
+            Existing Client
+          </button>
+          <button
+            type='button'
+            onClick={() => setActiveTab("new")}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === "new" ? "bg-white shadow text-emerald-900" : "text-gray-500"}`}>
+            New Client
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className='space-y-5'>
+          <div>
+            <CustomSelect
+              label='Select Package'
+              options={packages}
+              placeholder={
+                isLoadingData ? "Loading packages..." : "Choose a package"
+              }
+              getLabel={(p) =>
+                `${p.packageName} (${p.credits} Credits) - ${parseInt(p.packagePrice).toLocaleString()} IDR`
+              }
+              getValue={(p) => p._id}
+              value={formData.packageId}
+              onChange={(val) => {
+                const pkg = packages.find((p) => p._id === val);
+                setFormData({
+                  ...formData,
+                  packageId: val,
+                  totalAmount: pkg?.packagePrice || "",
+                });
+              }}
+            />
+          </div>
+
+          <div className='grid grid-cols-2 gap-4'>
+            <div>
+              <label className='block text-sm font-bold text-gray-700 mb-1'>
+                Price (IDR)
               </label>
               <input
                 type='number'
-                value={formData.remainingCredits}
-                onChange={(e) =>
-                  setFormData({ ...formData, remainingCredits: e.target.value })
-                }
-                className='w-full p-2 border rounded-lg'
+                disabled
+                value={formData.totalAmount}
+                className='w-full p-3 bg-gray-50 text-gray-500 rounded-xl border border-gray-200'
               />
             </div>
             <div>
-              <label className='block text-xs font-bold text-gray-500 uppercase mb-1'>
-                Expiry Date
+              <label className='block text-sm font-bold text-gray-700 mb-1'>
+                Payment Method
               </label>
               <input
-                type='date'
-                value={formData.expiryDate}
+                type='text'
+                placeholder='e.g. Cash, BCA, QRIS'
+                value={formData.paymentIssuer}
                 onChange={(e) =>
-                  setFormData({ ...formData, expiryDate: e.target.value })
+                  setFormData({ ...formData, paymentIssuer: e.target.value })
                 }
-                className='w-full p-2 border rounded-lg'
+                className='w-full p-3 rounded-xl border border-gray-200 outline-none focus:border-emerald-500'
               />
             </div>
           </div>
 
-          {/* Multi-Select for Classes */}
-          <div className='pt-2 border-t'>
-            <p className='text-sm font-bold text-gray-900 mb-2'>
-              Allowed Class Types
-            </p>
-            <div className='grid grid-cols-2 gap-2'>
-              {availableClasses.map((cls) => (
-                <label
-                  key={cls}
-                  className='flex items-center gap-2 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={formData.classType.includes(cls)}
-                    onChange={() => handleToggle("classType", cls)}
-                    className='w-4 h-4 text-emerald-600 rounded'
-                  />
-                  <span className='text-xs font-medium'>{cls}</span>
-                </label>
-              ))}
-            </div>
+          <div className='pt-4 border-t border-gray-100'>
+            {activeTab === "existing" ? (
+              <CustomSelect
+                label='Select Client'
+                options={users}
+                searchable
+                placeholder={
+                  isLoadingData ? "Loading clients..." : "Search by name..."
+                }
+                getLabel={(u) => `${u.fullName} (${u.email})`}
+                getValue={(u) => u._id}
+                value={formData.userId}
+                onChange={(val) => setFormData({ ...formData, userId: val })}
+              />
+            ) : (
+              <div className='space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200'>
+                <p className='text-xs font-bold text-emerald-700 uppercase'>
+                  New Client Details
+                </p>
+                <input
+                  name='fullName'
+                  placeholder='Full Name'
+                  className='w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-emerald-500'
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      newClientData: {
+                        ...formData.newClientData,
+                        fullName: e.target.value,
+                      },
+                    })
+                  }
+                />
+                <input
+                  name='email'
+                  placeholder='Email Address'
+                  className='w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-emerald-500'
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      newClientData: {
+                        ...formData.newClientData,
+                        email: e.target.value,
+                      },
+                    })
+                  }
+                />
+                <input
+                  name='phone'
+                  placeholder='Phone Number (Optional)'
+                  className='w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-emerald-500'
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      newClientData: {
+                        ...formData.newClientData,
+                        phone: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+            )}
           </div>
 
-          {/* Multi-Select for Instructors */}
-          <div className='pt-2 border-t'>
-            <p className='text-sm font-bold text-gray-900 mb-2'>
-              Allowed Instructor Levels
-            </p>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-2'>
-              {availableInstructors.map((inst) => (
-                <label
-                  key={inst}
-                  className='flex items-center gap-2 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={formData.instructorType.includes(inst)}
-                    onChange={() => handleToggle("instructorType", inst)}
-                    className='w-4 h-4 text-emerald-600 rounded'
-                  />
-                  <span className='text-xs font-medium'>{inst}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className='flex gap-3 pt-6 border-t mt-4'>
-            <button
-              type='button'
-              onClick={onClose}
-              className='flex-1 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-xl'>
-              Cancel
-            </button>
-            <button
-              type='submit'
-              disabled={isLoading}
-              className='flex-1 py-3 bg-emerald-900 text-white font-bold rounded-xl shadow-lg'>
-              {isLoading ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
+          <button
+            type='submit'
+            disabled={!isFormValid}
+            className='w-full py-3.5 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 transition-all shadow-lg shadow-emerald-900/20 disabled:opacity-50 mt-4'>
+            Confirm Assignment
+          </button>
         </form>
       </motion.div>
     </div>

@@ -319,106 +319,146 @@ const ManageInstructors = ({ isEmbedded = false }) => {
   );
 };
 
-// --- Sub-Component: Instructor Card ---
-const InstructorCard = ({ instructor, onEdit, onDelete, onToggleStatus }) => {
-  const getTypeColor = (type) => {
-    if (type?.includes("Master"))
-      return "bg-purple-50 text-purple-700 border-purple-100";
-    if (type?.includes("Senior"))
-      return "bg-blue-50 text-blue-700 border-blue-100";
-    return "bg-emerald-50 text-emerald-700 border-emerald-100";
-  };
-
-  const shiftCount = Object.values(instructor.workingHours || {}).flat().length;
+const InstructorAvatar = ({ src, alt, fallbackChar }) => {
+  const [imageState, setImageState] = useState("loading"); // loading, loaded, error
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className='bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all relative group'>
-      <div className='flex justify-between items-start mb-4'>
-        <div className='flex gap-4'>
-          <div className='w-14 h-14 rounded-2xl bg-gray-100 overflow-hidden relative'>
-            {instructor.avatar ? (
-              <img
-                src={fetchImage(instructor.avatar)}
-                alt={instructor.fullName}
-                className='w-full h-full object-cover'
-              />
-            ) : (
-              <div className='w-full h-full flex items-center justify-center bg-emerald-100 text-emerald-800 font-bold text-xl'>
-                {instructor.fullName.charAt(0)}
-              </div>
-            )}
-          </div>
-          <div>
-            <h3 className='font-bold text-gray-900 text-lg leading-tight'>
-              {instructor.fullName}
-            </h3>
-            <p className='text-xs text-gray-500 mt-1 line-clamp-1'>
-              {instructor.bio || "No bio available"}
-            </p>
-          </div>
-        </div>
-        <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2'>
-          <button
-            onClick={onEdit}
-            className='p-2 bg-emerald-100 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded-lg'>
-            <Edit2 className='w-4 h-4' />
-          </button>
-          <button
-            onClick={onToggleStatus}
-            className='p-2 bg-blue-100 hover:bg-blue-50 text-blue-500 hover:text-blue-700 rounded-lg'>
-            <Power className='w-4 h-4' />
-          </button>
-          <button
-            onClick={onDelete}
-            className='p-2 bg-red-50 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg'>
-            <Trash2 className='w-4 h-4' />
-          </button>
-        </div>
-      </div>
+    <div className='w-14 h-14 rounded-2xl bg-gray-100 overflow-hidden relative border border-gray-100 shrink-0'>
+      {/* 1. Loading Skeleton */}
+      {imageState === "loading" && (
+        <div className='absolute inset-0 bg-gray-200 animate-pulse' />
+      )}
 
-      <div className='flex flex-wrap gap-2 mb-6'>
-        <span
-          className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-            instructor.isActive
-              ? "bg-emerald-50 text-emerald-700 border border-emerald-100 "
-              : "bg-red-50 text-red-500 border border-red-100"
-          }   flex items-center gap-1`}>
-          {instructor.isActive ? "Active" : "Inactive"}
-        </span>
-        <span
-          className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeColor(
-            instructor.instructorType,
-          )}`}>
-          {instructor.instructorType}
-        </span>
-        <span className='px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-50 text-gray-600 border border-gray-100 flex items-center gap-1'>
-          <Building2 className='w-3 h-3' />{" "}
-          {instructor.assignedStudiosId?.length || 0} Studios
-        </span>
-      </div>
-
-      <div className='flex items-center justify-between pt-4 border-t border-gray-50'>
-        <div className='flex items-center gap-2 text-sm text-gray-500'>
-          <Calendar className='w-4 h-4' />
-          <span>
-            Weekly Shifts:{" "}
-            <span className='font-bold text-gray-900'>{shiftCount}</span>
-          </span>
+      {/* 2. Actual Image */}
+      {src && imageState !== "error" ? (
+        <img
+          src={src}
+          alt={alt}
+          loading='lazy'
+          decoding='async'
+          onLoad={() => setImageState("loaded")}
+          onError={() => setImageState("error")}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            imageState === "loaded" ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      ) : (
+        /* 3. Fallback / Error State */
+        <div className='absolute inset-0 flex items-center justify-center bg-emerald-100 text-emerald-800 font-bold text-xl'>
+          {fallbackChar}
         </div>
-        <button
-          onClick={onEdit}
-          className='text-xs font-bold text-emerald-700 hover:underline'>
-          View Details
-        </button>
-      </div>
-    </motion.div>
+      )}
+    </div>
   );
 };
+
+const InstructorCard = React.memo(
+  ({
+    instructor,
+    onEdit,
+    onDelete,
+    onToggleStatus,
+    isMenuOpen,
+    onToggleMenu,
+  }) => {
+    const getTypeColor = (type) => {
+      if (type?.includes("Master"))
+        return "bg-purple-50 text-purple-700 border-purple-100";
+      if (type?.includes("Senior"))
+        return "bg-blue-50 text-blue-700 border-blue-100";
+      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    };
+
+    const shiftCount = Object.values(instructor.workingHours || {}).flat()
+      .length;
+
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className='bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all relative group'>
+        <div className='flex justify-between items-start mb-4'>
+          <div className='flex gap-4'>
+            {/* Use the new Optimized Avatar Component */}
+            <InstructorAvatar
+              src={instructor.avatar ? fetchImage(instructor.avatar) : null}
+              alt={instructor.fullName}
+              fallbackChar={instructor.fullName.charAt(0)}
+            />
+
+            <div className='min-w-0'>
+              {" "}
+              {/* min-w-0 fixes text truncation in flex */}
+              <h3 className='font-bold text-gray-900 text-lg leading-tight truncate'>
+                {instructor.fullName}
+              </h3>
+              <p className='text-xs text-gray-500 mt-1 line-clamp-1'>
+                {instructor.bio || "No bio available"}
+              </p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 bg-white pl-2'>
+            <button
+              onClick={onEdit}
+              className='p-2 bg-emerald-100 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded-lg transition-colors'>
+              <Edit2 className='w-4 h-4' />
+            </button>
+            <button
+              onClick={onToggleStatus}
+              className='p-2 bg-blue-100 hover:bg-blue-50 text-blue-500 hover:text-blue-700 rounded-lg transition-colors'>
+              <Power className='w-4 h-4' />
+            </button>
+            <button
+              onClick={onDelete}
+              className='p-2 bg-red-50 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg transition-colors'>
+              <Trash2 className='w-4 h-4' />
+            </button>
+          </div>
+        </div>
+
+        <div className='flex flex-wrap gap-2 mb-6'>
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+              instructor.isActive
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-100 "
+                : "bg-red-50 text-red-500 border border-red-100"
+            }   flex items-center gap-1`}>
+            {instructor.isActive ? "Active" : "Inactive"}
+          </span>
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeColor(
+              instructor.instructorType,
+            )}`}>
+            {instructor.instructorType}
+          </span>
+          <span className='px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-50 text-gray-600 border border-gray-100 flex items-center gap-1'>
+            <Building2 className='w-3 h-3' />{" "}
+            {instructor.assignedStudiosId?.length || 0} Studios
+          </span>
+        </div>
+
+        <div className='flex items-center justify-between pt-4 border-t border-gray-50'>
+          <div className='flex items-center gap-2 text-sm text-gray-500'>
+            <Calendar className='w-4 h-4' />
+            <span>
+              Weekly Shifts:{" "}
+              <span className='font-bold text-gray-900'>{shiftCount}</span>
+            </span>
+          </div>
+          <button
+            onClick={onEdit}
+            className='text-xs font-bold text-emerald-700 hover:underline'>
+            View Details
+          </button>
+        </div>
+      </motion.div>
+    );
+  },
+);
 
 // --- Sub-Component: Create/Edit Modal ---
 const InstructorFormModal = ({
@@ -998,7 +1038,7 @@ const ConfirmationModal = ({
 );
 
 const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
-  const [activeTab] = useState("classTypes");
+  const [activeTab] = useState("instructorTypes");
   const [newItem, setNewItem] = useState("");
   const [loading, setLoading] = useState(false);
 

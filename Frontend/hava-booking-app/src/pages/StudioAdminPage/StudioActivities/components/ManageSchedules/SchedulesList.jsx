@@ -913,11 +913,37 @@ const ClassDetailsModal = ({
             : p.issuingStudio;
         const currentStudioId = user.adminStudioLocation;
 
+        // --- FIX: ARRAY LOGIC START ---
+
+        // 1. Check Class Type (Pass has Array, Class has String)
+        // Ensure p.classType is treated as an array
+        const passClassTypes = Array.isArray(p.classType)
+          ? p.classType
+          : [p.classType]; // Fallback for legacy string data
+
+        const isClassTypeValid = passClassTypes.includes(classData.classType);
+
+        // 2. Check Instructor Type (Pass has Array, Class has String)
+        // Get the instructor level of the class we are trying to book
+        const targetInstructorLevel =
+          classData.instructorId?.instructorType || classData.instructorType;
+
+        // Ensure p.instructorType is treated as an array
+        const passInstructorTypes = Array.isArray(p.instructorType)
+          ? p.instructorType
+          : [p.instructorType]; // Fallback for legacy string data
+
+        const isInstructorTypeValid = passInstructorTypes.includes(
+          targetInstructorLevel,
+        );
+
+        // --- FIX END ---
+
         return (
           p.isActive &&
           p.remainingCredits > 0 &&
-          p.classType === classData.classType &&
-          // p.instructorType === classData.instructorType && // Relaxed check
+          isClassTypeValid &&
+          isInstructorTypeValid &&
           new Date(p.expiryDate) > new Date() &&
           String(passStudioId) === String(currentStudioId)
         );
@@ -1145,18 +1171,90 @@ const ClassDetailsModal = ({
                       {selectedUser && (
                         <div className='mt-3 space-y-2'>
                           {userPasses.length > 0 ? (
-                            userPasses.map((p) => (
-                              <div
-                                key={p._id}
-                                onClick={() => setSelectedPass(p._id)}
-                                className={`p-2 border rounded-lg cursor-pointer text-xs ${selectedPass === p._id ? "border-emerald-500 bg-emerald-50" : "bg-white"}`}>
-                                <div className='font-bold'>{p.passName}</div>
-                                <div>Credits: {p.remainingCredits}</div>
-                              </div>
-                            ))
+                            <div className='grid gap-3'>
+                              {userPasses.map((p) => {
+                                const isSelected = selectedPass === p._id;
+                                return (
+                                  <div
+                                    key={p._id}
+                                    onClick={() => setSelectedPass(p._id)}
+                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer group ${
+                                      isSelected
+                                        ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
+                                        : "border-gray-100 bg-white hover:border-emerald-200"
+                                    }`}>
+                                    {/* Header: Name & Credits */}
+                                    <div className='flex justify-between items-start mb-2'>
+                                      <div>
+                                        <h5
+                                          className={`font-bold text-sm ${isSelected ? "text-emerald-900" : "text-gray-900"}`}>
+                                          {p.packageId?.packageName ||
+                                            "Unnamed Pass"}
+                                        </h5>
+                                        <p className='text-[10px] text-gray-500 mt-0.5'>
+                                          Expires:{" "}
+                                          <span className='font-medium text-gray-700'>
+                                            {p.expiryDate
+                                              ? format(
+                                                  new Date(p.expiryDate),
+                                                  "dd MMM yyyy",
+                                                )
+                                              : "No Expiry"}
+                                          </span>
+                                        </p>
+                                      </div>
+                                      <div
+                                        className={`text-right ${isSelected ? "text-emerald-700" : "text-gray-600"}`}>
+                                        <span className='text-xl font-bold'>
+                                          {p.remainingCredits}
+                                        </span>
+                                        <span className='text-[10px] font-bold block uppercase tracking-wider opacity-60'>
+                                          Credits
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Tags Section */}
+                                    <div className='space-y-1.5 pt-2 border-t border-gray-100/50'>
+                                      {/* Class Types */}
+                                      <div className='flex flex-wrap gap-1'>
+                                        {p.classType &&
+                                          p.classType.map((type, i) => (
+                                            <span
+                                              key={i}
+                                              className='px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[9px] font-bold uppercase tracking-wide border border-blue-100'>
+                                              {type}
+                                            </span>
+                                          ))}
+                                      </div>
+                                      {/* Instructor Levels */}
+                                      <div className='flex flex-wrap gap-1'>
+                                        {p.instructorType &&
+                                          p.instructorType.map((type, i) => (
+                                            <span
+                                              key={i}
+                                              className='px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-bold uppercase tracking-wide border border-purple-100'>
+                                              {type}
+                                            </span>
+                                          ))}
+                                      </div>
+                                    </div>
+
+                                    {/* Selection Checkmark */}
+                                    {isSelected && (
+                                      <div className='absolute top-3 right-3 bg-emerald-500 text-white rounded-full p-0.5'>
+                                        <Check className='w-3 h-3' />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           ) : (
-                            <div className='text-red-500 text-xs'>
-                              No valid passes.
+                            <div className='text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200'>
+                              <p className='text-gray-400 text-xs font-medium'>
+                                No valid passes available for this class.
+                              </p>
                             </div>
                           )}
                           <button
