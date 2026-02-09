@@ -10,16 +10,16 @@ const packagesSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     credits: { type: Number, require: true },
     instructorType: {
-      type: String,
+      type: [String],
       require: true,
     },
     classType: {
-      type: String,
+      type: [String],
       require: true,
     },
     studioLocation: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Packages", packagesSchema);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Scanner } from "@yudiel/react-qr-scanner";
 import {
   format,
   isSameDay,
@@ -16,11 +17,11 @@ import {
   setYear,
   getYear,
   getMonth,
+  parseISO,
 } from "date-fns";
 import {
   Calendar as CalendarIcon,
   Clock,
-  MapPin,
   Users,
   X,
   ChevronRight,
@@ -32,12 +33,13 @@ import {
   Save,
   AlertCircle,
   UserCheck,
-  Building2,
-  Phone,
   Search,
   FileText,
   Download,
   Eye,
+  QrCode,
+  ScanLine,
+  MapPin,
 } from "lucide-react";
 
 import axiosInstance from "../../../utils/axiosInstance";
@@ -51,14 +53,15 @@ const AdminDashboard = () => {
 
   // Date States
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // New state to control the calendar view from outside (for "Jump to Today")
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Search State
+  // Search & Scan State
   const [searchQuery, setSearchQuery] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedBooking, setScannedBooking] = useState(null);
 
   // Modals State
   const [selectedClassDetails, setSelectedClassDetails] = useState(null);
@@ -74,7 +77,7 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get(
-        API_PATHS.STUDIO.GET_STUDIO_BY_ID(user.adminStudioLocation)
+        API_PATHS.STUDIO.GET_STUDIO_BY_ID(user.adminStudioLocation),
       );
       setStudio(response.data);
     } catch (err) {
@@ -95,7 +98,7 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get(
-        API_PATHS.BOOKING.GET_STUDIO_BOOKING
+        API_PATHS.BOOKING.GET_STUDIO_BOOKING,
       );
       setBookings(response.data);
     } catch (error) {
@@ -114,7 +117,7 @@ const AdminDashboard = () => {
     const todaysBookings = bookings.filter(
       (b) =>
         isSameDay(new Date(b.classId?.startTime), selectedDate) &&
-        b.status !== "Cancelled"
+        b.status !== "Cancelled",
     );
 
     const classMap = {};
@@ -146,7 +149,7 @@ const AdminDashboard = () => {
     });
 
     let classesArray = Object.values(classMap).sort(
-      (a, b) => new Date(a.startTime) - new Date(b.startTime)
+      (a, b) => new Date(a.startTime) - new Date(b.startTime),
     );
 
     if (searchQuery.trim() !== "") {
@@ -157,7 +160,8 @@ const AdminDashboard = () => {
         const hasStudent = cls.students.some(
           (s) =>
             s.fullName.toLowerCase().includes(lowerQuery) ||
-            s.email.toLowerCase().includes(lowerQuery)
+            s.email.toLowerCase().includes(lowerQuery) ||
+            s.bookingId.toLowerCase().includes(lowerQuery),
         );
         if (hasStudent) return true;
         return false;
@@ -186,11 +190,10 @@ const AdminDashboard = () => {
   const handlePrevDay = () => setSelectedDate(subDays(selectedDate, 1));
   const handleNextDay = () => setSelectedDate(addDays(selectedDate, 1));
 
-  // --- UPDATED: Jump to Today ---
   const jumpToToday = () => {
     const now = new Date();
     setSelectedDate(now);
-    setCalendarViewDate(now); // Force calendar to switch view
+    setCalendarViewDate(now);
     setSearchQuery("");
   };
 
@@ -201,19 +204,41 @@ const AdminDashboard = () => {
     setSelectedClassDetails(null);
   };
 
-  // --- PDF GENERATOR ---
+  // --- QR Scan Handler ---
+  const handleScanResult = (results) => {
+    if (!results || results.length === 0) return;
+    const rawValue = results[0]?.rawValue;
+    if (!rawValue) return;
+
+    // Find the booking in our loaded list
+    const foundBooking = bookings.find((b) => b._id === rawValue.trim());
+
+    if (foundBooking) {
+      setScannedBooking(foundBooking); // Open the check-in modal
+      setShowScanner(false); // Close the scanner
+    } else {
+      alert(
+        "Booking not found in current records. Please check if the pass is for a different studio or date.",
+      );
+      setShowScanner(false);
+    }
+  };
+
+  // --- FULL PDF GENERATOR (RESTORED) ---
   const generatePDF = () => {
     const doc = new jsPDF();
     const dateStr = format(selectedDate, "EEEE, d MMMM yyyy");
 
+    // 1. Header
     doc.setFontSize(22);
-    doc.setTextColor(6, 78, 59);
+    doc.setTextColor(6, 78, 59); // Emerald Color
     doc.text("Daily Studio Report", 14, 20);
 
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26);
 
+    // 2. Studio Details Table
     autoTable(doc, {
       startY: 32,
       head: [["Date", "Studio Location", "Admin"]],
@@ -229,6 +254,7 @@ const AdminDashboard = () => {
       headStyles: { fontStyle: "bold" },
     });
 
+    // 3. Summary Stats
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text("Summary Stats", 14, doc.lastAutoTable.finalY + 15);
@@ -252,7 +278,9 @@ const AdminDashboard = () => {
 
     let finalY = doc.lastAutoTable.finalY + 15;
 
+    // 4. Class Overview & Details
     if (scheduledClasses.length > 0) {
+      // 4a. Overview Table
       doc.setFontSize(14);
       doc.text("Class Overview", 14, finalY);
 
@@ -262,10 +290,7 @@ const AdminDashboard = () => {
         const attendedCount = cls.students.filter((s) => s.isAttend).length;
 
         return [
-          `${format(new Date(cls.startTime), "HH:mm")} - ${format(
-            new Date(cls.endTime),
-            "HH:mm"
-          )}`,
+          `${format(new Date(cls.startTime), "HH:mm")} - ${format(new Date(cls.endTime), "HH:mm")}`,
           cls.className,
           instructorName,
           `${attendedCount} / ${cls.students.length}`,
@@ -283,11 +308,14 @@ const AdminDashboard = () => {
       });
 
       finalY = doc.lastAutoTable.finalY + 15;
+
+      // Page Break Check
       if (finalY > 250) {
         doc.addPage();
         finalY = 20;
       }
 
+      // 4b. Detailed Student Lists
       doc.setFontSize(14);
       doc.setTextColor(6, 78, 59);
       doc.text("Detailed Student Lists", 14, finalY);
@@ -317,11 +345,9 @@ const AdminDashboard = () => {
         doc.setTextColor(0);
         doc.setFont(undefined, "bold");
         doc.text(
-          `${format(new Date(cls.startTime), "HH:mm")} - ${
-            cls.className
-          } - ${safeInstructorName}`,
+          `${format(new Date(cls.startTime), "HH:mm")} - ${cls.className} - ${safeInstructorName}`,
           14,
-          finalY
+          finalY,
         );
         doc.setFont(undefined, "normal");
 
@@ -363,6 +389,7 @@ const AdminDashboard = () => {
       finalY += 20;
     }
 
+    // 5. Footer / Signatures
     if (finalY > 240) {
       doc.addPage();
       finalY = 40;
@@ -381,12 +408,14 @@ const AdminDashboard = () => {
     doc.setTextColor(80);
     doc.text(studio?.studioName || "HAVA Studio", 14, startYFooter + 6);
 
+    // Address handling
     if (studio?.address && typeof studio.address === "string") {
       doc.text(studio.address, 14, startYFooter + 11);
     } else if (studio?.address?.street) {
       doc.text(studio.address.street, 14, startYFooter + 11);
     }
 
+    // Phone handling
     if (studio?.contactNumber) {
       doc.text(`+${studio.contactNumber}`, 14, startYFooter + 16);
     } else if (studio?.phoneNumber) {
@@ -396,6 +425,7 @@ const AdminDashboard = () => {
       doc.text(`Phone: ${studio.phoneNumber}`, 14, contactY);
     }
 
+    // Admin Signature Line
     const sigX = 130;
     doc.setFont(undefined, "normal");
     doc.setTextColor(0);
@@ -411,7 +441,7 @@ const AdminDashboard = () => {
     doc.text(
       `Date: ${format(new Date(), "dd/MM/yyyy")}`,
       sigX,
-      startYFooter + 43
+      startYFooter + 43,
     );
 
     return doc;
@@ -426,12 +456,7 @@ const AdminDashboard = () => {
 
   const handleDownloadReport = () => {
     const doc = generatePDF();
-    doc.save(
-      `${studio?.studioName || "Report"}_${format(
-        selectedDate,
-        "yyyy-MM-dd"
-      )}.pdf`
-    );
+    doc.save(`Report_${format(selectedDate, "yyyy-MM-dd")}.pdf`);
   };
 
   if (loading)
@@ -442,27 +467,27 @@ const AdminDashboard = () => {
     );
 
   return (
-    <div className='max-w-480 mx-auto h-full flex flex-col lg:flex-row bg-gray-50 overflow-hidden'>
+    <div className='max-w-480 mx-auto h-full flex flex-col lg:flex-row bg-gray-50 overflow-hidden relative'>
       {/* LEFT COLUMN */}
       <div className='flex-1 flex flex-col h-full overflow-hidden order-2 lg:order-1'>
-        {/* MOBILE HEADER (Existing code...) */}
+        {/* MOBILE HEADER */}
         <div className='lg:hidden bg-white border-b border-gray-200 px-4 py-3 shrink-0 z-20 shadow-sm'>
-          <div className='mb-3 relative'>
-            <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
-            <input
-              type='text'
-              placeholder='Search class, student...'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className='w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all'
-            />
-            {searchQuery && (
+          <div className='mb-3 relative flex items-center gap-2'>
+            <div className='relative flex-1'>
+              <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
+              <input
+                type='text'
+                placeholder='Search...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className='w-full pl-9 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all'
+              />
               <button
-                onClick={() => setSearchQuery("")}
-                className='absolute right-3 top-1/2 -translate-y-1/2 p-1 bg-gray-200 rounded-full'>
-                <X className='w-3 h-3 text-gray-600' />
+                onClick={() => setShowScanner(true)}
+                className='absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-emerald-600 transition-colors'>
+                <QrCode className='w-4 h-4' />
               </button>
-            )}
+            </div>
           </div>
 
           <div className='flex items-center justify-between mb-3'>
@@ -523,18 +548,18 @@ const AdminDashboard = () => {
                 </span>
               </div>
             </div>
-            {!isToday ? (
+            {!isToday && (
               <button
                 onClick={jumpToToday}
                 className='flex flex-col items-center justify-center px-3 py-2 bg-emerald-900 text-white rounded-lg shadow-sm active:scale-95 transition-all'>
                 <RotateCcw className='w-4 h-4 mb-0.5' />
                 <span className='text-[10px] font-bold uppercase'>Today</span>
               </button>
-            ) : null}
+            )}
           </div>
         </div>
 
-        {/* CONTENT */}
+        {/* DESKTOP CONTENT */}
         <div className='flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scrollbar bg-gray-50'>
           <div className='hidden lg:flex mb-8 justify-between items-end gap-6'>
             <div>
@@ -547,24 +572,27 @@ const AdminDashboard = () => {
             </div>
 
             <div className='flex items-center gap-3 flex-1 justify-end'>
-              <div className='relative w-full max-w-md group'>
-                <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                  <Search className='h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors' />
+              <div className='relative w-full max-w-md group flex items-center gap-2'>
+                <div className='relative flex-1'>
+                  <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                    <Search className='h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors' />
+                  </div>
+                  <input
+                    type='text'
+                    className='block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 sm:text-sm transition-all shadow-sm hover:border-gray-300'
+                    placeholder='Search...'
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
-                <input
-                  type='text'
-                  className='block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 sm:text-sm transition-all shadow-sm hover:border-gray-300'
-                  placeholder='Search for class, student, or instructor...'
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className='absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer'>
-                    <X className='h-4 w-4 text-gray-400 hover:text-gray-600' />
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowScanner(true)}
+                  className='p-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all shadow-md flex items-center gap-2 whitespace-nowrap'>
+                  <QrCode className='w-5 h-5' />
+                  <span className='text-sm font-bold hidden xl:block'>
+                    Scan
+                  </span>
+                </button>
               </div>
             </div>
           </div>
@@ -634,37 +662,22 @@ const AdminDashboard = () => {
             ) : (
               <div className='flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200 m-4'>
                 <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4'>
-                  {searchQuery ? (
-                    <Search className='w-8 h-8 text-gray-300' />
-                  ) : (
-                    <CalendarIcon className='w-8 h-8 text-gray-300' />
-                  )}
+                  <CalendarIcon className='w-8 h-8 text-gray-300' />
                 </div>
                 <h3 className='text-gray-900 font-bold text-lg'>
-                  {searchQuery ? "No results found" : "No classes scheduled"}
+                  No classes scheduled
                 </h3>
                 <p className='text-gray-400 text-sm mt-1 max-w-xs'>
-                  {searchQuery
-                    ? `No classes or students match "${searchQuery}" for this day.`
-                    : `There are no active sessions for ${format(
-                        selectedDate,
-                        "MMMM do"
-                      )}.`}
+                  There are no active sessions for{" "}
+                  {format(selectedDate, "MMMM do")}.
                 </p>
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className='mt-4 text-emerald-700 font-bold text-sm hover:underline'>
-                    Clear Search
-                  </button>
-                )}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* RIGHT COLUMN */}
+      {/* RIGHT COLUMN (Calendar & Stats) */}
       <div className='hidden lg:flex w-100 xl:w-112.5 bg-white border-l border-gray-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
         <div className='space-y-4'>
           <DigitalClock />
@@ -677,7 +690,6 @@ const AdminDashboard = () => {
             </button>
           )}
 
-          {/* Pass the new forceViewDate prop */}
           <MiniCalendar
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
@@ -757,7 +769,83 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* --- EXISTING MODALS --- */}
+      {/* --- MODALS --- */}
+
+      {/* 1. QR Scanner Modal */}
+      <AnimatePresence>
+        {showScanner && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm'>
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className='bg-white w-full max-w-sm rounded-3xl overflow-hidden relative shadow-2xl'>
+              <button
+                onClick={() => setShowScanner(false)}
+                className='absolute top-4 right-4 z-20 p-2 bg-black/30 text-white rounded-full hover:bg-black/50 backdrop-blur-md transition-colors'>
+                <X className='w-5 h-5' />
+              </button>
+              <div className='p-6 pb-2 text-center'>
+                <h3 className='text-xl font-bold text-gray-900'>
+                  Scan QR Code
+                </h3>
+                <p className='text-sm text-gray-500'>
+                  Point camera at booking ticket
+                </p>
+              </div>
+              <div className='relative aspect-square bg-black overflow-hidden m-4 rounded-2xl'>
+                <Scanner
+                  onScan={handleScanResult}
+                  components={{
+                    audio: false,
+                    onOff: false,
+                    torch: false,
+                    zoom: false,
+                    finder: false,
+                  }}
+                  styles={{
+                    container: { width: "100%", height: "100%" },
+                    video: {
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    },
+                  }}
+                />
+                <div className='absolute inset-0 pointer-events-none flex items-center justify-center z-10'>
+                  <div className='w-48 h-48 border-2 border-white/50 rounded-xl relative'>
+                    <ScanLine className='w-full h-full text-emerald-500/50 animate-pulse p-4' />
+                    <div className='absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-emerald-500 -mt-1 -ml-1 rounded-tl-lg'></div>
+                    <div className='absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-emerald-500 -mt-1 -mr-1 rounded-tr-lg'></div>
+                    <div className='absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-emerald-500 -mb-1 -ml-1 rounded-bl-lg'></div>
+                    <div className='absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-emerald-500 -mb-1 -mr-1 rounded-br-lg'></div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. Scan Result Modal */}
+      <AnimatePresence>
+        {scannedBooking && (
+          <ScanResultModal
+            booking={scannedBooking}
+            onClose={() => setScannedBooking(null)}
+            onSuccess={() => {
+              fetchData(); // Refresh list to show green check
+              setScannedBooking(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 3. Existing Modals */}
       <AnimatePresence>
         {selectedClassDetails && (
           <ClassDetailsModal
@@ -791,7 +879,6 @@ const AdminDashboard = () => {
                 className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full'>
                 <X className='w-5 h-5 text-gray-600' />
               </button>
-              {/* Pass the new forceViewDate prop */}
               <MiniCalendar
                 selectedDate={selectedDate}
                 onSelectDate={(d) => {
@@ -855,15 +942,13 @@ const AdminDashboard = () => {
   );
 };
 
-// ... (DigitalClock, AttendanceSummaryModal, ClassDetailsModal stay exactly same) ...
+// ... (Helper components remain unchanged below) ...
 const DigitalClock = () => {
   const [time, setTime] = useState(new Date());
-
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
   return (
     <div className='bg-gray-900 text-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center'>
       <h3 className='text-4xl font-bold font-mono tracking-wider'>
@@ -876,12 +961,110 @@ const DigitalClock = () => {
   );
 };
 
-// --- COMPONENT: ATTENDANCE SUMMARY MODAL (THE NEW LIST) ---
+const ScanResultModal = ({ booking, onClose, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleCheckIn = async () => {
+    setLoading(true);
+    try {
+      await axiosInstance.put(API_PATHS.BOOKING.STUDENT_CHECK_IN(booking._id), {
+        isAttend: !booking.isAttend,
+      });
+      onSuccess();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update status");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className='fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md'>
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        className='bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden relative'>
+        <button
+          onClick={onClose}
+          className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors'>
+          <X className='w-5 h-5 text-gray-600' />
+        </button>
+
+        <div className='p-8 text-center'>
+          <div
+            className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${booking.isAttend ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"}`}>
+            {booking.isAttend ? (
+              <CheckCircle2 className='w-10 h-10' />
+            ) : (
+              <UserCheck className='w-10 h-10' />
+            )}
+          </div>
+
+          <h2 className='text-2xl font-bold text-gray-900 mb-1'>
+            {booking.userId?.fullName}
+          </h2>
+          <p className='text-gray-500 text-sm mb-6'>{booking.userId?.email}</p>
+
+          <div className='bg-gray-50 rounded-2xl p-4 text-left space-y-3 mb-6'>
+            <div>
+              <p className='text-xs font-bold text-gray-400 uppercase'>Class</p>
+              <p className='font-bold text-gray-900'>
+                {booking.classId?.className}
+              </p>
+            </div>
+            <div className='flex justify-between'>
+              <div>
+                <p className='text-xs font-bold text-gray-400 uppercase'>
+                  Time
+                </p>
+                <p className='font-bold text-gray-900'>
+                  {booking.classId?.startTime
+                    ? format(new Date(booking.classId.startTime), "HH:mm")
+                    : "-"}
+                </p>
+              </div>
+              <div className='text-right'>
+                <p className='text-xs font-bold text-gray-400 uppercase'>
+                  Status
+                </p>
+                <span
+                  className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${booking.isAttend ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"}`}>
+                  {booking.isAttend ? "Present" : "Not Checked In"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleCheckIn}
+            disabled={loading}
+            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
+              booking.isAttend
+                ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}>
+            {loading ? (
+              <LoadingSpinner size='sm' />
+            ) : booking.isAttend ? (
+              "Undo Check-In"
+            ) : (
+              "Check In Now"
+            )}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
-  // Split into two lists
   const present = bookings.filter((b) => b.isAttend);
   const absent = bookings.filter((b) => !b.isAttend);
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -898,16 +1081,13 @@ const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
           className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors'>
           <X className='w-5 h-5 text-gray-600' />
         </button>
-
         <div className='mb-6'>
           <h2 className='text-xl font-bold text-gray-900'>Attendance Log</h2>
           <p className='text-sm text-gray-500'>
             {format(date, "EEEE, d MMMM yyyy")}
           </p>
         </div>
-
         <div className='flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6'>
-          {/* PRESENT LIST */}
           <div>
             <div className='flex items-center gap-2 mb-3'>
               <div className='w-2 h-2 rounded-full bg-emerald-500'></div>
@@ -941,8 +1121,6 @@ const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
               </p>
             )}
           </div>
-
-          {/* ABSENT LIST */}
           <div>
             <div className='flex items-center gap-2 mb-3'>
               <div className='w-2 h-2 rounded-full bg-gray-300'></div>
@@ -982,7 +1160,6 @@ const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
   );
 };
 
-// --- EXISTING CLASS DETAILS MODAL ---
 const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
   const [attendanceState, setAttendanceState] = useState({});
   const [showConfirm, setShowConfirm] = useState(false);
@@ -995,18 +1172,15 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
     });
     setAttendanceState(initial);
   }, [cls]);
-
   const hasChanges = useMemo(() => {
     return cls.students.some(
-      (s) => attendanceState[s.bookingId] !== s.isAttend
+      (s) => attendanceState[s.bookingId] !== s.isAttend,
     );
   }, [attendanceState, cls]);
-
   const totalStudents = cls.students.length;
   const attendedCount = Object.values(attendanceState).filter(Boolean).length;
   const progressPercent =
     totalStudents === 0 ? 0 : (attendedCount / totalStudents) * 100;
-
   const toggleAttendance = (bookingId) => {
     setAttendanceState((prev) => ({ ...prev, [bookingId]: !prev[bookingId] }));
   };
@@ -1015,12 +1189,12 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
     setIsSaving(true);
     try {
       const changedStudents = cls.students.filter(
-        (student) => attendanceState[student.bookingId] !== student.isAttend
+        (student) => attendanceState[student.bookingId] !== student.isAttend,
       );
       const apiCalls = changedStudents.map((student) => {
         return axiosInstance.put(
           API_PATHS.BOOKING.STUDENT_CHECK_IN(student.bookingId),
-          { isAttend: attendanceState[student.bookingId] }
+          { isAttend: attendanceState[student.bookingId] },
         );
       });
       await Promise.all(apiCalls);
@@ -1050,11 +1224,7 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
             <X className='w-5 h-5 text-gray-600' />
           </button>
           <span
-            className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${
-              cls.classType === "Private"
-                ? "bg-purple-50 text-purple-700"
-                : "bg-blue-50 text-blue-700"
-            }`}>
+            className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${cls.classType === "Private" ? "bg-purple-50 text-purple-700" : "bg-blue-50 text-blue-700"}`}>
             {cls.classType}
           </span>
           <h2 className='text-2xl font-bold text-gray-900 mb-1 pr-8'>
@@ -1093,26 +1263,16 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
                 return (
                   <div
                     key={idx}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                      isCheckedIn
-                        ? "bg-emerald-50 border-emerald-200"
-                        : "bg-white border-gray-100"
-                    }`}>
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isCheckedIn ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-100"}`}>
                     <div
-                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
-                        isCheckedIn
-                          ? "bg-white border-emerald-200 text-emerald-700"
-                          : "bg-gray-50 border-gray-100 text-gray-500"
-                      }`}>
+                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isCheckedIn ? "bg-white border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-100 text-gray-500"}`}>
                       {student.fullName
                         ? student.fullName.charAt(0).toUpperCase()
                         : "U"}
                     </div>
                     <div className='flex-1 min-w-0'>
                       <p
-                        className={`text-sm font-bold truncate ${
-                          isCheckedIn ? "text-emerald-900" : "text-gray-900"
-                        }`}>
+                        className={`text-sm font-bold truncate ${isCheckedIn ? "text-emerald-900" : "text-gray-900"}`}>
                         {student.fullName}
                       </p>
                       <p className='text-xs text-gray-500 truncate'>
@@ -1124,11 +1284,7 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
                     </div>
                     <button
                       onClick={() => toggleAttendance(student.bookingId)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                        isCheckedIn
-                          ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-200 hover:bg-emerald-600"
-                          : "bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"
-                      }`}>
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${isCheckedIn ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-200 hover:bg-emerald-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"}`}>
                       {isCheckedIn ? (
                         <>
                           <CheckCircle2 className='w-3.5 h-3.5' /> Checked In
@@ -1194,23 +1350,16 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
   );
 };
 
-// --- UPDATED: MINI CALENDAR (With Month/Year Select) ---
 const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
   const [viewDate, setViewDate] = useState(selectedDate);
-
-  // Sync viewDate when forceViewDate changes (for "Jump to Today")
   useEffect(() => {
-    if (forceViewDate) {
-      setViewDate(forceViewDate);
-    }
+    if (forceViewDate) setViewDate(forceViewDate);
   }, [forceViewDate]);
-
   const monthStart = startOfMonth(viewDate);
   const monthEnd = endOfMonth(monthStart);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startDay = getDay(monthStart);
   const padding = Array(startDay).fill(null);
-
   const months = [
     "January",
     "February",
@@ -1227,25 +1376,19 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
   ];
   const currentYear = getYear(new Date());
   const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
-
-  const handleMonthChange = (e) => {
+  const handleMonthChange = (e) =>
     setViewDate(setMonth(viewDate, months.indexOf(e.target.value)));
-  };
-
-  const handleYearChange = (e) => {
+  const handleYearChange = (e) =>
     setViewDate(setYear(viewDate, parseInt(e.target.value)));
-  };
 
   return (
     <div className='bg-gray-50 p-4 rounded-2xl border border-gray-200 select-none'>
-      {/* Header: Month/Year Dropdowns */}
       <div className='flex justify-between items-center mb-4 gap-2'>
         <button
           onClick={() => setViewDate((prev) => addMonths(prev, -1))}
           className='p-1 hover:bg-white hover:shadow-sm rounded-lg'>
           <ChevronLeft className='w-4 h-4 text-gray-600' />
         </button>
-
         <div className='flex gap-2'>
           <select
             value={months[getMonth(viewDate)]}
@@ -1268,15 +1411,12 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
             ))}
           </select>
         </div>
-
         <button
           onClick={() => setViewDate((prev) => addMonths(prev, 1))}
           className='p-1 hover:bg-white hover:shadow-sm rounded-lg'>
           <ChevronRight className='w-4 h-4 text-gray-600' />
         </button>
       </div>
-
-      {/* Days Grid */}
       <div className='grid grid-cols-7 gap-1 text-center mb-2'>
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
           <span
@@ -1296,11 +1436,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
             <button
               key={day.toString()}
               onClick={() => onSelectDate(day)}
-              className={`h-8 w-full rounded-lg flex items-center justify-center text-xs font-medium transition-all ${
-                isSelected
-                  ? "bg-emerald-900 text-white shadow-md font-bold"
-                  : "text-gray-700 hover:bg-white hover:shadow-sm"
-              }`}>
+              className={`h-8 w-full rounded-lg flex items-center justify-center text-xs font-medium transition-all ${isSelected ? "bg-emerald-900 text-white shadow-md font-bold" : "text-gray-700 hover:bg-white hover:shadow-sm"}`}>
               {format(day, "d")}
             </button>
           );

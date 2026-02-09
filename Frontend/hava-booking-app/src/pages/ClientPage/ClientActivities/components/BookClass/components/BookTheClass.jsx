@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // 1. Import useNavigate
+import { useNavigate } from "react-router-dom";
 import {
   format,
   addMonths,
@@ -19,9 +19,11 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  History,
   Calendar as CalendarIcon,
-  ArrowLeft, // 2. Import ArrowLeft
+  ArrowLeft,
+  CheckSquare,
+  Square,
+  Layers,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
@@ -29,14 +31,18 @@ import LoadingSpinner from "../../../../../../components/LoadingSpinner";
 import BookingModal from "./BookingModal";
 
 const BookTheClass = () => {
-  const navigate = useNavigate(); // 3. Initialize hook
+  const navigate = useNavigate();
 
   // --- States ---
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedClass, setSelectedClass] = useState(null);
+
+  // Multi-Select State
+  const [selectedClasses, setSelectedClasses] = useState([]); // Array of class objects
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   // --- Fetch Classes ---
   useEffect(() => {
@@ -63,26 +69,36 @@ const BookTheClass = () => {
   const startDate = startOfWeek(monthStart);
   const endDate = endOfWeek(monthEnd);
 
-  const calendarDays = eachDayOfInterval({
-    start: startDate,
-    end: endDate,
-  });
-
+  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
   const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 
   // --- Filtering Logic ---
   const dailyClasses = classes.filter(
-    (c) => isSameDay(new Date(c.startTime), selectedDate) && c.isActive
+    (c) => isSameDay(new Date(c.startTime), selectedDate) && c.isActive,
   );
 
   const formatTime = (isoString) => format(new Date(isoString), "h:mm a");
 
+  // --- Selection Handlers ---
+  const toggleClassSelection = (cls) => {
+    if (selectedClasses.some((c) => c._id === cls._id)) {
+      setSelectedClasses(selectedClasses.filter((c) => c._id !== cls._id));
+    } else {
+      setSelectedClasses([...selectedClasses, cls]);
+    }
+  };
+
+  const handleBookSingle = (cls) => {
+    setSelectedClasses([cls]);
+    setShowBookingModal(true);
+  };
+
   return (
-    <div className='min-h-screen bg-gray-50 font-sans p-6 md:p-10'>
+    <div className='min-h-screen bg-gray-50 font-sans p-6 md:p-10 pb-24'>
       <div className='max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 items-start'>
         {/* --- MAIN CONTENT (Class List) --- */}
         <div className='flex-1 w-full min-w-0'>
-          {/* Header with Back Button */}
+          {/* Header */}
           <div className='flex items-center justify-between mb-6'>
             <div className='flex items-center gap-4'>
               <button
@@ -94,9 +110,17 @@ const BookTheClass = () => {
                 Available Classes
               </h1>
             </div>
-            <span className='text-gray-500 text-sm font-medium hidden sm:block'>
-              {format(selectedDate, "EEEE, d MMMM yyyy")}
-            </span>
+
+            {/* Multi-Select Toggle */}
+            <button
+              onClick={() => {
+                setIsSelectionMode(!isSelectionMode);
+                setSelectedClasses([]);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${isSelectionMode ? "bg-emerald-100 text-emerald-800" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+              <Layers className='w-4 h-4' />
+              {isSelectionMode ? "Cancel Selection" : "Select Multiple"}
+            </button>
           </div>
 
           {loading ? (
@@ -109,23 +133,37 @@ const BookTheClass = () => {
                 dailyClasses.map((cls) => {
                   const isExpired = new Date(cls.startTime) < new Date();
                   const isFull = cls.currentEnrollment >= cls.capacity;
+                  const isSelected = selectedClasses.some(
+                    (c) => c._id === cls._id,
+                  );
 
                   return (
                     <div
                       key={cls._id}
-                      className={`bg-white rounded-2xl p-5 border shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center gap-6 group 
-                        ${
-                          isExpired
-                            ? "border-gray-100 opacity-60 grayscale-[0.5] hover:shadow-none cursor-not-allowed"
-                            : "border-gray-100 hover:shadow-md hover:border-emerald-100"
-                        }`}>
+                      onClick={() => {
+                        if (isSelectionMode && !isExpired && !isFull) {
+                          toggleClassSelection(cls);
+                        }
+                      }}
+                      className={`bg-white rounded-2xl p-5 border shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center gap-6 group relative overflow-hidden
+                        ${isExpired ? "border-gray-100 opacity-60 grayscale-[0.5] cursor-not-allowed" : "border-gray-100 hover:border-emerald-200"}
+                        ${isSelected ? "ring-2 ring-emerald-500 bg-emerald-50/30" : ""}
+                        ${isSelectionMode && !isExpired && !isFull ? "cursor-pointer" : ""}
+                      `}>
+                      {/* Selection Checkbox (Visible in Mode) */}
+                      {isSelectionMode && !isExpired && !isFull && (
+                        <div className='absolute top-4 right-4 md:static md:order-first'>
+                          {isSelected ? (
+                            <CheckSquare className='w-6 h-6 text-emerald-600 fill-emerald-100' />
+                          ) : (
+                            <Square className='w-6 h-6 text-gray-300' />
+                          )}
+                        </div>
+                      )}
+
                       {/* Time Column */}
                       <div
-                        className={`flex flex-col items-center justify-center rounded-2xl p-4 min-w-[90px] h-full border transition-colors ${
-                          isExpired
-                            ? "bg-gray-100 border-gray-200 text-gray-400"
-                            : "bg-gray-50 border-gray-100 group-hover:bg-emerald-50/50 group-hover:border-emerald-200 text-gray-900"
-                        }`}>
+                        className={`flex flex-col items-center justify-center rounded-2xl p-4 min-w-[90px] h-full border transition-colors ${isExpired ? "bg-gray-100 border-gray-200 text-gray-400" : "bg-gray-50 border-gray-100 text-gray-900"}`}>
                         <span className='text-lg font-bold'>
                           {formatTime(cls.startTime)}
                         </span>
@@ -138,25 +176,17 @@ const BookTheClass = () => {
                       <div className='flex-1'>
                         <div className='flex items-center gap-2 mb-2'>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border ${
-                              cls.classType === "Private"
-                                ? "bg-purple-50 text-purple-700 border-purple-100"
-                                : "bg-blue-50 text-blue-700 border-blue-100"
-                            }`}>
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border ${cls.classType === "Private" ? "bg-purple-50 text-purple-700 border-purple-100" : "bg-blue-50 text-blue-700 border-blue-100"}`}>
                             {cls.classType}
                           </span>
                           <span className='text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider'>
                             {cls.instructorType}
                           </span>
                         </div>
-
                         <h3
-                          className={`text-lg font-bold mb-1 ${
-                            isExpired ? "text-gray-500" : "text-gray-900"
-                          }`}>
+                          className={`text-lg font-bold mb-1 ${isExpired ? "text-gray-500" : "text-gray-900"}`}>
                           {cls.className}
                         </h3>
-
                         <div className='flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500 mt-2'>
                           <div className='flex items-center gap-1.5'>
                             <MapPin className='w-4 h-4 text-gray-400' />
@@ -169,33 +199,30 @@ const BookTheClass = () => {
                         </div>
                       </div>
 
-                      {/* Action Column */}
-                      <div className='flex flex-col items-end gap-3 min-w-[140px] w-full md:w-auto'>
-                        <div className='flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg'>
-                          <Users className='w-3.5 h-3.5' />
-                          <span>
-                            {cls.capacity - cls.currentEnrollment} spots left
-                          </span>
+                      {/* Action Column (Hidden in Selection Mode unless Single) */}
+                      {!isSelectionMode && (
+                        <div className='flex flex-col items-end gap-3 min-w-[140px] w-full md:w-auto mt-4 md:mt-0'>
+                          <div className='flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg'>
+                            <Users className='w-3.5 h-3.5' />
+                            <span>
+                              {cls.capacity - cls.currentEnrollment} spots left
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              !isExpired && handleBookSingle(cls);
+                            }}
+                            disabled={isFull || isExpired}
+                            className={`w-full py-3 px-6 font-bold rounded-xl transition-all text-sm ${isExpired ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-emerald-900 text-white hover:bg-emerald-800 shadow-lg shadow-emerald-900/10 active:scale-95"} disabled:opacity-70 disabled:cursor-not-allowed`}>
+                            {isExpired
+                              ? "Closed"
+                              : isFull
+                                ? "Waitlist"
+                                : "Book Class"}
+                          </button>
                         </div>
-
-                        <button
-                          onClick={() => !isExpired && setSelectedClass(cls)}
-                          disabled={isFull || isExpired}
-                          className={`w-full py-3 px-6 font-bold rounded-xl transition-all text-sm
-                            ${
-                              isExpired
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-emerald-900 text-white hover:bg-emerald-800 shadow-lg shadow-emerald-900/10 active:scale-95"
-                            }
-                            disabled:opacity-70 disabled:cursor-not-allowed
-                          `}>
-                          {isExpired
-                            ? "Closed"
-                            : isFull
-                            ? "Waitlist"
-                            : "Book Class"}
-                        </button>
-                      </div>
+                      )}
                     </div>
                   );
                 })
@@ -209,8 +236,7 @@ const BookTheClass = () => {
                   </h3>
                   <p className='text-gray-500 text-sm mt-2 max-w-xs text-center leading-relaxed'>
                     There are no classes available for{" "}
-                    {format(selectedDate, "MMMM do")}. Try selecting another
-                    date from the calendar.
+                    {format(selectedDate, "MMMM do")}.
                   </p>
                 </div>
               )}
@@ -218,11 +244,10 @@ const BookTheClass = () => {
           )}
         </div>
 
-        {/* --- RIGHT SIDEBAR (Calendar & Activity) --- */}
+        {/* --- RIGHT SIDEBAR (Calendar) --- */}
         <aside className='w-full lg:w-[380px] shrink-0 space-y-6 sticky top-6'>
-          {/* 1. Monthly Calendar Widget */}
           <div className='bg-white rounded-3xl p-6 shadow-sm border border-gray-100'>
-            {/* Header */}
+            {/* ... Calendar Header & Grid (Same as before) ... */}
             <div className='flex items-center justify-between mb-6'>
               <button
                 onClick={handlePrevMonth}
@@ -238,8 +263,6 @@ const BookTheClass = () => {
                 <ChevronRight className='w-5 h-5' />
               </button>
             </div>
-
-            {/* Days Header */}
             <div className='grid grid-cols-7 mb-2'>
               {weekDays.map((day) => (
                 <div
@@ -249,29 +272,16 @@ const BookTheClass = () => {
                 </div>
               ))}
             </div>
-
-            {/* Days Grid */}
             <div className='grid grid-cols-7 gap-y-2'>
               {calendarDays.map((day, idx) => {
                 const isSelected = isSameDay(day, selectedDate);
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isTodayDate = isToday(day);
-
                 return (
                   <div key={idx} className='flex justify-center'>
                     <button
                       onClick={() => setSelectedDate(day)}
-                      className={`
-                        w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
-                        ${
-                          isSelected
-                            ? "bg-emerald-900 text-white shadow-lg shadow-emerald-900/20"
-                            : isTodayDate
-                            ? "bg-emerald-50 text-emerald-700 font-bold"
-                            : "hover:bg-gray-50 text-gray-700"
-                        }
-                        ${!isCurrentMonth && "text-gray-300"}
-                      `}>
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${isSelected ? "bg-emerald-900 text-white shadow-lg shadow-emerald-900/20" : isTodayDate ? "bg-emerald-50 text-emerald-700 font-bold" : "hover:bg-gray-50 text-gray-700"} ${!isCurrentMonth && "text-gray-300"}`}>
                       {format(day, "d")}
                     </button>
                   </div>
@@ -282,14 +292,43 @@ const BookTheClass = () => {
         </aside>
       </div>
 
+      {/* --- FLOATING ACTION BAR (For Multi-Booking) --- */}
+      {isSelectionMode && selectedClasses.length > 0 && (
+        <div className='fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-40 animate-in slide-in-from-bottom-4 duration-300'>
+          <div className='bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between'>
+            <div className='flex items-center gap-3'>
+              <div className='bg-emerald-800 w-10 h-10 rounded-full flex items-center justify-center font-bold text-emerald-100'>
+                {selectedClasses.length}
+              </div>
+              <div>
+                <p className='font-bold text-sm'>Classes Selected</p>
+                <p className='text-xs text-emerald-300'>Tap to review</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowBookingModal(true)}
+              className='bg-white text-emerald-900 px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-50 transition-colors shadow-lg'>
+              Book All
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Booking Confirmation Modal */}
-      {selectedClass && (
+      {showBookingModal && (
         <BookingModal
-          cls={selectedClass}
-          onClose={() => setSelectedClass(null)}
+          classes={selectedClasses} // Pass Array
+          onClose={() => {
+            setShowBookingModal(false);
+            // Only clear selection if we were in single mode, keep valid for multi if user cancels modal
+            if (!isSelectionMode) setSelectedClasses([]);
+          }}
           onConfirm={() => {
-            setSelectedClass(null);
+            setShowBookingModal(false);
+            setSelectedClasses([]);
+            setIsSelectionMode(false);
             alert("Booking Successful!");
+            // Trigger refresh logic here if needed
           }}
         />
       )}
