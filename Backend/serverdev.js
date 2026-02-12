@@ -76,6 +76,11 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get("/.well-known/apple-app-site-association", (req, res) => {
+  res.set("Content-Type", "application/json");
+  res.sendFile(path.join(__dirname, "apple-app-site-association"));
+});
+
 // CORS & Security
 app.use(
   cors({
