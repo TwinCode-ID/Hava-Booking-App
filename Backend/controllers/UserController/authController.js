@@ -94,6 +94,76 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.loginWithApple = async (req, res) => {
+  try {
+    const { identityToken, fullName } = req.body;
+
+    // 1. Verify the Identity Token with Apple
+    // This ensures the request is coming from a real Apple user
+    const { sub: appleUserId, email } = await appleSignin.verifyIdToken(
+      identityToken,
+      {
+        // Optional: Add your Client ID (Bundle ID) to be extra secure
+        audience: "williehandoko.MyPilates",
+        ignoreExpiration: true, // Sometimes helps with slight clock skews
+      },
+    );
+
+    // 2. Check if user exists by Apple ID
+    let user = await User.findOne({ appleUserId });
+
+    if (user) {
+      // User found! Log them in.
+      return res.status(200).json({
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar || "",
+        token: generateToken(user._id),
+      });
+    }
+
+    // 3. If not found by Apple ID, check by Email (Link Accounts)
+    // If a user previously signed up with email/pass, update them to add Apple ID
+    user = await User.findOne({ email });
+
+    if (user) {
+      user.appleUserId = appleUserId;
+      await user.save();
+
+      return res.status(200).json({
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar || "",
+        token: generateToken(user._id),
+      });
+    }
+    user = await User.create({
+      fullName: fullName || email.split("@")[0],
+      email: email,
+      appleUserId: appleUserId,
+      password: "", // No password for Apple users
+      role: "client", // Default role
+      phoneNumber: "",
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar || "",
+      token: generateToken(user._id),
+    });
+  } catch (err) {
+    console.error("Apple Login Error:", err);
+    res.status(500).json({ message: "Failed to authenticate with Apple" });
+  }
+};
+
 exports.checkAuth = async (req, res) => {
   try {
     const { email, password } = req.body;

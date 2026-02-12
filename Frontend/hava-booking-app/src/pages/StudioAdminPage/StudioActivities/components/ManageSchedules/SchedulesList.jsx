@@ -1242,7 +1242,7 @@ const ClassDetailsModal = ({
 
                                     {/* Selection Checkmark */}
                                     {isSelected && (
-                                      <div className='absolute top-3 right-3 bg-emerald-500 text-white rounded-full p-0.5'>
+                                      <div className='absolute bottom-3 right-3 bg-emerald-500 text-white rounded-full p-0.5'>
                                         <Check className='w-3 h-3' />
                                       </div>
                                     )}

@@ -5,6 +5,7 @@ const {
   getMe,
   checkAuth,
   checkUserStatus,
+  loginWithApple,
 } = require("../../controllers/UserController/authController");
 const { protect } = require("../../middlewares/authMiddleware");
 const {
@@ -21,6 +22,7 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
+router.post("/apple", loginWithApple);
 router.post("/otp/request", requestOTP);
 router.post("/otp/verify", verifyOTP);
 router.post("/verify-password", protect, checkAuth);
@@ -35,7 +37,7 @@ router.post("/upload-profile", uploadProfile.single("image"), (req, res) => {
   const userId = req.body.userId || "unassigned";
 
   const imageUrl = `${req.protocol}://${req.get(
-    "host"
+    "host",
   )}/uploads/UserProfile/${userId}/${req.file.filename}`;
 
   res.status(200).json({ imageUrl });
@@ -50,7 +52,7 @@ router.post("/upload-proof", uploadProof.single("image"), (req, res) => {
   const userId = req.body.userId || "unassigned";
 
   const imageUrl = `${req.protocol}://${req.get(
-    "host"
+    "host",
   )}/uploads/ProofOfPurchase/${userId}/${req.file.filename}`;
 
   res.status(200).json({ imageUrl });
@@ -65,7 +67,7 @@ router.post("/upload-studio", uploadStudio.single("image"), (req, res) => {
   const studioId = req.body.adminStudioLocation || "unassigned";
 
   const imageUrl = `${req.protocol}://${req.get(
-    "host"
+    "host",
   )}/uploads/Studio/${studioId}/${req.file.filename}`;
 
   res.status(200).json({ imageUrl });
