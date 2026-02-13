@@ -3,10 +3,24 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 
+function formatUserIdDisplay(id) {
+  // Keep QR = full id, but display shorter so it doesn’t break the layout
+  // Example: 698e0dd3…de08c
+  if (!id) return "";
+  if (id.length <= 14) return id;
+  return `${id.slice(0, 8)}…${id.slice(-5)}`;
+}
+
 exports.generatePass = async (req, res) => {
   try {
     const backendRoot = path.resolve(__dirname, "../../");
     const modelPath = path.join(backendRoot, "pass-models", "mypilates.pass");
+
+    // TODO: replace with DB lookup
+    const userId = req.params.id; // QR content
+    const fullName = "William Jonathan Handoko";
+    const memberSince = "2023";
+    const phone = "+6281234567890";
 
     const certificates = {
       wwdr: fs.readFileSync(path.join(backendRoot, "keys", "wwdr.pem")),
@@ -16,53 +30,42 @@ exports.generatePass = async (req, res) => {
       signerKey: fs.readFileSync(
         path.join(backendRoot, "keys", "signerKey.pem"),
       ),
-      signerKeyPassphrase:
-        process.env.SIGNER_KEY_PASSPHRASE || "W1ll14m70n4th417.",
+      signerKeyPassphrase: process.env.PASSWORD || "W1ll14m70n4th417.",
     };
 
-    // ✅ Load pass.json + images from the model folder correctly
     const pass = await PKPass.from(
       { model: modelPath, certificates },
-      { serialNumber: req.params.id || "123456" },
+      { serialNumber: userId }, // unique per user
     );
 
-    // If your pass.json already defines eventTicket, you can omit this.
     pass.type = "generic";
 
-    pass.primaryFields.push({
-      key: "event",
-      label: "CLASS",
-      value: "Junior Private",
-    });
+    pass.primaryFields.push({ key: "name", label: "Name", value: fullName });
 
     pass.secondaryFields.push({
-      key: "date",
-      label: "TIME",
-      value: new Date(),
-      dateStyle: "PKDateStyleMedium",
-      timeStyle: "PKDateStyleShort",
+      key: "secondary0",
+      label: "MEMBER SINCE",
+      value: memberSince,
     });
 
-    pass.auxiliaryFields.push({
-      key: "location",
-      label: "STUDIO",
-      value: "BASI Pilates West Java",
-    });
+    pass.auxiliaryFields.push(
+      { key: "auxilary0", label: "MEMBER ID", value: String(userId).slice(-6) },
+      { key: "auxilary1", label: "PHONE", value: phone },
+      { key: "auxilary2", label: "", value: "" },
+    );
 
+    // QR = full userId
     pass.setBarcodes({
-      message: req.params.id,
+      message: userId,
       format: "PKBarcodeFormatQR",
-      altText: req.params.id,
     });
 
     const buffer = pass.getAsBuffer();
-
     res.setHeader("Content-Type", "application/vnd.apple.pkpass");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="mypilates-${pass.serialNumber}.pkpass"`,
+      `attachment; filename="mypilates-${userId}.pkpass"`,
     );
-
     return res.status(200).send(buffer);
   } catch (err) {
     console.error("❌ ERROR:", err);
