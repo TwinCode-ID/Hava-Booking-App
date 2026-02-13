@@ -15,7 +15,7 @@ const {
 
 const { protect } = require("../../middlewares/authMiddleware");
 
-router.get("/user/passes/:id", generatePass);
+router.get("/user/passes/:id", protect, generatePass);
 
 // GET /api/passes/user/:userId - Get active passes (Wallet)
 router.get("/user/active/:userId", protect, getMyActivePasses);
