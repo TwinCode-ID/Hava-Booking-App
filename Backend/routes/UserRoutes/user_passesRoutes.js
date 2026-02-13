@@ -8,7 +8,14 @@ const {
   getUserPassHistory,
   getMyInactivePasses,
 } = require("../../controllers/UserController/user_passesController");
+
+const {
+  generatePass,
+} = require("../../controllers/UserController/passController");
+
 const { protect } = require("../../middlewares/authMiddleware");
+
+router.get("/user/passes/:id", generatePass);
 
 // GET /api/passes/user/:userId - Get active passes (Wallet)
 router.get("/user/active/:userId", protect, getMyActivePasses);
