@@ -1,5 +1,6 @@
 const User = require("../../models/UserData/User");
 const jwt = require("jsonwebtoken");
+const appleSignin = require("apple-signin-auth");
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "60d" });
@@ -76,7 +77,7 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
     if (!user || !(await user.matchPassword(password))) {
-      res.status(401).json({ message: "Invalid Credentials" });
+      return res.status(401).json({ message: "Invalid Credentials" });
     }
 
     res.status(201).json({
@@ -104,7 +105,7 @@ exports.loginWithApple = async (req, res) => {
       identityToken,
       {
         // Optional: Add your Client ID (Bundle ID) to be extra secure
-        audience: "williehandoko.MyPilates",
+        audience: process.env.APPLE_CLIENT_ID,
         ignoreExpiration: true, // Sometimes helps with slight clock skews
       },
     );

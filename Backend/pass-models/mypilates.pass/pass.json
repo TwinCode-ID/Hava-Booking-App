@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "passTypeIdentifier": "pass.my.id.bookingservice.mypilates",
+  "serialNumber": "SERIAL_PLACEHOLDER",
+  "teamIdentifier": "459W9TDYSS",
+  "barcode": {
+    "message": "",
+    "format": "PKBarcodeFormatQR",
+    "messageEncoding": "iso-8859-1"
+  },
+  "organizationName": "MyPilates",
+  "description": "Membership Card",
+  "logoText": "MyPilates",
+  "backgroundColor": "rgb(122, 104, 85)",
+  "foregroundColor": "rgb(255, 255, 255)",
+  "labelColor": "rgb(235, 227, 219)",
+
+  "generic": {
+    "headerFields": [],
+    "primaryFields": [],
+    "secondaryFields": [],
+    "auxiliaryFields": [],
+    "backFields": []
+  }
+}

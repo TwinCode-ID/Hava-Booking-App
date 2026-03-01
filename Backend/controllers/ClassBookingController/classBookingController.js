@@ -33,6 +33,30 @@ exports.getClassBookings = async (req, res) => {
   }
 };
 
+exports.getUserBookings = async (req, res) => {
+  try {
+    const { userId, classId } = req.body;
+    const bookings = await ClassBooking.find({
+      userId,
+      classId,
+      status: "Booked",
+    })
+      .populate({
+        path: "classId",
+        populate: { path: "studioId", select: "studioName" },
+      })
+      .populate({
+        path: "passId",
+        populate: { path: "packageId", select: "packageName" },
+      })
+      .sort({ bookingDate: -1 });
+
+    res.json(bookings);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 // --- MODIFIED: Create Booking (Just Deduct, Don't Activate) ---
 exports.createBooking = async (req, res) => {
   const session = await mongoose.startSession();

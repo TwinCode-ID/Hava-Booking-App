@@ -200,7 +200,6 @@ exports.adminReviewPayment = async (req, res) => {
         purchaseDate: new Date(),
         expiryDate: passExpiry,
         remainingCredits: purchase.creditsPurchased,
-        validityDuration: packageDetails.validityDays || 30,
         initialCredits: purchase.creditsPurchased,
         issuingStudio: purchase.issuingStudio,
         isActive: true,

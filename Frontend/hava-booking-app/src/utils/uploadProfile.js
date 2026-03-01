@@ -12,9 +12,9 @@ const uploadProfile = async (imageFile, userId) => {
       formData,
       {
         headers: {
-          "Content-Type": "multipart/form-data", // Set header for file upload
+          "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
     return response.data; // Return response data
   } catch (error) {

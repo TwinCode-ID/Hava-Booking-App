@@ -15,7 +15,7 @@ const uploadProof = async (imageFile, userId) => {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
     return response.data;
   } catch (error) {
