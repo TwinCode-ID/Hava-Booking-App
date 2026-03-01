@@ -105,7 +105,7 @@ exports.loginWithApple = async (req, res) => {
       identityToken,
       {
         // Optional: Add your Client ID (Bundle ID) to be extra secure
-        audience: "williehandoko.MyPilates",
+        audience: process.env.APPLE_CLIENT_ID,
         ignoreExpiration: true, // Sometimes helps with slight clock skews
       },
     );

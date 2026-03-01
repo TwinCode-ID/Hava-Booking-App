@@ -2,6 +2,7 @@ const { PKPass } = require("passkit-generator");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
+const User = require("../../models/UserData/User");
 
 function formatUserIdDisplay(id) {
   // Keep QR = full id, but display shorter so it doesn’t break the layout
@@ -18,9 +19,17 @@ exports.generatePass = async (req, res) => {
 
     // TODO: replace with DB lookup
     const userId = req.params.id; // QR content
-    const fullName = "William Jonathan Handoko";
-    const memberSince = "2023";
-    const phone = "+6281234567890";
+
+    if (userId) {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+    }
+
+    const fullName = user.fullName;
+    const memberSince = user.createdAt.getFullYear().toString();
+    const phone = user.phoneNumber;
 
     const certificates = {
       wwdr: fs.readFileSync(path.join(backendRoot, "keys", "wwdr.pem")),
@@ -30,7 +39,7 @@ exports.generatePass = async (req, res) => {
       signerKey: fs.readFileSync(
         path.join(backendRoot, "keys", "signerKey.pem"),
       ),
-      signerKeyPassphrase: process.env.PASSWORD || "W1ll14m70n4th417.",
+      signerKeyPassphrase: process.env.PASSWORD,
     };
 
     const pass = await PKPass.from(

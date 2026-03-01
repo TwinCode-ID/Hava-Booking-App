@@ -7,6 +7,7 @@ const {
   getStudioBooking,
   studentCheckIn,
   getClassBookings,
+  getUserBookings,
 } = require("../../controllers/ClassBookingController/classBookingController");
 const { protect } = require("../../middlewares/authMiddleware");
 
@@ -14,6 +15,7 @@ const { protect } = require("../../middlewares/authMiddleware");
 router.get("/", protect, getMyBooking);
 router.get("/studio", protect, getStudioBooking);
 router.post("/", protect, createBooking);
+router.post("/bookings", protect, getUserBookings);
 router.post("/cancel", protect, cancelBooking);
 router.put("/:bookingId", protect, studentCheckIn);
 router.get("/class/:classId", protect, getClassBookings);

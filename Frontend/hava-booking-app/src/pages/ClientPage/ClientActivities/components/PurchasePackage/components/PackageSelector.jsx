@@ -545,7 +545,7 @@ const PackageSelectorView = ({ user }) => {
                         Instructor Category
                       </span>
                       <span className='font-bold text-gray-900 text-sm'>
-                        {selectedPackage.instructorType.split(" ")[0]}
+                        {selectedPackage.instructorType}
                       </span>
                     </div>
                   </div>
@@ -1364,11 +1364,6 @@ const PackageCardMinimal = ({ pkg, onPurchase }) => {
       className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'
       onClick={onPurchase}>
       <div className='absolute top-0 left-0 w-1 h-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity' />
-      <div className='mb-4'>
-        <span className='inline-block bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md'>
-          {pkg.instructorType}
-        </span>
-      </div>
       <div className='flex-1 mb-6'>
         <h3 className='font-bold text-gray-900 text-xl mb-2 group-hover:text-emerald-700 transition-colors'>
           {pkg.packageName}
@@ -1387,6 +1382,15 @@ const PackageCardMinimal = ({ pkg, onPurchase }) => {
             <Clock className='w-4 h-4 text-gray-400' />
             <span className='font-medium'>{pkg.validityDays} Days</span>
           </div>
+        </div>
+        <div className='flex flex-wrap gap-2 pt-2'>
+          {pkg.instructorType.map((type, index) => (
+            <span
+              key={index}
+              className='inline-block bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md'>
+              {type}
+            </span>
+          ))}
         </div>
       </div>
       <div className='pt-4 border-t border-gray-100 flex items-end justify-between'>
