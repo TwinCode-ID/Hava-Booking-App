@@ -2,8 +2,14 @@ const Studio = require("../../models/StudioData/Studios");
 
 exports.createStudio = async (req, res) => {
   try {
-    const { studioName, studioPictures, address, facilities, contactNumber } =
-      req.body;
+    const {
+      studioName,
+      studioPictures,
+      address,
+      facilities,
+      contactNumber,
+      bankDetails,
+    } = req.body;
     if (!studioName) {
       return res.status(400).json({ message: "Studio name is required" });
     }
@@ -18,6 +24,7 @@ exports.createStudio = async (req, res) => {
       address,
       facilities,
       contactNumber,
+      bankDetails,
     });
 
     res.status(201).json({
@@ -27,6 +34,7 @@ exports.createStudio = async (req, res) => {
       address: studio.address,
       facilities: studio.facilities,
       contactNumber: studio.contactNumber,
+      bankDetails: studio.bankDetails,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -46,6 +54,7 @@ exports.getStudioById = async (req, res) => {
       address: studio.address,
       facilities: studio.facilities,
       contactNumber: studio.contactNumber,
+      bankDetails: studio.bankDetails,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -63,8 +72,14 @@ exports.getAllStudios = async (req, res) => {
 
 exports.updateStudio = async (req, res) => {
   try {
-    const { studioName, studioPictures, address, facilities, contactNumber } =
-      req.body;
+    const {
+      studioName,
+      studioPictures,
+      address,
+      facilities,
+      contactNumber,
+      bankDetails,
+    } = req.body;
     const studio = await Studio.findById(req.params.id);
     if (!studio) {
       return res.status(404).json({ message: "Studio not found" });
@@ -75,6 +90,7 @@ exports.updateStudio = async (req, res) => {
     studio.address = address || studio.address;
     studio.facilities = facilities || studio.facilities;
     studio.contactNumber = contactNumber || studio.contactNumber;
+    studio.bankDetails = bankDetails || studio.bankDetails;
 
     await studio.save();
 
@@ -85,6 +101,7 @@ exports.updateStudio = async (req, res) => {
       address: studio.address,
       facilities: studio.facilities,
       contactNumber: studio.contactNumber,
+      bankDetails: studio.bankDetails,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

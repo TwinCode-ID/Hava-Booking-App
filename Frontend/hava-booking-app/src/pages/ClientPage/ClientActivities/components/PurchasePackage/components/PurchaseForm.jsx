@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload,
@@ -9,33 +9,110 @@ import {
   Copy,
   Store,
   QrCode,
+  ChevronDown, // Added ChevronDown for the custom dropdown
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../../components/LoadingSpinner";
-import CustomSelect from "../../../../layout/CustomSelect";
 import uploadProof from "../../../../../../utils/uploadProof";
+// Added getBankLogo to the imports
+import { INDONESIAN_BANKS } from "../../../../../../utils/helper";
+import { getBankLogo } from "../../../../../../utils/helpers";
 
-const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
-  // --- Payment Method State ---
+// --- CUSTOM BANK DROPDOWN COMPONENT ---
+const CustomBankDropdown = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className='relative' ref={dropdownRef}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className='w-full p-3 border border-gray-200 rounded-xl text-sm bg-white cursor-pointer flex items-center justify-between hover:border-emerald-500 transition-colors'>
+        <div className='flex items-center gap-3'>
+          {value ? (
+            <>
+              {value !== "OTHER" && (
+                <div className='w-8 h-5 flex items-center justify-center shrink-0'>
+                  {getBankLogo(value)}
+                </div>
+              )}
+              <span className='font-medium text-gray-700'>{value}</span>
+            </>
+          ) : (
+            <span className='text-gray-400'>Select Bank...</span>
+          )}
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className='absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar py-2'>
+            {INDONESIAN_BANKS.map((bank) => (
+              <div
+                key={bank}
+                onClick={() => {
+                  onChange(bank);
+                  setIsOpen(false);
+                }}
+                className='flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 cursor-pointer transition-colors'>
+                {bank !== "OTHER" && (
+                  <div className='w-8 h-5 flex items-center justify-center shrink-0'>
+                    {getBankLogo(bank)}
+                  </div>
+                )}
+                <span className='text-sm font-medium text-gray-700'>
+                  {bank}
+                </span>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
+const PurchaseForm = ({
+  pkg,
+  bankDetails = [pkg.studioLocation.bankDetails].flat() || [],
+  onCancel,
+  userId,
+  onSuccess,
+}) => {
   const [paymentMethod, setPaymentMethod] = useState("manual_transfer");
-
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // --- Form Data ---
   const [formData, setFormData] = useState({
-    paymentIssuer: "BCA", // Default to BCA for transfer
-    customIssuer: "", // For "OTHER" input
+    paymentIssuer: "BCA",
+    customIssuer: "",
     proofOfPayment: "",
   });
 
   const fileInputRef = useRef(null);
-
-  const issuerOptions = ["BCA", "BNI", "MANDIRI", "BRI", "OTHER"];
 
   const formattedPrice = new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -59,13 +136,11 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate: Only require file if NOT paying at studio
     if (paymentMethod !== "pay_at_studio" && !formData.proofOfPayment) {
       setError("Please upload your payment proof.");
       return;
     }
 
-    // Validate: Custom Issuer if "OTHER" selected
     if (
       paymentMethod === "manual_transfer" &&
       formData.paymentIssuer === "OTHER" &&
@@ -86,7 +161,6 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
         paymentUrl = imgUploadRes.imageUrl || "";
       }
 
-      // Determine final issuer string
       let finalIssuer = formData.paymentIssuer;
       if (
         paymentMethod === "manual_transfer" &&
@@ -96,7 +170,7 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
       } else if (paymentMethod === "QRIS") {
         finalIssuer = "QRIS";
       } else if (paymentMethod === "pay_at_studio") {
-        finalIssuer = ""; // Or leave empty/handle on backend
+        finalIssuer = "";
       }
 
       await axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
@@ -147,11 +221,9 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className='space-y-6 p-4'>
-      {/* 1. Order Summary */}
-
       {/* 2. Payment Method Selector */}
       <div>
-        <label className='text-sm font-bold text-gray-900 mb-3 block'>
+        <label className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block'>
           Select Payment Method
         </label>
         <div className='grid grid-cols-3 gap-3'>
@@ -184,20 +256,19 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className='space-y-3'>
-            <CustomSelect
-              label='Transfer From (Bank Name)'
-              options={issuerOptions}
+            <label className='text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1'>
+              Transfer From (Your Bank)
+            </label>
+            <CustomBankDropdown
               value={formData.paymentIssuer}
               onChange={(val) =>
                 setFormData({ ...formData, paymentIssuer: val })
               }
-              placeholder='Select Bank'
             />
 
-            {/* Show Text Input if "OTHER" is selected */}
             {formData.paymentIssuer === "OTHER" && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <label className='block text-sm font-medium text-gray-700 mb-1'>
+                <label className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block'>
                   Specify Bank Name
                 </label>
                 <input
@@ -216,23 +287,50 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
       </AnimatePresence>
 
       {/* 3. Conditional Content Based on Method */}
+      <p className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block'>
+        Transfer to Studio Account:
+      </p>
       <div className='bg-white border-2 border-dashed border-gray-200 rounded-xl p-4 relative transition-all'>
-        {/* VIEW: Manual Transfer */}
+        {/* VIEW: Manual Transfer - NOW DYNAMICALLY MAPPED WITH LOGOS */}
         {paymentMethod === "manual_transfer" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className='flex justify-between items-start'>
-            <div>
-              <p className='text-sm text-gray-500'>Bank Central Asia (BCA)</p>
-              <p className='text-lg font-mono font-bold text-gray-900 mt-1'>
-                8290-123-456
+            className='space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar'>
+            {bankDetails.length > 0 ? (
+              bankDetails.map((bank) => (
+                <div
+                  key={bank._id}
+                  className='flex justify-between items-center p-3 border border-gray-100 rounded-xl bg-gray-50 hover:border-emerald-200 hover:bg-emerald-50/50 transition-colors'>
+                  {/* Container for Logo + Details */}
+                  <div className='flex items-center gap-4'>
+                    <div className='w-12 h-8 flex items-center justify-center bg-white rounded-md border border-gray-200 p-1 shrink-0'>
+                      {getBankLogo(bank.bankName)}
+                    </div>
+                    <div>
+                      <p className='text-xs font-bold text-gray-500 uppercase tracking-wider'>
+                        {bank.bankName}
+                      </p>
+                      <p className='text-lg font-mono font-bold text-gray-900 mt-0.5'>
+                        {bank.accountNumber}
+                      </p>
+                      <p className='text-xs text-gray-600 mt-0.5'>
+                        a/n{" "}
+                        <span className='font-medium text-gray-800'>
+                          {bank.accountHolderName}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <CopyButton text={bank.accountNumber} />
+                </div>
+              ))
+            ) : (
+              <p className='text-sm text-gray-500 italic py-2'>
+                No bank details available. Please contact the studio.
               </p>
-              <p className='text-xs text-gray-400 mt-1'>
-                a.n. Hava Pilates Studio
-              </p>
-            </div>
-            <CopyButton text='8290123456' />
+            )}
           </motion.div>
         )}
 
@@ -243,7 +341,6 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
             animate={{ opacity: 1 }}
             className='flex flex-col items-center text-center py-2'>
             <div className='bg-gray-100 p-2 rounded-lg mb-3'>
-              {/* Replace with your real QR Image */}
               <QrCode className='w-24 h-24 text-gray-800' />
             </div>
             <p className='text-sm font-bold text-gray-900'>Scan QRIS to Pay</p>
@@ -269,7 +366,7 @@ const PurchaseForm = ({ pkg, onCancel, userId, onSuccess }) => {
         )}
       </div>
 
-      {/* 4. Proof Upload (Hidden for 'At Studio') */}
+      {/* 4. Proof Upload */}
       <AnimatePresence>
         {paymentMethod !== "pay_at_studio" && (
           <motion.div
@@ -362,11 +459,7 @@ const PaymentOption = ({ active, onClick, icon: Icon, label }) => (
   <button
     type='button'
     onClick={onClick}
-    className={`p-3 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
-      active
-        ? "border-emerald-500 bg-emerald-50 text-emerald-900"
-        : "border-gray-200 hover:border-emerald-200 text-gray-500"
-    }`}>
+    className={`p-3 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${active ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-gray-200 hover:border-emerald-200 text-gray-500"}`}>
     <Icon
       className={`w-5 h-5 ${active ? "text-emerald-600" : "text-gray-400"}`}
     />
@@ -374,13 +467,28 @@ const PaymentOption = ({ active, onClick, icon: Icon, label }) => (
   </button>
 );
 
-const CopyButton = ({ text }) => (
-  <button
-    type='button'
-    onClick={() => navigator.clipboard.writeText(text)}
-    className='text-emerald-600 text-xs font-bold hover:underline flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg'>
-    <Copy className='w-3 h-3' /> Copy
-  </button>
-);
+const CopyButton = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      type='button'
+      onClick={handleCopy}
+      className={`text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all ${copied ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}>
+      {copied ? (
+        <CheckCircle2 className='w-3.5 h-3.5' />
+      ) : (
+        <Copy className='w-3.5 h-3.5' />
+      )}
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+};
 
 export default PurchaseForm;

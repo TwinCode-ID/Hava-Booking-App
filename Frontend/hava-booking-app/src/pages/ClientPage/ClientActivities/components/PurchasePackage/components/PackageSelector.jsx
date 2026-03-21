@@ -161,9 +161,11 @@ const PackageSelectorView = ({ user }) => {
     fetchData();
   }, []);
 
+  // ✅ FIXED: Using flatMap to correctly break arrays into individual strings
   const uniqueInstructorTypes = [
-    ...new Set(packages.map((p) => p.instructorType).filter(Boolean)),
-  ];
+    ...new Set(packages.flatMap((p) => p.instructorType || [])),
+  ].filter(Boolean);
+
   const uniqueStudioLocation = [
     ...new Set(
       packages.map((p) => p.studioLocation?.studioName).filter(Boolean),
@@ -178,7 +180,11 @@ const PackageSelectorView = ({ user }) => {
       const matchesActive = pkg.isActive;
       const matchesInstructor =
         selectedInstructorTypes.length === 0 ||
-        selectedInstructorTypes.includes(pkg.instructorType);
+        (Array.isArray(pkg.instructorType)
+          ? pkg.instructorType.some((type) =>
+              selectedInstructorTypes.includes(type),
+            )
+          : selectedInstructorTypes.includes(pkg.instructorType));
       const price = parseInt(pkg.packagePrice);
       const min = priceMin === "" ? 0 : parseInt(priceMin);
       const max = priceMax === "" ? Infinity : parseInt(priceMax);
@@ -225,7 +231,6 @@ const PackageSelectorView = ({ user }) => {
               ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
               : "hidden lg:block"
           }`}>
-          {/* ... (Filters Content Same as before) ... */}
           <div className='flex items-center justify-between lg:hidden mb-8'>
             <h3 className='font-bold text-xl'>Filters</h3>
             <button
@@ -303,43 +308,59 @@ const PackageSelectorView = ({ user }) => {
             <h3 className='text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2'>
               <Users className='w-4 h-4 text-gray-400' /> Instructor Level
             </h3>
-            <div className='space-y-2'>
-              {uniqueInstructorTypes.map((type) => (
-                <label
-                  key={type}
-                  className='flex items-center gap-3 cursor-pointer group py-1'>
-                  <div
-                    className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                      selectedInstructorTypes.includes(type)
-                        ? "bg-emerald-600 border-emerald-600"
-                        : "border-gray-300 bg-white group-hover:border-emerald-400"
+            <div className='space-y-1.5'>
+              {uniqueInstructorTypes.map((type) => {
+                // ✅ FIXED: Removed the accidental duplicate declaration here
+                const isSelected = selectedInstructorTypes.includes(type);
+
+                return (
+                  <label
+                    key={type}
+                    className={`flex items-center gap-3 cursor-pointer group p-2.5 rounded-xl transition-all duration-200 border ${
+                      isSelected
+                        ? "bg-emerald-50/80 border-emerald-200"
+                        : "bg-transparent border-transparent hover:bg-gray-50"
                     }`}>
-                    {selectedInstructorTypes.includes(type) && (
-                      <Check className='w-3.5 h-3.5 text-white' />
-                    )}
-                  </div>
-                  <input
-                    type='checkbox'
-                    className='hidden'
-                    checked={selectedInstructorTypes.includes(type)}
-                    onChange={() =>
-                      toggleFilter(
-                        selectedInstructorTypes,
-                        setSelectedInstructorTypes,
-                        type,
-                      )
-                    }
-                  />
-                  <span
-                    className={`text-sm ${
-                      selectedInstructorTypes.includes(type)
-                        ? "text-gray-900 font-medium"
-                        : "text-gray-600"
-                    }`}>
-                    {type}
-                  </span>
-                </label>
-              ))}
+                    <div
+                      className={`w-5 h-5 rounded-[6px] border flex items-center justify-center transition-all duration-200 shrink-0 ${
+                        isSelected
+                          ? "bg-emerald-600 border-emerald-600 shadow-sm shadow-emerald-600/20"
+                          : "border-gray-300 bg-white group-hover:border-emerald-400"
+                      }`}>
+                      <Check
+                        className={`w-3.5 h-3.5 text-white transition-all duration-200 ${
+                          isSelected
+                            ? "scale-100 opacity-100"
+                            : "scale-50 opacity-0"
+                        }`}
+                        strokeWidth={3}
+                      />
+                    </div>
+
+                    <input
+                      type='checkbox'
+                      className='hidden'
+                      checked={isSelected}
+                      onChange={() =>
+                        toggleFilter(
+                          selectedInstructorTypes,
+                          setSelectedInstructorTypes,
+                          type,
+                        )
+                      }
+                    />
+
+                    <span
+                      className={`text-sm transition-colors duration-200 select-none ${
+                        isSelected
+                          ? "text-emerald-950 font-bold"
+                          : "text-gray-600 group-hover:text-gray-900 font-medium"
+                      }`}>
+                      {type}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -545,7 +566,10 @@ const PackageSelectorView = ({ user }) => {
                         Instructor Category
                       </span>
                       <span className='font-bold text-gray-900 text-sm'>
-                        {selectedPackage.instructorType}
+                        {/* Properly formatting array if multiple instructors */}
+                        {Array.isArray(selectedPackage.instructorType)
+                          ? selectedPackage.instructorType.join(", ")
+                          : selectedPackage.instructorType}
                       </span>
                     </div>
                   </div>
@@ -665,7 +689,6 @@ const UserPassesView = ({ user }) => {
               ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
               : "hidden lg:block"
           }`}>
-          {/* ... (Filters Content) ... */}
           <div className='flex items-center justify-between lg:hidden mb-8'>
             <h3 className='font-bold text-xl'>Filters</h3>
             <button
@@ -830,7 +853,6 @@ const UserPassesView = ({ user }) => {
             </div>
           </div>
 
-          {/* GLITCH FIX: Removed 'layout' prop */}
           <div className='space-y-6'>
             {filteredData.length > 0 ? (
               filteredData.map((trx) => (
@@ -870,7 +892,7 @@ const UserPassesView = ({ user }) => {
   );
 };
 
-// --- 2. UPDATED PASS CARD (GLITCH FIX: Removed layout) ---
+// --- 2. UPDATED PASS CARD ---
 const PassCard = ({ trx, onClick }) => {
   const isExpired = !trx.isActive || new Date(trx.expiryDate) < new Date();
 
@@ -881,9 +903,6 @@ const PassCard = ({ trx, onClick }) => {
 
   return (
     <div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
       onClick={onClick}
       className={`relative group overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer ${
         isExpired
@@ -1205,7 +1224,6 @@ const PurchaseHistoryView = ({ user }) => {
               ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
               : "hidden lg:block"
           }`}>
-          {/* ... (Filters Content) ... */}
           <div className='flex items-center justify-between lg:hidden mb-8'>
             <h3 className='font-bold text-xl'>Filters</h3>
             <button
@@ -1311,7 +1329,6 @@ const PurchaseHistoryView = ({ user }) => {
             </div>
           </div>
 
-          {/* GLITCH FIX: Removed 'layout' */}
           <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-10'>
             {filteredTransactions.length > 0 ? (
               filteredTransactions.map((tx) => (
@@ -1354,15 +1371,12 @@ const PurchaseHistoryView = ({ user }) => {
 // SHARED & SUB COMPONENTS
 // ============================================================================
 
-// GLITCH FIX: Removed layout prop
 const PackageCardMinimal = ({ pkg, onPurchase }) => {
   const priceFormatted = parseInt(pkg.packagePrice).toLocaleString("id-ID");
   return (
     <div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'
-      onClick={onPurchase}>
+      onClick={onPurchase}
+      className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'>
       <div className='absolute top-0 left-0 w-1 h-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity' />
       <div className='flex-1 mb-6'>
         <h3 className='font-bold text-gray-900 text-xl mb-2 group-hover:text-emerald-700 transition-colors'>
@@ -1410,7 +1424,6 @@ const PackageCardMinimal = ({ pkg, onPurchase }) => {
   );
 };
 
-// GLITCH FIX: Removed layout prop
 const TransactionCard = ({ tx, onClick }) => {
   const config = STATUS_STYLES[tx.status] || STATUS_STYLES.pending;
   const StatusIcon = config.icon;
@@ -1423,10 +1436,8 @@ const TransactionCard = ({ tx, onClick }) => {
 
   return (
     <div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'
-      onClick={onClick}>
+      onClick={onClick}
+      className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-emerald-500 transition-all duration-300 relative overflow-hidden'>
       <div className='flex justify-between items-start mb-4'>
         <div
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${config.bg} ${config.color} ${config.border}`}>
