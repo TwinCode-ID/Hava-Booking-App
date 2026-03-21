@@ -111,8 +111,11 @@ const InstructorList = () => {
 
   if (loading)
     return (
-      <div className='h-screen flex items-center justify-center bg-white'>
+      <div className='h-[60vh] flex flex-col items-center justify-center'>
         <LoadingSpinner />
+        <p className='text-gray-600 font-medium mt-4'>
+          Loading instructors, please wait...
+        </p>
       </div>
     );
 

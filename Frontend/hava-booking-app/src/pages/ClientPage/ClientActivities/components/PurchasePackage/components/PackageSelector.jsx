@@ -133,6 +133,7 @@ const PackageSelectorView = ({ user }) => {
   const [studios, setStudios] = useState([]);
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedPackageId = searchParams.get("packageId");
 
@@ -216,8 +217,11 @@ const PackageSelectorView = ({ user }) => {
 
   if (loading)
     return (
-      <div className='h-[60vh] flex items-center justify-center'>
+      <div className='h-[60vh] flex flex-col items-center justify-center'>
         <LoadingSpinner />
+        <p className='text-gray-600 font-medium mt-4'>
+          Loading packages, please wait...
+        </p>
       </div>
     );
 
@@ -494,6 +498,16 @@ const PackageSelectorView = ({ user }) => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 100, scale: 0.95 }}
               className='relative bg-white w-full max-w-2xl rounded-t-4xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
+              {/* --- NEW: Overlay Loading Spinner --- */}
+              {paymentLoading && (
+                <div className='absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm'>
+                  <LoadingSpinner size='lg' />
+                  <p className='text-gray-600 font-medium'>
+                    Please wait while payment is being processed...
+                  </p>
+                </div>
+              )}
+
               <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10'>
                 <h2 className='text-xl font-bold text-gray-900'>Checkout</h2>
                 <button
@@ -503,8 +517,10 @@ const PackageSelectorView = ({ user }) => {
                 </button>
               </div>
 
+              {/* --- REMOVED ternary check here, render content directly --- */}
               <div className='p-4 overflow-y-auto'>
                 <div className='bg-emerald-50 px-8 py-6 border-b border-gray-100 rounded-2xl'>
+                  {/* ... Existing Package Details Content ... */}
                   <div className='flex flex-col md:flex-row justify-between items-start mb-6 gap-4'>
                     <div className='flex-1'>
                       <p className='text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5'>
@@ -529,7 +545,6 @@ const PackageSelectorView = ({ user }) => {
                       </h3>
                     </div>
                   </div>
-
                   <div className='grid grid-cols-2 gap-4'>
                     <div className='bg-white p-4 rounded-xl border border-gray-200 flex flex-col justify-center items-center text-center shadow-sm'>
                       <MapPin className='w-5 h-5 text-emerald-600 mb-2' />
@@ -574,12 +589,12 @@ const PackageSelectorView = ({ user }) => {
                     </div>
                   </div>
                 </div>
-
                 <PurchaseForm
                   pkg={selectedPackage}
                   onCancel={handleClosePurchase}
                   onSuccess={handleClosePurchase}
                   userId={user._id}
+                  setPaymentLoading={setPaymentLoading}
                 />
               </div>
             </motion.div>
@@ -674,8 +689,11 @@ const UserPassesView = ({ user }) => {
 
   if (loading)
     return (
-      <div className='h-[60vh] flex items-center justify-center'>
+      <div className='h-[60vh] flex-col flex items-center justify-center'>
         <LoadingSpinner />
+        <p className='text-gray-600 font-medium mt-4'>
+          Loading passes, please wait...
+        </p>
       </div>
     );
 
@@ -1209,8 +1227,11 @@ const PurchaseHistoryView = ({ user }) => {
 
   if (loading)
     return (
-      <div className='h-[60vh] flex items-center justify-center'>
+      <div className='h-[60vh] flex flex-col items-center justify-center'>
         <LoadingSpinner />
+        <p className='text-gray-600 font-medium mt-4'>
+          Loading transaction history, please wait...
+        </p>
       </div>
     );
 

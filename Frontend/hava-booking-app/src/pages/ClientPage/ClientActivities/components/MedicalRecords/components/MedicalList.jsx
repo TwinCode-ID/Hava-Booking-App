@@ -37,7 +37,7 @@ const MedicalList = () => {
       try {
         setLoading(true);
         const res = await axiosInstance.get(
-          API_PATHS.AUTH.MEDICAL_INFO(user._id)
+          API_PATHS.AUTH.MEDICAL_INFO(user._id),
         );
 
         if (res.data) {
@@ -85,12 +85,12 @@ const MedicalList = () => {
       if (hasRecord) {
         await axiosInstance.post(
           API_PATHS.AUTH.MEDICAL_INFO(user._id),
-          medical
+          medical,
         );
       } else {
         await axiosInstance.post(
           API_PATHS.AUTH.MEDICAL_INFO(user._id),
-          medical
+          medical,
         );
         setHasRecord(true);
         setTermsLocked(true); // Lock it immediately after saving
@@ -106,8 +106,11 @@ const MedicalList = () => {
 
   if (loading)
     return (
-      <div className='h-[50vh] flex items-center justify-center'>
+      <div className='h-[60vh] flex flex-col items-center justify-center'>
         <LoadingSpinner />
+        <p className='text-gray-600 font-medium mt-4'>
+          Loading medical records data, please wait...
+        </p>
       </div>
     );
 

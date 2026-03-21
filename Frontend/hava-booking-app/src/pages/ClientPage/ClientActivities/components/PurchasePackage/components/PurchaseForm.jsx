@@ -98,6 +98,7 @@ const PurchaseForm = ({
   onCancel,
   userId,
   onSuccess,
+  setPaymentLoading,
 }) => {
   const [paymentMethod, setPaymentMethod] = useState("manual_transfer");
   const [file, setFile] = useState(null);
@@ -151,6 +152,7 @@ const PurchaseForm = ({
     }
 
     setLoading(true);
+    if (setPaymentLoading) setPaymentLoading(true);
     setError("");
 
     try {
@@ -190,6 +192,7 @@ const PurchaseForm = ({
       );
     } finally {
       setLoading(false);
+      if (setPaymentLoading) setPaymentLoading(false);
     }
   };
 
@@ -441,13 +444,9 @@ const PurchaseForm = ({
             (paymentMethod !== "pay_at_studio" && !formData.proofOfPayment)
           }
           className='flex-1 py-3 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'>
-          {loading ? (
-            <LoadingSpinner size='sm' color='white' />
-          ) : paymentMethod === "pay_at_studio" ? (
-            "Confirm Booking"
-          ) : (
-            "Confirm Payment"
-          )}
+          {paymentMethod === "pay_at_studio"
+            ? "Confirm Booking"
+            : "Confirm Payment"}
         </button>
       </div>
     </form>

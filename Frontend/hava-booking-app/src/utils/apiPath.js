@@ -91,4 +91,12 @@ export const API_PATHS = {
     ADD: (studioId) => `/api/config/add/${studioId}`,
     REMOVE: (studioId) => `/api/config/remove/${studioId}`,
   },
+
+  CHAT: {
+    GET_CONVERSATIONS: "/api/chat/conversations",
+    GET_MESSAGES: (conversationId) => `/api/chat/${conversationId}/messages`,
+    SEND_MESSAGE: "/api/chat/send",
+    INITIATE: "/api/chat/initiate",
+    MARK_READ: (conversationId) => `/api/chat/${conversationId}/read`,
+  },
 };
