@@ -21,6 +21,7 @@ const purchaseRoutes = require("./routes/StudioRoutes/purchaseRoutes");
 const userPassRoutes = require("./routes/UserRoutes/user_passesRoutes");
 const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
 const studioConfigRoutes = require("./routes/StudioRoutes/studioConfigRoutes");
+const chatRoutes = require("./routes/MessagingRoutes/chatRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -52,6 +53,12 @@ io.on("connection", (socket) => {
       socket.join(userId);
       console.log(`Socket ${socket.id} joined USER room: ${userId}`);
     }
+  });
+
+  // Chat Room
+  socket.on("join_chat", (conversationId) => {
+    socket.join(conversationId);
+    console.log(`Socket ${socket.id} joined chat room: ${conversationId}`);
   });
 
   socket.on("disconnect", () => {
@@ -130,17 +137,18 @@ const authLimiter = rateLimit({
 });
 
 // --- ROUTES ---
-app.use("/api/auth", protectAPI, authRoutes);
-app.use("/api/user", protectAPI, userRoutes);
-app.use("/api/studio", protectAPI, studioRoutes);
-app.use("/api/package", protectAPI, packagesRoutes);
-app.use("/api/instructor", protectAPI, instructorsRoutes);
-app.use("/api/bookings", protectAPI, bookingRoutes);
-app.use("/api/schedule", protectAPI, scheduleRoutes);
-app.use("/api/purchases", protectAPI, purchaseRoutes);
-app.use("/api/passes", protectAPI, userPassRoutes);
-app.use("/api/medical", protectAPI, medicalRoutes);
-app.use("/api/config", protectAPI, studioConfigRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/studio", studioRoutes);
+app.use("/api/package", packagesRoutes);
+app.use("/api/instructor", instructorsRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/purchases", purchaseRoutes);
+app.use("/api/passes", userPassRoutes);
+app.use("/api/medical", medicalRoutes);
+app.use("/api/config", studioConfigRoutes);
+app.use("/api/chat", chatRoutes);
 
 // Static files
 app.use(

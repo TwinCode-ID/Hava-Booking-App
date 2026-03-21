@@ -146,7 +146,7 @@ const Login = () => {
         login(finishRes.data.token);
 
         // Fetch user profile to get their role for redirection
-        const meRes = await axiosInstance.get("/api/auth/me");
+        const meRes = await axiosInstance.get(API_PATHS.AUTH.GET_PROFILE);
 
         finalizeLogin({ token: finishRes.data.token, role: meRes.data.role });
       }
