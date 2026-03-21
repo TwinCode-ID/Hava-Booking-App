@@ -99,4 +99,15 @@ export const API_PATHS = {
     INITIATE: "/api/chat/initiate",
     MARK_READ: (conversationId) => `/api/chat/${conversationId}/read`,
   },
+
+  PASSKEY: {
+    REGISTER_START: "/api/user/passkey/register-start",
+    REGISTER_FINISH: "/api/user/passkey/register-finish",
+    LOGIN_START: "/api/user/passkey/login-start",
+    LOGIN_FINISH: "/api/user/passkey/login-finish",
+  },
+
+  APPLE: {
+    LOGIN: "/api/auth/apple-login",
+  },
 };
