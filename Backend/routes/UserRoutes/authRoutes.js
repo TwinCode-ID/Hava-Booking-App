@@ -6,6 +6,7 @@ const {
   checkAuth,
   checkUserStatus,
   loginWithApple,
+  loginWithAppleWeb,
 } = require("../../controllers/UserController/authController");
 const { protect } = require("../../middlewares/authMiddleware");
 const {
@@ -23,6 +24,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
 router.post("/apple", loginWithApple);
+router.post("/apple-web", loginWithAppleWeb);
 router.post("/otp/request", requestOTP);
 router.post("/otp/verify", verifyOTP);
 router.post("/verify-password", protect, checkAuth);

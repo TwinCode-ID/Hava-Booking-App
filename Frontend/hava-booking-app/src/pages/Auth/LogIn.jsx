@@ -68,9 +68,9 @@ const Login = () => {
     // Make sure to replace these with your actual Apple Developer credentials
     if (window.AppleID) {
       window.AppleID.auth.init({
-        clientId: process.env.REACT_APP_APPLE_CLIENT_ID,
+        clientId: import.meta.env.VITE_APPLE_CLIENT_ID,
         scope: "name email",
-        redirectURI: process.env.REACT_APP_APPLE_REDIRECT_URI,
+        redirectURI: import.meta.env.VITE_APPLE_REDIRECT_URI,
         state: "origin:web",
         usePopup: true,
       });
