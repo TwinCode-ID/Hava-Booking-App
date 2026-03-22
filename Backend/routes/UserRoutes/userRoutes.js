@@ -6,8 +6,6 @@ const {
   getAllUsers,
   setNewUserPassword,
   updatePassword,
-  loginStartWeb,
-  loginFinishWeb,
 } = require("../../controllers/UserController/userController");
 
 const {
@@ -27,11 +25,9 @@ router.put("/profile", protect, updateProfile);
 router.get("/:id", protect, getPublicProfile);
 router.delete("/:id", protect, devTeam, deleteUser);
 
-router.post("/passkey/register-start", registerStart);
-router.post("/passkey/register-finish", registerFinish);
+router.post("/passkey/register-start", protect, registerStart);
+router.post("/passkey/register-finish", protect, registerFinish);
 router.post("/passkey/login-start", loginStart);
 router.post("/passkey/login-finish", loginFinish);
-router.post("/passkey/login-start-web", loginStartWeb);
-router.post("/passkey/login-finish-web", loginFinishWeb);
 
 module.exports = router;

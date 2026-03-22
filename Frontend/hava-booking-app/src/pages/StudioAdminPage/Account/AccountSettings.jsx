@@ -238,12 +238,13 @@ const SettingList = () => {
 
     setIsRegisteringPasskey(true);
     try {
-      // 1. Ask the server for the registration challenge/options
+      // 1. Send the userId in the body!
       const { data: options } = await axiosInstance.post(
         API_PATHS.PASSKEY.REGISTER_START,
+        { userId: user._id }, // <-- FIXED: Added payload
       );
 
-      // 2. Format the options for the WebAuthn API (Convert Strings -> ArrayBuffers)
+      // 2. Format the options for the WebAuthn API
       const publicKeyCredentialCreationOptions = {
         ...options,
         challenge: base64URLStringToBuffer(options.challenge),
@@ -253,7 +254,6 @@ const SettingList = () => {
         },
       };
 
-      // Optional: if your backend sends excludeCredentials (preventing duplicate passkeys)
       if (options.excludeCredentials) {
         publicKeyCredentialCreationOptions.excludeCredentials =
           options.excludeCredentials.map((cred) => ({
@@ -267,7 +267,7 @@ const SettingList = () => {
         publicKey: publicKeyCredentialCreationOptions,
       });
 
-      // 4. Format the credential response back into strings for the server
+      // 4. Format the credential response back into strings
       const credentialResponse = {
         id: credential.id,
         rawId: bufferToBase64URLString(credential.rawId),
@@ -282,19 +282,18 @@ const SettingList = () => {
         },
       };
 
-      // 5. Send to server to verify and save
-      await axiosInstance.post(
-        API_PATHS.PASSKEY.REGISTER_FINISH,
-        credentialResponse,
-      );
+      // 5. Send to server: wrap in the exact structure your backend expects!
+      await axiosInstance.post(API_PATHS.PASSKEY.REGISTER_FINISH, {
+        userId: user._id, // <-- FIXED: Added userId
+        registrationResponse: credentialResponse, // <-- FIXED: Wrapped response
+      });
 
       alert("Passkey registered successfully! You can now use it to log in.");
     } catch (error) {
       console.error("Passkey registration failed:", error);
-      // Don't show an error if the user just clicked "Cancel" on the native prompt
       if (error.name !== "NotAllowedError") {
         alert(
-          error.response?.data?.message ||
+          error.response?.data?.error ||
             error.message ||
             "Failed to register passkey.",
         );
