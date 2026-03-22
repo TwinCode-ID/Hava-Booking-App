@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
+  Fingerprint,
 } from "lucide-react";
 import { useAuth } from "../../../../context/AuthContext";
 import axiosInstance from "../../../../utils/axiosInstance";
@@ -18,18 +19,42 @@ import { API_PATHS } from "../../../../utils/apiPath";
 import uploadProfile from "../../../../utils/uploadProfile";
 import { fetchImage } from "../../../../utils/helper";
 
+// --- WebAuthn Helper Functions ---
+// Converts standard Base64URL strings from your server into ArrayBuffers for the browser API
+const base64URLStringToBuffer = (base64URLString) => {
+  const base64 = base64URLString.replace(/-/g, "+").replace(/_/g, "/");
+  const padLength = (4 - (base64.length % 4)) % 4;
+  const padded = base64.padEnd(base64.length + padLength, "=");
+  const binary = atob(padded);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return buffer;
+};
+
+// Converts ArrayBuffers back to Base64URL strings to send to your server
+const bufferToBase64URLString = (buffer) => {
+  const bytes = new Uint8Array(buffer);
+  let str = "";
+  for (const charCode of bytes) {
+    str += String.fromCharCode(charCode);
+  }
+  const base64String = btoa(str);
+  return base64String.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+};
+
 const SettingList = () => {
   const { user, setUser } = useAuth();
 
   // --- States ---
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
+  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false); // NEW Passkey State
 
   // Profile State
   const [previewImage, setPreviewImage] = useState(user?.avatar || null);
-
-  // 1. NEW: Create a local baseline to compare against.
-  // This prevents the "Context Lag" issue.
   const [lastSavedUser, setLastSavedUser] = useState(user || {});
 
   const [profileData, setProfileData] = useState({
@@ -53,7 +78,6 @@ const SettingList = () => {
   });
 
   // --- SYNC ON LOAD ---
-  // When the component loads, sync both the Form and the Baseline with the User Context.
   useEffect(() => {
     if (user) {
       const cleanUser = {
@@ -63,10 +87,7 @@ const SettingList = () => {
         email: user.email || "",
       };
 
-      // Set the Baseline
       setLastSavedUser(cleanUser);
-
-      // Set the Form
       setProfileData((prev) => ({
         ...prev,
         ...cleanUser,
@@ -77,15 +98,11 @@ const SettingList = () => {
         setPreviewImage(user.avatar || null);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?._id]); // Only re-run if the user ID changes (avoids loops)
+  }, [user?._id]);
 
-  // --- 2. FIXED DIRTY CHECK ---
-  // Compare profileData against 'lastSavedUser' (local) instead of 'user' (global)
+  // --- DIRTY CHECKS ---
   const isProfileDirty = useMemo(() => {
-    // Helper to ensure we compare strings safely
     const normalize = (val) => String(val || "").trim();
-
     return (
       normalize(profileData.fullName) !== normalize(lastSavedUser.fullName) ||
       normalize(profileData.phoneNumber) !==
@@ -104,7 +121,6 @@ const SettingList = () => {
 
   const isDirty = isProfileDirty || isPasswordDirty;
 
-  // --- 3. BROWSER NAVIGATION BLOCKING (Safe Method) ---
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (isDirty) {
@@ -118,14 +134,12 @@ const SettingList = () => {
   }, [isDirty]);
 
   // --- Handlers ---
-
-  const handleProfileChange = (e) => {
+  const handleProfileChange = (e) =>
     setProfileData({ ...profileData, [e.target.name]: e.target.value });
-  };
-
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = (e) =>
     setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
-  };
+  const togglePasswordVisibility = (field) =>
+    setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -135,25 +149,18 @@ const SettingList = () => {
     }
   };
 
-  const togglePasswordVisibility = (field) => {
-    setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
-  };
-
   // --- API Actions ---
-
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setIsLoadingProfile(true);
 
     try {
       let avatarUrl = profileData.avatar;
-
-      // 1. Upload new image if exists
       if (profileData.newAvatarFile) {
         const uploadRes = await uploadProfile(
           profileData.newAvatarFile,
           user._id,
-        );
+        ); // -> Use uploadStudio here for Admin
         avatarUrl = uploadRes?.imageUrl || uploadRes?.url || uploadRes;
       }
 
@@ -163,23 +170,13 @@ const SettingList = () => {
         avatar: avatarUrl,
       };
 
-      // 2. Save data to Server
       await axiosInstance.put(API_PATHS.AUTH.UPDATE_PROFILE, payload);
-
-      // 3. Fetch fresh data immediately
       const responseBack = await axiosInstance.get(
         `${API_PATHS.AUTH.GET_PROFILE}?t=${new Date().getTime()}`,
       );
       const fetchedUserData = responseBack.data;
 
-      // 4. Update Global Context (Eventual consistency)
-      if (setUser) {
-        setUser(fetchedUserData);
-      }
-
-      // 5. UPDATE LOCAL STATE IMMEDIATELY (The Fix)
-      // We update both the Form and the Baseline to match the fetched data.
-      // This forces isDirty to become false instantly.
+      if (setUser) setUser(fetchedUserData);
 
       const cleanFetched = {
         fullName: fetchedUserData.fullName || "",
@@ -188,14 +185,8 @@ const SettingList = () => {
         email: fetchedUserData.email || "",
       };
 
-      setLastSavedUser(cleanFetched); // Update Baseline
-
-      setProfileData({
-        ...cleanFetched,
-        newAvatarFile: null, // Clear file input
-      });
-
-      // Update the preview to the real URL
+      setLastSavedUser(cleanFetched);
+      setProfileData({ ...cleanFetched, newAvatarFile: null });
       setPreviewImage(fetchedUserData.avatar || null);
 
       alert("Profile updated successfully!");
@@ -209,19 +200,12 @@ const SettingList = () => {
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New passwords do not match!");
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      alert("Password must be at least 6 characters long.");
-      return;
-    }
+    if (passwordData.newPassword !== passwordData.confirmPassword)
+      return alert("New passwords do not match!");
+    if (passwordData.newPassword.length < 6)
+      return alert("Password must be at least 6 characters long.");
 
     setIsLoadingPassword(true);
-
     try {
       await axiosInstance.put(API_PATHS.AUTH.UPDATE_PASSWORD, {
         password: passwordData.currentPassword,
@@ -229,7 +213,6 @@ const SettingList = () => {
       });
 
       alert("Password changed successfully!");
-
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -243,6 +226,80 @@ const SettingList = () => {
       );
     } finally {
       setIsLoadingPassword(false);
+    }
+  };
+
+  // --- NEW: Passkey Registration Handler ---
+  const handleRegisterPasskey = async () => {
+    if (!window.PublicKeyCredential) {
+      alert("WebAuthn/Passkeys are not supported in this browser.");
+      return;
+    }
+
+    setIsRegisteringPasskey(true);
+    try {
+      // 1. Send the userId in the body!
+      const { data: options } = await axiosInstance.post(
+        API_PATHS.PASSKEY.REGISTER_START,
+        { userId: user._id }, // <-- FIXED: Added payload
+      );
+
+      // 2. Format the options for the WebAuthn API
+      const publicKeyCredentialCreationOptions = {
+        ...options,
+        challenge: base64URLStringToBuffer(options.challenge),
+        user: {
+          ...options.user,
+          id: base64URLStringToBuffer(options.user.id),
+        },
+      };
+
+      if (options.excludeCredentials) {
+        publicKeyCredentialCreationOptions.excludeCredentials =
+          options.excludeCredentials.map((cred) => ({
+            ...cred,
+            id: base64URLStringToBuffer(cred.id),
+          }));
+      }
+
+      // 3. Prompt the user for their biometrics/device PIN
+      const credential = await navigator.credentials.create({
+        publicKey: publicKeyCredentialCreationOptions,
+      });
+
+      // 4. Format the credential response back into strings
+      const credentialResponse = {
+        id: credential.id,
+        rawId: bufferToBase64URLString(credential.rawId),
+        type: credential.type,
+        response: {
+          attestationObject: bufferToBase64URLString(
+            credential.response.attestationObject,
+          ),
+          clientDataJSON: bufferToBase64URLString(
+            credential.response.clientDataJSON,
+          ),
+        },
+      };
+
+      // 5. Send to server: wrap in the exact structure your backend expects!
+      await axiosInstance.post(API_PATHS.PASSKEY.REGISTER_FINISH, {
+        userId: user._id, // <-- FIXED: Added userId
+        registrationResponse: credentialResponse, // <-- FIXED: Wrapped response
+      });
+
+      alert("Passkey registered successfully! You can now use it to log in.");
+    } catch (error) {
+      console.error("Passkey registration failed:", error);
+      if (error.name !== "NotAllowedError") {
+        alert(
+          error.response?.data?.error ||
+            error.message ||
+            "Failed to register passkey.",
+        );
+      }
+    } finally {
+      setIsRegisteringPasskey(false);
     }
   };
 
@@ -304,7 +361,6 @@ const SettingList = () => {
             </div>
 
             <h2 className='text-xl font-bold text-gray-900'>
-              {/* Note: This might look stale for a second until context updates, but form will be correct */}
               {user?.fullName || "Admin User"}
             </h2>
             <div className='inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold mt-2 border border-emerald-100'>
@@ -315,8 +371,8 @@ const SettingList = () => {
           <div className='bg-emerald-900 rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/20'>
             <h3 className='font-bold text-lg mb-2'>Security Tip</h3>
             <p className='text-emerald-200 text-sm leading-relaxed'>
-              Use a strong, unique password to protect your studio's data. We
-              recommend changing it every 3 months.
+              Use a strong, unique password or register a Passkey to protect
+              your studio's data.
             </p>
           </div>
         </div>
@@ -332,7 +388,6 @@ const SettingList = () => {
                 </div>
                 Personal Information
               </h3>
-              {/* Dirty State Indicator */}
               {isProfileDirty && (
                 <span className='text-xs text-amber-500 font-bold bg-amber-50 px-2 py-1 rounded'>
                   Unsaved Changes
@@ -388,10 +443,6 @@ const SettingList = () => {
                       VERIFIED
                     </span>
                   </div>
-                  <p className='text-[10px] text-gray-400 mt-1.5 ml-1 flex items-center gap-1'>
-                    <Lock className='w-3 h-3' /> Email cannot be changed for
-                    security reasons.
-                  </p>
                 </div>
               </div>
 
@@ -411,7 +462,39 @@ const SettingList = () => {
             </form>
           </div>
 
-          {/* 2. SECURITY CARD */}
+          {/* 2. PASSKEY CARD (NEW) */}
+          <div className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden'>
+            <div className='px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center'>
+              <h3 className='font-bold text-gray-900 flex items-center gap-2.5'>
+                <div className='p-2 bg-white border border-gray-200 rounded-lg shadow-sm'>
+                  <Fingerprint className='w-4 h-4 text-emerald-600' />
+                </div>
+                Passkeys & Biometrics
+              </h3>
+            </div>
+
+            <div className='p-8'>
+              <p className='text-sm text-gray-500 mb-6'>
+                Register a passkey to sign in faster and more securely using
+                your device's biometric authentication (Fingerprint, FaceID) or
+                screen lock.
+              </p>
+              <button
+                type='button'
+                onClick={handleRegisterPasskey}
+                disabled={isRegisteringPasskey}
+                className='px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-sm shadow-sm hover:bg-emerald-100 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'>
+                {isRegisteringPasskey ? (
+                  <Loader2 className='w-4 h-4 animate-spin' />
+                ) : (
+                  <Fingerprint className='w-4 h-4' />
+                )}
+                Register New Passkey
+              </button>
+            </div>
+          </div>
+
+          {/* 3. SECURITY CARD (Password) */}
           <div className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden'>
             <div className='px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center'>
               <h3 className='font-bold text-gray-900 flex items-center gap-2.5'>
@@ -424,7 +507,6 @@ const SettingList = () => {
 
             <form onSubmit={handleUpdatePassword} className='p-8 space-y-6'>
               <div className='space-y-4'>
-                {/* Current Password */}
                 <div>
                   <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
                     Current Password
@@ -452,7 +534,6 @@ const SettingList = () => {
                 </div>
 
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                  {/* New Password */}
                   <div>
                     <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
                       New Password
@@ -479,7 +560,6 @@ const SettingList = () => {
                     </div>
                   </div>
 
-                  {/* Confirm Password */}
                   <div>
                     <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
                       Confirm Password

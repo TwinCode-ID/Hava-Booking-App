@@ -1,0 +1,18 @@
+{
+  "webcredentials": {
+    "apps": ["459W9TDYSS.williehandoko.MyPilates"]
+  },
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["459W9TDYSS.williehandoko.MyPilates"],
+        "components": [
+          {
+            "/": "/*",
+            "comment": "Matches all links"
+          }
+        ]
+      }
+    ]
+  }
+}

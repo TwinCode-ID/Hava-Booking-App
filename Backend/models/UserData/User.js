@@ -8,31 +8,29 @@ const userSchema = new mongoose.Schema(
     appleUserId: {
       type: String,
       unique: true,
-      sparse: true, // Important: Allows multiple users to have "null" appleUserId
+      sparse: true,
     },
-
+    googleUserId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     authenticators: [
       {
         credentialID: { type: String, required: true },
-        credentialPublicKey: { type: Buffer, required: true }, // Binary data
+        credentialPublicKey: { type: Buffer, required: true },
         counter: { type: Number, default: 0 },
-        transports: [String], // ['internal', 'hybrid'] etc.
+        transports: [String],
       },
     ],
-
     currentChallenge: { type: String },
-
-    // 1. REMOVE "unique: true" from password.
-    // Multiple users will have empty passwords, so it cannot be unique.
     password: { type: String },
-
     phoneNumber: { type: String },
     preferredStudioId: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
     role: {
       type: String,
       enum: ["client", "studioAdmin", "devTeam"],
-      default: "client", // Recommended: Set a default role
-      // required: true, // You can remove 'required' if you have a default
+      default: "client",
     },
     adminStudioLocation: {
       type: mongoose.Schema.Types.ObjectId,
@@ -43,21 +41,14 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// 2. UPDATE PRE-SAVE HOOK
-// Do not hash if the password is an empty string
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return;
-
-  // If password is explicitly empty (Studio Created User), skip hashing
   if (this.password === "") return;
 
   this.password = await bcrypt.hash(this.password, 10);
 });
 
-// 3. UPDATE MATCH PASSWORD
-// Handle cases where password is empty (Studio Created User)
 userSchema.methods.matchPassword = function (enteredPassword) {
-  // If the DB user has no password set, they cannot login via password
   if (!this.password || this.password === "") {
     return false;
   }

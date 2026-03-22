@@ -25,8 +25,8 @@ router.put("/profile", protect, updateProfile);
 router.get("/:id", protect, getPublicProfile);
 router.delete("/:id", protect, devTeam, deleteUser);
 
-router.post("/passkey/register-start", registerStart);
-router.post("/passkey/register-finish", registerFinish);
+router.post("/passkey/register-start", protect, registerStart);
+router.post("/passkey/register-finish", protect, registerFinish);
 router.post("/passkey/login-start", loginStart);
 router.post("/passkey/login-finish", loginFinish);
 
