@@ -14,14 +14,12 @@ import {
   ArrowLeft,
   User,
   Key,
-  Fingerprint, // Added Fingerprint for Passkey
+  Fingerprint,
 } from "lucide-react";
 import { validateEmail } from "../../utils/helper";
 import axiosInstance from "../../utils/axiosInstance";
 import { API_PATHS } from "../../utils/apiPath";
 import { useAuth } from "../../context/AuthContext";
-
-// Import the WebAuthn browser library for Passkeys
 import { startAuthentication } from "@simplewebauthn/browser";
 
 const Login = () => {
@@ -29,11 +27,7 @@ const Login = () => {
 
   // Steps: 0 = Email, 1 = Password, 2 = OTP, 3 = Create Password
   const [step, setStep] = useState(0);
-
-  // State to track if user has password
   const [hasPassword, setHasPassword] = useState(true);
-
-  // Timer & Popup State
   const [resendTimer, setResendTimer] = useState(0);
   const [showResendPopup, setShowResendPopup] = useState(false);
 
@@ -63,9 +57,9 @@ const Login = () => {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  // --- INITIALIZE APPLE SIGN IN ---
+  // --- INITIALIZE THIRD-PARTY LOGINS ---
   useEffect(() => {
-    // Make sure to replace these with your actual Apple Developer credentials
+    // 1. Initialize Apple Sign In
     if (window.AppleID) {
       window.AppleID.auth.init({
         clientId: import.meta.env.VITE_APPLE_CLIENT_ID,
@@ -75,7 +69,32 @@ const Login = () => {
         usePopup: true,
       });
     }
-  }, []);
+
+    // 2. Initialize Google Sign In
+    const initGoogle = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+        });
+
+        // Render the official Google button inside our div
+        const googleButtonDiv = document.getElementById("google-button-div");
+        if (googleButtonDiv) {
+          window.google.accounts.id.renderButton(googleButtonDiv, {
+            theme: "outline",
+            size: "large",
+            width: "100%", // Adapts to container
+            shape: "rectangular",
+            logo_alignment: "center",
+          });
+        }
+      }
+    };
+
+    // Small delay to ensure the external script has loaded if it's asynchronous
+    setTimeout(initGoogle, 300);
+  }, [step]); // Re-run if step changes to ensure the button renders when coming back to step 0
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -88,6 +107,27 @@ const Login = () => {
     }
   };
 
+  // --- GOOGLE SIGN-IN HANDLER ---
+  const handleGoogleResponse = async (response) => {
+    try {
+      setFormState((prev) => ({ ...prev, loading: true }));
+
+      // response.credential contains the Google Identity Token
+      const res = await axiosInstance.post(API_PATHS.GOOGLE.LOGIN, {
+        idToken: response.credential,
+      });
+
+      finalizeLogin(res.data);
+    } catch (error) {
+      console.error("Google Login Error:", error);
+      setFormState((prev) => ({
+        ...prev,
+        loading: false,
+        errors: { submit: "Failed to sign in with Google." },
+      }));
+    }
+  };
+
   // --- APPLE SIGN-IN HANDLER ---
   const handleAppleLogin = async () => {
     try {
@@ -96,7 +136,6 @@ const Login = () => {
       const response = await window.AppleID.auth.signIn();
       const identityToken = response.authorization.id_token;
 
-      // Apple only returns user object on the very first sign-in
       let fullName = "";
       if (response.user) {
         fullName =
@@ -104,7 +143,6 @@ const Login = () => {
       }
 
       const res = await axiosInstance.post(API_PATHS.APPLE.LOGIN, {
-        // Update path based on your routes
         identityToken,
         fullName,
       });
@@ -125,15 +163,12 @@ const Login = () => {
     try {
       setFormState((prev) => ({ ...prev, loading: true, errors: {} }));
 
-      // 1. Get authentication options from backend
       const startRes = await axiosInstance.post(API_PATHS.PASSKEY.LOGIN_START, {
         email: formData.email,
       });
 
-      // 2. Trigger browser's WebAuthn prompt
       const authResp = await startAuthentication(startRes.data);
 
-      // 3. Send response back to backend for verification
       const finishRes = await axiosInstance.post(
         API_PATHS.PASSKEY.LOGIN_FINISH,
         {
@@ -144,10 +179,7 @@ const Login = () => {
 
       if (finishRes.data.verified) {
         login(finishRes.data.token);
-
-        // Fetch user profile to get their role for redirection
         const meRes = await axiosInstance.get(API_PATHS.AUTH.GET_PROFILE);
-
         finalizeLogin({ token: finishRes.data.token, role: meRes.data.role });
       }
     } catch (error) {
@@ -411,7 +443,7 @@ const Login = () => {
         )}
 
         <AnimatePresence mode='wait'>
-          {/* --- STEP 0: EMAIL INPUT & APPLE LOGIN --- */}
+          {/* --- STEP 0: EMAIL INPUT & SOCIAL LOGINS --- */}
           {step === 0 && (
             <motion.div
               key='step0'
@@ -461,7 +493,7 @@ const Login = () => {
                 </button>
               </form>
 
-              {/* Apple Sign-In Divider */}
+              {/* Social Login Divider */}
               <div className='flex items-center gap-3 my-6'>
                 <div className='h-px bg-gray-200 flex-1'></div>
                 <span className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
@@ -470,18 +502,25 @@ const Login = () => {
                 <div className='h-px bg-gray-200 flex-1'></div>
               </div>
 
-              {/* Apple Sign-In Button */}
-              <button
-                type='button'
-                onClick={handleAppleLogin}
-                disabled={formState.loading}
-                className='w-full bg-black text-white px-6 py-3.5 rounded-xl font-medium hover:bg-gray-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
-                {/* Standard Apple SVG Icon */}
-                <svg viewBox='0 0 384 512' className='w-5 h-5 fill-current'>
-                  <path d='M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 24 184.8 8.8 245.8c-10.4 41.8-6.4 96.6 22.8 141.2 16.4 25.1 39.1 52.5 67.2 51.5 26.6-1.1 36.6-17.1 68.7-17.1 32 0 41.4 17.1 69.1 16.7 29.1-.4 49-25.1 65.2-48.8 19-27.8 26.9-54.8 27.5-56.2-.2-.2-41.5-15.6-41.8-64.4zM263.2 89.6c14.6-17.8 24.5-42.6 21.8-67.6-20.8 1.1-47.1 14.3-62.3 32.1-13.4 15.6-24.8 41.3-21.6 65.4 23.3 1.9 47.5-12.1 62.1-29.9z' />
-                </svg>
-                Sign in with Apple
-              </button>
+              {/* Social Buttons Container */}
+              <div className='flex flex-col gap-3'>
+                {/* Google Sign-In Target Div */}
+                <div
+                  id='google-button-div'
+                  className='w-full flex justify-center h-[52px]'></div>
+
+                {/* Apple Sign-In Button */}
+                <button
+                  type='button'
+                  onClick={handleAppleLogin}
+                  disabled={formState.loading}
+                  className='w-full bg-black text-white px-6 py-[11px] h-[52px] rounded border border-black font-medium hover:bg-gray-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
+                  <svg viewBox='0 0 384 512' className='w-5 h-5 fill-current'>
+                    <path d='M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 24 184.8 8.8 245.8c-10.4 41.8-6.4 96.6 22.8 141.2 16.4 25.1 39.1 52.5 67.2 51.5 26.6-1.1 36.6-17.1 68.7-17.1 32 0 41.4 17.1 69.1 16.7 29.1-.4 49-25.1 65.2-48.8 19-27.8 26.9-54.8 27.5-56.2-.2-.2-41.5-15.6-41.8-64.4zM263.2 89.6c14.6-17.8 24.5-42.6 21.8-67.6-20.8 1.1-47.1 14.3-62.3 32.1-13.4 15.6-24.8 41.3-21.6 65.4 23.3 1.9 47.5-12.1 62.1-29.9z' />
+                  </svg>
+                  Sign in with Apple
+                </button>
+              </div>
             </motion.div>
           )}
 

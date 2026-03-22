@@ -110,4 +110,8 @@ export const API_PATHS = {
   APPLE: {
     LOGIN: "/api/auth/apple-web",
   },
+
+  GOOGLE: {
+    LOGIN: "/api/auth/google",
+  },
 };

@@ -6,6 +6,83 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "60d" });
 };
 
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+exports.loginWithGoogle = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    // 1. Verify the Identity Token with Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken: idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    // Google provides the user's ID as 'sub', along with email, name, and picture
+    const { sub: googleUserId, email, name, picture } = payload;
+
+    // 2. Check if user exists by Google ID
+    let user = await User.findOne({ googleUserId });
+
+    if (user) {
+      // User found! Log them in.
+      return res.status(200).json({
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar || "",
+        token: generateToken(user._id),
+      });
+    }
+
+    // 3. If not found by Google ID, check by Email (Link Accounts)
+    user = await User.findOne({ email });
+
+    if (user) {
+      user.googleUserId = googleUserId;
+      // Optionally update their avatar if they don't have one
+      if (!user.avatar && picture) {
+        user.avatar = picture;
+      }
+      await user.save();
+
+      return res.status(200).json({
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar || "",
+        token: generateToken(user._id),
+      });
+    }
+
+    // 4. If no user exists, create a new one
+    user = await User.create({
+      fullName: name || email.split("@")[0],
+      email: email,
+      googleUserId: googleUserId,
+      password: "", // No password for Google users
+      role: "client", // Default role
+      phoneNumber: "",
+      avatar: picture || "",
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar || "",
+      token: generateToken(user._id),
+    });
+  } catch (err) {
+    console.error("Google Login Error:", err);
+    res.status(500).json({ message: "Failed to authenticate with Google" });
+  }
+};
+
 exports.checkUserStatus = async (req, res) => {
   try {
     const { email } = req.body;

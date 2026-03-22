@@ -7,6 +7,7 @@ const {
   checkUserStatus,
   loginWithApple,
   loginWithAppleWeb,
+  loginWithGoogle,
 } = require("../../controllers/UserController/authController");
 const { protect } = require("../../middlewares/authMiddleware");
 const {
@@ -29,6 +30,7 @@ router.post("/otp/request", requestOTP);
 router.post("/otp/verify", verifyOTP);
 router.post("/verify-password", protect, checkAuth);
 router.post("/check-status", checkUserStatus);
+router.post("/google", loginWithGoogle);
 
 router.post("/upload-profile", uploadProfile.single("image"), (req, res) => {
   if (!req.file) {
