@@ -133,7 +133,7 @@ const PasswordGate = ({ onUnlock, error, setError }) => {
         {
           email: user.email,
           password: password,
-        }
+        },
       );
       if (response.data.success || response.status === 200) {
         onUnlock();
@@ -219,16 +219,16 @@ const TransactionDetailsModal = ({ transaction, onClose }) => {
               isConfirmed
                 ? "bg-emerald-50 border-emerald-100"
                 : isPending
-                ? "bg-amber-50 border-amber-100"
-                : "bg-red-50 border-red-100"
+                  ? "bg-amber-50 border-amber-100"
+                  : "bg-red-50 border-red-100"
             }`}>
             <div
               className={`p-2 rounded-full ${
                 isConfirmed
                   ? "bg-emerald-100 text-emerald-600"
                   : isPending
-                  ? "bg-amber-100 text-amber-600"
-                  : "bg-red-100 text-red-600"
+                    ? "bg-amber-100 text-amber-600"
+                    : "bg-red-100 text-red-600"
               }`}>
               {isConfirmed ? (
                 <CheckCircle2 className='w-5 h-5' />
@@ -423,7 +423,7 @@ const RevenueDetails = () => {
     setLoading(true);
     try {
       const response = await axiosInstance.get(
-        API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation)
+        API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
       );
       setTransactions(response.data);
     } catch (error) {
@@ -463,11 +463,11 @@ const RevenueDetails = () => {
 
     const totalRevenue = currentMonthTransactions.reduce(
       (acc, curr) => acc + curr.totalAmount,
-      0
+      0,
     );
     const prevRevenue = prevMonthTransactions.reduce(
       (acc, curr) => acc + curr.totalAmount,
-      0
+      0,
     );
 
     let growthPercent = 0;
@@ -482,8 +482,8 @@ const RevenueDetails = () => {
         currentMonthTransactions.map((item) => [
           item.userId["_id"],
           item.userId,
-        ])
-      ).values()
+        ]),
+      ).values(),
     );
 
     const methodStats = currentMonthTransactions.reduce(
@@ -497,7 +497,7 @@ const RevenueDetails = () => {
         acc[key] = (acc[key] || 0) + curr.totalAmount;
         return acc;
       },
-      { "Pay at Studio": 0, Transfer: 0, QRIS: 0 }
+      { "Pay at Studio": 0, Transfer: 0, QRIS: 0 },
     );
 
     const breakdown = Object.keys(methodStats).map((key) => ({
@@ -511,8 +511,8 @@ const RevenueDetails = () => {
         key === "Pay at Studio"
           ? "bg-emerald-500"
           : key === "Transfer"
-          ? "bg-blue-500"
-          : "bg-purple-500",
+            ? "bg-blue-500"
+            : "bg-purple-500",
     }));
 
     // 2. ISOLATE TABLE DATA
@@ -556,7 +556,7 @@ const RevenueDetails = () => {
     const doc = new jsPDF();
     const monthName = new Date(selectedYear, selectedMonth).toLocaleString(
       "default",
-      { month: "long", year: "numeric" }
+      { month: "long", year: "numeric" },
     );
 
     doc.setFontSize(18);
@@ -664,7 +664,7 @@ const RevenueDetails = () => {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `Revenue_Report_${selectedMonth + 1}_${selectedYear}.csv`
+      `Revenue_Report_${selectedMonth + 1}_${selectedYear}.csv`,
     );
     document.body.appendChild(link);
     link.click();
@@ -722,27 +722,25 @@ const RevenueDetails = () => {
               className='flex items-center gap-2 bg-emerald-900 text-white border border-emerald-900 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-emerald-800 transition-colors'>
               <Download className='w-4 h-4' /> Export
             </button>
-            <AnimatePresence>
-              {isExportOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  className='absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-20'>
-                  <button
-                    onClick={exportCSV}
-                    className='w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2'>
-                    <FileSpreadsheet className='w-4 h-4 text-green-600' />{" "}
-                    Download CSV
-                  </button>
-                  <button
-                    onClick={handlePreview}
-                    className='w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-50'>
-                    <FileText className='w-4 h-4 text-red-600' /> Preview PDF
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {isExportOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 5 }}
+                className='absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-20'>
+                <button
+                  onClick={exportCSV}
+                  className='w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2'>
+                  <FileSpreadsheet className='w-4 h-4 text-green-600' />{" "}
+                  Download CSV
+                </button>
+                <button
+                  onClick={handlePreview}
+                  className='w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-50'>
+                  <FileText className='w-4 h-4 text-red-600' /> Preview PDF
+                </button>
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
@@ -912,7 +910,7 @@ const RevenueDetails = () => {
                           <span className='font-medium text-gray-900'>
                             {new Date(trx.createdAt).toLocaleDateString(
                               "en-GB",
-                              { day: "numeric", month: "short" }
+                              { day: "numeric", month: "short" },
                             )}
                           </span>
                           <span className='text-xs text-gray-400'>
@@ -943,8 +941,8 @@ const RevenueDetails = () => {
                               trx.paymentMethod === "pay_at_studio"
                                 ? "bg-emerald-400"
                                 : trx.paymentMethod === "manual_transfer"
-                                ? "bg-blue-400"
-                                : "bg-purple-400"
+                                  ? "bg-blue-400"
+                                  : "bg-purple-400"
                             }`}></span>
                           <span className='capitalize'>
                             {trx.paymentMethod?.replace(/_/g, " ")}

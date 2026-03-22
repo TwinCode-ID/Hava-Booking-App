@@ -14,11 +14,15 @@ import {
   ArrowLeft,
   User,
   Key,
+  Fingerprint, // Added Fingerprint for Passkey
 } from "lucide-react";
 import { validateEmail } from "../../utils/helper";
 import axiosInstance from "../../utils/axiosInstance";
 import { API_PATHS } from "../../utils/apiPath";
 import { useAuth } from "../../context/AuthContext";
+
+// Import the WebAuthn browser library for Passkeys
+import { startAuthentication } from "@simplewebauthn/browser";
 
 const Login = () => {
   const { login } = useAuth();
@@ -37,8 +41,8 @@ const Login = () => {
     email: "",
     password: "",
     otp: "",
-    newPassword: "", // For Step 3
-    confirmPassword: "", // For Step 3
+    newPassword: "",
+    confirmPassword: "",
   });
 
   const [formState, setFormState] = useState({
@@ -59,6 +63,20 @@ const Login = () => {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
+  // --- INITIALIZE APPLE SIGN IN ---
+  useEffect(() => {
+    // Make sure to replace these with your actual Apple Developer credentials
+    if (window.AppleID) {
+      window.AppleID.auth.init({
+        clientId: process.env.REACT_APP_APPLE_CLIENT_ID,
+        scope: "name email",
+        redirectURI: process.env.REACT_APP_APPLE_REDIRECT_URI,
+        state: "origin:web",
+        usePopup: true,
+      });
+    }
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -66,6 +84,82 @@ const Login = () => {
       setFormState((prev) => ({
         ...prev,
         errors: { ...prev.errors, [name]: "", submit: "" },
+      }));
+    }
+  };
+
+  // --- APPLE SIGN-IN HANDLER ---
+  const handleAppleLogin = async () => {
+    try {
+      setFormState((prev) => ({ ...prev, loading: true }));
+
+      const response = await window.AppleID.auth.signIn();
+      const identityToken = response.authorization.id_token;
+
+      // Apple only returns user object on the very first sign-in
+      let fullName = "";
+      if (response.user) {
+        fullName =
+          `${response.user.name.firstName} ${response.user.name.lastName}`.trim();
+      }
+
+      const res = await axiosInstance.post(API_PATHS.APPLE.LOGIN, {
+        // Update path based on your routes
+        identityToken,
+        fullName,
+      });
+
+      finalizeLogin(res.data);
+    } catch (error) {
+      console.error("Apple Login Error:", error);
+      setFormState((prev) => ({
+        ...prev,
+        loading: false,
+        errors: { submit: "Failed to sign in with Apple." },
+      }));
+    }
+  };
+
+  // --- PASSKEY SIGN-IN HANDLER ---
+  const handlePasskeyLogin = async () => {
+    try {
+      setFormState((prev) => ({ ...prev, loading: true, errors: {} }));
+
+      // 1. Get authentication options from backend
+      const startRes = await axiosInstance.post(API_PATHS.PASSKEY.LOGIN_START, {
+        email: formData.email,
+      });
+
+      // 2. Trigger browser's WebAuthn prompt
+      const authResp = await startAuthentication(startRes.data);
+
+      // 3. Send response back to backend for verification
+      const finishRes = await axiosInstance.post(
+        API_PATHS.PASSKEY.LOGIN_FINISH,
+        {
+          email: formData.email,
+          response: authResp,
+        },
+      );
+
+      if (finishRes.data.verified) {
+        login(finishRes.data.token);
+
+        // Fetch user profile to get their role for redirection
+        const meRes = await axiosInstance.get(API_PATHS.AUTH.GET_PROFILE);
+
+        finalizeLogin({ token: finishRes.data.token, role: meRes.data.role });
+      }
+    } catch (error) {
+      console.error("Passkey Login Error:", error);
+      setFormState((prev) => ({
+        ...prev,
+        loading: false,
+        errors: {
+          submit:
+            error?.response?.data?.error ||
+            "Passkey authentication failed or cancelled.",
+        },
       }));
     }
   };
@@ -89,17 +183,13 @@ const Login = () => {
 
       setHasPassword(userHasPassword);
 
-      console.log(userHasPassword);
-      console.log(response.data.password);
-
       if (userHasPassword) {
         setStep(1);
       } else {
-        // No Password (Studio User) -> Trigger OTP
         await axiosInstance.post(API_PATHS.AUTH.REQUEST_OTP, {
           email: formData.email,
         });
-        setStep(2); // Go to OTP Input
+        setStep(2);
         setResendTimer(60);
       }
 
@@ -163,12 +253,9 @@ const Login = () => {
         otp: formData.otp,
       });
 
-      // Check flow: If user had no password initially, force creation
       if (!hasPassword) {
-        // Save the token temporarily (e.g. in context or just use it for the next call)
-        // Ideally, login() sets it in localStorage so axiosInstance can use it
         login(response.data.token);
-        setStep(3); // Go to Create Password Step
+        setStep(3);
         setFormState((prev) => ({ ...prev, loading: false }));
       } else {
         finalizeLogin(response.data);
@@ -204,15 +291,12 @@ const Login = () => {
     setFormState((prev) => ({ ...prev, loading: true }));
 
     try {
-      // Call endpoint to set password. Token should be available from Step 2 login() call.
-      // Adjust API_PATHS.AUTH.SET_PASSWORD to your actual endpoint (e.g., /users/profile or /auth/set-password)
       await axiosInstance.put(API_PATHS.AUTH.SET_NEW_PASSWORD, {
         password: formData.newPassword,
       });
 
       const meRes = await axiosInstance.get(API_PATHS.AUTH.GET_PROFILE);
-      console.log(meRes.data.role);
-      finalizeLogin({ role: meRes.data.role, token: null }); // Token already set
+      finalizeLogin({ role: meRes.data.role, token: null });
     } catch (error) {
       setFormState((prev) => ({
         ...prev,
@@ -224,10 +308,9 @@ const Login = () => {
 
   const finalizeLogin = (data) => {
     setFormState((prev) => ({ ...prev, loading: false, success: true }));
-    // If token passed, set it (Step 1 & 2 standard flow). Step 3 already set it.
     if (data.token) login(data.token);
 
-    const role = data.role; // Ensure your backend returns 'role'
+    const role = data.role;
 
     setTimeout(() => {
       if (role === "studioAdmin") window.location.href = "/admin-dashboard";
@@ -302,153 +385,206 @@ const Login = () => {
             {step === 0
               ? "Welcome Back"
               : step === 1
-              ? "Enter Password"
-              : step === 2
-              ? "Verification"
-              : "Create Password"}
+                ? "Enter Password"
+                : step === 2
+                  ? "Verification"
+                  : "Create Password"}
           </h2>
           <p className='text-gray-500 text-sm'>
             {step === 0
               ? "Enter your email to continue"
               : step === 1
-              ? `Welcome back, ${formData.email}`
-              : step === 2
-              ? `Code sent to ${formData.email}`
-              : "Secure your account with a password"}
+                ? `Welcome back, ${formData.email}`
+                : step === 2
+                  ? `Code sent to ${formData.email}`
+                  : "Secure your account with a password"}
           </p>
         </div>
 
+        {formState.errors.submit && step === 0 && (
+          <div className='mb-6 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2'>
+            <AlertCircle className='w-4 h-4 text-red-600 shrink-0' />
+            <p className='text-red-600 text-sm font-medium'>
+              {formState.errors.submit}
+            </p>
+          </div>
+        )}
+
         <AnimatePresence mode='wait'>
-          {/* --- STEP 0: EMAIL INPUT --- */}
+          {/* --- STEP 0: EMAIL INPUT & APPLE LOGIN --- */}
           {step === 0 && (
-            <motion.form
+            <motion.div
               key='step0'
-              onSubmit={handleEmailSubmit}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               className='space-y-6'>
-              <div>
-                <label className='block text-sm font-bold text-gray-700 mb-2'>
-                  Email Address
-                </label>
-                <div className='relative'>
-                  <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
-                  <input
-                    type='email'
-                    name='email'
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`w-full pl-10 pr-4 py-3.5 rounded-xl border ${
-                      formState.errors.email
-                        ? "border-red-500"
-                        : "border-gray-200"
-                    } focus:ring-2 focus:ring-emerald-500 outline-none transition-all`}
-                    placeholder='name@example.com'
-                    autoFocus
-                  />
+              <form onSubmit={handleEmailSubmit} className='space-y-6'>
+                <div>
+                  <label className='block text-sm font-bold text-gray-700 mb-2'>
+                    Email Address
+                  </label>
+                  <div className='relative'>
+                    <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
+                    <input
+                      type='email'
+                      name='email'
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full pl-10 pr-4 py-3.5 rounded-xl border ${
+                        formState.errors.email
+                          ? "border-red-500"
+                          : "border-gray-200"
+                      } focus:ring-2 focus:ring-emerald-500 outline-none transition-all`}
+                      placeholder='name@example.com'
+                      autoFocus
+                    />
+                  </div>
+                  {formState.errors.email && (
+                    <p className='text-red-500 text-xs mt-1.5 ml-1'>
+                      {formState.errors.email}
+                    </p>
+                  )}
                 </div>
-                {formState.errors.email && (
-                  <p className='text-red-500 text-xs mt-1.5 ml-1'>
-                    {formState.errors.email}
-                  </p>
-                )}
+
+                <button
+                  type='submit'
+                  disabled={formState.loading}
+                  className='w-full bg-emerald-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 disabled:opacity-50'>
+                  {formState.loading ? (
+                    <Loader className='w-5 h-5 animate-spin' />
+                  ) : (
+                    <>
+                      Continue <ArrowRight className='w-5 h-5' />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Apple Sign-In Divider */}
+              <div className='flex items-center gap-3 my-6'>
+                <div className='h-px bg-gray-200 flex-1'></div>
+                <span className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                  OR
+                </span>
+                <div className='h-px bg-gray-200 flex-1'></div>
               </div>
 
+              {/* Apple Sign-In Button */}
               <button
-                type='submit'
+                type='button'
+                onClick={handleAppleLogin}
                 disabled={formState.loading}
-                className='w-full bg-emerald-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 disabled:opacity-50'>
-                {formState.loading ? (
-                  <Loader className='w-5 h-5 animate-spin' />
-                ) : (
-                  <>
-                    Continue <ArrowRight className='w-5 h-5' />
-                  </>
-                )}
+                className='w-full bg-black text-white px-6 py-3.5 rounded-xl font-medium hover:bg-gray-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
+                {/* Standard Apple SVG Icon */}
+                <svg viewBox='0 0 384 512' className='w-5 h-5 fill-current'>
+                  <path d='M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 24 184.8 8.8 245.8c-10.4 41.8-6.4 96.6 22.8 141.2 16.4 25.1 39.1 52.5 67.2 51.5 26.6-1.1 36.6-17.1 68.7-17.1 32 0 41.4 17.1 69.1 16.7 29.1-.4 49-25.1 65.2-48.8 19-27.8 26.9-54.8 27.5-56.2-.2-.2-41.5-15.6-41.8-64.4zM263.2 89.6c14.6-17.8 24.5-42.6 21.8-67.6-20.8 1.1-47.1 14.3-62.3 32.1-13.4 15.6-24.8 41.3-21.6 65.4 23.3 1.9 47.5-12.1 62.1-29.9z' />
+                </svg>
+                Sign in with Apple
               </button>
-            </motion.form>
+            </motion.div>
           )}
 
-          {/* --- STEP 1: PASSWORD INPUT --- */}
+          {/* --- STEP 1: PASSWORD & PASSKEY LOGIN --- */}
           {step === 1 && (
-            <motion.form
+            <motion.div
               key='step1'
-              onSubmit={handlePasswordSubmit}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               className='space-y-6'>
-              <div>
-                <label className='block text-sm font-bold text-gray-700 mb-2'>
-                  Password
-                </label>
-                <div className='relative'>
-                  <Lock className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
-                  <input
-                    type={formState.showPassword ? "text" : "password"}
-                    name='password'
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={`w-full pl-10 pr-10 py-3.5 rounded-xl border ${
-                      formState.errors.password
-                        ? "border-red-500"
-                        : "border-gray-200"
-                    } focus:ring-2 focus:ring-emerald-500 outline-none transition-all`}
-                    placeholder='••••••••'
-                    autoFocus
-                  />
+              <form onSubmit={handlePasswordSubmit} className='space-y-6'>
+                <div>
+                  <label className='block text-sm font-bold text-gray-700 mb-2'>
+                    Password
+                  </label>
+                  <div className='relative'>
+                    <Lock className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5' />
+                    <input
+                      type={formState.showPassword ? "text" : "password"}
+                      name='password'
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`w-full pl-10 pr-10 py-3.5 rounded-xl border ${
+                        formState.errors.password
+                          ? "border-red-500"
+                          : "border-gray-200"
+                      } focus:ring-2 focus:ring-emerald-500 outline-none transition-all`}
+                      placeholder='••••••••'
+                      autoFocus
+                    />
+                    <button
+                      type='button'
+                      onClick={() =>
+                        setFormState((p) => ({
+                          ...p,
+                          showPassword: !p.showPassword,
+                        }))
+                      }
+                      className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600'>
+                      {formState.showPassword ? (
+                        <EyeOff className='w-5 h-5' />
+                      ) : (
+                        <Eye className='w-5 h-5' />
+                      )}
+                    </button>
+                  </div>
+                  {formState.errors.password && (
+                    <p className='text-red-500 text-xs mt-1.5 ml-1'>
+                      {formState.errors.password}
+                    </p>
+                  )}
+                </div>
+
+                {formState.errors.submit && (
+                  <div className='bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2'>
+                    <AlertCircle className='w-4 h-4 text-red-600 shrink-0' />
+                    <p className='text-red-600 text-sm font-medium'>
+                      {formState.errors.submit}
+                    </p>
+                  </div>
+                )}
+
+                <div className='flex gap-3'>
                   <button
                     type='button'
-                    onClick={() =>
-                      setFormState((p) => ({
-                        ...p,
-                        showPassword: !p.showPassword,
-                      }))
-                    }
-                    className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600'>
-                    {formState.showPassword ? (
-                      <EyeOff className='w-5 h-5' />
+                    onClick={() => setStep(0)}
+                    className='w-12 flex items-center justify-center rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors'>
+                    <ArrowLeft className='w-5 h-5 text-gray-600' />
+                  </button>
+                  <button
+                    type='submit'
+                    disabled={formState.loading}
+                    className='flex-1 bg-emerald-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 disabled:opacity-50'>
+                    {formState.loading ? (
+                      <Loader className='w-5 h-5 animate-spin' />
                     ) : (
-                      <Eye className='w-5 h-5' />
+                      "Sign In"
                     )}
                   </button>
                 </div>
-                {formState.errors.password && (
-                  <p className='text-red-500 text-xs mt-1.5 ml-1'>
-                    {formState.errors.password}
-                  </p>
-                )}
-              </div>
+              </form>
 
-              {formState.errors.submit && (
-                <div className='bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2'>
-                  <AlertCircle className='w-4 h-4 text-red-600' />
-                  <p className='text-red-600 text-sm font-medium'>
-                    {formState.errors.submit}
-                  </p>
+              {/* Passkey Login Button */}
+              <div className='flex flex-col gap-4'>
+                <div className='flex items-center gap-3 mt-2'>
+                  <div className='h-px bg-gray-200 flex-1'></div>
+                  <span className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                    OR
+                  </span>
+                  <div className='h-px bg-gray-200 flex-1'></div>
                 </div>
-              )}
 
-              <div className='flex gap-3'>
                 <button
                   type='button'
-                  onClick={() => setStep(0)}
-                  className='w-12 flex items-center justify-center rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors'>
-                  <ArrowLeft className='w-5 h-5 text-gray-600' />
-                </button>
-                <button
-                  type='submit'
+                  onClick={handlePasskeyLogin}
                   disabled={formState.loading}
-                  className='flex-1 bg-emerald-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 disabled:opacity-50'>
-                  {formState.loading ? (
-                    <Loader className='w-5 h-5 animate-spin' />
-                  ) : (
-                    "Sign In"
-                  )}
+                  className='w-full bg-white border border-gray-200 text-gray-800 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-50 hover:border-emerald-300 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
+                  <Fingerprint className='w-5 h-5 text-emerald-600' />
+                  Sign in with Passkey
                 </button>
               </div>
-            </motion.form>
+            </motion.div>
           )}
 
           {/* --- STEP 2: OTP INPUT --- */}
@@ -523,7 +659,7 @@ const Login = () => {
             </motion.form>
           )}
 
-          {/* --- STEP 3: CREATE PASSWORD (NEW) --- */}
+          {/* --- STEP 3: CREATE PASSWORD --- */}
           {step === 3 && (
             <motion.form
               key='step3'
@@ -602,7 +738,7 @@ const Login = () => {
 
               {formState.errors.submit && (
                 <div className='bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2'>
-                  <AlertCircle className='w-4 h-4 text-red-600' />
+                  <AlertCircle className='w-4 h-4 text-red-600 shrink-0' />
                   <p className='text-red-600 text-sm font-medium'>
                     {formState.errors.submit}
                   </p>

@@ -8,11 +8,8 @@ const {
   verifyAuthenticationResponse,
 } = require("@simplewebauthn/server");
 
-const RP_ID = "bookingservice.my.id";
-const EXPECTED_ORIGINS = [
-  "https://bookingservice.my.id",
-  "https://api.bookingservice.my.id",
-];
+const RP_ID = "api.bookingservice.my.id";
+const ORIGIN = `https://${RP_ID}`;
 
 const base64urlToBuffer = (base64url) => {
   const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -62,7 +59,7 @@ exports.registerFinish = async (req, res) => {
     const verification = await verifyRegistrationResponse({
       response: registrationResponse,
       expectedChallenge: user.currentChallenge,
-      expectedOrigin: EXPECTED_ORIGINS,
+      expectedOrigin: ORIGIN,
       expectedRPID: RP_ID,
     });
 

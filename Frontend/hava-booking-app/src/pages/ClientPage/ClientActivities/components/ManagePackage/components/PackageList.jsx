@@ -159,6 +159,21 @@ const PackageSelectorView = ({ user }) => {
     fetchData();
   }, []);
 
+  const selectedPackage = packages.find((p) => p._id === selectedPackageId);
+
+  const selectedStudioId =
+    selectedPackage?.studioLocation?._id || selectedPackage?.studioLocation;
+  const selectedStudio = studios.find((s) => s._id === selectedStudioId);
+
+  const studioBankDetails =
+    selectedPackage?.studioLocation?.bankDetails ||
+    selectedStudio?.bankDetails ||
+    [];
+  // ---------------
+
+  console.log("Found Studio:", selectedStudio);
+  console.log("Bank Details being passed:", studioBankDetails);
+
   const uniqueInstructorTypes = [
     ...new Set(packages.map((p) => p.instructorType).filter(Boolean)),
   ];
@@ -192,8 +207,6 @@ const PackageSelectorView = ({ user }) => {
       if (sortOrder === "desc") return priceB - priceA;
       return 0;
     });
-
-  const selectedPackage = packages.find((p) => p._id === selectedPackageId);
 
   const toggleFilter = (state, setter, value) => {
     setter((prev) =>
@@ -297,43 +310,61 @@ const PackageSelectorView = ({ user }) => {
             <h3 className='text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2'>
               <Users className='w-4 h-4 text-gray-400' /> Instructor Level
             </h3>
-            <div className='space-y-2'>
-              {uniqueInstructorTypes.map((type) => (
-                <label
-                  key={type}
-                  className='flex items-center gap-3 cursor-pointer group py-1'>
-                  <div
-                    className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                      selectedInstructorTypes.includes(type)
-                        ? "bg-emerald-600 border-emerald-600"
-                        : "border-gray-300 bg-white group-hover:border-emerald-400"
+            <div className='space-y-1.5'>
+              {uniqueInstructorTypes.map((type) => {
+                const isSelected = selectedInstructorTypes.includes(type);
+
+                return (
+                  <label
+                    key={type}
+                    className={`flex items-center gap-3 cursor-pointer group p-2.5 rounded-xl transition-all duration-200 border ${
+                      isSelected
+                        ? "bg-emerald-50/80 border-emerald-200"
+                        : "bg-transparent border-transparent hover:bg-gray-50"
                     }`}>
-                    {selectedInstructorTypes.includes(type) && (
-                      <Check className='w-3.5 h-3.5 text-white' />
-                    )}
-                  </div>
-                  <input
-                    type='checkbox'
-                    className='hidden'
-                    checked={selectedInstructorTypes.includes(type)}
-                    onChange={() =>
-                      toggleFilter(
-                        selectedInstructorTypes,
-                        setSelectedInstructorTypes,
-                        type,
-                      )
-                    }
-                  />
-                  <span
-                    className={`text-sm ${
-                      selectedInstructorTypes.includes(type)
-                        ? "text-gray-900 font-medium"
-                        : "text-gray-600"
-                    }`}>
-                    {type}
-                  </span>
-                </label>
-              ))}
+                    {/* The Custom Checkbox Box */}
+                    <div
+                      className={`w-5 h-5 rounded-[6px] border flex items-center justify-center transition-all duration-200 shrink-0 ${
+                        isSelected
+                          ? "bg-emerald-600 border-emerald-600 shadow-sm shadow-emerald-600/20"
+                          : "border-gray-300 bg-white group-hover:border-emerald-400"
+                      }`}>
+                      {/* Animated Checkmark */}
+                      <Check
+                        className={`w-3.5 h-3.5 text-white transition-all duration-200 ${
+                          isSelected
+                            ? "scale-100 opacity-100"
+                            : "scale-50 opacity-0"
+                        }`}
+                        strokeWidth={3}
+                      />
+                    </div>
+
+                    <input
+                      type='checkbox'
+                      className='hidden'
+                      checked={isSelected}
+                      onChange={() =>
+                        toggleFilter(
+                          selectedInstructorTypes,
+                          setSelectedInstructorTypes,
+                          type,
+                        )
+                      }
+                    />
+
+                    {/* Text Label */}
+                    <span
+                      className={`text-sm transition-colors duration-200 select-none ${
+                        isSelected
+                          ? "text-emerald-950 font-bold"
+                          : "text-gray-600 group-hover:text-gray-900 font-medium"
+                      }`}>
+                      {type}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </div>
           <hr className='border-gray-100' />

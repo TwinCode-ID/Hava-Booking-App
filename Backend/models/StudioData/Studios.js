@@ -27,8 +27,15 @@ const studiosSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    bankDetails: [
+      {
+        accountHolderName: { type: String, default: null },
+        bankName: { type: String, default: null },
+        accountNumber: { type: String, default: null },
+      },
+    ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Studios", studiosSchema);

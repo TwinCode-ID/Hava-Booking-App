@@ -174,8 +174,11 @@ const ClientDashboard = () => {
 
   if (loading)
     return (
-      <div className='h-screen flex items-center justify-center bg-gray-50'>
+      <div className='h-screen flex flex-col items-center justify-center'>
         <LoadingSpinner />
+        <p className='text-gray-600 font-medium mt-4'>
+          Loading your dashboard, please wait...
+        </p>
       </div>
     );
 

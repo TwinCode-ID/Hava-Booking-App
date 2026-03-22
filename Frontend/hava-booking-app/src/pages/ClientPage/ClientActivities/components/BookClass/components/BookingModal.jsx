@@ -7,6 +7,9 @@ import {
   ShoppingBag,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  Edit2,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import axiosInstance from "../../../../../../utils/axiosInstance";
@@ -19,20 +22,12 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
 
   const [loading, setLoading] = useState(false);
   const [passes, setPasses] = useState([]);
-  const [selectedPassId, setSelectedPassId] = useState(null);
   const [fetchingPasses, setFetchingPasses] = useState(true);
   const [error, setError] = useState("");
   const [showMarketplace, setShowMarketplace] = useState(false);
 
-  // --- ANALYSIS: Check consistency of selected classes ---
-  const firstClass = classes[0];
-  const isUniformType = classes.every(
-    (c) => c.classType === firstClass.classType,
-  );
-  const isUniformInstructor = classes.every(
-    (c) => c.instructorType === firstClass.instructorType,
-  );
-  const totalCreditsNeeded = classes.length;
+  const [classPassMap, setClassPassMap] = useState({});
+  const [editingClassId, setEditingClassId] = useState(null);
 
   const fetchPasses = async () => {
     setFetchingPasses(true);
@@ -44,26 +39,47 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
         (ps) => ps.isActive && ps.remainingCredits > 0,
       );
       setPasses(activePasses);
-
-      // Auto-select best pass
-      const bestPass = activePasses.find((p) => {
-        // Pass must cover ALL selected classes
-        // Simplification: Check against the first class requirements
-        const validClass = p.classType.includes(firstClass.classType);
-        const validInstr = p.instructorType.includes(firstClass.instructorType);
-        const validStudio = p.issuingStudio._id === firstClass.studioId._id;
-        const enoughCredits = p.remainingCredits >= totalCreditsNeeded;
-
-        return validClass && validInstr && validStudio && enoughCredits;
-      });
-
-      if (bestPass) setSelectedPassId(bestPass._id);
+      autoAssignPasses(activePasses, classes);
     } catch (err) {
       console.error("Failed to fetch passes", err);
       setError("Could not load packages.");
     } finally {
       setFetchingPasses(false);
     }
+  };
+
+  // --- THE AUTO-ASSIGNMENT ALGORITHM ---
+  const autoAssignPasses = (availablePasses, cartClasses) => {
+    const newMap = {};
+    const virtualCredits = availablePasses.reduce((acc, p) => {
+      acc[p._id] = p.remainingCredits;
+      return acc;
+    }, {});
+
+    const sortedPasses = [...availablePasses].sort(
+      (a, b) => new Date(a.expiryDate) - new Date(b.expiryDate),
+    );
+
+    cartClasses.forEach((cls) => {
+      const validPass = sortedPasses.find((p) => {
+        const matchesClass = p.classType.includes(cls.classType);
+        const matchesInstructor = p.instructorType.includes(cls.instructorType);
+        const matchesStudio =
+          p.issuingStudio._id === (cls.studioId?._id || cls.studioId);
+        const hasCredits = virtualCredits[p._id] > 0;
+
+        return matchesClass && matchesInstructor && matchesStudio && hasCredits;
+      });
+
+      if (validPass) {
+        newMap[cls._id] = validPass._id;
+        virtualCredits[validPass._id] -= 1;
+      } else {
+        newMap[cls._id] = null;
+      }
+    });
+
+    setClassPassMap(newMap);
   };
 
   useEffect(() => {
@@ -76,32 +92,61 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
     return () => window.removeEventListener("credits-updated", handleUpdate);
   }, []);
 
+  // --- HELPER: Calculate how many credits a pass ACTUALLY has left right now ---
+  const getAvailableCreditsForClass = (passId, targetClassId) => {
+    const pass = passes.find((p) => p._id === passId);
+    if (!pass) return 0;
+
+    let usedCredits = 0;
+    Object.entries(classPassMap).forEach(([cId, pId]) => {
+      if (pId === passId && cId !== targetClassId) {
+        usedCredits += 1;
+      }
+    });
+
+    return pass.remainingCredits - usedCredits;
+  };
+
+  // --- HELPER: Get all eligible passes for a specific class dropdown ---
+  const getEligiblePassesForClass = (cls) => {
+    return passes.filter((p) => {
+      const matchesClass = p.classType.includes(cls.classType);
+      const matchesInstructor = p.instructorType.includes(cls.instructorType);
+      const matchesStudio =
+        p.issuingStudio._id === (cls.studioId?._id || cls.studioId);
+      return matchesClass && matchesInstructor && matchesStudio;
+    });
+  };
+
+  const handleManualPassChange = (classId, passId) => {
+    setClassPassMap((prev) => ({ ...prev, [classId]: passId }));
+    setEditingClassId(null);
+  };
+
   const handleBook = async () => {
-    if (!selectedPassId) return setError("Select a pass.");
+    if (Object.values(classPassMap).some((passId) => passId === null)) {
+      return setError("One or more classes are missing a valid pass.");
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      // --- FIX: Execute bookings SEQUENTIALLY ---
-      // We use a for...of loop instead of Promise.all to prevent database write conflicts
-      // (VersionError) when updating the same pass multiple times in milliseconds.
-
       for (const cls of classes) {
+        const assignedPassId = classPassMap[cls._id];
+
         try {
           await axiosInstance.post(API_PATHS.BOOKING.CREATE_BOOKING, {
             classId: cls._id,
-            passId: selectedPassId,
+            passId: assignedPassId,
           });
         } catch (err) {
-          // If a specific booking fails (e.g. class full), stop and alert
           console.error(`Booking failed for ${cls.className}`, err);
           throw new Error(
             `Failed to book ${cls.className}: ${err.response?.data?.error || "Unknown error"}`,
           );
         }
       }
-
-      // If loop finishes, all good
       onConfirm();
     } catch (err) {
       console.error(err);
@@ -113,20 +158,19 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
     }
   };
 
-  // Filter valid passes that have enough credits
-  const validPasses = passes.filter((p) => {
-    return (
-      p.classType.includes(firstClass.classType) &&
-      p.instructorType.includes(firstClass.instructorType)
-    );
-  });
+  const isCartFullyCovered = Object.values(classPassMap).every(
+    (val) => val !== null,
+  );
+  const classesMissingPasses = Object.values(classPassMap).filter(
+    (val) => val === null,
+  ).length;
 
   return (
     <>
       <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200'>
-        <div className='bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
+        <div className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
           {/* Header */}
-          <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50'>
+          <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0'>
             <div>
               <h2 className='text-xl font-bold text-gray-900'>
                 Confirm Booking
@@ -143,128 +187,230 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
             </button>
           </div>
 
-          <div className='p-6 overflow-y-auto flex-1'>
-            {/* List of Classes */}
-            <div className='bg-gray-50 rounded-xl p-4 mb-6 border border-gray-100 max-h-48 overflow-y-auto'>
-              <div className='space-y-3'>
-                {classes.map((c, i) => (
-                  <div
-                    key={i}
-                    className='flex justify-between items-start text-sm'>
-                    <div>
-                      <p className='font-bold text-gray-800'>{c.className}</p>
-                      <p className='text-xs text-gray-500'>
-                        {format(new Date(c.startTime), "EEE, d MMM • h:mm a")}
-                      </p>
-                    </div>
-                    <span className='text-[10px] bg-white border border-gray-200 px-2 py-1 rounded text-gray-500 font-medium'>
-                      {c.classType}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Warning if Mixed Types */}
-            {(!isUniformType || !isUniformInstructor) && (
-              <div className='mb-6 bg-amber-50 p-3 rounded-xl border border-amber-100 flex gap-3'>
-                <AlertTriangle className='w-5 h-5 text-amber-600 shrink-0' />
-                <p className='text-xs text-amber-800 leading-relaxed'>
-                  You selected mixed class types. Ensure your pass covers{" "}
-                  <strong>all</strong> of them, or book separately.
+          <div className='p-6 overflow-y-auto flex-1 custom-scrollbar'>
+            {fetchingPasses ? (
+              <div className='text-center py-10 flex flex-col items-center'>
+                <div className='w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3'></div>
+                <p className='text-sm text-gray-500 font-medium'>
+                  Calculating passes...
                 </p>
               </div>
-            )}
+            ) : (
+              <div className='space-y-6'>
+                {classes.map((cls) => {
+                  const assignedPassId = classPassMap[cls._id];
+                  const assignedPass = passes.find(
+                    (p) => p._id === assignedPassId,
+                  );
+                  const isEditing = editingClassId === cls._id;
+                  const eligiblePasses = getEligiblePassesForClass(cls);
 
-            {/* Pass Selection */}
-            <div className='mb-6'>
-              <h3 className='text-sm font-bold text-gray-900 mb-3 flex items-center gap-2'>
-                <Ticket className='w-4 h-4 text-emerald-600' /> Select Package
-              </h3>
-
-              {fetchingPasses ? (
-                <div className='text-center py-4 text-xs text-gray-400'>
-                  Loading...
-                </div>
-              ) : validPasses.length > 0 ? (
-                <div className='space-y-2'>
-                  {validPasses.map((pass) => {
-                    const hasEnough =
-                      pass.remainingCredits >= totalCreditsNeeded;
-                    return (
-                      <label
-                        key={pass._id}
-                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${selectedPassId === pass._id ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/20" : hasEnough ? "border-gray-200 hover:bg-gray-50" : "border-gray-100 bg-gray-50 opacity-60"}`}>
-                        <div className='flex items-center gap-3'>
-                          <input
-                            type='radio'
-                            name='passSelect'
-                            className='accent-emerald-600 w-4 h-4'
-                            checked={selectedPassId === pass._id}
-                            onChange={() =>
-                              hasEnough && setSelectedPassId(pass._id)
-                            }
-                            disabled={!hasEnough}
-                          />
+                  return (
+                    <div
+                      key={cls._id}
+                      className={`rounded-2xl border transition-all ${assignedPass ? "border-gray-200" : "border-red-200 bg-red-50/30"}`}>
+                      {/* Class Info Header */}
+                      <div className='p-4 border-b border-gray-100/50 bg-gray-50/50 rounded-t-2xl'>
+                        <div className='flex justify-between items-start'>
                           <div>
-                            <p className='text-sm font-bold text-gray-900'>
-                              {pass.packageId?.packageName}
-                            </p>
-                            <p className='text-xs text-gray-500'>
-                              {pass.remainingCredits} Credits Available
-                            </p>
+                            <h3 className='font-bold text-gray-900'>
+                              {cls.className}
+                            </h3>
+                            <div className='flex items-center gap-2 mt-1 text-xs text-gray-500'>
+                              <Clock className='w-3.5 h-3.5' />
+                              {format(
+                                new Date(cls.startTime),
+                                "EEE, d MMM • h:mm a",
+                              )}
+                            </div>
+                          </div>
+                          <div className='flex flex-col items-end gap-1'>
+                            <span className='text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-gray-200 text-gray-600 uppercase tracking-wider'>
+                              {cls.classType}
+                            </span>
+                            <span className='text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 uppercase tracking-wider'>
+                              {cls.instructorType}
+                            </span>
                           </div>
                         </div>
-                        {!hasEnough && (
-                          <span className='text-[10px] text-red-500 font-bold'>
-                            Need {totalCreditsNeeded}
-                          </span>
+                      </div>
+
+                      {/* Pass Assignment Section */}
+                      <div className='p-4'>
+                        {/* 1. Show Assigned Pass */}
+                        {!isEditing && assignedPass && (
+                          <div className='flex items-center justify-between bg-emerald-50 border border-emerald-100 p-3 rounded-xl'>
+                            <div className='flex items-center gap-3'>
+                              <div className='bg-emerald-600 text-white p-1.5 rounded-lg'>
+                                <Ticket className='w-4 h-4' />
+                              </div>
+                              <div>
+                                <p className='text-sm font-bold text-emerald-900'>
+                                  {assignedPass.packageId?.packageName}
+                                </p>
+                                <p className='text-xs text-emerald-700 mt-0.5'>
+                                  Exp:{" "}
+                                  {format(
+                                    new Date(assignedPass.expiryDate),
+                                    "dd MMM yyyy",
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setEditingClassId(cls._id)}
+                              className='text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 bg-white px-2 py-1 rounded border border-emerald-200'>
+                              <Edit2 className='w-3 h-3' /> Change
+                            </button>
+                          </div>
                         )}
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className='p-4 bg-red-50 border border-red-100 rounded-xl text-center'>
-                  <p className='text-sm text-red-600 font-bold'>
-                    No suitable packages
-                  </p>
-                  <p className='text-xs text-red-500 mt-1'>
-                    You need a package with at least{" "}
-                    <strong>{totalCreditsNeeded} credits</strong>.
-                  </p>
-                </div>
-              )}
-            </div>
+
+                        {/* 2. Show "No Pass" Warning */}
+                        {!isEditing && !assignedPass && (
+                          <div className='flex items-center justify-between bg-red-50 border border-red-100 p-3 rounded-xl'>
+                            <div className='flex items-center gap-3 text-red-700'>
+                              <AlertCircle className='w-5 h-5' />
+                              <p className='text-sm font-bold'>
+                                No valid pass available
+                              </p>
+                            </div>
+                            {eligiblePasses.length > 0 && (
+                              <button
+                                onClick={() => setEditingClassId(cls._id)}
+                                className='text-xs font-bold text-red-600 underline'>
+                                View Options
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 3. Editing Mode (Dropdown List) */}
+                        {isEditing && (
+                          <div className='space-y-2 animate-in slide-in-from-top-2'>
+                            <div className='flex items-center justify-between mb-2'>
+                              <p className='text-xs font-bold text-gray-500 uppercase tracking-wider'>
+                                Select Pass for this class
+                              </p>
+                              <button
+                                onClick={() => setEditingClassId(null)}
+                                className='text-xs text-gray-400 hover:text-gray-600'>
+                                Cancel
+                              </button>
+                            </div>
+
+                            {eligiblePasses.map((pass) => {
+                              const availableCredits =
+                                getAvailableCreditsForClass(pass._id, cls._id);
+                              const isSelectable =
+                                availableCredits > 0 ||
+                                assignedPassId === pass._id;
+
+                              return (
+                                <label
+                                  key={pass._id}
+                                  className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${assignedPassId === pass._id ? "border-emerald-500 bg-emerald-50" : isSelectable ? "border-gray-200 hover:bg-gray-50" : "border-gray-100 bg-gray-50 opacity-50"}`}>
+                                  <div className='flex items-center gap-3'>
+                                    <input
+                                      type='radio'
+                                      name={`pass-${cls._id}`}
+                                      className='accent-emerald-600 w-4 h-4'
+                                      checked={assignedPassId === pass._id}
+                                      onChange={() =>
+                                        isSelectable &&
+                                        handleManualPassChange(
+                                          cls._id,
+                                          pass._id,
+                                        )
+                                      }
+                                      disabled={!isSelectable}
+                                    />
+                                    <div>
+                                      <p className='text-sm font-bold text-gray-900'>
+                                        {pass.packageId?.packageName}
+                                      </p>
+                                      <p className='text-xs text-gray-500'>
+                                        Exp:{" "}
+                                        {format(
+                                          new Date(pass.expiryDate),
+                                          "dd MMM yyyy",
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className='text-right'>
+                                    <p
+                                      className={`text-sm font-bold ${availableCredits > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                      {availableCredits}
+                                    </p>
+                                    <p className='text-[10px] text-gray-400 uppercase tracking-wider'>
+                                      Left
+                                    </p>
+                                  </div>
+                                </label>
+                              );
+                            })}
+
+                            {eligiblePasses.length === 0 && (
+                              <p className='text-sm text-gray-500 italic p-2 text-center'>
+                                You have no packages that meet the requirements
+                                for this class.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {error && (
-              <p className='text-red-600 text-sm mb-4 text-center bg-red-50 p-2 rounded-lg'>
-                {error}
-              </p>
+              <div className='mt-6 bg-red-50 border border-red-100 p-3 rounded-xl flex items-start gap-2 text-red-600 text-sm'>
+                <AlertTriangle className='w-5 h-5 shrink-0 mt-0.5' />
+                <p>{error}</p>
+              </div>
             )}
+          </div>
 
-            {validPasses.some(
-              (p) => p.remainingCredits >= totalCreditsNeeded,
-            ) ? (
-              <button
-                onClick={handleBook}
-                disabled={loading}
-                className='w-full py-3.5 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 disabled:opacity-50 shadow-lg'>
-                {loading
-                  ? "Processing..."
-                  : `Confirm Booking (${totalCreditsNeeded} Credits)`}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowMarketplace(true)}
-                className='w-full py-3.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-500 shadow-lg flex items-center justify-center gap-2'>
-                <ShoppingBag className='w-4 h-4' /> Buy Credits
-              </button>
-            )}
+          {/* Footer Actions */}
+          <div className='p-6 border-t border-gray-100 bg-white shrink-0'>
+            {!fetchingPasses &&
+              (isCartFullyCovered ? (
+                <button
+                  onClick={handleBook}
+                  disabled={loading}
+                  className='w-full py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-emerald-600 disabled:opacity-50 shadow-lg transition-colors flex items-center justify-center gap-2'>
+                  {loading ? (
+                    <>
+                      <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>{" "}
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Confirm Booking ({classes.length}{" "}
+                      {classes.length > 1 ? "Credits" : "Credit"})
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className='space-y-3'>
+                  <p className='text-sm text-red-600 font-medium text-center'>
+                    You are short on credits for {classesMissingPasses}{" "}
+                    {classesMissingPasses > 1 ? "classes" : "class"}.
+                  </p>
+                  <button
+                    onClick={() => setShowMarketplace(true)}
+                    className='w-full py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 shadow-lg flex items-center justify-center gap-2'>
+                    <ShoppingBag className='w-5 h-5' /> Buy More Credits
+                  </button>
+                </div>
+              ))}
           </div>
         </div>
       </div>
 
+      {/* Marketplace Modal */}
       {showMarketplace && (
         <MarketplaceModal
           user={user}
@@ -273,9 +419,15 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
             setShowMarketplace(false);
             fetchPasses();
           }}
-          requiredInstructorType={firstClass.instructorType}
-          requiredClassType={firstClass.classType}
-          requiredStudioId={firstClass.studioId._id}
+          requiredInstructorType={
+            classes.find((c) => classPassMap[c._id] === null)?.instructorType
+          }
+          requiredClassType={
+            classes.find((c) => classPassMap[c._id] === null)?.classType
+          }
+          requiredStudioId={
+            classes.find((c) => classPassMap[c._id] === null)?.studioId?._id
+          }
         />
       )}
     </>

@@ -132,6 +132,7 @@ const DashboardLayout = () => {
             );
           })}
         </nav>
+
         {/* Logout */}
         <div className='p-4 border-t border-emerald-800/50 shrink-0'>
           <button

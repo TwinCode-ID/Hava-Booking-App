@@ -25,6 +25,8 @@ import ManageClient from "./pages/ClientPage/ClientActivities/ManageClient";
 import BookTheClass from "./pages/ClientPage/ClientActivities/components/BookClass/components/BookTheClass";
 import ManageBooking from "./pages/ClientPage/ClientActivities/components/ManageBooking/ManageBooking";
 import GlobalSocketListener from "./components/GlobalSocketListener";
+import AdminInbox from "./pages/StudioAdminPage/StudioActivities/components/Messaging/AdminInbox";
+import ClientInbox from "./pages/ClientPage/ClientActivities/components/Messaging/ClientInbox";
 
 const App = () => {
   return (
@@ -45,6 +47,7 @@ const App = () => {
               <Route path='/client-dashboard' element={<ClientDashboard />} />
               <Route path='/book-the-class' element={<BookTheClass />} />
               <Route path='/client-activities' element={<ManageClient />} />
+              <Route path='/client-inbox' element={<ClientInbox />} />
               <Route
                 path='/client-account-settings'
                 element={<ClientAccountSettings />}
@@ -66,6 +69,7 @@ const App = () => {
               />
               <Route path='/studio-activities' element={<StudioActivities />} />
               <Route path='/studio-settings' element={<StudioSettings />} />
+              <Route path='/admin-inbox' element={<AdminInbox />} />
             </Route>
           </Route>
           {/*Catch All Routes */}

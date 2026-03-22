@@ -21,9 +21,11 @@ import {
   User,
   Calendar as CalendarIcon,
   ArrowLeft,
-  CheckSquare,
-  Square,
-  Layers,
+  Building2,
+  ShoppingCart,
+  Plus,
+  Check,
+  Phone,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
@@ -33,32 +35,40 @@ import BookingModal from "./BookingModal";
 const BookTheClass = () => {
   const navigate = useNavigate();
 
-  // --- States ---
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // --- Data States ---
+  const [studios, setStudios] = useState([]);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Multi-Select State
-  const [selectedClasses, setSelectedClasses] = useState([]); // Array of class objects
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  // --- Flow States ---
+  const [selectedStudio, setSelectedStudio] = useState(null); // Step 1: Pick Studio
+  const [selectedDate, setSelectedDate] = useState(new Date()); // Step 2: Pick Date
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // --- Cart State ---
+  const [cart, setCart] = useState([]); // Replaces the old selection logic
   const [showBookingModal, setShowBookingModal] = useState(false);
 
-  // --- Fetch Classes ---
+  // --- Fetch Data ---
   useEffect(() => {
-    const fetchClasses = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axiosInstance.get(API_PATHS.SCHEDULE.GET_ALL);
-        setClasses(response.data);
+        // Fetch both studios and schedule simultaneously
+        const [studiosRes, classesRes] = await Promise.all([
+          axiosInstance.get(API_PATHS.STUDIOS.GET_ALL),
+          axiosInstance.get(API_PATHS.SCHEDULE.GET_ALL),
+        ]);
+        setStudios(studiosRes.data);
+        setClasses(classesRes.data);
       } catch (error) {
-        console.error("Failed to fetch schedule", error);
+        console.error("Failed to fetch data", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchClasses();
-  }, [currentMonth]);
+    fetchData();
+  }, [currentMonth]); // Kept currentMonth dependency in case your API fetches per month
 
   // --- Calendar Logic ---
   const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
@@ -73,54 +83,184 @@ const BookTheClass = () => {
   const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 
   // --- Filtering Logic ---
+  // Only show classes for the selected studio AND selected date
   const dailyClasses = classes.filter(
-    (c) => isSameDay(new Date(c.startTime), selectedDate) && c.isActive,
+    (c) =>
+      selectedStudio &&
+      c.studioId?._id === selectedStudio._id &&
+      isSameDay(new Date(c.startTime), selectedDate) &&
+      c.isActive,
   );
 
   const formatTime = (isoString) => format(new Date(isoString), "h:mm a");
 
-  // --- Selection Handlers ---
-  const toggleClassSelection = (cls) => {
-    if (selectedClasses.some((c) => c._id === cls._id)) {
-      setSelectedClasses(selectedClasses.filter((c) => c._id !== cls._id));
+  // --- Cart Handlers ---
+  const toggleCart = (cls) => {
+    if (cart.some((c) => c._id === cls._id)) {
+      setCart(cart.filter((c) => c._id !== cls._id)); // Remove from cart
     } else {
-      setSelectedClasses([...selectedClasses, cls]);
+      setCart([...cart, cls]); // Add to cart
     }
   };
 
-  const handleBookSingle = (cls) => {
-    setSelectedClasses([cls]);
-    setShowBookingModal(true);
-  };
+  // ==========================================================================
+  // VIEW 1: STUDIO SELECTION
+  // ==========================================================================
+  if (!selectedStudio) {
+    return (
+      <div className='min-h-screen bg-gray-50 font-sans p-6 md:p-10'>
+        <div className='max-w-6xl mx-auto'>
+          <div className='flex items-center gap-4 mb-8'>
+            <button
+              onClick={() => navigate(-1)}
+              className='p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors shadow-sm'>
+              <ArrowLeft className='w-5 h-5' />
+            </button>
+            <div>
+              <h1 className='text-3xl font-bold text-gray-900 tracking-tight'>
+                Select a Studio
+              </h1>
+              <p className='text-gray-500 mt-1'>
+                Where would you like to practice today?
+              </p>
+            </div>
+          </div>
 
+          {loading ? (
+            <div className='h-64 flex items-center justify-center'>
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
+              {studios.map((studio) => {
+                // Handle nested arrays from your API structure safely
+                const firstImage = studio.studioPictures?.[0]?.[0] || null;
+                const facilityList = studio.facilities?.[0] || [];
+
+                return (
+                  <div
+                    key={studio._id}
+                    onClick={() => setSelectedStudio(studio)}
+                    className='bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group'>
+                    {/* Header Image */}
+                    <div className='relative h-56 w-full bg-gray-100 overflow-hidden'>
+                      {firstImage ? (
+                        <img
+                          src={firstImage}
+                          alt={studio.studioName}
+                          className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
+                        />
+                      ) : (
+                        <div className='w-full h-full flex flex-col items-center justify-center text-gray-400 bg-emerald-50/50'>
+                          <Building2 className='w-12 h-12 mb-2 text-emerald-600/50' />
+                        </div>
+                      )}
+
+                      {/* Gradient Overlay for Text Readability */}
+                      <div className='absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent'></div>
+
+                      {/* Title over Image */}
+                      <div className='absolute bottom-5 left-5 right-5 text-white'>
+                        <h3 className='text-xl font-bold leading-tight shadow-sm'>
+                          {studio.studioName}
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* Content Body */}
+                    <div className='p-6 flex-1 flex flex-col'>
+                      {/* Location Details */}
+                      <div className='flex items-start gap-3 text-sm text-gray-600 mb-6'>
+                        <div className='p-2 bg-emerald-50 rounded-lg text-emerald-600 shrink-0 mt-0.5'>
+                          <MapPin className='w-4 h-4' />
+                        </div>
+                        <p className='leading-relaxed'>
+                          {studio.address?.street ? (
+                            <>
+                              <span className='block font-medium text-gray-900'>
+                                {studio.address.city}
+                              </span>
+                              <span className='text-gray-500 text-xs mt-0.5 block'>
+                                {studio.address.street}
+                              </span>
+                            </>
+                          ) : (
+                            "Location not provided"
+                          )}
+                        </p>
+                      </div>
+                      {/* Contact Details (Only shows if contactNumber exists) */}
+                      {studio.contactNumber && (
+                        <div className='flex items-center gap-3 text-sm text-gray-600 mb-6'>
+                          <div className='p-2 bg-emerald-50 rounded-lg text-emerald-600 shrink-0'>
+                            <Phone className='w-4 h-4' />
+                          </div>
+                          <a
+                            href={`tel:+${studio.contactNumber}`}
+                            onClick={(e) => e.stopPropagation()} // Prevents the card from clicking when they tap the phone number
+                            className='font-bold text-gray-900 hover:text-emerald-600 transition-colors'>
+                            +{studio.contactNumber}
+                          </a>
+                        </div>
+                      )}
+                      {/* Amenities / Facilities */}
+                      {facilityList.length > 0 && (
+                        <div className='mt-auto pt-4 border-t border-gray-100'>
+                          <p className='text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3'>
+                            Studio Amenities
+                          </p>
+                          <div className='flex flex-wrap gap-2'>
+                            {facilityList.slice(0, 4).map((facility, idx) => (
+                              <span
+                                key={idx}
+                                className='bg-gray-50 text-gray-600 border border-gray-200 text-xs font-medium px-2.5 py-1 rounded-lg'>
+                                {facility}
+                              </span>
+                            ))}
+                            {facilityList.length > 4 && (
+                              <span className='bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold px-2.5 py-1 rounded-lg'>
+                                +{facilityList.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // VIEW 2: CLASS SCHEDULE & CALENDAR
+  // ==========================================================================
   return (
-    <div className='min-h-screen bg-gray-50 font-sans p-6 md:p-10 pb-24'>
+    <div className='min-h-screen bg-gray-50 font-sans p-6 md:p-10 pb-32 relative'>
       <div className='max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 items-start'>
-        {/* --- MAIN CONTENT (Class List) --- */}
+        {/* --- LEFT: MAIN CONTENT (Class List) --- */}
         <div className='flex-1 w-full min-w-0'>
           {/* Header */}
-          <div className='flex items-center justify-between mb-6'>
+          <div className='flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4'>
             <div className='flex items-center gap-4'>
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => setSelectedStudio(null)} // Go back to studio list
                 className='p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors shadow-sm'>
                 <ArrowLeft className='w-5 h-5' />
               </button>
-              <h1 className='text-2xl font-bold text-gray-900'>
-                Available Classes
-              </h1>
+              <div>
+                <h1 className='text-2xl font-bold text-gray-900'>
+                  {selectedStudio.studioName}
+                </h1>
+                <p className='text-sm text-gray-500 font-medium'>
+                  {format(selectedDate, "EEEE, MMMM do, yyyy")}
+                </p>
+              </div>
             </div>
-
-            {/* Multi-Select Toggle */}
-            <button
-              onClick={() => {
-                setIsSelectionMode(!isSelectionMode);
-                setSelectedClasses([]);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${isSelectionMode ? "bg-emerald-100 text-emerald-800" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-              <Layers className='w-4 h-4' />
-              {isSelectionMode ? "Cancel Selection" : "Select Multiple"}
-            </button>
           </div>
 
           {loading ? (
@@ -133,34 +273,15 @@ const BookTheClass = () => {
                 dailyClasses.map((cls) => {
                   const isExpired = new Date(cls.startTime) < new Date();
                   const isFull = cls.currentEnrollment >= cls.capacity;
-                  const isSelected = selectedClasses.some(
-                    (c) => c._id === cls._id,
-                  );
+                  const inCart = cart.some((c) => c._id === cls._id);
 
                   return (
                     <div
                       key={cls._id}
-                      onClick={() => {
-                        if (isSelectionMode && !isExpired && !isFull) {
-                          toggleClassSelection(cls);
-                        }
-                      }}
-                      className={`bg-white rounded-2xl p-5 border shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center gap-6 group relative overflow-hidden
-                        ${isExpired ? "border-gray-100 opacity-60 grayscale-[0.5] cursor-not-allowed" : "border-gray-100 hover:border-emerald-200"}
-                        ${isSelected ? "ring-2 ring-emerald-500 bg-emerald-50/30" : ""}
-                        ${isSelectionMode && !isExpired && !isFull ? "cursor-pointer" : ""}
+                      className={`bg-white rounded-2xl p-5 border shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center gap-6
+                        ${isExpired ? "border-gray-100 opacity-60 grayscale-[0.5]" : "border-gray-100 hover:shadow-md"}
+                        ${inCart ? "ring-2 ring-emerald-500 bg-emerald-50/20" : ""}
                       `}>
-                      {/* Selection Checkbox (Visible in Mode) */}
-                      {isSelectionMode && !isExpired && !isFull && (
-                        <div className='absolute top-4 right-4 md:static md:order-first'>
-                          {isSelected ? (
-                            <CheckSquare className='w-6 h-6 text-emerald-600 fill-emerald-100' />
-                          ) : (
-                            <Square className='w-6 h-6 text-gray-300' />
-                          )}
-                        </div>
-                      )}
-
                       {/* Time Column */}
                       <div
                         className={`flex flex-col items-center justify-center rounded-2xl p-4 min-w-[90px] h-full border transition-colors ${isExpired ? "bg-gray-100 border-gray-200 text-gray-400" : "bg-gray-50 border-gray-100 text-gray-900"}`}>
@@ -187,42 +308,55 @@ const BookTheClass = () => {
                           className={`text-lg font-bold mb-1 ${isExpired ? "text-gray-500" : "text-gray-900"}`}>
                           {cls.className}
                         </h3>
-                        <div className='flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500 mt-2'>
-                          <div className='flex items-center gap-1.5'>
-                            <MapPin className='w-4 h-4 text-gray-400' />
-                            {cls.studioId?.studioName || "Unknown Studio"}
-                          </div>
-                          <div className='flex items-center gap-1.5'>
-                            <User className='w-4 h-4 text-gray-400' />
-                            {cls.instructorId?.fullName || "Instructor"}
-                          </div>
+                        <div className='flex items-center gap-1.5 text-sm text-gray-500 mt-2'>
+                          <User className='w-4 h-4 text-gray-400' />
+                          {cls.instructorId?.fullName || "Instructor"}
                         </div>
                       </div>
 
-                      {/* Action Column (Hidden in Selection Mode unless Single) */}
-                      {!isSelectionMode && (
-                        <div className='flex flex-col items-end gap-3 min-w-[140px] w-full md:w-auto mt-4 md:mt-0'>
-                          <div className='flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg'>
-                            <Users className='w-3.5 h-3.5' />
-                            <span>
-                              {cls.capacity - cls.currentEnrollment} spots left
-                            </span>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              !isExpired && handleBookSingle(cls);
-                            }}
-                            disabled={isFull || isExpired}
-                            className={`w-full py-3 px-6 font-bold rounded-xl transition-all text-sm ${isExpired ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-emerald-900 text-white hover:bg-emerald-800 shadow-lg shadow-emerald-900/10 active:scale-95"} disabled:opacity-70 disabled:cursor-not-allowed`}>
-                            {isExpired
-                              ? "Closed"
-                              : isFull
-                                ? "Waitlist"
-                                : "Book Class"}
-                          </button>
+                      {/* Action Column (Cart Toggle) */}
+                      <div className='flex flex-col items-end gap-3 min-w-[140px] w-full md:w-auto mt-4 md:mt-0'>
+                        <div className='flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg'>
+                          <Users className='w-3.5 h-3.5' />
+                          <span>
+                            {cls.capacity - cls.currentEnrollment} spots left
+                          </span>
                         </div>
-                      )}
+
+                        <button
+                          onClick={() =>
+                            !isExpired && !isFull && toggleCart(cls)
+                          }
+                          disabled={isFull || isExpired}
+                          className={`w-full py-3 px-4 font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2 
+                            ${
+                              isExpired
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : isFull
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : inCart
+                                    ? "bg-emerald-100 text-emerald-800 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-emerald-200 group"
+                                    : "bg-gray-900 text-white hover:bg-emerald-600 shadow-md active:scale-95"
+                            }`}>
+                          {isExpired ? (
+                            "Closed"
+                          ) : isFull ? (
+                            "Waitlist"
+                          ) : inCart ? (
+                            <>
+                              <Check className='w-4 h-4 group-hover:hidden' />
+                              <span className='group-hover:hidden'>Added</span>
+                              <span className='hidden group-hover:block'>
+                                Remove
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className='w-4 h-4' /> Add to Cart
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   );
                 })
@@ -235,8 +369,8 @@ const BookTheClass = () => {
                     No classes scheduled
                   </h3>
                   <p className='text-gray-500 text-sm mt-2 max-w-xs text-center leading-relaxed'>
-                    There are no classes available for{" "}
-                    {format(selectedDate, "MMMM do")}.
+                    No classes available on {format(selectedDate, "MMMM do")} at
+                    this studio.
                   </p>
                 </div>
               )}
@@ -245,9 +379,8 @@ const BookTheClass = () => {
         </div>
 
         {/* --- RIGHT SIDEBAR (Calendar) --- */}
-        <aside className='w-full lg:w-[380px] shrink-0 space-y-6 sticky top-6'>
+        <aside className='w-full lg:w-[380px] shrink-0 space-y-6 lg:sticky lg:top-6'>
           <div className='bg-white rounded-3xl p-6 shadow-sm border border-gray-100'>
-            {/* ... Calendar Header & Grid (Same as before) ... */}
             <div className='flex items-center justify-between mb-6'>
               <button
                 onClick={handlePrevMonth}
@@ -292,23 +425,32 @@ const BookTheClass = () => {
         </aside>
       </div>
 
-      {/* --- FLOATING ACTION BAR (For Multi-Booking) --- */}
-      {isSelectionMode && selectedClasses.length > 0 && (
-        <div className='fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-40 animate-in slide-in-from-bottom-4 duration-300'>
-          <div className='bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between'>
-            <div className='flex items-center gap-3'>
-              <div className='bg-emerald-800 w-10 h-10 rounded-full flex items-center justify-center font-bold text-emerald-100'>
-                {selectedClasses.length}
+      {/* --- FLOATING CART ACTION BAR --- */}
+      {cart.length > 0 && (
+        <div className='fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-40 animate-in slide-in-from-bottom-6 duration-300'>
+          <div className='bg-gray-900 text-white p-4 rounded-2xl shadow-2xl shadow-gray-900/30 flex items-center justify-between border border-gray-800'>
+            <div className='flex items-center gap-4'>
+              <div className='relative'>
+                <div className='bg-emerald-500 w-12 h-12 rounded-xl flex items-center justify-center text-white'>
+                  <ShoppingCart className='w-5 h-5' />
+                </div>
+                <div className='absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm'>
+                  {cart.length}
+                </div>
               </div>
               <div>
-                <p className='font-bold text-sm'>Classes Selected</p>
-                <p className='text-xs text-emerald-300'>Tap to review</p>
+                <p className='font-bold text-sm'>Ready to Checkout?</p>
+                <p className='text-xs text-gray-400'>
+                  {cart.length} {cart.length === 1 ? "class" : "classes"}{" "}
+                  selected
+                </p>
               </div>
             </div>
+
             <button
               onClick={() => setShowBookingModal(true)}
-              className='bg-white text-emerald-900 px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-50 transition-colors shadow-lg'>
-              Book All
+              className='bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-3 rounded-xl font-bold text-sm transition-colors shadow-lg active:scale-95'>
+              Review & Book
             </button>
           </div>
         </div>
@@ -317,18 +459,12 @@ const BookTheClass = () => {
       {/* Booking Confirmation Modal */}
       {showBookingModal && (
         <BookingModal
-          classes={selectedClasses} // Pass Array
-          onClose={() => {
-            setShowBookingModal(false);
-            // Only clear selection if we were in single mode, keep valid for multi if user cancels modal
-            if (!isSelectionMode) setSelectedClasses([]);
-          }}
+          classes={cart}
+          onClose={() => setShowBookingModal(false)}
           onConfirm={() => {
             setShowBookingModal(false);
-            setSelectedClasses([]);
-            setIsSelectionMode(false);
+            setCart([]);
             alert("Booking Successful!");
-            // Trigger refresh logic here if needed
           }}
         />
       )}

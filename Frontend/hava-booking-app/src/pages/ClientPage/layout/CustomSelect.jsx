@@ -29,7 +29,7 @@ const CustomSelect = ({
   return (
     <div className='relative' ref={containerRef}>
       {/* Label */}
-      <label className='block text-sm font-medium text-gray-700 mb-1'>
+      <label className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-2'>
         {label}
       </label>
 

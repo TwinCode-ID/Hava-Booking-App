@@ -236,31 +236,27 @@ const ManageInstructors = ({ isEmbedded = false }) => {
 
       {/* Grid */}
       <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20'>
-        <AnimatePresence>
-          {filteredInstructors.map((inst) => (
-            <InstructorCard
-              key={inst._id}
-              instructor={inst}
-              isMenuOpen={actionMenuOpen === inst._id}
-              onToggleMenu={(e) => {
-                e.stopPropagation();
-                setActionMenuOpen(
-                  actionMenuOpen === inst._id ? null : inst._id,
-                );
-              }}
-              onEdit={() => {
-                setEditingInstructor(inst);
-                setIsFormOpen(true);
-                setActionMenuOpen(null);
-              }}
-              onDelete={() => {
-                setDeleteId(inst._id);
-                setActionMenuOpen(null);
-              }}
-              onToggleStatus={() => handleToggleStatus(inst)}
-            />
-          ))}
-        </AnimatePresence>
+        {filteredInstructors.map((inst) => (
+          <InstructorCard
+            key={inst._id}
+            instructor={inst}
+            isMenuOpen={actionMenuOpen === inst._id}
+            onToggleMenu={(e) => {
+              e.stopPropagation();
+              setActionMenuOpen(actionMenuOpen === inst._id ? null : inst._id);
+            }}
+            onEdit={() => {
+              setEditingInstructor(inst);
+              setIsFormOpen(true);
+              setActionMenuOpen(null);
+            }}
+            onDelete={() => {
+              setDeleteId(inst._id);
+              setActionMenuOpen(null);
+            }}
+            onToggleStatus={() => handleToggleStatus(inst)}
+          />
+        ))}
       </div>
 
       {/* --- Modals --- */}
@@ -373,7 +369,7 @@ const InstructorCard = React.memo(
       .length;
 
     return (
-      <motion.div
+      <div
         layout
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -455,7 +451,7 @@ const InstructorCard = React.memo(
             View Details
           </button>
         </div>
-      </motion.div>
+      </div>
     );
   },
 );

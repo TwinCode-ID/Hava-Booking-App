@@ -227,34 +227,32 @@ const AdminPackages = ({ isEmbedded = false }) => {
 
       {/* Packages Grid */}
       <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20'>
-        <AnimatePresence>
-          {filteredPackages.length > 0 ? (
-            filteredPackages.map((pkg) => (
-              <AdminPackageCard
-                key={pkg._id}
-                pkg={pkg}
-                onEdit={() => {
-                  setEditingPackage(pkg);
-                  setIsFormOpen(true);
-                  setIsEditing(true);
-                }}
-                onDelete={() => setDeleteId(pkg._id)}
-                isActive={() => {
-                  setToggleId(pkg._id);
-                  setPackageStatus(pkg.isActive);
-                }}
-              />
-            ))
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className='col-span-full py-20 text-center text-gray-400 bg-white rounded-2xl border border-dashed border-gray-300'>
-              <Package className='w-10 h-10 mx-auto mb-3 opacity-20' />
-              <p>No packages found.</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {filteredPackages.length > 0 ? (
+          filteredPackages.map((pkg) => (
+            <AdminPackageCard
+              key={pkg._id}
+              pkg={pkg}
+              onEdit={() => {
+                setEditingPackage(pkg);
+                setIsFormOpen(true);
+                setIsEditing(true);
+              }}
+              onDelete={() => setDeleteId(pkg._id)}
+              isActive={() => {
+                setToggleId(pkg._id);
+                setPackageStatus(pkg.isActive);
+              }}
+            />
+          ))
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className='col-span-full py-20 text-center text-gray-400 bg-white rounded-2xl border border-dashed border-gray-300'>
+            <Package className='w-10 h-10 mx-auto mb-3 opacity-20' />
+            <p>No packages found.</p>
+          </motion.div>
+        )}
       </div>
 
       {/* Modals */}
@@ -314,7 +312,7 @@ const AdminPackages = ({ isEmbedded = false }) => {
 
 // --- UPDATED Package Card to show Multiple Badges ---
 const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
-  <motion.div
+  <div
     layout
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -401,7 +399,7 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
         Validity
       </div>
     </div>
-  </motion.div>
+  </div>
 );
 
 // --- UPDATED Form Modal ---

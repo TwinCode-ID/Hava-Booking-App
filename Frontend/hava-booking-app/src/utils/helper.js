@@ -130,3 +130,29 @@ export const dataQris = (qris) => {
     crcIsValid: crcFromQris === crcComputed,
   };
 };
+
+export const INDONESIAN_BANKS = [
+  "BCA",
+  "Bank Mandiri",
+  "BNI",
+  "BRI",
+  "BSI (Bank Syariah Indonesia)",
+  "BTN",
+  "CIMB Niaga",
+  "PermataBank",
+  "Danamon",
+  "Bank Mega",
+  "OCBC NISP",
+  "PaninBank",
+  "Bank Jago",
+  "SeaBank",
+  "Blu",
+  "Jenius",
+  "Allo Bank",
+  "GoPay",
+  "OVO",
+  "DANA",
+  "ShopeePay",
+  "LinkAja",
+  "OTHER",
+];

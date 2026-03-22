@@ -76,7 +76,7 @@ exports.getPackageByStudio = async (req, res) => {
 
     const packages = await Package.find({
       studioLocation: studioLocation,
-    }).populate("studioLocation", "studioName");
+    }).populate("studioLocation", "studioName bankDetails");
 
     if (!packages || packages.length === 0) {
       return res
@@ -94,7 +94,7 @@ exports.getAllPackages = async (req, res) => {
   try {
     const package = await Package.find().populate(
       "studioLocation",
-      "studioName",
+      "studioName bankDetails",
     );
     res.json(package);
   } catch (err) {
