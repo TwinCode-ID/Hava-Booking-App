@@ -1,6 +1,7 @@
 const User = require("../../models/UserData/User");
 const jwt = require("jsonwebtoken");
 const appleSignin = require("apple-signin-auth");
+const { OAuth2Client } = require("google-auth-library");
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "60d" });
@@ -19,14 +20,25 @@ exports.loginWithGoogle = async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    // Google provides the user's ID as 'sub', along with email, name, and picture
+
     const { sub: googleUserId, email, name, picture } = payload;
 
-    // 2. Check if user exists by Google ID
+    console.log("GOOGLE PAYLOAD:", payload);
+
+    const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      name || email.split("@")[0],
+    )}&background=047857&color=fff`;
+
+    const finalAvatarUrl = picture || defaultAvatar;
+
     let user = await User.findOne({ googleUserId });
 
     if (user) {
-      // User found! Log them in.
+      if (!user.avatar) {
+        user.avatar = finalAvatarUrl;
+        await user.save();
+      }
+
       return res.status(200).json({
         _id: user._id,
         fullName: user.fullName,
@@ -37,15 +49,15 @@ exports.loginWithGoogle = async (req, res) => {
       });
     }
 
-    // 3. If not found by Google ID, check by Email (Link Accounts)
     user = await User.findOne({ email });
 
     if (user) {
       user.googleUserId = googleUserId;
-      // Optionally update their avatar if they don't have one
-      if (!user.avatar && picture) {
-        user.avatar = picture;
+
+      if (!user.avatar) {
+        user.avatar = finalAvatarUrl;
       }
+
       await user.save();
 
       return res.status(200).json({
@@ -58,15 +70,14 @@ exports.loginWithGoogle = async (req, res) => {
       });
     }
 
-    // 4. If no user exists, create a new one
     user = await User.create({
       fullName: name || email.split("@")[0],
       email: email,
       googleUserId: googleUserId,
-      password: "", // No password for Google users
-      role: "client", // Default role
+      password: "",
+      role: "client",
       phoneNumber: "",
-      avatar: picture || "",
+      avatar: finalAvatarUrl,
     });
 
     res.status(201).json({
