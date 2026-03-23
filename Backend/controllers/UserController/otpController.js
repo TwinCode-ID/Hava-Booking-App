@@ -2,12 +2,13 @@ const { sendEmail } = require("../../helper/sendEmail");
 const User = require("../../models/UserData/User");
 const OTP = require("../../models/OTP/OTP");
 const OtpLog = require("../../models/OTP/OtpLog");
-const jwt = require("jsonwebtoken"); // <--- Import the new model
+const jwt = require("jsonwebtoken");
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "60d" });
 };
 
+// --- A. REQUEST OTP ---
 exports.requestOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -18,14 +19,21 @@ exports.requestOTP = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // --- APPLE REVIEW BYPASS ---
+    // Check if the requesting email is the dedicated Apple Reviewer account
+    if (email === process.env.APPLE_REVIEW_EMAIL) {
+      // Skip rate limits, DB logging, and email sending entirely.
+      // Just tell the app it succeeded so the UI moves to the verification screen.
+      return res.status(200).json({ message: "OTP sent to your email." });
+    }
+    // ---------------------------
+
     // --- CHECK 1: 1-MINUTE INTERVAL ---
-    // Get the most recent request log for this email
     const lastRequest = await OtpLog.findOne({ email }).sort({ createdAt: -1 });
 
     if (lastRequest) {
       const timeDiff = Date.now() - lastRequest.createdAt.getTime();
       if (timeDiff < 60 * 1000) {
-        // 60,000 ms = 1 minute
         const secondsLeft = Math.ceil((60000 - timeDiff) / 1000);
         return res.status(429).json({
           error: `Please wait ${secondsLeft} seconds before requesting again.`,
@@ -34,7 +42,6 @@ exports.requestOTP = async (req, res) => {
     }
 
     // --- CHECK 2: MAX 5 PER HOUR ---
-    // Count how many logs exist (The DB auto-deletes logs older than 1 hour)
     const requestCount = await OtpLog.countDocuments({ email });
 
     if (requestCount >= 5) {
@@ -45,24 +52,17 @@ exports.requestOTP = async (req, res) => {
     }
 
     // --- ALL CHECKS PASSED: GENERATE OTP ---
-
-    // Generate Code
     const generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Clear old OTP (The actual code)
     await OTP.deleteOne({ email });
 
-    // Save new OTP
     await OTP.create({
       email,
       otp: generatedOTP,
     });
 
-    // *** IMPORTANT: Save the Log for the checks next time ***
     await OtpLog.create({ email });
 
-    // Send Email
-    // Note: Ensure your sendEmail function accepts (name, email, otp) based on your previous code
     await sendEmail(user.fullName || "User", email, generatedOTP);
 
     res.status(200).json({ message: "OTP sent to your email." });
@@ -71,13 +71,35 @@ exports.requestOTP = async (req, res) => {
   }
 };
 
-// --- B. VERIFY OTP (User enters email + code) ---
+// --- B. VERIFY OTP ---
 exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    // 1. Find the OTP record
-    // We search for both email AND the otp code
+    // --- APPLE REVIEW BYPASS ---
+    if (email === process.env.APPLE_REVIEW_EMAIL) {
+      if (otp !== process.env.APPLE_REVIEW_OTP) {
+        return res.status(400).json({ error: "Invalid or expired OTP." });
+      }
+
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(404).json({ error: "User not found." });
+      }
+
+      // Login successful for Apple Reviewer
+      return res.status(200).json({
+        message: "Login successful",
+        fullName: user.fullName,
+        email: user.email,
+        userId: user._id,
+        role: user.role,
+        token: generateToken(user._id),
+      });
+    }
+    // ---------------------------
+
+    // 1. Find the OTP record for normal users
     const validOTP = await OTP.findOne({ email, otp });
 
     // 2. Validation
@@ -86,20 +108,15 @@ exports.verifyOTP = async (req, res) => {
     }
 
     // 3. OTP is correct! -> Log them in
-    // Fetch the user to generate a token (JWT)
     const user = await User.findOne({ email });
 
-    // ... Generate JWT Token here ...
-    // const token = generateToken(user._id);
-
     // 4. SECURITY CRITICAL: Delete the OTP immediately
-    // Prevents "Replay Attacks" (using the same code twice)
     await OTP.deleteOne({ _id: validOTP._id });
 
     res.status(200).json({
       message: "Login successful",
-fullName: user.fullName,
-email: user.email,
+      fullName: user.fullName,
+      email: user.email,
       userId: user._id,
       role: user.role,
       token: generateToken(user._id),
