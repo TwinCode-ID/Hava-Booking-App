@@ -22,6 +22,7 @@ const userPassRoutes = require("./routes/UserRoutes/user_passesRoutes");
 const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
 const studioConfigRoutes = require("./routes/StudioRoutes/studioConfigRoutes");
 const chatRoutes = require("./routes/MessagingRoutes/chatRoutes");
+const promo = require("./routes/StudioRoutes/promoRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -149,6 +150,7 @@ app.use("/api/passes", userPassRoutes);
 app.use("/api/medical", medicalRoutes);
 app.use("/api/config", studioConfigRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/promos", promo);
 
 // Static files
 app.use(
