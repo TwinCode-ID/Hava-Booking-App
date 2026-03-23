@@ -478,12 +478,7 @@ const RevenueDetails = () => {
     }
 
     const uniqueClientsList = Array.from(
-      new Map(
-        currentMonthTransactions.map((item) => [
-          item.userId["_id"],
-          item.userId,
-        ]),
-      ).values(),
+      new Map(currentMonthTransactions.map((item) => [item.userId])).values(),
     );
 
     const methodStats = currentMonthTransactions.reduce(

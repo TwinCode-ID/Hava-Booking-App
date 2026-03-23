@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const PackagePurchase = require("../../models/StudioData/PackagePurchase");
 const UserPasses = require("../../models/UserData/User_Passes");
 const Packages = require("../../models/StudioData/Packages");
+const CashierTransaction = require("../../models/StudioData/CashierTransaction");
 
 // --- HELPER: CHECK EXPIRY ---
 const checkAndExpire = async (purchase) => {
@@ -13,6 +14,132 @@ const checkAndExpire = async (purchase) => {
     await purchase.save();
   }
   return purchase;
+};
+
+exports.createCashierBulkPurchase = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const {
+      userIds,
+      packageIds, // e.g. ['pkgA', 'pkgA', 'pkgB'] (supports duplicates for quantity)
+      paymentMethod,
+      paymentDetails, // Object: { edcType, last4, approvalCode, bank }
+      totalAmount,
+      discountAmount,
+      promoCode,
+      notes,
+    } = req.body;
+
+    const issuingStudio = req.user.adminStudioLocation;
+    const cashierId = req.user._id;
+
+    if (!userIds || !userIds.length || !packageIds || !packageIds.length) {
+      throw new Error("Users and Packages must be selected.");
+    }
+
+    // 1. Fetch package details using unique IDs to avoid redundant DB calls
+    const uniquePkgIds = [...new Set(packageIds)];
+    const packagesInfo = await Packages.find({
+      _id: { $in: uniquePkgIds },
+    }).session(session);
+
+    // Create a dictionary for instant lookup
+    const pkgMap = {};
+    packagesInfo.forEach((p) => {
+      pkgMap[p._id.toString()] = p;
+    });
+
+    // Ensure all packages requested actually exist in DB
+    for (const id of uniquePkgIds) {
+      if (!pkgMap[id]) throw new Error(`Package with ID ${id} not found.`);
+    }
+
+    // 2. Create the main Revenue Record (Master Cashier Transaction)
+    const cashierTrx = new CashierTransaction({
+      transactionId: `CASH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      issuingStudio,
+      cashierId,
+      userIds,
+      packages: packageIds.map((id) => ({
+        packageId: id,
+        priceAtPurchase: pkgMap[id].packagePrice,
+      })),
+      totalAmount,
+      discountAmount: discountAmount || 0,
+      promoCodeApplied: promoCode || null,
+      paymentMethod,
+      paymentDetails: paymentDetails || {},
+      notes,
+    });
+
+    await cashierTrx.save({ session });
+
+    // 3. Loop through users and packageIds array to assign individual passes
+    for (const uid of userIds) {
+      // We loop over the raw `packageIds` array.
+      // If the array is ['pkg1', 'pkg1'], this runs twice and assigns 2 passes!
+      for (const pkgId of packageIds) {
+        const pkg = pkgMap[pkgId];
+
+        // Format payment issuer string for the individual user's receipt
+        let paymentIssuerStr = `CASHIER TRX: ${cashierTrx.transactionId}`;
+        if (paymentMethod === "edc" && paymentDetails?.approvalCode) {
+          paymentIssuerStr = `EDC ${paymentDetails.edcType.toUpperCase()} | AppCode: ${paymentDetails.approvalCode}`;
+        } else if (paymentMethod === "bank_transfer" && paymentDetails?.bank) {
+          paymentIssuerStr = `Transfer - ${paymentDetails.bank}`;
+        }
+
+        // Log individual purchase for user history
+        const newPurchase = new PackagePurchase({
+          transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+          userId: uid,
+          packageId: pkg._id,
+          paymentWindowExpiry: new Date(), // Expires instantly since it's already paid at cashier
+          creditsPurchased: pkg.credits,
+          totalAmount: pkg.packagePrice,
+          paymentMethod: paymentMethod,
+          paymentIssuer: paymentIssuerStr,
+          issuingStudio,
+          status: "confirmed", // Auto-confirm
+        });
+        await newPurchase.save({ session });
+
+        // Calculate Expiry
+        const passExpiry = new Date();
+        passExpiry.setDate(passExpiry.getDate() + (pkg.validityDays || 30));
+
+        // Create the active Pass
+        const newUserPass = new UserPasses({
+          userId: uid,
+          packageId: pkg._id,
+          purchaseDate: new Date(),
+          expiryDate: passExpiry,
+          remainingCredits: pkg.credits,
+          validityDuration: pkg.validityDays || 30,
+          initialCredits: pkg.credits,
+          issuingStudio,
+          isActive: true,
+          classType: pkg.classType,
+          instructorType: pkg.instructorType,
+        });
+        await newUserPass.save({ session });
+      }
+    }
+
+    await session.commitTransaction();
+    res.status(200).json({
+      message: "Bulk transaction saved & passes assigned.",
+      transaction: cashierTrx,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Cashier Bulk Error:", error);
+    res.status(400).json({ error: error.message });
+  } finally {
+    session.endSession();
+  }
 };
 
 // --- 1. CREATE PURCHASE ---
@@ -299,7 +426,7 @@ exports.getStudioPurchasesHistory = async (req, res) => {
     );
 
     const history = await PackagePurchase.find({ issuingStudio: studioId })
-      .populate("userId", "fullName")
+      .populate("userId", "-password -authenticators")
       .populate("packageId", "packageName price")
       .sort({ createdAt: -1 });
 

@@ -6,6 +6,8 @@ const {
   getAllUsers,
   setNewUserPassword,
   updatePassword,
+  updateProfileDeveloper,
+  getSystemMetrics,
 } = require("../../controllers/UserController/userController");
 
 const {
@@ -18,12 +20,14 @@ const {
 const { protect, devTeam } = require("../../middlewares/authMiddleware");
 
 const router = express.Router();
+router.get("/metrics", protect, devTeam, getSystemMetrics);
 router.put("/update-password", protect, updatePassword);
 router.put("/set-password", protect, setNewUserPassword);
 router.get("/all", protect, getAllUsers);
 router.put("/profile", protect, updateProfile);
 router.get("/:id", protect, getPublicProfile);
 router.delete("/:id", protect, devTeam, deleteUser);
+router.put("/profile/:id", protect, devTeam, updateProfileDeveloper);
 
 router.post("/passkey/register-start", protect, registerStart);
 router.post("/passkey/register-finish", protect, registerFinish);

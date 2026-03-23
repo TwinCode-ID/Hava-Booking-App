@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const User = require("../../models/UserData/User");
 const Studios = require("../../models/StudioData/Studios");
 
@@ -113,8 +114,9 @@ exports.getPublicProfile = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({ role: "client" })
-      .select("fullName email phoneNumber _id")
+    const query = req.user.role === "devTeam" ? {} : { role: "client" };
+    const users = await User.find(query)
+      .select("-password")
       .sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
@@ -124,11 +126,67 @@ exports.getAllUsers = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
   try {
-    const user = await Studios.findByIdAndDelete(req.params.id);
-    if (!studio) {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
     res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getSystemMetrics = async (req, res) => {
+  try {
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
+    const ramUsagePercent = Math.round((usedMem / totalMem) * 100);
+
+    const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
+    const activeUsersCount = await User.countDocuments({
+      updatedAt: { $gte: yesterday },
+    });
+
+    res.status(200).json({
+      activeVisitors: activeUsersCount || 0,
+      serverLoad: ramUsagePercent,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.updateProfileDeveloper = async (req, res) => {
+  try {
+    const {
+      fullName,
+      phoneNumber,
+      preferredStudioId,
+      adminStudioLocation,
+      avatar,
+      role,
+    } = req.body;
+    const user = await User.findById(req.params.id || req.user._id); // Support both self and admin edit
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    user.fullName = fullName || user.fullName;
+    user.phoneNumber = phoneNumber || user.phoneNumber;
+    user.avatar = avatar || user.avatar;
+
+    // DevTeam specific overrides
+    if (req.user.role === "devTeam") {
+      user.role = role || user.role;
+      user.adminStudioLocation =
+        adminStudioLocation || user.adminStudioLocation;
+    }
+
+    if (user.role === "client") {
+      user.preferredStudioId = preferredStudioId || user.preferredStudioId;
+    }
+
+    await user.save();
+    res.status(200).json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

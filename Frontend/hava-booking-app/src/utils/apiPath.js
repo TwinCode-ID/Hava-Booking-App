@@ -6,6 +6,8 @@ export const API_PATHS = {
     LOGIN: "/api/auth/login",
     GET_PROFILE: "/api/auth/me",
     GET_PROFILE_BY_ID: (id) => `/api/user/${id}`,
+    DELETE_USER: (id) => `/api/user/${id}`,
+    UPDATE_PROFILE_ADMIN: (id) => `/api/user/profile/${id}`,
     GET_ALL_USERS: "/api/user/all",
     VERIFY_OTP: "/api/auth/otp/verify",
     REQUEST_OTP: "/api/auth/otp/request",
@@ -17,6 +19,10 @@ export const API_PATHS = {
     UPDATE_PASSWORD: "api/user/update-password",
   },
 
+  DEV: {
+    GET_METRICS: "/api/user/metrics",
+  },
+
   IMAGE: {
     UPLOAD_PROFILE: "/api/auth/upload-profile",
     UPLOAD_PROOF: "/api/auth/upload-proof",
@@ -25,7 +31,9 @@ export const API_PATHS = {
 
   STUDIOS: {
     GET_ALL: "/api/studio",
-    GET_STUDIO_BY_ID: (id) => `/api/studio/${id}`,
+    CREATE: "/api/studio",
+    UPDATE: (id) => `/api/studio/${id}`,
+    DELETE: (id) => `/api/studio/${id}`,
   },
 
   PACKAGES: {

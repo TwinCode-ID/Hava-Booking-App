@@ -124,16 +124,26 @@ const AdminPackages = ({ isEmbedded = false }) => {
 
   const fetchPackages = async () => {
     try {
-      const [pkgRes, configRes] = await Promise.all([
+      const [pkgResult, configResult] = await Promise.allSettled([
         axiosInstance.get(
           API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(user.adminStudioLocation),
         ),
         axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
       ]);
-      setPackages(pkgRes.data);
-      setConfig(configRes.data);
-    } catch (error) {
-      console.error("Failed to load data", error);
+
+      // Check if packages succeeded
+      if (pkgResult.status === "fulfilled") {
+        setPackages(pkgResult.value.data);
+      } else {
+        setPackages([]); // Fallback for 404
+      }
+
+      // Check if config succeeded
+      if (configResult.status === "fulfilled") {
+        setConfig(configResult.value.data);
+      } else {
+        setConfig({}); // Fallback for 404
+      }
     } finally {
       setLoading(false);
     }

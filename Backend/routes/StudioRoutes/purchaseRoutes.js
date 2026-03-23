@@ -6,6 +6,7 @@ const {
   adminReviewPayment,
   getMyPurchases,
   getStudioPurchasesHistory,
+  createCashierBulkPurchase,
 } = require("../../controllers/StudioDataController/packagePurchaseController");
 const { protect } = require("../../middlewares/authMiddleware");
 
@@ -22,5 +23,7 @@ router.put("/:purchaseId/proof", protect, uploadProof);
 
 // POST /api/purchases/:purchaseId/review - Admin approves or rejects payment
 router.post("/:purchaseId/review", protect, adminReviewPayment);
+
+router.post("/cashier-bulk", protect, createCashierBulkPurchase);
 
 module.exports = router;
