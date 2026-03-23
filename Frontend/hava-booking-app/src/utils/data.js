@@ -10,10 +10,12 @@ import {
   LayoutList,
   FolderKanban,
   MessageCircle,
+  DollarSign,
 } from "lucide-react";
 
 export const NAVIGATION_MENU_ADMIN = [
   { id: "admin-dashboard", name: "Dashboard", icon: LayoutDashboard },
+  { id: "cashier", name: "Cashier", icon: DollarSign },
   { id: "studio-activities", name: "Studio Management", icon: FolderKanban },
   { id: "admin-inbox", name: "Message", icon: MessageCircle },
   { id: "studio-settings", name: "Studio Settings", icon: Cog },

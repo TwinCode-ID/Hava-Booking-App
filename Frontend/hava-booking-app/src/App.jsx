@@ -27,6 +27,7 @@ import ManageBooking from "./pages/ClientPage/ClientActivities/components/Manage
 import GlobalSocketListener from "./components/GlobalSocketListener";
 import AdminInbox from "./pages/StudioAdminPage/StudioActivities/components/Messaging/AdminInbox";
 import ClientInbox from "./pages/ClientPage/ClientActivities/components/Messaging/ClientInbox";
+import CashierDashboard from "./pages/StudioAdminPage/Cashier/CashierDashboard";
 
 const App = () => {
   return (
@@ -67,6 +68,7 @@ const App = () => {
                 path='/admin-account-settings'
                 element={<AdminAccountSettings />}
               />
+              <Route path='/cashier' element={<CashierDashboard />} />
               <Route path='/studio-activities' element={<StudioActivities />} />
               <Route path='/studio-settings' element={<StudioSettings />} />
               <Route path='/admin-inbox' element={<AdminInbox />} />

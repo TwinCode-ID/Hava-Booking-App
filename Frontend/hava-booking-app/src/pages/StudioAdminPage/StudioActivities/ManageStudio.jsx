@@ -9,6 +9,7 @@ import {
   DollarSign,
   ChevronRight,
   ChevronLeft,
+  TicketPercent, // <-- New icon for Promos
 } from "lucide-react";
 
 // Components (Ensure paths are correct)
@@ -18,6 +19,7 @@ import AdminPaymentManager from "./components/ManagePurchases/AdminPaymentManage
 import ManagePackage from "./components/ManagePackage/ManagePackage";
 import RevenueDetails from "./components/StudioRevenue/RevenueDetails";
 import SchedulesList from "./components/ManageSchedules/SchedulesList";
+import ManagePromos from "./components/ManagePromos/ManagePromos";
 
 const StudioActivities = () => {
   const [activeTab, setActiveTab] = useState("package");
@@ -43,20 +45,26 @@ const StudioActivities = () => {
       color: "text-emerald-600",
     },
     {
+      id: "promos",
+      label: "Promos",
+      icon: TicketPercent,
+      color: "text-rose-500",
+    },
+    {
       id: "schedule",
       label: "Schedules",
       icon: Calendar,
       color: "text-blue-600",
     },
+  ];
+
+  const extraTabs = [
     {
       id: "payments",
       label: "Payments",
       icon: CreditCard,
       color: "text-purple-600",
     },
-  ];
-
-  const extraTabs = [
     {
       id: "instructors",
       label: "Instructors",
@@ -131,8 +139,7 @@ const StudioActivities = () => {
         )}
       </div>
 
-      {/* --- CONTENT AREA (SCROLL FIX APPLIED HERE) --- */}
-      {/* We use overflow-y-auto ALWAYS, so if the child (ScheduleList) is tall, this container scrolls. */}
+      {/* --- CONTENT AREA --- */}
       <div className='flex-1 overflow-y-auto p-0 relative w-full'>
         <AnimatePresence>
           <motion.div
@@ -143,7 +150,9 @@ const StudioActivities = () => {
             transition={{ duration: 0.2 }}
             className='min-h-full'>
             {activeTab === "package" && <ManagePackage isEmbedded={true} />}
+            {activeTab === "promos" && <ManagePromos isEmbedded={true} />}
             {activeTab === "schedule" && <SchedulesList isEmbedded={true} />}
+            {/* <-- New Tab Component Render */}
             {activeTab === "instructors" && (
               <ManageInstructors isEmbedded={true} />
             )}

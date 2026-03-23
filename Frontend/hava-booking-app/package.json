@@ -21,6 +21,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "fast-png": "^8.0.0",
     "framer-motion": "^12.23.25",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.2",
