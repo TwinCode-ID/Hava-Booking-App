@@ -22,8 +22,6 @@ import {
 import axiosInstance from "../../../utils/axiosInstance";
 import { API_PATHS } from "../../../utils/apiPath";
 import { useAuth } from "../../../context/AuthContext";
-
-// Ensure these are correctly exported from your helpers file
 import { INDONESIAN_BANKS } from "../../../utils/helper";
 import { getBankLogo } from "../../../utils/helpers";
 
@@ -60,10 +58,21 @@ const CashierDashboard = () => {
         const studioId = user?.adminStudioLocation;
         if (!studioId) return;
 
+        // DEFENSIVE FETCHING: Catch the promo error specifically so it doesn't break packages/users
+        const promosPromise = axiosInstance
+          .get(`/api/promos/studio/${studioId}`)
+          .catch((err) => {
+            console.warn(
+              "Promo API 404 or failed. Defaulting to empty promos.",
+              err,
+            );
+            return { data: [] }; // Return empty data so Promise.all succeeds
+          });
+
         const [usersRes, packagesRes, promosRes] = await Promise.all([
           axiosInstance.get(API_PATHS.AUTH.GET_ALL_USERS),
           axiosInstance.get(API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(studioId)),
-          axiosInstance.get(`/api/promos/studio/${studioId}`), // Fetch Real Promos
+          promosPromise,
         ]);
 
         if (usersRes.data)
