@@ -13,6 +13,6 @@ router.post("/", protect, studioAdmin, createPromo);
 router.get("/studio/:studioId", protect, getPromosByStudio);
 router.put("/:id", protect, studioAdmin, updatePromo);
 router.delete("/:id", protect, studioAdmin, deletePromo);
-router.patch("/:id/status", protect, studioAdmin, togglePromoStatus);
+router.put("/:id/status", protect, studioAdmin, togglePromoStatus);
 
 module.exports = router;

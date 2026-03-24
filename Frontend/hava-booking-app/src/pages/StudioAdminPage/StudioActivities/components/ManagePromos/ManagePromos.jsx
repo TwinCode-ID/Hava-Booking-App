@@ -98,7 +98,7 @@ const ManagePromos = () => {
 
   const toggleStatus = async (id) => {
     try {
-      await axiosInstance.patch(`/api/promos/${id}/status`);
+      await axiosInstance.put(`/api/promos/${id}/status`);
       fetchPromos();
     } catch (error) {
       console.error(error);

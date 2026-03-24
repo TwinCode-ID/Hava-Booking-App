@@ -27,6 +27,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  GraduationCap,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -41,12 +42,14 @@ const getSafeClientData = (user) => ({
   email: user?.email || "",
   phoneNumber: user?.phoneNumber || "",
   avatar: user?.avatar || null,
+  isStudent: user?.isStudent || false,
 });
 
 const getSafePackageData = (pkg) => ({
   _id: pkg?._id || "unknown",
   packageName: pkg?.packageName || "Custom / Unknown Package",
   credits: pkg?.credits || 0,
+  isStudent: pkg?.isStudent || false,
 });
 
 const getSafeMedicalData = (med) => ({
@@ -85,6 +88,9 @@ const getSafePurchaseData = (purchase) => ({
   proofOfPayment: purchase?.proofOfPayment || null,
   status: purchase?.status || "unknown",
   createdAt: purchase?.createdAt || new Date().toISOString(),
+  // Add this line below to safely extract the studio ID
+  issuingStudio:
+    purchase?.issuingStudio?._id || purchase?.issuingStudio || null,
 });
 
 // --- Formatting Helpers ---
@@ -207,11 +213,40 @@ const ClientManager = ({ isEmbedded = false }) => {
     fetchClientDetails();
   }, [selectedClient]);
 
+  // Handle explicit Student status toggle
+  const handleToggleStudent = async () => {
+    if (!selectedClient) return;
+    try {
+      const newStatus = !selectedClient.isStudent;
+      setSelectedClient((prev) => ({ ...prev, isStudent: newStatus }));
+
+      // Assuming API_PATHS.AUTH.UPDATE_USER exists, or fallback to direct put
+      const endpoint = API_PATHS.AUTH.UPDATE_PROFILE_ADMIN(selectedClient._id);
+
+      await axiosInstance.put(endpoint, { isStudent: newStatus });
+      fetchData(); // Refresh list silently to sync state
+    } catch (e) {
+      console.error("Failed to update student status", e);
+      setSelectedClient((prev) => ({ ...prev, isStudent: !prev.isStudent }));
+      alert("Failed to update student status");
+    }
+  };
+
   // --- Core Logic: Combine Passes & Purchases ---
   const combinedHistory = useMemo(() => {
     if (!selectedClient) return [];
     const passes = selectedClient.passes || [];
-    const txns = purchaseHistory || [];
+
+    // Safely get the current studio ID
+    const currentStudioId =
+      user?.adminStudioLocation?._id || user?.adminStudioLocation;
+
+    // Filter transactions to only include those from the current studio
+    // (We also return true if issuingStudio is missing to support legacy data)
+    const txns = (purchaseHistory || []).filter((txn) => {
+      if (!txn.issuingStudio) return true;
+      return txn.issuingStudio === currentStudioId;
+    });
 
     const usedPassIds = new Set();
     const combined = txns.map((txn) => {
@@ -268,7 +303,7 @@ const ClientManager = ({ isEmbedded = false }) => {
       if (aVal > bVal) return historySortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
-  }, [selectedClient, purchaseHistory, historySortConfig]);
+  }, [selectedClient, purchaseHistory, historySortConfig, user]);
 
   const clientsData = useMemo(() => {
     const map = new Map();
@@ -605,9 +640,14 @@ const ClientManager = ({ isEmbedded = false }) => {
                           <div className='w-10 h-10 shrink-0 rounded-[12px] bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm uppercase shadow-sm border border-emerald-200/50'>
                             {client.fullName.charAt(0)}
                           </div>
-                          <span className='font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors'>
-                            {client.fullName}
-                          </span>
+                          <div>
+                            <span className='font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors flex items-center gap-1.5'>
+                              {client.fullName}
+                              {client.isStudent && (
+                                <GraduationCap className='w-4 h-4 text-emerald-600' />
+                              )}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className='py-4 px-6'>
@@ -643,10 +683,13 @@ const ClientManager = ({ isEmbedded = false }) => {
                           {client.fullName.charAt(0)}
                         </div>
                         <div>
-                          <span className='font-bold text-gray-900 text-sm block mb-0.5 group-hover:text-emerald-700 transition-colors'>
+                          <span className='font-bold text-gray-900 text-sm mb-0.5 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5'>
                             {client.fullName}
+                            {client.isStudent && (
+                              <GraduationCap className='w-3.5 h-3.5 text-emerald-600' />
+                            )}
                           </span>
-                          <span className='text-xs text-gray-500 font-medium'>
+                          <span className='text-xs text-gray-500 font-medium block'>
                             {client.phoneNumber || "—"}
                           </span>
                         </div>
@@ -730,6 +773,29 @@ const ClientManager = ({ isEmbedded = false }) => {
                       </span>
                     )}
                   </div>
+                  {/* --- STUDENT STATUS TOGGLE --- */}
+                  <div className='flex items-center justify-between text-sm font-medium text-gray-600 bg-slate-50/80 px-4 py-3 rounded-xl border border-slate-100/50 w-full'>
+                    <div className='flex items-center gap-3'>
+                      <GraduationCap className='w-4 h-4 text-gray-400 shrink-0' />
+                      <span>Student Status</span>
+                    </div>
+                    <button
+                      type='button'
+                      onClick={handleToggleStudent}
+                      className={`w-10 h-6 rounded-full p-1 transition-colors ${
+                        selectedClient.isStudent
+                          ? "bg-emerald-500"
+                          : "bg-slate-300"
+                      }`}>
+                      <div
+                        className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                          selectedClient.isStudent
+                            ? "translate-x-4"
+                            : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -741,11 +807,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                   </h3>
                 </div>
 
-                {loadingDetails ? (
-                  <div className='py-6 flex justify-center'>
-                    <LoadingSpinner />
-                  </div>
-                ) : medicalData ? (
+                {medicalData ? (
                   <div className='flex flex-col items-center justify-center py-5 bg-emerald-50/30 rounded-2xl border border-emerald-100/50 mt-4'>
                     <CheckCircle2 className='w-8 h-8 text-emerald-500 mb-2' />
                     <p className='text-sm font-bold text-emerald-900 mb-4'>
@@ -1652,6 +1714,11 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
   };
   const isFormValid = formData.packageId && formData.paymentIssuer;
 
+  // Filter packages based on client's student status
+  const filteredPackages = packages.filter(
+    (p) => !!p.isStudent === !!client.isStudent,
+  );
+
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
       <motion.div
@@ -1680,7 +1747,7 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
           <div>
             <CustomSelect
               label='Select Package'
-              options={packages}
+              options={filteredPackages}
               placeholder={isLoadingData ? "Loading..." : "Choose a package"}
               getLabel={(p) =>
                 `${p.packageName || "Unknown"} (${p.credits || 0} Credits) - ${parseInt(p.packagePrice || 0).toLocaleString()} IDR`
@@ -1688,7 +1755,7 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
               getValue={(p) => p._id}
               value={formData.packageId}
               onChange={(val) => {
-                const pkg = packages.find((p) => p._id === val);
+                const pkg = filteredPackages.find((p) => p._id === val);
                 setFormData({
                   ...formData,
                   packageId: val,
@@ -1748,7 +1815,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
     paymentIssuer: "",
     totalAmount: "",
     isNewClient: false,
-    newClientData: { fullName: "", email: "", phone: "" },
+    newClientData: { fullName: "", email: "", phone: "", isStudent: false },
   });
 
   useEffect(() => {
@@ -1779,12 +1846,23 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
       userId: activeTab === "new" ? null : formData.userId,
     });
   };
+
   const isFormValid =
     formData.packageId &&
     formData.paymentIssuer &&
     (activeTab === "existing"
       ? formData.userId
       : formData.newClientData.fullName && formData.newClientData.email);
+
+  // Dynamic filter based on selected user status
+  const isSelectedStudent =
+    activeTab === "existing"
+      ? !!users.find((u) => u._id === formData.userId)?.isStudent
+      : formData.newClientData.isStudent;
+
+  const filteredPackages = packages.filter(
+    (p) => !!p.isStudent === isSelectedStudent,
+  );
 
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
@@ -1810,66 +1888,25 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
         <div className='flex p-1.5 bg-slate-100/80 rounded-xl mb-6 sm:mb-8 border border-slate-200/50'>
           <button
             type='button'
-            onClick={() => setActiveTab("existing")}
+            onClick={() => {
+              setActiveTab("existing");
+              setFormData({ ...formData, packageId: "", totalAmount: "" });
+            }}
             className={`flex-1 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-bold rounded-lg transition-all ${activeTab === "existing" ? "bg-white shadow-sm text-emerald-900 border border-black/5" : "text-gray-500 hover:text-gray-700"}`}>
             Existing Client
           </button>
           <button
             type='button'
-            onClick={() => setActiveTab("new")}
+            onClick={() => {
+              setActiveTab("new");
+              setFormData({ ...formData, packageId: "", totalAmount: "" });
+            }}
             className={`flex-1 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-bold rounded-lg transition-all ${activeTab === "new" ? "bg-white shadow-sm text-emerald-900 border border-black/5" : "text-gray-500 hover:text-gray-700"}`}>
             New Client
           </button>
         </div>
         <form onSubmit={handleSubmit} className='space-y-5 sm:space-y-6'>
-          <div>
-            <CustomSelect
-              label='Select Package'
-              options={packages}
-              placeholder={isLoadingData ? "Loading..." : "Choose a package"}
-              getLabel={(p) =>
-                `${p.packageName || "Unknown"} (${p.credits || 0} Credits) - ${parseInt(p.packagePrice || 0).toLocaleString()} IDR`
-              }
-              getValue={(p) => p._id}
-              value={formData.packageId}
-              onChange={(val) => {
-                const pkg = packages.find((p) => p._id === val);
-                setFormData({
-                  ...formData,
-                  packageId: val,
-                  totalAmount: pkg?.packagePrice || 0,
-                });
-              }}
-            />
-          </div>
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5'>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
-                Price (IDR)
-              </label>
-              <input
-                type='number'
-                disabled
-                value={formData.totalAmount}
-                className='w-full p-3.5 bg-slate-50 text-gray-500 rounded-xl border border-gray-200 font-mono font-bold text-sm'
-              />
-            </div>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
-                Payment Method
-              </label>
-              <input
-                type='text'
-                placeholder='e.g. Cash, BCA, QRIS'
-                value={formData.paymentIssuer}
-                onChange={(e) =>
-                  setFormData({ ...formData, paymentIssuer: e.target.value })
-                }
-                className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
-              />
-            </div>
-          </div>
-          <div className='pt-5 border-t border-gray-100'>
+          <div className='pb-5 border-b border-gray-100'>
             {activeTab === "existing" ? (
               <CustomSelect
                 label='Select Client'
@@ -1881,7 +1918,14 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                 }
                 getValue={(u) => u._id}
                 value={formData.userId}
-                onChange={(val) => setFormData({ ...formData, userId: val })}
+                onChange={(val) =>
+                  setFormData({
+                    ...formData,
+                    userId: val,
+                    packageId: "",
+                    totalAmount: "",
+                  })
+                }
               />
             ) : (
               <div className='space-y-4 sm:space-y-5 bg-slate-50/50 p-5 sm:p-6 rounded-2xl border border-slate-100'>
@@ -1930,8 +1974,78 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                     })
                   }
                 />
+                <div className='flex items-center justify-between p-3.5 bg-white border border-gray-200 rounded-xl shadow-sm mt-2'>
+                  <span className='text-sm font-medium text-gray-600'>
+                    Is this client a student?
+                  </span>
+                  <button
+                    type='button'
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        packageId: "",
+                        totalAmount: "",
+                        newClientData: {
+                          ...formData.newClientData,
+                          isStudent: !formData.newClientData.isStudent,
+                        },
+                      })
+                    }
+                    className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.newClientData.isStudent ? "bg-emerald-500" : "bg-slate-300"}`}>
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white transition-transform ${formData.newClientData.isStudent ? "translate-x-4" : "translate-x-0"}`}
+                    />
+                  </button>
+                </div>
               </div>
             )}
+          </div>
+          <div>
+            <CustomSelect
+              label='Select Package'
+              options={filteredPackages}
+              placeholder={isLoadingData ? "Loading..." : "Choose a package"}
+              getLabel={(p) =>
+                `${p.packageName || "Unknown"} (${p.credits || 0} Credits) - ${parseInt(p.packagePrice || 0).toLocaleString()} IDR`
+              }
+              getValue={(p) => p._id}
+              value={formData.packageId}
+              onChange={(val) => {
+                const pkg = filteredPackages.find((p) => p._id === val);
+                setFormData({
+                  ...formData,
+                  packageId: val,
+                  totalAmount: pkg?.packagePrice || 0,
+                });
+              }}
+            />
+          </div>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5'>
+            <div>
+              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                Price (IDR)
+              </label>
+              <input
+                type='number'
+                disabled
+                value={formData.totalAmount}
+                className='w-full p-3.5 bg-slate-50 text-gray-500 rounded-xl border border-gray-200 font-mono font-bold text-sm'
+              />
+            </div>
+            <div>
+              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                Payment Method
+              </label>
+              <input
+                type='text'
+                placeholder='e.g. Cash, BCA, QRIS'
+                value={formData.paymentIssuer}
+                onChange={(e) =>
+                  setFormData({ ...formData, paymentIssuer: e.target.value })
+                }
+                className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+              />
+            </div>
           </div>
           <button
             type='submit'

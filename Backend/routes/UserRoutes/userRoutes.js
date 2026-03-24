@@ -17,7 +17,11 @@ const {
   loginFinish,
 } = require("../../controllers/UserController/passkeyController");
 
-const { protect, devTeam } = require("../../middlewares/authMiddleware");
+const {
+  protect,
+  devTeam,
+  studioAdmin,
+} = require("../../middlewares/authMiddleware");
 
 const router = express.Router();
 router.get("/metrics", protect, devTeam, getSystemMetrics);
@@ -27,7 +31,7 @@ router.get("/all", protect, getAllUsers);
 router.put("/profile", protect, updateProfile);
 router.get("/:id", protect, getPublicProfile);
 router.delete("/:id", protect, devTeam, deleteUser);
-router.put("/profile/:id", protect, devTeam, updateProfileDeveloper);
+router.put("/profile/:id", protect, studioAdmin, updateProfileDeveloper);
 
 router.post("/passkey/register-start", protect, registerStart);
 router.post("/passkey/register-finish", protect, registerFinish);

@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema(
     currentChallenge: { type: String },
     password: { type: String },
     phoneNumber: { type: String },
+    isStudent: { type: Boolean, default: false },
     preferredStudioId: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
     role: {
       type: String,

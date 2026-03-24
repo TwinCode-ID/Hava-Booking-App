@@ -11,6 +11,7 @@ exports.updateProfile = async (req, res) => {
       phoneNumber,
       preferredStudioId,
       adminStudioLocation,
+      isStudent,
       avatar,
       role,
     } = req.body;
@@ -23,6 +24,10 @@ exports.updateProfile = async (req, res) => {
 
     if (user.role === "client") {
       user.preferredStudioId = preferredStudioId || user.preferredStudioId;
+    }
+
+    if (user.role === "studioAdmin") {
+      user.isStudent = isStudent || user.isStudent;
     }
 
     if (user.role === "devTeam") {
@@ -165,6 +170,7 @@ exports.updateProfileDeveloper = async (req, res) => {
       preferredStudioId,
       adminStudioLocation,
       avatar,
+      isStudent,
       role,
     } = req.body;
     const user = await User.findById(req.params.id || req.user._id); // Support both self and admin edit
@@ -179,6 +185,10 @@ exports.updateProfileDeveloper = async (req, res) => {
       user.role = role || user.role;
       user.adminStudioLocation =
         adminStudioLocation || user.adminStudioLocation;
+    }
+
+    if (user.role === "studioAdmin") {
+      user.isStudent = isStudent || user.isStudent;
     }
 
     if (user.role === "client") {

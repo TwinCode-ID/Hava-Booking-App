@@ -127,7 +127,15 @@ exports.checkUserStatus = async (req, res) => {
 
 exports.register = async (req, res) => {
   try {
-    const { fullName, email, password, phoneNumber, role, avatar } = req.body;
+    const {
+      fullName,
+      email,
+      password,
+      phoneNumber,
+      role,
+      avatar,
+      adminStudioLocation,
+    } = req.body;
     const emailExists = await User.findOne({ email });
 
     // const phoneNumberExists = await User.findOne({ phoneNumber });
@@ -142,6 +150,7 @@ exports.register = async (req, res) => {
       phoneNumber,
       role,
       avatar,
+      adminStudioLocation,
     });
 
     res.status(201).json({
