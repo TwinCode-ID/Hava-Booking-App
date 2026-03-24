@@ -10,6 +10,20 @@ const packagesSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     studioLocation: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
 
+    // UPDATED: Package Category is now an array for multi-select
+    packageCategory: {
+      type: [String],
+      enum: ["Regular", "Student"],
+      default: ["Regular"],
+    },
+
+    // NEW: One Time Purchase Limit
+    isOneTimePurchase: { type: Boolean, default: false },
+
+    // Promo Features
+    isPromo: { type: Boolean, default: false },
+    promoPrice: { type: Number },
+
     // Combo Package Flags
     isCombo: { type: Boolean, default: false },
 

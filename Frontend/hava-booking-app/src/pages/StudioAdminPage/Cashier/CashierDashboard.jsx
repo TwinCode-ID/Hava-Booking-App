@@ -18,12 +18,20 @@ import {
   QrCode,
   ArrowRight,
   Tag,
+  AlertTriangle,
+  Lock,
 } from "lucide-react";
 import axiosInstance from "../../../utils/axiosInstance";
 import { API_PATHS } from "../../../utils/apiPath";
 import { useAuth } from "../../../context/AuthContext";
 import { INDONESIAN_BANKS } from "../../../utils/helper";
 import { getBankLogo } from "../../../utils/helpers";
+
+const getEffectivePrice = (pkg) => {
+  return pkg.isPromo && pkg.promoPrice
+    ? Number(pkg.promoPrice)
+    : Number(pkg.packagePrice || 0);
+};
 
 const CashierDashboard = () => {
   const { user } = useAuth();
@@ -32,21 +40,18 @@ const CashierDashboard = () => {
   const [packages, setPackages] = useState([]);
   const [availablePromos, setAvailablePromos] = useState([]);
   const [categories, setCategories] = useState(["All"]);
+  const [clientOwnership, setClientOwnership] = useState({}); // Maps userId -> Set of packageIds
 
   const [searchPackage, setSearchPackage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
 
   const [cart, setCart] = useState({});
   const [selectedClients, setSelectedClients] = useState([]);
-  const [clientSearch, setClientSearch] = useState("");
-  const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [promoCode, setPromoCode] = useState("");
 
   const [showClientListModal, setShowClientListModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
-
-  const dropdownRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,19 +61,27 @@ const CashierDashboard = () => {
 
         const promosPromise = axiosInstance
           .get(`/api/promos/studio/${studioId}`)
-          .catch((err) => {
-            console.warn(
-              "Promo API 404 or failed. Defaulting to empty promos.",
-              err,
-            );
-            return { data: [] };
-          });
+          .catch(() => ({ data: [] }));
 
-        const [usersRes, packagesRes, promosRes] = await Promise.all([
-          axiosInstance.get(API_PATHS.AUTH.GET_ALL_USERS),
-          axiosInstance.get(API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(studioId)),
-          promosPromise,
-        ]);
+        // Fetch purchase history to track one-time package eligibility
+        const purchasesPromise = axiosInstance
+          .get(`/api/purchases/studio/${studioId}/history`)
+          .catch(() => ({ data: [] }));
+
+        const passesPromise = axiosInstance
+          .get(`/api/user-passes/studio/${studioId}/history`)
+          .catch(() => ({ data: [] }));
+
+        const [usersRes, packagesRes, promosRes, purchasesRes, passesRes] =
+          await Promise.all([
+            axiosInstance.get(API_PATHS.AUTH.GET_ALL_USERS),
+            axiosInstance.get(
+              API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(studioId),
+            ),
+            promosPromise,
+            purchasesPromise,
+            passesPromise,
+          ]);
 
         if (usersRes.data)
           setUsers(usersRes.data.filter((u) => u.role === "client"));
@@ -79,14 +92,38 @@ const CashierDashboard = () => {
           setPackages(packagesRes.data);
           const uniqueCategories = new Set(["All"]);
           packagesRes.data.forEach((pkg) => {
-            if (pkg.classType && pkg.classType.length > 0) {
-              pkg.classType.forEach((type) => uniqueCategories.add(type));
+            if (pkg.packageCategory && pkg.packageCategory.length > 0) {
+              pkg.packageCategory.forEach((type) => uniqueCategories.add(type));
             } else {
-              uniqueCategories.add("Standard");
+              uniqueCategories.add("Regular");
             }
           });
           setCategories(Array.from(uniqueCategories));
         }
+
+        // Build Ownership Map to enforce One-Time purchase limits
+        const ownership = {};
+        const registerOwnership = (uid, pid) => {
+          if (!uid || !pid) return;
+          const uStr = typeof uid === "object" ? uid._id : uid;
+          const pStr = typeof pid === "object" ? pid._id : pid;
+          if (!ownership[uStr]) ownership[uStr] = new Set();
+          ownership[uStr].add(pStr);
+        };
+
+        if (purchasesRes.data) {
+          purchasesRes.data.forEach((p) => {
+            if (p.status !== "payment_rejected" && p.status !== "expired") {
+              registerOwnership(p.userId, p.packageId);
+            }
+          });
+        }
+        if (passesRes.data) {
+          passesRes.data.forEach((p) =>
+            registerOwnership(p.userId, p.packageId),
+          );
+        }
+        setClientOwnership(ownership);
       } catch (error) {
         console.error("Failed to fetch data:", error);
       }
@@ -94,17 +131,33 @@ const CashierDashboard = () => {
     fetchData();
   }, [user]);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowClientDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const cartItems = Object.entries(cart).map(([pkgId, qty]) => {
+    const pkg = packages.find((p) => p._id === pkgId) || {};
+    return { ...pkg, qty };
+  });
 
   const updateCart = (pkgId, delta) => {
+    const pkg = packages.find((p) => p._id === pkgId);
+
+    // One Time Purchase Validations
+    if (delta > 0 && pkg?.isOneTimePurchase) {
+      if (cart[pkgId] >= 1) {
+        return alert(
+          "This package is a one-time purchase and is limited to 1 per transaction.",
+        );
+      }
+
+      const alreadyOwnedClient = selectedClients.find((client) => {
+        return clientOwnership[client._id]?.has(pkgId);
+      });
+
+      if (alreadyOwnedClient) {
+        return alert(
+          `Cannot add. Client ${alreadyOwnedClient.fullName} has already purchased this one-time package in the past.`,
+        );
+      }
+    }
+
     setCart((prev) => {
       const currentQty = prev[pkgId] || 0;
       const newQty = currentQty + delta;
@@ -122,6 +175,18 @@ const CashierDashboard = () => {
     if (isSelected) {
       setSelectedClients(selectedClients.filter((c) => c._id !== userObj._id));
     } else {
+      // Prevent selection if user already owns a 1-time package currently in the cart
+      const conflictingPackage = cartItems.find((item) => {
+        return (
+          item.isOneTimePurchase && clientOwnership[userObj._id]?.has(item._id)
+        );
+      });
+
+      if (conflictingPackage) {
+        return alert(
+          `Cannot select ${userObj.fullName}. They already own the one-time package: ${conflictingPackage.packageName}.`,
+        );
+      }
       setSelectedClients([...selectedClients, userObj]);
     }
   };
@@ -135,13 +200,8 @@ const CashierDashboard = () => {
     setPromoCode("");
   };
 
-  const cartItems = Object.entries(cart).map(([pkgId, qty]) => {
-    const pkg = packages.find((p) => p._id === pkgId) || {};
-    return { ...pkg, qty };
-  });
-
   const baseCartTotal = cartItems.reduce(
-    (sum, item) => sum + Number(item.packagePrice || 0) * item.qty,
+    (sum, item) => sum + getEffectivePrice(item) * item.qty,
     0,
   );
   const clientMultiplier =
@@ -164,14 +224,12 @@ const CashierDashboard = () => {
         let eligiblePrices = [];
         cartItems.forEach((item) => {
           for (let i = 0; i < item.qty * clientMultiplier; i++)
-            eligiblePrices.push(Number(item.packagePrice || 0));
+            eligiblePrices.push(getEffectivePrice(item));
         });
         eligiblePrices.sort((a, b) => a - b);
-
         const groupSize = activePromo.buyX + activePromo.getY;
         const freeGroups = Math.floor(eligiblePrices.length / groupSize);
         const freeItemsCount = freeGroups * activePromo.getY;
-
         for (let i = 0; i < freeItemsCount; i++) discount += eligiblePrices[i];
       }
     }
@@ -189,10 +247,11 @@ const CashierDashboard = () => {
   };
 
   const filteredPackages = packages.filter((p) => {
-    const pkgCategory =
-      p.classType && p.classType.length > 0 ? p.classType[0] : "Standard";
+    const categoriesArray = p.packageCategory?.length
+      ? p.packageCategory
+      : ["Regular"];
     const matchesCategory =
-      activeCategory === "All" || pkgCategory === activeCategory;
+      activeCategory === "All" || categoriesArray.includes(activeCategory);
     const matchesSearch = (p.packageName || "")
       .toLowerCase()
       .includes(searchPackage.toLowerCase());
@@ -246,22 +305,38 @@ const CashierDashboard = () => {
             <div className='grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5 w-full'>
               {filteredPackages.map((pkg) => {
                 const qty = cart[pkg._id] || 0;
-                const pkgCategory =
-                  pkg.classType && pkg.classType.length > 0
-                    ? pkg.classType[0]
-                    : "Standard";
-                const price = Number(pkg.packagePrice || 0);
+                const activePrice = getEffectivePrice(pkg);
 
                 return (
                   <div
                     key={pkg._id}
                     className='bg-white border border-slate-200 rounded-[20px] p-4 flex flex-col h-48 md:h-52 shadow-sm hover:shadow-md transition-all hover:border-[#1a4d3e]/30 group relative w-full min-w-0'>
-                    <div className='h-12 bg-slate-50 rounded-xl mb-3 flex items-center justify-center border border-slate-100 relative overflow-hidden shrink-0'>
+                    <div className='h-12 bg-slate-50 rounded-xl mb-3 flex items-center justify-center gap-1 flex-wrap border border-slate-100 relative overflow-hidden shrink-0 px-1 py-1'>
                       <div className='absolute inset-0 bg-[#1a4d3e]/5 group-hover:bg-[#1a4d3e]/10 transition-colors'></div>
-                      <span className='font-bold text-slate-400 text-[9px] md:text-[10px] tracking-widest uppercase'>
-                        {pkgCategory}
-                      </span>
+                      {(pkg.packageCategory?.length
+                        ? pkg.packageCategory
+                        : ["Regular"]
+                      )
+                        .slice(0, 1)
+                        .map((cat, idx) => (
+                          <span
+                            key={idx}
+                            className='font-bold text-slate-500 text-[9px] md:text-[10px] tracking-widest uppercase z-10'>
+                            {cat}
+                          </span>
+                        ))}
+                      {pkg.isOneTimePurchase && (
+                        <span className='font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded text-[8px] md:text-[9px] tracking-widest uppercase z-10 ml-1 flex items-center gap-0.5'>
+                          <AlertTriangle className='w-2.5 h-2.5' /> ONE-TIME
+                        </span>
+                      )}
+                      {pkg.isPromo && (
+                        <span className='font-bold text-pink-600 bg-pink-100 px-1.5 py-0.5 rounded text-[8px] md:text-[9px] tracking-widest uppercase z-10 ml-1 flex items-center gap-0.5'>
+                          <Tag className='w-2.5 h-2.5' /> PROMO
+                        </span>
+                      )}
                     </div>
+
                     <div className='flex-1 min-h-0 w-full'>
                       <h3 className='font-extrabold text-xs md:text-sm text-slate-800 leading-tight mb-1 truncate'>
                         {pkg.packageName}
@@ -270,10 +345,20 @@ const CashierDashboard = () => {
                         {pkg.credits} Credits • {pkg.validityDays} Days
                       </p>
                     </div>
+
                     <div className='flex items-center justify-between mt-auto pt-3 border-t border-slate-100 shrink-0 w-full'>
-                      <span className='font-extrabold text-[12px] md:text-[14px] text-slate-900 truncate'>
-                        Rp {(price / 1000).toLocaleString()}k
-                      </span>
+                      <div className='flex flex-col'>
+                        {pkg.isPromo && (
+                          <span className='text-[10px] text-slate-400 line-through leading-none mb-0.5'>
+                            Rp {(pkg.packagePrice / 1000).toLocaleString()}k
+                          </span>
+                        )}
+                        <span
+                          className={`font-extrabold text-[12px] md:text-[14px] truncate leading-none ${pkg.isPromo ? "text-[#10b981]" : "text-slate-900"}`}>
+                          Rp {(activePrice / 1000).toLocaleString()}k
+                        </span>
+                      </div>
+
                       {qty === 0 ? (
                         <button
                           onClick={() => updateCart(pkg._id, 1)}
@@ -335,30 +420,43 @@ const CashierDashboard = () => {
               </div>
             ) : (
               <div className='space-y-3 w-full'>
-                {cartItems.map((item) => (
-                  <div
-                    key={item._id}
-                    className='flex justify-between items-center text-sm bg-white p-4 rounded-[16px] border border-slate-200 shadow-sm w-full min-w-0'>
-                    <div className='flex items-center gap-3 pr-2 min-w-0 flex-1'>
-                      <span className='font-bold text-emerald-700 bg-emerald-50 border border-emerald-100/50 px-2 py-1 rounded-md shrink-0'>
-                        {item.qty}x
-                      </span>
-                      <div className='min-w-0 flex-1'>
-                        <p className='font-bold text-slate-900 leading-tight truncate'>
-                          {item.packageName}
-                        </p>
-                        <p className='text-[11px] font-medium text-slate-400 mt-0.5 uppercase tracking-wider'>
-                          IDR {Number(item.packagePrice || 0).toLocaleString()}
-                        </p>
+                {cartItems.map((item) => {
+                  const itemPrice = getEffectivePrice(item);
+                  return (
+                    <div
+                      key={item._id}
+                      className='flex justify-between items-center text-sm bg-white p-4 rounded-[16px] border border-slate-200 shadow-sm w-full min-w-0'>
+                      <div className='flex items-center gap-3 pr-2 min-w-0 flex-1'>
+                        <span className='font-bold text-emerald-700 bg-emerald-50 border border-emerald-100/50 px-2 py-1 rounded-md shrink-0'>
+                          {item.qty}x
+                        </span>
+                        <div className='min-w-0 flex-1'>
+                          <p className='font-bold text-slate-900 leading-tight truncate'>
+                            {item.packageName}
+                          </p>
+                          <div className='flex items-center gap-2 mt-0.5'>
+                            <p className='text-[11px] font-medium text-slate-400 uppercase tracking-wider'>
+                              IDR {itemPrice.toLocaleString()}
+                            </p>
+                            {item.isPromo && (
+                              <span className='text-[9px] bg-pink-100 text-pink-700 px-1 rounded font-bold'>
+                                PROMO
+                              </span>
+                            )}
+                            {item.isOneTimePurchase && (
+                              <span className='text-[9px] bg-amber-100 text-amber-700 px-1 rounded font-bold'>
+                                1-TIME
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
+                      <span className='font-bold text-slate-900 shrink-0 pl-2'>
+                        {(itemPrice * item.qty).toLocaleString()}
+                      </span>
                     </div>
-                    <span className='font-bold text-slate-900 shrink-0 pl-2'>
-                      {(
-                        Number(item.packagePrice || 0) * item.qty
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -473,6 +571,8 @@ const CashierDashboard = () => {
             selectedClients={selectedClients}
             onToggleClient={handleToggleClient}
             onClose={() => setShowClientListModal(false)}
+            cartItems={cartItems}
+            clientOwnership={clientOwnership}
           />
         )}
         {showPromoModal && (
@@ -503,7 +603,142 @@ const CashierDashboard = () => {
   );
 };
 
-// ... (Promo & Client Modals remain exactly the same) ...
+// --- CLIENT SELECTION MODAL ---
+const ClientSelectionModal = ({
+  users,
+  selectedClients,
+  onToggleClient,
+  onClose,
+  cartItems,
+  clientOwnership,
+}) => {
+  const [localSearch, setLocalSearch] = useState("");
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(
+      (u) =>
+        (u.fullName || "").toLowerCase().includes(localSearch.toLowerCase()) ||
+        (u.phoneNumber || "").includes(localSearch) ||
+        (u.email || "").toLowerCase().includes(localSearch.toLowerCase()),
+    );
+  }, [users, localSearch]);
+
+  const getConflictingPackage = (user) => {
+    return cartItems.find(
+      (item) =>
+        item.isOneTimePurchase && clientOwnership[user._id]?.has(item._id),
+    );
+  };
+
+  return (
+    <div className='fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className='bg-white w-full max-w-lg rounded-[28px] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden'>
+        <div className='px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white'>
+          <h3 className='text-lg font-extrabold text-gray-900'>
+            Select Clients
+          </h3>
+          <button
+            onClick={onClose}
+            className='p-2 rounded-full hover:bg-slate-100'>
+            <X className='w-5 h-5 text-gray-400' />
+          </button>
+        </div>
+        <div className='p-4 border-b border-gray-100 bg-slate-50/50'>
+          <div className='relative'>
+            <Search className='w-4 h-4 absolute left-3 top-3 text-slate-400' />
+            <input
+              type='text'
+              placeholder='Search name or phone...'
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className='w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm'
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className='overflow-y-auto custom-scrollbar flex-1 bg-white p-2'>
+          {filteredUsers.length > 0 ? (
+            <div className='space-y-1'>
+              {filteredUsers.map((user) => {
+                const isSelected = selectedClients.some(
+                  (c) => c._id === user._id,
+                );
+                const conflictPackage = getConflictingPackage(user);
+                const isDisabled = !!conflictPackage && !isSelected; // If they are already selected, allow them to deselect
+
+                return (
+                  <div
+                    key={user._id}
+                    onClick={() => !isDisabled && onToggleClient(user)}
+                    className={`p-3 rounded-xl flex justify-between items-center transition-all border ${
+                      isDisabled
+                        ? "bg-slate-50 border-slate-100 opacity-60 cursor-not-allowed"
+                        : isSelected
+                          ? "bg-emerald-50/50 border-emerald-200 shadow-sm cursor-pointer"
+                          : "bg-white border-transparent hover:bg-slate-50 cursor-pointer"
+                    }`}>
+                    <div className='flex items-center gap-3'>
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm uppercase ${isSelected ? "bg-emerald-200 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                        {user.fullName.charAt(0)}
+                      </div>
+                      <div>
+                        <p
+                          className={`font-bold text-sm ${isSelected ? "text-emerald-900" : "text-slate-800"}`}>
+                          {user.fullName}
+                        </p>
+                        <p className='text-xs text-slate-500 font-medium'>
+                          {user.phoneNumber || user.email}
+                        </p>
+                        {isDisabled && (
+                          <p className='text-[10px] text-amber-600 font-bold flex items-center gap-1 mt-1'>
+                            <Lock className='w-3 h-3' /> Owns 1-Time Pkg:{" "}
+                            {conflictPackage.packageName}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {!isDisabled && (
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? "bg-emerald-500 border-emerald-500" : "border-slate-300"}`}>
+                        {isSelected && (
+                          <Check
+                            className='w-3.5 h-3.5 text-white'
+                            strokeWidth={3}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className='py-12 text-center text-slate-400'>
+              <UserIcon className='w-10 h-10 mx-auto mb-3 text-slate-300' />
+              <p>No clients found.</p>
+            </div>
+          )}
+        </div>
+        <div className='p-5 border-t border-gray-100 bg-white'>
+          <button
+            onClick={onClose}
+            className='w-full py-3.5 bg-[#1a4d3e] text-white font-bold rounded-xl shadow-lg'>
+            Done Selecting ({selectedClients.length})
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ... (PromoSelectionModal and PaymentModal remain unchanged from the previous version) ...
+
+// --- PROMO SELECTION MODAL ---
 const PromoSelectionModal = ({
   onClose,
   onApply,
@@ -645,13 +880,13 @@ const PaymentModal = ({
         for (let i = 0; i < qty; i++) legacyPackageIds.push(id);
       });
 
-      // NEW STRUCTURE: Explicit Quantity
+      // NEW STRUCTURE: Explicit Quantity & Effective Price
       const purchasedPackages = Object.entries(cart).map(([id, qty]) => {
         const pkg = packages.find((p) => p._id === id);
         return {
           packageId: id,
           qty: qty,
-          priceAtPurchase: pkg ? pkg.packagePrice : 0,
+          priceAtPurchase: pkg ? getEffectivePrice(pkg) : 0,
         };
       });
 
@@ -667,8 +902,8 @@ const PaymentModal = ({
 
       const payload = {
         userIds: selectedClients.map((c) => c._id),
-        packageIds: legacyPackageIds, // Sent for backward compatibility
-        purchasedPackages: purchasedPackages, // NEW: Sending structured quantities
+        packageIds: legacyPackageIds,
+        purchasedPackages: purchasedPackages,
         paymentMethod:
           paymentMethod === "transfer" ? "bank_transfer" : paymentMethod,
         totalAmount: grandTotal,
@@ -890,112 +1125,6 @@ const PaymentModal = ({
             disabled={isLoading}
             className='w-full bg-[#1a4d3e] hover:bg-[#133d31] disabled:bg-slate-300 disabled:text-slate-500 text-white font-extrabold py-4 rounded-[14px] shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] disabled:shadow-none text-[15px] transition-all'>
             {isLoading ? "Processing..." : "Complete Transaction"}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-const ClientSelectionModal = ({
-  users,
-  selectedClients,
-  onToggleClient,
-  onClose,
-}) => {
-  const [localSearch, setLocalSearch] = useState("");
-
-  const filteredUsers = useMemo(() => {
-    return users.filter(
-      (u) =>
-        (u.fullName || "").toLowerCase().includes(localSearch.toLowerCase()) ||
-        (u.phoneNumber || "").includes(localSearch) ||
-        (u.email || "").toLowerCase().includes(localSearch.toLowerCase()),
-    );
-  }, [users, localSearch]);
-
-  return (
-    <div className='fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className='bg-white w-full max-w-lg rounded-[28px] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden'>
-        <div className='px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white'>
-          <h3 className='text-lg font-extrabold text-gray-900'>
-            Select Clients
-          </h3>
-          <button
-            onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100'>
-            <X className='w-5 h-5 text-gray-400' />
-          </button>
-        </div>
-        <div className='p-4 border-b border-gray-100 bg-slate-50/50'>
-          <div className='relative'>
-            <Search className='w-4 h-4 absolute left-3 top-3 text-slate-400' />
-            <input
-              type='text'
-              placeholder='Search name or phone...'
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className='w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm'
-              autoFocus
-            />
-          </div>
-        </div>
-        <div className='overflow-y-auto custom-scrollbar flex-1 bg-white p-2'>
-          {filteredUsers.length > 0 ? (
-            <div className='space-y-1'>
-              {filteredUsers.map((user) => {
-                const isSelected = selectedClients.some(
-                  (c) => c._id === user._id,
-                );
-                return (
-                  <div
-                    key={user._id}
-                    onClick={() => onToggleClient(user)}
-                    className={`p-3 rounded-xl cursor-pointer flex justify-between items-center transition-all border ${isSelected ? "bg-emerald-50/50 border-emerald-200 shadow-sm" : "bg-white border-transparent hover:bg-slate-50"}`}>
-                    <div className='flex items-center gap-3'>
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm uppercase ${isSelected ? "bg-emerald-200 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
-                        {user.fullName.charAt(0)}
-                      </div>
-                      <div>
-                        <p
-                          className={`font-bold text-sm ${isSelected ? "text-emerald-900" : "text-slate-800"}`}>
-                          {user.fullName}
-                        </p>
-                        <p className='text-xs text-slate-500 font-medium'>
-                          {user.phoneNumber || user.email}
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? "bg-emerald-500 border-emerald-500" : "border-slate-300"}`}>
-                      {isSelected && (
-                        <Check
-                          className='w-3.5 h-3.5 text-white'
-                          strokeWidth={3}
-                        />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className='py-12 text-center text-slate-400'>
-              <UserIcon className='w-10 h-10 mx-auto mb-3 text-slate-300' />
-              <p>No clients found.</p>
-            </div>
-          )}
-        </div>
-        <div className='p-5 border-t border-gray-100 bg-white'>
-          <button
-            onClick={onClose}
-            className='w-full py-3.5 bg-[#1a4d3e] text-white font-bold rounded-xl shadow-lg'>
-            Done Selecting ({selectedClients.length})
           </button>
         </div>
       </motion.div>

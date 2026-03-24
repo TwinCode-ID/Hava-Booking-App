@@ -13,6 +13,10 @@ exports.createPackage = async (req, res) => {
       instructorType,
       classType,
       comboItems,
+      packageCategory,
+      isPromo,
+      promoPrice,
+      isOneTimePurchase, // NEW
     } = req.body;
 
     if (!packageName) {
@@ -21,21 +25,25 @@ exports.createPackage = async (req, res) => {
 
     const studioLocation = req.user.adminStudioLocation;
 
-    const package = await Package.create({
+    const newPackage = await Package.create({
       packageName,
       packageDescription,
       packagePrice,
       currency,
       validityDays,
+      packageCategory: packageCategory || ["Regular"], // Default to array
+      isOneTimePurchase: isOneTimePurchase || false, // NEW
+      isPromo: isPromo || false,
+      promoPrice: isPromo ? promoPrice : undefined,
       isCombo: isCombo || false,
       credits,
       instructorType,
       classType,
-      comboItems: comboItems || [],
+      comboItems: isCombo ? comboItems : [],
       studioLocation,
     });
 
-    res.status(201).json(package);
+    res.status(201).json(newPackage);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -43,9 +51,9 @@ exports.createPackage = async (req, res) => {
 
 exports.getPackageById = async (req, res) => {
   try {
-    const package = await Package.findById(req.params.id);
-    if (!package) return res.status(404).json({ message: "Package not found" });
-    res.json(package);
+    const pkg = await Package.findById(req.params.id);
+    if (!pkg) return res.status(404).json({ message: "Package not found" });
+    res.json(pkg);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -72,11 +80,11 @@ exports.getPackageByStudio = async (req, res) => {
 
 exports.getAllPackages = async (req, res) => {
   try {
-    const package = await Package.find().populate(
+    const packages = await Package.find().populate(
       "studioLocation",
       "studioName bankDetails",
     );
-    res.json(package);
+    res.json(packages);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -96,27 +104,48 @@ exports.updatePackage = async (req, res) => {
       instructorType,
       classType,
       comboItems,
+      packageCategory,
+      isPromo,
+      promoPrice,
+      isOneTimePurchase, // NEW
     } = req.body;
 
-    const package = await Package.findById(req.params.id);
-    if (!package) return res.status(404).json({ message: "Package not found" });
+    const existingPackage = await Package.findById(req.params.id);
+    if (!existingPackage)
+      return res.status(404).json({ message: "Package not found" });
 
-    package.packageName = packageName || package.packageName;
-    package.packageDescription =
-      packageDescription || package.packageDescription;
-    package.packagePrice = packagePrice || package.packagePrice;
-    package.currency = currency || package.currency;
-    package.validityDays = validityDays || package.validityDays;
-    package.isActive = isActive !== undefined ? isActive : package.isActive;
+    existingPackage.packageName = packageName || existingPackage.packageName;
+    existingPackage.packageDescription =
+      packageDescription || existingPackage.packageDescription;
+    existingPackage.packagePrice = packagePrice || existingPackage.packagePrice;
+    existingPackage.currency = currency || existingPackage.currency;
+    existingPackage.validityDays = validityDays || existingPackage.validityDays;
+    existingPackage.isActive =
+      isActive !== undefined ? isActive : existingPackage.isActive;
 
-    package.isCombo = isCombo !== undefined ? isCombo : package.isCombo;
-    package.credits = credits !== undefined ? credits : package.credits;
-    package.instructorType = instructorType || package.instructorType;
-    package.classType = classType || package.classType;
-    package.comboItems = comboItems || package.comboItems;
+    existingPackage.packageCategory =
+      packageCategory || existingPackage.packageCategory;
+    existingPackage.isOneTimePurchase =
+      isOneTimePurchase !== undefined
+        ? isOneTimePurchase
+        : existingPackage.isOneTimePurchase; // NEW
 
-    await package.save();
-    res.status(200).json(package);
+    existingPackage.isPromo =
+      isPromo !== undefined ? isPromo : existingPackage.isPromo;
+    existingPackage.promoPrice = isPromo ? promoPrice : undefined;
+
+    existingPackage.isCombo =
+      isCombo !== undefined ? isCombo : existingPackage.isCombo;
+    existingPackage.credits =
+      credits !== undefined ? credits : existingPackage.credits;
+    existingPackage.instructorType =
+      instructorType || existingPackage.instructorType;
+    existingPackage.classType = classType || existingPackage.classType;
+
+    existingPackage.comboItems = isCombo ? comboItems : [];
+
+    await existingPackage.save();
+    res.status(200).json(existingPackage);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -124,8 +153,8 @@ exports.updatePackage = async (req, res) => {
 
 exports.deletePackage = async (req, res) => {
   try {
-    const package = await Package.findByIdAndDelete(req.params.id);
-    if (!package) return res.status(404).json({ message: "Package not found" });
+    const pkg = await Package.findByIdAndDelete(req.params.id);
+    if (!pkg) return res.status(404).json({ message: "Package not found" });
     res.json({ message: "Package deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -134,20 +163,19 @@ exports.deletePackage = async (req, res) => {
 
 exports.packageStatus = async (req, res) => {
   try {
-    const package = await Package.findById(req.params.id);
-    if (!package) return res.status(404).json({ message: "Package not found" });
+    const pkg = await Package.findById(req.params.id);
+    if (!pkg) return res.status(404).json({ message: "Package not found" });
 
     if (
-      package.studioLocation.toString() !==
-      req.user.adminStudioLocation.toString()
+      pkg.studioLocation.toString() !== req.user.adminStudioLocation.toString()
     ) {
       return res.status(403).json({ message: "Unauthorized user" });
     }
 
-    package.isActive = !package.isActive;
-    await package.save();
+    pkg.isActive = !pkg.isActive;
+    await pkg.save();
     res.json({
-      message: package.isActive ? "Package active" : "Package inactive",
+      message: pkg.isActive ? "Package active" : "Package inactive",
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

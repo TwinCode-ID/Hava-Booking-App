@@ -19,6 +19,7 @@ import {
   Check,
   ChevronDown,
   ListPlus,
+  Tag,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../../context/AuthContext";
@@ -302,22 +303,57 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
       </button>
     </div>
 
-    <div className='flex items-center gap-2 mb-3'>
+    <div className='flex flex-wrap items-center gap-2 mb-3'>
       <div
         className={`px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider ${pkg.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
         {pkg.isActive ? "ACTIVE" : "INACTIVE"}
       </div>
+
+      {/* Dynamic Multi-Category Map */}
+      {pkg.packageCategory?.map((cat, idx) => (
+        <div
+          key={idx}
+          className={`px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider ${cat === "Student" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>
+          {cat.toUpperCase()}
+        </div>
+      ))}
+
+      {/* New One-Time Badge */}
+      {pkg.isOneTimePurchase && (
+        <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-amber-100 text-amber-800 flex items-center gap-1'>
+          <AlertTriangle className='w-3 h-3' /> ONE-TIME
+        </div>
+      )}
+
       {pkg.isCombo && (
         <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-purple-100 text-purple-800 flex items-center gap-1'>
           <ListPlus className='w-3 h-3' /> COMBO
         </div>
       )}
+
+      {pkg.isPromo && (
+        <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-pink-100 text-pink-800 flex items-center gap-1'>
+          <Tag className='w-3 h-3' /> PROMO
+        </div>
+      )}
     </div>
 
     <h3 className='text-base font-bold text-gray-900'>{pkg.packageName}</h3>
-    <div className='text-xl font-bold text-emerald-800 mt-1 mb-3'>
-      {parseInt(pkg.packagePrice).toLocaleString("id-ID")} {pkg.currency}
-    </div>
+
+    {pkg.isPromo ? (
+      <div className='mt-1 mb-3'>
+        <span className='text-sm text-gray-400 line-through mr-2'>
+          {parseInt(pkg.packagePrice).toLocaleString("id-ID")} {pkg.currency}
+        </span>
+        <span className='text-xl font-bold text-emerald-800'>
+          {parseInt(pkg.promoPrice).toLocaleString("id-ID")} {pkg.currency}
+        </span>
+      </div>
+    ) : (
+      <div className='text-xl font-bold text-emerald-800 mt-1 mb-3'>
+        {parseInt(pkg.packagePrice).toLocaleString("id-ID")} {pkg.currency}
+      </div>
+    )}
 
     <div className='flex-1 border-t border-gray-100 pt-3'>
       <p className='text-sm text-gray-600 mb-4 line-clamp-2'>
@@ -412,6 +448,17 @@ const PackageFormModal = ({
     validityDays: initialData?.validityDays || "",
     isCombo: initialData?.isCombo || false,
     credits: initialData?.credits || "",
+
+    // Updated Category Array State
+    packageCategory: Array.isArray(initialData?.packageCategory)
+      ? initialData.packageCategory
+      : ["Regular"],
+
+    // New One Time Purchase State
+    isOneTimePurchase: initialData?.isOneTimePurchase || false,
+
+    isPromo: initialData?.isPromo || false,
+    promoPrice: initialData?.promoPrice || "",
     instructorType: Array.isArray(initialData?.instructorType)
       ? initialData.instructorType
       : [],
@@ -457,6 +504,8 @@ const PackageFormModal = ({
         packagePrice: Number(formData.packagePrice),
         validityDays: Number(formData.validityDays),
         credits: formData.isCombo ? 0 : Number(formData.credits),
+        comboItems: formData.isCombo ? formData.comboItems : [],
+        promoPrice: formData.isPromo ? Number(formData.promoPrice) : undefined,
       };
 
       if (!initialData)
@@ -514,6 +563,19 @@ const PackageFormModal = ({
         <div className='overflow-y-auto p-6 custom-scrollbar'>
           <form id='package-form' onSubmit={handleSubmit} className='space-y-5'>
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              {/* Replacing Select with MultiSelect */}
+              <div className='md:col-span-2'>
+                <MultiSelect
+                  label='Package Category'
+                  options={["Regular", "Student"]}
+                  value={formData.packageCategory}
+                  onChange={(val) =>
+                    setFormData({ ...formData, packageCategory: val })
+                  }
+                  placeholder='Select Categories...'
+                />
+              </div>
+
               <div className='md:col-span-2'>
                 <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
                   Package Name
@@ -541,7 +603,8 @@ const PackageFormModal = ({
               </div>
               <div>
                 <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
-                  Price ({formData.currency})
+                  {formData.isPromo ? "Original Price" : "Price"} (
+                  {formData.currency})
                 </label>
                 <input
                   type='number'
@@ -566,6 +629,72 @@ const PackageFormModal = ({
                 />
               </div>
             </div>
+
+            <hr className='border-gray-100' />
+
+            {/* --- NEW: One-Time Purchase Toggle --- */}
+            <div className='flex items-center justify-between bg-amber-50 p-4 rounded-md border border-amber-100'>
+              <div>
+                <h4 className='font-bold text-amber-900 text-sm'>
+                  One-Time Purchase Limit
+                </h4>
+                <p className='text-xs text-amber-700 mt-0.5'>
+                  Restrict clients to buying this package only once per account.
+                </p>
+              </div>
+              <label className='relative inline-flex items-center cursor-pointer'>
+                <input
+                  type='checkbox'
+                  className='sr-only peer'
+                  checked={formData.isOneTimePurchase}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      isOneTimePurchase: e.target.checked,
+                    })
+                  }
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+              </label>
+            </div>
+
+            <div className='flex items-center justify-between bg-emerald-50 p-4 rounded-md border border-emerald-100'>
+              <div>
+                <h4 className='font-bold text-emerald-900 text-sm'>
+                  Promo Package
+                </h4>
+                <p className='text-xs text-emerald-700 mt-0.5'>
+                  Enable this to apply a discounted price.
+                </p>
+              </div>
+              <label className='relative inline-flex items-center cursor-pointer'>
+                <input
+                  type='checkbox'
+                  className='sr-only peer'
+                  checked={formData.isPromo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isPromo: e.target.checked })
+                  }
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
+            {formData.isPromo && (
+              <div>
+                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                  Promo Price ({formData.currency})
+                </label>
+                <input
+                  type='number'
+                  name='promoPrice'
+                  required={formData.isPromo}
+                  value={formData.promoPrice}
+                  onChange={handleInputChange}
+                  className='w-full p-2.5 rounded-md border border-emerald-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm bg-emerald-50/30'
+                />
+              </div>
+            )}
 
             <hr className='border-gray-100' />
 

@@ -60,6 +60,28 @@ exports.createCashierBulkPurchase = async (req, res) => {
 
     for (const id of uniquePkgIds) {
       if (!pkgMap[id]) throw new Error(`Package with ID ${id} not found.`);
+
+      // --- SERVER-SIDE 1-TIME PURCHASE VALIDATION ---
+      const pkg = pkgMap[id];
+      if (pkg.isOneTimePurchase) {
+        // Find if ANY of the userIds have bought this package before
+        const existingPurchases = await PackagePurchase.find({
+          userId: { $in: userIds },
+          packageId: id,
+          status: { $nin: ["payment_rejected", "expired"] },
+        }).session(session);
+
+        const existingPasses = await UserPasses.find({
+          userId: { $in: userIds },
+          packageId: id,
+        }).session(session);
+
+        if (existingPurchases.length > 0 || existingPasses.length > 0) {
+          throw new Error(
+            `One or more selected clients have already purchased the One-Time package: ${pkg.packageName}`,
+          );
+        }
+      }
     }
 
     // Master Cashier Transaction
@@ -186,6 +208,26 @@ exports.createPurchase = async (req, res) => {
 
     const packageInfo = await Packages.findById(packageId).session(session);
     if (!packageInfo) throw new Error("Package not found");
+
+    // --- SERVER-SIDE 1-TIME PURCHASE VALIDATION ---
+    if (packageInfo.isOneTimePurchase) {
+      const existingPurchases = await PackagePurchase.findOne({
+        userId: finalUserId,
+        packageId: packageId,
+        status: { $nin: ["payment_rejected", "expired"] },
+      }).session(session);
+
+      const existingPasses = await UserPasses.findOne({
+        userId: finalUserId,
+        packageId: packageId,
+      }).session(session);
+
+      if (existingPurchases || existingPasses) {
+        throw new Error(
+          "You have already purchased this One-Time package in the past.",
+        );
+      }
+    }
 
     let paymentStatus;
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
