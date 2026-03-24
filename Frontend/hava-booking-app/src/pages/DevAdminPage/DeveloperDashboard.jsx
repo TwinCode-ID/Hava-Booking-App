@@ -232,7 +232,7 @@ const DevelopmentDashboard = () => {
               </button>
             </div>
 
-            <div className='bg-white rounded-[24px] border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden w-full'>
+            <div className='bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden w-full'>
               <div className='overflow-x-auto w-full custom-scrollbar'>
                 <table className='w-full text-left border-collapse min-w-max'>
                   <thead className='bg-slate-50/50 border-b border-slate-100'>
@@ -255,7 +255,7 @@ const DevelopmentDashboard = () => {
                         className='hover:bg-slate-50/80 transition-colors group'>
                         <td className='py-4 px-6'>
                           <div className='flex items-center gap-4'>
-                            <div className='w-10 h-10 shrink-0 rounded-[12px] bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 flex items-center justify-center font-extrabold text-sm uppercase shadow-sm border border-slate-300/30'>
+                            <div className='w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-slate-100 to-slate-200 text-slate-700 flex items-center justify-center font-extrabold text-sm uppercase shadow-sm border border-slate-300/30'>
                               {u.fullName.charAt(0)}
                             </div>
                             <div className='flex flex-col min-w-0'>

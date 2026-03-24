@@ -124,8 +124,8 @@ const PurchaseForm = ({
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      if (selectedFile.size > 5 * 1024 * 1024) {
-        setError("File size too large (Max 5MB)");
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        setError("File size too large (Max 50MB)");
         return;
       }
       setFormData((prev) => ({ ...prev, proofOfPayment: selectedFile }));

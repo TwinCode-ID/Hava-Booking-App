@@ -51,25 +51,28 @@ export const validatePhoneNumber = (phone) => {
   return "";
 };
 
-//Validate Avatar
 export const validateAvatar = (file) => {
-  if (!file) return ""; // Avatar is optional
+  if (!file) return ""; // Optional
 
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/jpg",
-    "image/x-png",
-    "image/pjpeg",
-  ];
-  if (!allowedTypes.includes(file.type)) {
-    return "Avatar must be a JPG or PNG file";
+  // 1. Allow ANY image type (including image/heic, image/webp, etc.)
+  if (!file.type.startsWith("image/")) {
+    // Some phones don't pass the mime type correctly for HEIC,
+    // so we can also check the extension as a fallback
+    const extension = file.name.split(".").pop().toLowerCase();
+    const validExtensions = ["jpg", "jpeg", "png", "heic", "heif", "webp"];
+
+    if (!validExtensions.includes(extension)) {
+      return "File must be a valid image format.";
+    }
   }
 
-  const maxSize = 5 * 1024 * 1024; // 5mb
+  // 2. Increase limit to 50MB (Backend will compress it anyway)
+  const maxSize = 50 * 1024 * 1024; // 50MB
   if (file.size > maxSize) {
-    return "Avatar must be less than 5mb";
+    return "Image is too large. Must be less than 50MB.";
   }
+
+  return "";
 };
 
 export const pad = (number) => {

@@ -27,6 +27,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { INDONESIAN_BANKS } from "../../../utils/helper";
 import { getBankLogo } from "../../../utils/helpers";
 
+// Helper function to get the actual price (Promo vs Regular)
 const getEffectivePrice = (pkg) => {
   return pkg.isPromo && pkg.promoPrice
     ? Number(pkg.promoPrice)
@@ -40,7 +41,7 @@ const CashierDashboard = () => {
   const [packages, setPackages] = useState([]);
   const [availablePromos, setAvailablePromos] = useState([]);
   const [categories, setCategories] = useState(["All"]);
-  const [clientOwnership, setClientOwnership] = useState({}); // Maps userId -> Set of packageIds
+  const [clientOwnership, setClientOwnership] = useState({}); // Maps String(userId) -> Set of String(packageIds)
 
   const [searchPackage, setSearchPackage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -53,6 +54,8 @@ const CashierDashboard = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
 
+  const dropdownRef = useRef(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -63,13 +66,13 @@ const CashierDashboard = () => {
           .get(`/api/promos/studio/${studioId}`)
           .catch(() => ({ data: [] }));
 
-        // Fetch purchase history to track one-time package eligibility
+        // Fetch purchase history and passes to track one-time package eligibility
         const purchasesPromise = axiosInstance
-          .get(`/api/purchases/studio/${studioId}/history`)
+          .get(`/api/purchases/studio/${studioId}`)
           .catch(() => ({ data: [] }));
 
         const passesPromise = axiosInstance
-          .get(`/api/user-passes/studio/${studioId}/history`)
+          .get(`/api/user-passes/studio/${studioId}`)
           .catch(() => ({ data: [] }));
 
         const [usersRes, packagesRes, promosRes, purchasesRes, passesRes] =
@@ -91,6 +94,8 @@ const CashierDashboard = () => {
         if (packagesRes.data) {
           setPackages(packagesRes.data);
           const uniqueCategories = new Set(["All"]);
+
+          // Handle packageCategory array
           packagesRes.data.forEach((pkg) => {
             if (pkg.packageCategory && pkg.packageCategory.length > 0) {
               pkg.packageCategory.forEach((type) => uniqueCategories.add(type));
@@ -105,8 +110,11 @@ const CashierDashboard = () => {
         const ownership = {};
         const registerOwnership = (uid, pid) => {
           if (!uid || !pid) return;
-          const uStr = typeof uid === "object" ? uid._id : uid;
-          const pStr = typeof pid === "object" ? pid._id : pid;
+
+          // STRICTLY convert to string, handling both populated objects and flat strings
+          const uStr = String(uid._id || uid);
+          const pStr = String(pid._id || pid);
+
           if (!ownership[uStr]) ownership[uStr] = new Set();
           ownership[uStr].add(pStr);
         };
@@ -123,6 +131,7 @@ const CashierDashboard = () => {
             registerOwnership(p.userId, p.packageId),
           );
         }
+
         setClientOwnership(ownership);
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -130,6 +139,16 @@ const CashierDashboard = () => {
     };
     fetchData();
   }, [user]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowClientDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const cartItems = Object.entries(cart).map(([pkgId, qty]) => {
     const pkg = packages.find((p) => p._id === pkgId) || {};
@@ -148,7 +167,7 @@ const CashierDashboard = () => {
       }
 
       const alreadyOwnedClient = selectedClients.find((client) => {
-        return clientOwnership[client._id]?.has(pkgId);
+        return clientOwnership[String(client._id)]?.has(String(pkgId));
       });
 
       if (alreadyOwnedClient) {
@@ -161,6 +180,7 @@ const CashierDashboard = () => {
     setCart((prev) => {
       const currentQty = prev[pkgId] || 0;
       const newQty = currentQty + delta;
+
       if (newQty <= 0) {
         const newCart = { ...prev };
         delete newCart[pkgId];
@@ -175,10 +195,13 @@ const CashierDashboard = () => {
     if (isSelected) {
       setSelectedClients(selectedClients.filter((c) => c._id !== userObj._id));
     } else {
-      // Prevent selection if user already owns a 1-time package currently in the cart
+      const userStrId = String(userObj._id);
+
+      // Validation check: If we have a One-Time package in the cart, does this new client already own it?
       const conflictingPackage = cartItems.find((item) => {
         return (
-          item.isOneTimePurchase && clientOwnership[userObj._id]?.has(item._id)
+          item.isOneTimePurchase &&
+          clientOwnership[userStrId]?.has(String(item._id))
         );
       });
 
@@ -187,6 +210,7 @@ const CashierDashboard = () => {
           `Cannot select ${userObj.fullName}. They already own the one-time package: ${conflictingPackage.packageName}.`,
         );
       }
+
       setSelectedClients([...selectedClients, userObj]);
     }
   };
@@ -200,10 +224,12 @@ const CashierDashboard = () => {
     setPromoCode("");
   };
 
+  // --- Calculate Totals using Effective Price ---
   const baseCartTotal = cartItems.reduce(
     (sum, item) => sum + getEffectivePrice(item) * item.qty,
     0,
   );
+
   const clientMultiplier =
     selectedClients.length > 0 ? selectedClients.length : 1;
   const subtotal = baseCartTotal * clientMultiplier;
@@ -224,12 +250,14 @@ const CashierDashboard = () => {
         let eligiblePrices = [];
         cartItems.forEach((item) => {
           for (let i = 0; i < item.qty * clientMultiplier; i++)
-            eligiblePrices.push(getEffectivePrice(item));
+            eligiblePrices.push(getEffectivePrice(item)); // Use effective price
         });
         eligiblePrices.sort((a, b) => a - b);
+
         const groupSize = activePromo.buyX + activePromo.getY;
         const freeGroups = Math.floor(eligiblePrices.length / groupSize);
         const freeItemsCount = freeGroups * activePromo.getY;
+
         for (let i = 0; i < freeItemsCount; i++) discount += eligiblePrices[i];
       }
     }
@@ -313,6 +341,7 @@ const CashierDashboard = () => {
                     className='bg-white border border-slate-200 rounded-[20px] p-4 flex flex-col h-48 md:h-52 shadow-sm hover:shadow-md transition-all hover:border-[#1a4d3e]/30 group relative w-full min-w-0'>
                     <div className='h-12 bg-slate-50 rounded-xl mb-3 flex items-center justify-center gap-1 flex-wrap border border-slate-100 relative overflow-hidden shrink-0 px-1 py-1'>
                       <div className='absolute inset-0 bg-[#1a4d3e]/5 group-hover:bg-[#1a4d3e]/10 transition-colors'></div>
+
                       {(pkg.packageCategory?.length
                         ? pkg.packageCategory
                         : ["Regular"]
@@ -325,11 +354,13 @@ const CashierDashboard = () => {
                             {cat}
                           </span>
                         ))}
+
                       {pkg.isOneTimePurchase && (
                         <span className='font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded text-[8px] md:text-[9px] tracking-widest uppercase z-10 ml-1 flex items-center gap-0.5'>
                           <AlertTriangle className='w-2.5 h-2.5' /> ONE-TIME
                         </span>
                       )}
+
                       {pkg.isPromo && (
                         <span className='font-bold text-pink-600 bg-pink-100 px-1.5 py-0.5 rounded text-[8px] md:text-[9px] tracking-widest uppercase z-10 ml-1 flex items-center gap-0.5'>
                           <Tag className='w-2.5 h-2.5' /> PROMO
@@ -623,11 +654,15 @@ const ClientSelectionModal = ({
     );
   }, [users, localSearch]);
 
+  // FIX: Strictly parse string IDs for the Set lookup
   const getConflictingPackage = (user) => {
-    return cartItems.find(
-      (item) =>
-        item.isOneTimePurchase && clientOwnership[user._id]?.has(item._id),
-    );
+    const userStrId = String(user._id);
+    return cartItems.find((item) => {
+      return (
+        item.isOneTimePurchase &&
+        clientOwnership[userStrId]?.has(String(item._id))
+      );
+    });
   };
 
   return (
@@ -668,7 +703,8 @@ const ClientSelectionModal = ({
                   (c) => c._id === user._id,
                 );
                 const conflictPackage = getConflictingPackage(user);
-                const isDisabled = !!conflictPackage && !isSelected; // If they are already selected, allow them to deselect
+                // If they are already selected, allow them to deselect, otherwise block if conflict
+                const isDisabled = !!conflictPackage && !isSelected;
 
                 return (
                   <div
@@ -735,8 +771,6 @@ const ClientSelectionModal = ({
     </div>
   );
 };
-
-// ... (PromoSelectionModal and PaymentModal remain unchanged from the previous version) ...
 
 // --- PROMO SELECTION MODAL ---
 const PromoSelectionModal = ({

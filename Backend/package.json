@@ -28,6 +28,7 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.12",
     "passkit-generator": "^3.5.7",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "uuid": "^13.0.0"
   },
