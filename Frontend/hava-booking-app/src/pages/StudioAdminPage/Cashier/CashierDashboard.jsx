@@ -28,37 +28,32 @@ import { getBankLogo } from "../../../utils/helpers";
 const CashierDashboard = () => {
   const { user } = useAuth();
 
-  // --- STATE ---
   const [users, setUsers] = useState([]);
   const [packages, setPackages] = useState([]);
-  const [availablePromos, setAvailablePromos] = useState([]); // Real promos from DB
+  const [availablePromos, setAvailablePromos] = useState([]);
   const [categories, setCategories] = useState(["All"]);
 
   const [searchPackage, setSearchPackage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
 
-  const [cart, setCart] = useState({}); // { packageId: quantity }
+  const [cart, setCart] = useState({});
   const [selectedClients, setSelectedClients] = useState([]);
   const [clientSearch, setClientSearch] = useState("");
   const [showClientDropdown, setShowClientDropdown] = useState(false);
-
   const [promoCode, setPromoCode] = useState("");
 
-  // Modal States
   const [showClientListModal, setShowClientListModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
 
   const dropdownRef = useRef(null);
 
-  // --- FETCH DATA (Users, Packages, Promos) ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         const studioId = user?.adminStudioLocation;
         if (!studioId) return;
 
-        // DEFENSIVE FETCHING: Catch the promo error specifically so it doesn't break packages/users
         const promosPromise = axiosInstance
           .get(`/api/promos/studio/${studioId}`)
           .catch((err) => {
@@ -66,7 +61,7 @@ const CashierDashboard = () => {
               "Promo API 404 or failed. Defaulting to empty promos.",
               err,
             );
-            return { data: [] }; // Return empty data so Promise.all succeeds
+            return { data: [] };
           });
 
         const [usersRes, packagesRes, promosRes] = await Promise.all([
@@ -109,7 +104,6 @@ const CashierDashboard = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- CART & CLIENT LOGIC ---
   const updateCart = (pkgId, delta) => {
     setCart((prev) => {
       const currentQty = prev[pkgId] || 0;
@@ -141,7 +135,6 @@ const CashierDashboard = () => {
     setPromoCode("");
   };
 
-  // --- REACTIVE MATH (CLIENT MULTIPLIER & REAL DB DISCOUNTS) ---
   const cartItems = Object.entries(cart).map(([pkgId, qty]) => {
     const pkg = packages.find((p) => p._id === pkgId) || {};
     return { ...pkg, qty };
@@ -154,17 +147,14 @@ const CashierDashboard = () => {
   const clientMultiplier =
     selectedClients.length > 0 ? selectedClients.length : 1;
   const subtotal = baseCartTotal * clientMultiplier;
-
   const totalBaseQty = cartItems.reduce((acc, item) => acc + item.qty, 0);
   const totalItemsPurchased = totalBaseQty * clientMultiplier;
 
-  // Calculate discount dynamically based on current cart and real Promo rules
   let discount = 0;
   if (promoCode) {
     const activePromo = availablePromos.find(
       (p) => p.code === promoCode.toUpperCase(),
     );
-
     if (activePromo) {
       if (activePromo.discountType === "percentage") {
         discount = subtotal * (activePromo.discountValue / 100);
@@ -173,11 +163,10 @@ const CashierDashboard = () => {
       } else if (activePromo.discountType === "buy_x_get_y") {
         let eligiblePrices = [];
         cartItems.forEach((item) => {
-          for (let i = 0; i < item.qty * clientMultiplier; i++) {
+          for (let i = 0; i < item.qty * clientMultiplier; i++)
             eligiblePrices.push(Number(item.packagePrice || 0));
-          }
         });
-        eligiblePrices.sort((a, b) => a - b); // Cheapest items are free
+        eligiblePrices.sort((a, b) => a - b);
 
         const groupSize = activePromo.buyX + activePromo.getY;
         const freeGroups = Math.floor(eligiblePrices.length / groupSize);
@@ -188,7 +177,6 @@ const CashierDashboard = () => {
     }
   }
 
-  // Ensure discount doesn't exceed subtotal
   discount = Math.min(discount, subtotal);
   const grandTotal = Math.max(0, subtotal - discount);
 
@@ -200,7 +188,6 @@ const CashierDashboard = () => {
     setShowPaymentModal(true);
   };
 
-  // --- FILTERING ---
   const filteredPackages = packages.filter((p) => {
     const pkgCategory =
       p.classType && p.classType.length > 0 ? p.classType[0] : "Standard";
@@ -214,7 +201,7 @@ const CashierDashboard = () => {
 
   return (
     <div className='flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-hidden bg-[#F8FAFC] font-sans text-slate-800 w-full'>
-      {/* ================= LEFT MAIN AREA (PACKAGES) ================= */}
+      {/* LEFT MAIN AREA */}
       <div className='flex-1 flex flex-col h-full min-h-[50vh] md:min-h-0 min-w-0 border-r border-slate-200'>
         <div className='bg-white p-4 md:p-6 border-b border-slate-200 shrink-0 w-full'>
           <div className='flex flex-col md:flex-row md:justify-between md:items-center mb-4 md:mb-6 gap-4'>
@@ -237,7 +224,6 @@ const CashierDashboard = () => {
               />
             </div>
           </div>
-
           <div className='flex gap-3 overflow-x-auto pb-2 custom-scrollbar w-full'>
             {categories.map((cat) => (
               <button
@@ -250,7 +236,6 @@ const CashierDashboard = () => {
           </div>
         </div>
 
-        {/* Packages Grid */}
         <div className='flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar w-full'>
           {filteredPackages.length === 0 ? (
             <div className='flex flex-col items-center justify-center h-full text-slate-400'>
@@ -321,7 +306,7 @@ const CashierDashboard = () => {
         </div>
       </div>
 
-      {/* ================= RIGHT SIDEBAR (CART) ================= */}
+      {/* RIGHT SIDEBAR */}
       <div className='w-full md:w-[380px] lg:w-[420px] bg-[#F8FAFC] flex flex-col h-full shrink-0 z-10'>
         <div className='p-6 flex justify-between items-center shrink-0 w-full'>
           <div>
@@ -340,7 +325,6 @@ const CashierDashboard = () => {
         </div>
 
         <div className='flex-1 overflow-y-auto px-6 space-y-6 custom-scrollbar w-full min-h-0'>
-          {/* 1. Selected Packages */}
           <div className='w-full'>
             <h3 className='text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3'>
               1. Selected Packages
@@ -379,7 +363,6 @@ const CashierDashboard = () => {
             )}
           </div>
 
-          {/* 2. Assign Clients */}
           <div className='w-full'>
             <h3 className='text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3'>
               2. Assign to Clients
@@ -411,9 +394,7 @@ const CashierDashboard = () => {
           </div>
         </div>
 
-        {/* Totals & Proceed Footer */}
         <div className='p-6 bg-[#F8FAFC] shrink-0 w-full'>
-          {/* Promo Selector Button */}
           <div className='mb-6'>
             {promoCode ? (
               <div className='flex items-center justify-between bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-[12px]'>
@@ -485,7 +466,6 @@ const CashierDashboard = () => {
         </div>
       </div>
 
-      {/* --- MODALS --- */}
       <AnimatePresence>
         {showClientListModal && (
           <ClientSelectionModal
@@ -495,7 +475,6 @@ const CashierDashboard = () => {
             onClose={() => setShowClientListModal(false)}
           />
         )}
-
         {showPromoModal && (
           <PromoSelectionModal
             onClose={() => setShowPromoModal(false)}
@@ -507,7 +486,6 @@ const CashierDashboard = () => {
             availablePromos={availablePromos}
           />
         )}
-
         {showPaymentModal && (
           <PaymentModal
             onClose={() => setShowPaymentModal(false)}
@@ -517,6 +495,7 @@ const CashierDashboard = () => {
             cart={cart}
             selectedClients={selectedClients}
             clearTransaction={clearTransaction}
+            packages={packages}
           />
         )}
       </AnimatePresence>
@@ -524,7 +503,7 @@ const CashierDashboard = () => {
   );
 };
 
-// --- PROMO SELECTION MODAL ---
+// ... (Promo & Client Modals remain exactly the same) ...
 const PromoSelectionModal = ({
   onClose,
   onApply,
@@ -532,28 +511,23 @@ const PromoSelectionModal = ({
   availablePromos,
 }) => {
   const [manualCode, setManualCode] = useState("");
-
   const handleSelect = (promo) => {
-    if (totalItemsPurchased < promo.minItemsRequired) {
-      alert(
+    if (totalItemsPurchased < promo.minItemsRequired)
+      return alert(
         `This promo requires at least ${promo.minItemsRequired} total package(s) across all clients.`,
       );
-      return;
-    }
     onApply(promo.code);
   };
-
   const handleManualApply = () => {
     if (!manualCode.trim()) return;
     const found = availablePromos.find(
       (p) => p.code === manualCode.trim().toUpperCase(),
     );
     if (!found) return alert("Invalid promo code.");
-    if (totalItemsPurchased < found.minItemsRequired) {
+    if (totalItemsPurchased < found.minItemsRequired)
       return alert(
         `This promo requires at least ${found.minItemsRequired} total package(s).`,
       );
-    }
     onApply(manualCode.trim().toUpperCase());
   };
 
@@ -572,7 +546,6 @@ const PromoSelectionModal = ({
             <X className='w-5 h-5 text-gray-400' />
           </button>
         </div>
-
         <div className='p-6 bg-slate-50/50 space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar'>
           {availablePromos.length === 0 && (
             <p className='text-center text-sm text-slate-400 font-medium py-4'>
@@ -609,7 +582,6 @@ const PromoSelectionModal = ({
             );
           })}
         </div>
-
         <div className='p-6 bg-white border-t border-gray-100'>
           <p className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-3'>
             Manual Entry
@@ -643,11 +615,11 @@ const PaymentModal = ({
   cart,
   selectedClients,
   clearTransaction,
+  packages,
 }) => {
   const [paymentMethod, setPaymentMethod] = useState("transfer");
   const [isLoading, setIsLoading] = useState(false);
   const [showBankDropdown, setShowBankDropdown] = useState(false);
-
   const [paymentDetails, setPaymentDetails] = useState({
     edcType: "credit",
     last4: "",
@@ -667,9 +639,20 @@ const PaymentModal = ({
     setIsLoading(true);
 
     try {
-      let packageIds = [];
+      // BACKWARD COMPATIBILITY: Keep old flat array logic in case controller isn't updated
+      let legacyPackageIds = [];
       Object.entries(cart).forEach(([id, qty]) => {
-        for (let i = 0; i < qty; i++) packageIds.push(id);
+        for (let i = 0; i < qty; i++) legacyPackageIds.push(id);
+      });
+
+      // NEW STRUCTURE: Explicit Quantity
+      const purchasedPackages = Object.entries(cart).map(([id, qty]) => {
+        const pkg = packages.find((p) => p._id === id);
+        return {
+          packageId: id,
+          qty: qty,
+          priceAtPurchase: pkg ? pkg.packagePrice : 0,
+        };
       });
 
       let notesArr = [];
@@ -684,9 +667,10 @@ const PaymentModal = ({
 
       const payload = {
         userIds: selectedClients.map((c) => c._id),
-        packageIds: packageIds,
+        packageIds: legacyPackageIds, // Sent for backward compatibility
+        purchasedPackages: purchasedPackages, // NEW: Sending structured quantities
         paymentMethod:
-          paymentMethod === "transfer" ? "bank_transfer" : paymentMethod, // mapping to db enum
+          paymentMethod === "transfer" ? "bank_transfer" : paymentMethod,
         totalAmount: grandTotal,
         notes: notesArr.join(" | "),
       };
@@ -913,7 +897,6 @@ const PaymentModal = ({
   );
 };
 
-// --- CLIENT SELECTION MODAL ---
 const ClientSelectionModal = ({
   users,
   selectedClients,

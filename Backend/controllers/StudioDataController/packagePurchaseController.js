@@ -1,3 +1,4 @@
+// controllers/StudioDataController/packagePurchaseController.js
 const mongoose = require("mongoose");
 const PackagePurchase = require("../../models/StudioData/PackagePurchase");
 const UserPasses = require("../../models/UserData/User_Passes");
@@ -16,6 +17,14 @@ const checkAndExpire = async (purchase) => {
   return purchase;
 };
 
+// --- HELPER: GET TOTAL CREDITS ---
+const calculateTotalCredits = (pkg) => {
+  if (pkg.isCombo && pkg.comboItems && pkg.comboItems.length > 0) {
+    return pkg.comboItems.reduce((sum, item) => sum + (item.credits || 0), 0);
+  }
+  return pkg.credits || 0;
+};
+
 exports.createCashierBulkPurchase = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -23,9 +32,9 @@ exports.createCashierBulkPurchase = async (req, res) => {
   try {
     const {
       userIds,
-      packageIds, // e.g. ['pkgA', 'pkgA', 'pkgB'] (supports duplicates for quantity)
+      packageIds,
       paymentMethod,
-      paymentDetails, // Object: { edcType, last4, approvalCode, bank }
+      paymentDetails,
       totalAmount,
       discountAmount,
       promoCode,
@@ -39,24 +48,21 @@ exports.createCashierBulkPurchase = async (req, res) => {
       throw new Error("Users and Packages must be selected.");
     }
 
-    // 1. Fetch package details using unique IDs to avoid redundant DB calls
     const uniquePkgIds = [...new Set(packageIds)];
     const packagesInfo = await Packages.find({
       _id: { $in: uniquePkgIds },
     }).session(session);
 
-    // Create a dictionary for instant lookup
     const pkgMap = {};
     packagesInfo.forEach((p) => {
       pkgMap[p._id.toString()] = p;
     });
 
-    // Ensure all packages requested actually exist in DB
     for (const id of uniquePkgIds) {
       if (!pkgMap[id]) throw new Error(`Package with ID ${id} not found.`);
     }
 
-    // 2. Create the main Revenue Record (Master Cashier Transaction)
+    // Master Cashier Transaction
     const cashierTrx = new CashierTransaction({
       transactionId: `CASH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       issuingStudio,
@@ -76,14 +82,12 @@ exports.createCashierBulkPurchase = async (req, res) => {
 
     await cashierTrx.save({ session });
 
-    // 3. Loop through users and packageIds array to assign individual passes
+    // Loop through users and packageIds
     for (const uid of userIds) {
-      // We loop over the raw `packageIds` array.
-      // If the array is ['pkg1', 'pkg1'], this runs twice and assigns 2 passes!
       for (const pkgId of packageIds) {
         const pkg = pkgMap[pkgId];
+        const totalCredits = calculateTotalCredits(pkg);
 
-        // Format payment issuer string for the individual user's receipt
         let paymentIssuerStr = `CASHIER TRX: ${cashierTrx.transactionId}`;
         if (paymentMethod === "edc" && paymentDetails?.approvalCode) {
           paymentIssuerStr = `EDC ${paymentDetails.edcType.toUpperCase()} | AppCode: ${paymentDetails.approvalCode}`;
@@ -91,18 +95,18 @@ exports.createCashierBulkPurchase = async (req, res) => {
           paymentIssuerStr = `Transfer - ${paymentDetails.bank}`;
         }
 
-        // Log individual purchase for user history
+        // 1. Create Purchase Record
         const newPurchase = new PackagePurchase({
           transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           userId: uid,
           packageId: pkg._id,
-          paymentWindowExpiry: new Date(), // Expires instantly since it's already paid at cashier
-          creditsPurchased: pkg.credits,
+          paymentWindowExpiry: new Date(),
+          creditsPurchased: totalCredits,
           totalAmount: pkg.packagePrice,
           paymentMethod: paymentMethod,
           paymentIssuer: paymentIssuerStr,
           issuingStudio,
-          status: "confirmed", // Auto-confirm
+          status: "confirmed",
         });
         await newPurchase.save({ session });
 
@@ -110,21 +114,41 @@ exports.createCashierBulkPurchase = async (req, res) => {
         const passExpiry = new Date();
         passExpiry.setDate(passExpiry.getDate() + (pkg.validityDays || 30));
 
-        // Create the active Pass
-        const newUserPass = new UserPasses({
-          userId: uid,
-          packageId: pkg._id,
-          purchaseDate: new Date(),
-          expiryDate: passExpiry,
-          remainingCredits: pkg.credits,
-          validityDuration: pkg.validityDays || 30,
-          initialCredits: pkg.credits,
-          issuingStudio,
-          isActive: true,
-          classType: pkg.classType,
-          instructorType: pkg.instructorType,
-        });
-        await newUserPass.save({ session });
+        // 2. Create Active Passes (Supporting Combo Logic)
+        let passesToCreate = [];
+        if (pkg.isCombo && pkg.comboItems && pkg.comboItems.length > 0) {
+          passesToCreate = pkg.comboItems.map((item) => ({
+            userId: uid,
+            packageId: pkg._id,
+            purchaseDate: new Date(),
+            expiryDate: passExpiry,
+            remainingCredits: item.credits,
+            validityDuration: pkg.validityDays || 30,
+            initialCredits: item.credits,
+            issuingStudio,
+            isActive: true,
+            classType: item.classType,
+            instructorType: item.instructorType,
+          }));
+        } else {
+          passesToCreate = [
+            {
+              userId: uid,
+              packageId: pkg._id,
+              purchaseDate: new Date(),
+              expiryDate: passExpiry,
+              remainingCredits: pkg.credits,
+              validityDuration: pkg.validityDays || 30,
+              initialCredits: pkg.credits,
+              issuingStudio,
+              isActive: true,
+              classType: pkg.classType,
+              instructorType: pkg.instructorType,
+            },
+          ];
+        }
+
+        await UserPasses.insertMany(passesToCreate, { session });
       }
     }
 
@@ -174,12 +198,14 @@ exports.createPurchase = async (req, res) => {
       paymentStatus = "waiting_confirmation";
     }
 
+    const totalCredits = calculateTotalCredits(packageInfo);
+
     const newPurchase = new PackagePurchase({
       transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: finalUserId,
       packageId,
       paymentWindowExpiry: paymentDeadline,
-      creditsPurchased: packageInfo.credits,
+      creditsPurchased: totalCredits,
       totalAmount,
       paymentMethod,
       paymentIssuer,
@@ -215,23 +241,46 @@ exports.createPurchase = async (req, res) => {
         passExpiry.getDate() + (packageInfo.validityDays || 30),
       );
 
-      const newUserPass = new UserPasses({
-        userId: finalUserId,
-        packageId: packageId,
-        purchaseDate: new Date(),
-        expiryDate: passExpiry,
-        remainingCredits: newPurchase.creditsPurchased,
-        validityDuration: packageInfo.validityDays || 30,
-        initialCredits: newPurchase.creditsPurchased,
-        issuingStudio: newPurchase.issuingStudio,
-        isActive: true,
-        classType: packageInfo.classType,
-        instructorType: packageInfo.instructorType,
-      });
+      let passesToCreate = [];
+      if (
+        packageInfo.isCombo &&
+        packageInfo.comboItems &&
+        packageInfo.comboItems.length > 0
+      ) {
+        passesToCreate = packageInfo.comboItems.map((item) => ({
+          userId: finalUserId,
+          packageId: packageId,
+          purchaseDate: new Date(),
+          expiryDate: passExpiry,
+          remainingCredits: item.credits,
+          validityDuration: packageInfo.validityDays || 30,
+          initialCredits: item.credits,
+          issuingStudio: newPurchase.issuingStudio,
+          isActive: true,
+          classType: item.classType,
+          instructorType: item.instructorType,
+        }));
+      } else {
+        passesToCreate = [
+          {
+            userId: finalUserId,
+            packageId: packageId,
+            purchaseDate: new Date(),
+            expiryDate: passExpiry,
+            remainingCredits: packageInfo.credits,
+            validityDuration: packageInfo.validityDays || 30,
+            initialCredits: packageInfo.credits,
+            issuingStudio: newPurchase.issuingStudio,
+            isActive: true,
+            classType: packageInfo.classType,
+            instructorType: packageInfo.instructorType,
+          },
+        ];
+      }
 
-      await newUserPass.save({ session });
-
+      await UserPasses.insertMany(passesToCreate, { session });
       await session.commitTransaction();
+
       return res.status(200).json({
         message: "Purchase confirmed & Pass created.",
         purchase: newPurchase,
@@ -316,26 +365,50 @@ exports.adminReviewPayment = async (req, res) => {
       const packageDetails = await Packages.findById(
         purchase.packageId,
       ).session(session);
+
       const passExpiry = new Date();
       passExpiry.setDate(
         passExpiry.getDate() + (packageDetails.validityDays || 30),
       );
 
-      const newUserPass = new UserPasses({
-        userId: purchase.userId,
-        packageId: purchase.packageId,
-        purchaseDate: new Date(),
-        expiryDate: passExpiry,
-        remainingCredits: purchase.creditsPurchased,
-        validityDuration: packageDetails.validityDays || 30,
-        initialCredits: purchase.creditsPurchased,
-        issuingStudio: purchase.issuingStudio,
-        isActive: true,
-        classType: packageDetails.classType,
-        instructorType: packageDetails.instructorType,
-      });
+      let passesToCreate = [];
+      if (
+        packageDetails.isCombo &&
+        packageDetails.comboItems &&
+        packageDetails.comboItems.length > 0
+      ) {
+        passesToCreate = packageDetails.comboItems.map((item) => ({
+          userId: purchase.userId,
+          packageId: purchase.packageId,
+          purchaseDate: new Date(),
+          expiryDate: passExpiry,
+          remainingCredits: item.credits,
+          validityDuration: packageDetails.validityDays || 30,
+          initialCredits: item.credits,
+          issuingStudio: purchase.issuingStudio,
+          isActive: true,
+          classType: item.classType,
+          instructorType: item.instructorType,
+        }));
+      } else {
+        passesToCreate = [
+          {
+            userId: purchase.userId,
+            packageId: purchase.packageId,
+            purchaseDate: new Date(),
+            expiryDate: passExpiry,
+            remainingCredits: packageDetails.credits,
+            validityDuration: packageDetails.validityDays || 30,
+            initialCredits: packageDetails.credits,
+            issuingStudio: purchase.issuingStudio,
+            isActive: true,
+            classType: packageDetails.classType,
+            instructorType: packageDetails.instructorType,
+          },
+        ];
+      }
 
-      await newUserPass.save({ session });
+      await UserPasses.insertMany(passesToCreate, { session });
 
       purchase.status = "confirmed";
       purchase.rejectionReason = null;
@@ -355,7 +428,7 @@ exports.adminReviewPayment = async (req, res) => {
       await session.commitTransaction();
       return res
         .status(200)
-        .json({ message: "Payment confirmed.", passId: newUserPass._id });
+        .json({ message: "Payment confirmed. Passes generated successfully." });
     } else if (action === "reject") {
       purchase.status = "payment_rejected";
       purchase.rejectionReason = rejectionReason || "Proof rejected.";
@@ -384,7 +457,6 @@ exports.adminReviewPayment = async (req, res) => {
   }
 };
 
-// ... (Rest of exports like getMyPurchases remain unchanged)
 exports.getMyPurchases = async (req, res) => {
   try {
     const { userId } = req.params;

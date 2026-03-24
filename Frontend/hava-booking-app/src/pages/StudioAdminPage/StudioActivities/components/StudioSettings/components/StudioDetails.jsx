@@ -18,18 +18,19 @@ import {
   Building,
   Landmark,
   Copy,
+  Cog,
   Wallet,
   Plus,
   ChevronDown,
 } from "lucide-react";
-import axiosInstance from "../../../../utils/axiosInstance";
-import { API_PATHS } from "../../../../utils/apiPath";
-import { useAuth } from "../../../../context/AuthContext";
-import LoadingSpinner from "../../../../components/LoadingSpinner";
-import uploadStudio from "../../../../utils/uploadStudio";
+import axiosInstance from "../../../../../../utils/axiosInstance";
+import { API_PATHS } from "../../../../../../utils/apiPath";
+import { useAuth } from "../../../../../../context/AuthContext";
+import LoadingSpinner from "../../../../../../components/LoadingSpinner";
+import uploadStudio from "../../../../../../utils/uploadStudio";
 
-import { fetchImage, INDONESIAN_BANKS } from "../../../../utils/helper";
-import { getBankLogo } from "../../../../utils/helpers";
+import { fetchImage, INDONESIAN_BANKS } from "../../../../../../utils/helper";
+import { getBankLogo } from "../../../../../../utils/helpers";
 
 // --- Custom Bank Dropdown Component ---
 const CustomBankDropdown = ({ value, onChange, isCustom }) => {
@@ -192,23 +193,6 @@ const StudioDetails = () => {
   return (
     <div className='p-6 md:p-10 bg-gray-50 min-h-screen font-sans'>
       <div className='max-w-7xl mx-auto'>
-        {/* Header */}
-        <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'>
-          <div>
-            <h1 className='text-3xl font-bold text-gray-900'>
-              Studio Settings
-            </h1>
-            <p className='text-gray-500 text-sm mt-1'>
-              Manage your location, images, and billing details.
-            </p>
-          </div>
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className='flex items-center gap-2 bg-emerald-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-800 transition-all shadow-md hover:shadow-lg'>
-            <Edit2 className='w-4 h-4' /> Edit Details
-          </button>
-        </div>
-
         {/* TOP: Full Width Image Gallery */}
         <div className='bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mb-8'>
           <div className='h-[40vh] w-full rounded-xl overflow-hidden bg-gray-100 relative group'>
@@ -223,13 +207,28 @@ const StudioDetails = () => {
                 <ImageIcon className='w-12 h-12 opacity-50' />
               </div>
             )}
-            <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-8 pt-24'>
-              <h2 className='text-white text-3xl font-bold'>
-                {studio.studioName}
-              </h2>
-              <p className='text-white/80 text-md flex items-center gap-2 mt-2'>
-                <MapPin className='w-4 h-4' /> {studio.address?.city}, Indonesia
-              </p>
+            <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-5 sm:p-8 pt-28 sm:pt-32'>
+              <div className='flex flex-col sm:flex-row sm:items-end justify-between gap-5'>
+                {/* Text Section */}
+                <div className='flex flex-col gap-1.5 min-w-0'>
+                  <h2 className='text-white text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-tight truncate'>
+                    {studio.studioName}
+                  </h2>
+                  <p className='text-white/80 text-sm sm:text-base flex items-center gap-2 font-medium'>
+                    <MapPin className='w-4 h-4 text-white shrink-0' />
+                    <span className='truncate'>
+                      {studio.address?.city}, Indonesia
+                    </span>
+                  </p>
+                </div>
+
+                {/* Action Section */}
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className='flex items-center justify-center gap-2 bg-emerald-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-800 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.4)] active:scale-95 w-full sm:w-auto shrink-0'>
+                  <Edit2 className='w-4 h-4' /> Edit Details
+                </button>
+              </div>
             </div>
           </div>
           {allImages.length > 1 && (

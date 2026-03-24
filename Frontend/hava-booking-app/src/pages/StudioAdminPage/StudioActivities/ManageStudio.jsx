@@ -8,6 +8,8 @@ import {
   Calendar,
   DollarSign,
   ChevronRight,
+  Info,
+  Cog,
   ChevronLeft,
   TicketPercent, // <-- New icon for Promos
 } from "lucide-react";
@@ -20,6 +22,7 @@ import ManagePackage from "./components/ManagePackage/ManagePackage";
 import RevenueDetails from "./components/StudioRevenue/RevenueDetails";
 import SchedulesList from "./components/ManageSchedules/SchedulesList";
 import ManagePromos from "./components/ManagePromos/ManagePromos";
+import StudioSettings from "./components/StudioSettings/StudioSettings";
 
 const StudioActivities = () => {
   const [activeTab, setActiveTab] = useState("package");
@@ -72,6 +75,12 @@ const StudioActivities = () => {
       color: "text-orange-600",
     },
     { id: "clients", label: "Clients", icon: Users, color: "text-pink-600" },
+    {
+      id: "settings",
+      label: "Details",
+      icon: Info,
+      color: "text-yellow-600",
+    },
     {
       id: "revenue",
       label: "Revenue",
@@ -161,6 +170,7 @@ const StudioActivities = () => {
               <AdminPaymentManager isEmbedded={true} />
             )}
             {activeTab === "revenue" && <RevenueDetails isEmbedded={true} />}
+            {activeTab === "settings" && <StudioSettings isEmbedded={true} />}
           </motion.div>
         </AnimatePresence>
       </div>

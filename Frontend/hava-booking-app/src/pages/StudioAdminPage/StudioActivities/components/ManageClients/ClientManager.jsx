@@ -88,7 +88,6 @@ const getSafePurchaseData = (purchase) => ({
   proofOfPayment: purchase?.proofOfPayment || null,
   status: purchase?.status || "unknown",
   createdAt: purchase?.createdAt || new Date().toISOString(),
-  // Add this line below to safely extract the studio ID
   issuingStudio:
     purchase?.issuingStudio?._id || purchase?.issuingStudio || null,
 });
@@ -134,7 +133,6 @@ const ClientManager = ({ isEmbedded = false }) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Sort States
   const [sortConfig, setSortConfig] = useState({
     key: "fullName",
     direction: "asc",
@@ -149,7 +147,6 @@ const ClientManager = ({ isEmbedded = false }) => {
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Modal States
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showDirectAssignModal, setShowDirectAssignModal] = useState(false);
   const [showAddMedicalModal, setShowAddMedicalModal] = useState(false);
@@ -213,18 +210,14 @@ const ClientManager = ({ isEmbedded = false }) => {
     fetchClientDetails();
   }, [selectedClient]);
 
-  // Handle explicit Student status toggle
   const handleToggleStudent = async () => {
     if (!selectedClient) return;
     try {
       const newStatus = !selectedClient.isStudent;
       setSelectedClient((prev) => ({ ...prev, isStudent: newStatus }));
-
-      // Assuming API_PATHS.AUTH.UPDATE_USER exists, or fallback to direct put
       const endpoint = API_PATHS.AUTH.UPDATE_PROFILE_ADMIN(selectedClient._id);
-
       await axiosInstance.put(endpoint, { isStudent: newStatus });
-      fetchData(); // Refresh list silently to sync state
+      fetchData();
     } catch (e) {
       console.error("Failed to update student status", e);
       setSelectedClient((prev) => ({ ...prev, isStudent: !prev.isStudent }));
@@ -232,39 +225,60 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
   };
 
-  // --- Core Logic: Combine Passes & Purchases ---
+  // --- UPDATED CORE LOGIC: COMBINE MULTIPLE PASSES TO ONE TXN ---
   const combinedHistory = useMemo(() => {
     if (!selectedClient) return [];
     const passes = selectedClient.passes || [];
-
-    // Safely get the current studio ID
     const currentStudioId =
       user?.adminStudioLocation?._id || user?.adminStudioLocation;
 
-    // Filter transactions to only include those from the current studio
-    // (We also return true if issuingStudio is missing to support legacy data)
     const txns = (purchaseHistory || []).filter((txn) => {
       if (!txn.issuingStudio) return true;
       return txn.issuingStudio === currentStudioId;
     });
 
+    const combined = [];
     const usedPassIds = new Set();
-    const combined = txns.map((txn) => {
-      let matchedPass = passes.find(
-        (p) =>
-          p.packageId?._id === txn.packageId?._id && !usedPassIds.has(p._id),
-      );
-      if (matchedPass) usedPassIds.add(matchedPass._id);
 
-      return {
-        _id: txn._id,
-        isTxn: true,
-        txnData: txn,
-        passData: matchedPass || null,
-        createdAt: txn.createdAt,
-      };
+    // 1. Map Transactions to Passes
+    txns.forEach((txn) => {
+      // Find ALL passes associated with this transaction (within a 5 sec creation window)
+      const matchedPasses = passes.filter((p) => {
+        if (usedPassIds.has(p._id)) return false;
+        if (p.packageId?._id !== txn.packageId?._id) return false;
+
+        const txnTime = new Date(txn.createdAt).getTime();
+        const passTime = new Date(p.createdAt).getTime();
+        return Math.abs(txnTime - passTime) < 5000;
+      });
+
+      if (matchedPasses.length > 0) {
+        matchedPasses.forEach((matchedPass, index) => {
+          usedPassIds.add(matchedPass._id);
+          combined.push({
+            _id: matchedPass._id, // unique key per pass
+            isTxn: true,
+            txnData: txn,
+            passData: matchedPass,
+            createdAt: matchedPass.createdAt, // use pass time for accurate clustering
+            isComboPart: matchedPasses.length > 1,
+            comboIndex: index + 1,
+            comboTotal: matchedPasses.length,
+          });
+        });
+      } else {
+        // Transaction with no passes
+        combined.push({
+          _id: txn._id,
+          isTxn: true,
+          txnData: txn,
+          passData: null,
+          createdAt: txn.createdAt,
+        });
+      }
     });
 
+    // 2. Add remaining passes as Manual Assigns
     passes.forEach((pass) => {
       if (!usedPassIds.has(pass._id)) {
         combined.push({
@@ -277,12 +291,17 @@ const ClientManager = ({ isEmbedded = false }) => {
       }
     });
 
-    // Apply Sort to History
+    // 3. Sort intelligently
     return combined.sort((a, b) => {
       let aVal, bVal;
       if (historySortConfig.key === "createdAt") {
         aVal = new Date(a.createdAt).getTime();
         bVal = new Date(b.createdAt).getTime();
+
+        // Secondary sort to keep combo passes together visually
+        if (aVal === bVal && a.isComboPart && b.isComboPart) {
+          return a.comboIndex - b.comboIndex;
+        }
       } else if (historySortConfig.key === "packageName") {
         aVal = (
           a.passData?.packageId?.packageName ||
@@ -773,7 +792,6 @@ const ClientManager = ({ isEmbedded = false }) => {
                       </span>
                     )}
                   </div>
-                  {/* --- STUDENT STATUS TOGGLE --- */}
                   <div className='flex items-center justify-between text-sm font-medium text-gray-600 bg-slate-50/80 px-4 py-3 rounded-xl border border-slate-100/50 w-full'>
                     <div className='flex items-center gap-3'>
                       <GraduationCap className='w-4 h-4 text-gray-400 shrink-0' />
@@ -924,6 +942,11 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 {item.isTxn
                                   ? item.txnData.transactionId
                                   : "Manual Assign"}
+                                {item.isComboPart && (
+                                  <span className='text-emerald-500 font-bold ml-1'>
+                                    ({item.comboIndex}/{item.comboTotal})
+                                  </span>
+                                )}
                               </div>
                             </td>
 
@@ -970,7 +993,13 @@ const ClientManager = ({ isEmbedded = false }) => {
                               {item.isTxn ? (
                                 <div>
                                   <span className='font-mono font-bold text-gray-900 text-[13px] block mb-1 whitespace-nowrap'>
-                                    {formatCurrency(item.txnData.totalAmount)}
+                                    {item.isComboPart && item.comboIndex > 1 ? (
+                                      <span className='text-emerald-600 text-[11px] uppercase tracking-wider'>
+                                        Included in Combo
+                                      </span>
+                                    ) : (
+                                      formatCurrency(item.txnData.totalAmount)
+                                    )}
                                   </span>
                                   <div className='flex items-center gap-1.5 text-[10px] font-medium text-gray-500'>
                                     <CreditCard className='w-3 h-3 text-gray-400 shrink-0' />
@@ -1043,6 +1072,11 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 {item.isTxn
                                   ? item.txnData.transactionId
                                   : "Manual Assign"}
+                                {item.isComboPart && (
+                                  <span className='text-emerald-500 font-bold ml-1'>
+                                    ({item.comboIndex}/{item.comboTotal})
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <div>
@@ -1102,7 +1136,13 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 </span>
                               </div>
                               <span className='font-mono font-bold text-gray-900 text-[13px]'>
-                                {formatCurrency(item.txnData.totalAmount)}
+                                {item.isComboPart && item.comboIndex > 1 ? (
+                                  <span className='text-emerald-600 text-[11px] uppercase tracking-wider'>
+                                    Included in Combo
+                                  </span>
+                                ) : (
+                                  formatCurrency(item.txnData.totalAmount)
+                                )}
                               </span>
                             </div>
                           )}
@@ -1714,7 +1754,6 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
   };
   const isFormValid = formData.packageId && formData.paymentIssuer;
 
-  // Filter packages based on client's student status
   const filteredPackages = packages.filter(
     (p) => !!p.isStudent === !!client.isStudent,
   );
@@ -1854,7 +1893,6 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
       ? formData.userId
       : formData.newClientData.fullName && formData.newClientData.email);
 
-  // Dynamic filter based on selected user status
   const isSelectedStudent =
     activeTab === "existing"
       ? !!users.find((u) => u._id === formData.userId)?.isStudent

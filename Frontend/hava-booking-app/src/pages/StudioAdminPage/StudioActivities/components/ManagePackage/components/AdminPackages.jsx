@@ -14,88 +14,76 @@ import {
   X,
   PlusCircle,
   AlertTriangle,
-  Package,
+  Package as PackageIcon,
   Settings,
   Check,
   ChevronDown,
+  ListPlus,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../../context/AuthContext";
-// Removed CustomSelect import as we are using a custom MultiSelect here
 
-// --- NEW COMPONENT: MultiSelect ---
 const MultiSelect = ({ label, options, value = [], onChange, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target))
         setIsOpen(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const toggleOption = (option) => {
-    if (value.includes(option)) {
+    if (value.includes(option))
       onChange(value.filter((item) => item !== option));
-    } else {
-      onChange([...value, option]);
-    }
+    else onChange([...value, option]);
   };
 
   return (
     <div className='relative' ref={containerRef}>
-      <label className='block text-sm font-medium text-gray-700 mb-1'>
+      <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
         {label}
       </label>
       <button
         type='button'
         onClick={() => setIsOpen(!isOpen)}
-        className='w-full min-h-[48px] px-3 py-2 bg-white border border-gray-200 rounded-xl text-left focus:ring-2 focus:ring-emerald-500 outline-none flex justify-between items-center'>
+        className='w-full min-h-[42px] px-3 py-2 bg-white border border-gray-300 rounded-md text-left focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none flex justify-between items-center transition-shadow'>
         <div className='flex flex-wrap gap-1'>
           {value.length > 0 ? (
             value.map((item, idx) => (
               <span
                 key={idx}
-                className='bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded-md font-bold'>
+                className='bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs px-2 py-0.5 rounded-sm font-medium'>
                 {item}
               </span>
             ))
           ) : (
-            <span className='text-gray-400'>{placeholder}</span>
+            <span className='text-gray-400 text-sm'>{placeholder}</span>
           )}
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
       {isOpen && (
-        <div className='absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar p-1'>
+        <div className='absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto p-1'>
           {options.map((option) => {
             const isSelected = value.includes(option);
             return (
               <div
                 key={option}
                 onClick={() => toggleOption(option)}
-                className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer rounded-lg text-sm transition-colors ${
+                className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded-sm text-sm transition-colors ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
-                    : "text-gray-600 hover:bg-gray-50"
+                    ? "bg-emerald-50 text-emerald-900 font-medium"
+                    : "text-gray-700 hover:bg-gray-50"
                 }`}>
                 <div
-                  className={`w-4 h-4 rounded border flex items-center justify-center ${
-                    isSelected
-                      ? "bg-emerald-600 border-emerald-600"
-                      : "border-gray-300"
-                  }`}>
+                  className={`w-4 h-4 rounded-sm border flex items-center justify-center ${isSelected ? "bg-emerald-600 border-emerald-600" : "border-gray-300"}`}>
                   {isSelected && <Check className='w-3 h-3 text-white' />}
                 </div>
                 {option}
@@ -117,7 +105,6 @@ const AdminPackages = ({ isEmbedded = false }) => {
   const [editingPackage, setEditingPackage] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [toggleId, setToggleId] = useState(null);
   const [packageStatus, setPackageStatus] = useState(null);
@@ -131,19 +118,12 @@ const AdminPackages = ({ isEmbedded = false }) => {
         axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
       ]);
 
-      // Check if packages succeeded
-      if (pkgResult.status === "fulfilled") {
-        setPackages(pkgResult.value.data);
-      } else {
-        setPackages([]); // Fallback for 404
-      }
+      if (pkgResult.status === "fulfilled") setPackages(pkgResult.value.data);
+      else setPackages([]);
 
-      // Check if config succeeded
-      if (configResult.status === "fulfilled") {
+      if (configResult.status === "fulfilled")
         setConfig(configResult.value.data);
-      } else {
-        setConfig({}); // Fallback for 404
-      }
+      else setConfig({});
     } finally {
       setLoading(false);
     }
@@ -171,7 +151,7 @@ const AdminPackages = ({ isEmbedded = false }) => {
       await fetchPackages();
       setToggleId(null);
     } catch (error) {
-      console.error("Delete failed", error);
+      console.error("Status toggle failed", error);
     }
   };
 
@@ -181,22 +161,20 @@ const AdminPackages = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 relative min-h-screen`}>
-      {/* Top Bar */}
+      className={`p-6 md:p-8 ${isEmbedded ? "pt-6" : ""} bg-gray-50/50 relative min-h-screen`}>
       {!isEmbedded && (
-        <div className='flex flex-col md:flex-row justify-between items-center mb-8 gap-4'>
+        <div className='flex flex-col md:flex-row justify-between items-start mb-8 gap-4'>
           <div>
-            <h1 className='text-2xl font-bold text-gray-900'>
+            <h1 className='text-2xl font-bold text-gray-900 tracking-tight'>
               Package Management
             </h1>
             <p className='text-gray-500 text-sm mt-1'>
-              Create and manage studio pricing tiers
+              Create and manage studio pricing tiers & combinations
             </p>
           </div>
         </div>
       )}
 
-      {/* Toolbar */}
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4'>
         <div className='relative w-full md:w-96'>
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
@@ -205,38 +183,28 @@ const AdminPackages = ({ isEmbedded = false }) => {
             placeholder='Search packages...'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className='w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:border-2 transition-all shadow-sm'
+            className='w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-md text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all shadow-sm'
           />
         </div>
 
-        <div className='flex items-center gap-4 w-full md:w-auto justify-end'>
-          <div className='text-sm text-gray-500 font-medium whitespace-nowrap hidden md:block'>
-            Showing{" "}
-            <span className='text-gray-900 font-bold'>
-              {filteredPackages.length}
-            </span>{" "}
-            packages
-          </div>
-
+        <div className='flex items-center gap-3 w-full md:w-auto justify-end'>
           <button
             onClick={() => setIsConfigModalOpen(true)}
-            className='bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-colors font-bold text-sm shadow-sm'>
-            <Settings className='w-4 h-4' /> Class Type Setting
+            className='bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-gray-50 transition-colors font-medium text-sm shadow-sm'>
+            <Settings className='w-4 h-4' /> Categories
           </button>
-
           <button
             onClick={() => {
               setEditingPackage(null);
               setIsFormOpen(true);
             }}
-            className='bg-emerald-900 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-900/20 whitespace-nowrap text-sm font-bold'>
+            className='bg-emerald-800 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-emerald-900 transition-colors shadow-sm whitespace-nowrap text-sm font-medium'>
             <Plus className='w-4 h-4' /> New Package
           </button>
         </div>
       </div>
 
-      {/* Packages Grid */}
-      <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20'>
+      <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 pb-20'>
         {filteredPackages.length > 0 ? (
           filteredPackages.map((pkg) => (
             <AdminPackageCard
@@ -245,7 +213,6 @@ const AdminPackages = ({ isEmbedded = false }) => {
               onEdit={() => {
                 setEditingPackage(pkg);
                 setIsFormOpen(true);
-                setIsEditing(true);
               }}
               onDelete={() => setDeleteId(pkg._id)}
               isActive={() => {
@@ -258,14 +225,13 @@ const AdminPackages = ({ isEmbedded = false }) => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className='col-span-full py-20 text-center text-gray-400 bg-white rounded-2xl border border-dashed border-gray-300'>
-            <Package className='w-10 h-10 mx-auto mb-3 opacity-20' />
-            <p>No packages found.</p>
+            className='col-span-full py-16 text-center text-gray-500 bg-white rounded-lg border border-dashed border-gray-300'>
+            <PackageIcon className='w-8 h-8 mx-auto mb-3 text-gray-300' />
+            <p className='text-sm'>No packages found.</p>
           </motion.div>
         )}
       </div>
 
-      {/* Modals */}
       <AnimatePresence>
         {deleteId && (
           <DeleteConfirmationModal
@@ -274,7 +240,6 @@ const AdminPackages = ({ isEmbedded = false }) => {
           />
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {toggleId && (
           <ToggleConfirmationModal
@@ -287,32 +252,24 @@ const AdminPackages = ({ isEmbedded = false }) => {
           />
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {isFormOpen && (
           <PackageFormModal
             isOpen={isFormOpen}
             onClose={() => setIsFormOpen(false)}
             initialData={editingPackage}
-            config={config} // Pass config to form for dynamic options
-            isEdit={isEditing}
-            onSuccess={() => {
-              fetchPackages();
-              setIsEditing(false);
-            }}
+            config={config}
+            onSuccess={fetchPackages}
           />
         )}
       </AnimatePresence>
-
-      {/* Config Modal Reuse */}
       <AnimatePresence>
         {isConfigModalOpen && (
           <ManageTypesModal
-            isOpen={isConfigModalOpen}
             onClose={() => setIsConfigModalOpen(false)}
             config={config}
             studioId={user.adminStudioLocation}
-            onUpdate={(newConfig) => setConfig(newConfig)}
+            onUpdate={setConfig}
           />
         )}
       </AnimatePresence>
@@ -320,133 +277,150 @@ const AdminPackages = ({ isEmbedded = false }) => {
   );
 };
 
-// --- UPDATED Package Card to show Multiple Badges ---
 const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
   <div
     layout
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, scale: 0.95 }}
-    className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group'>
-    <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2'>
+    exit={{ opacity: 0, scale: 0.98 }}
+    className='bg-white p-5 rounded-lg shadow-sm border border-gray-200 hover:border-emerald-200 transition-colors relative group flex flex-col'>
+    <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5'>
       <button
         onClick={onEdit}
-        className='p-2 bg-emerald-100 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded-lg'>
-        <Edit2 className='w-4 h-4' />
+        className='p-1.5 bg-gray-50 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded-md border border-gray-200'>
+        <Edit2 className='w-3.5 h-3.5' />
       </button>
       <button
         onClick={isActive}
-        className='p-2 bg-blue-100 hover:bg-blue-50 text-blue-500 hover:text-blue-700 rounded-lg'>
-        <Power className='w-4 h-4' />
+        className='p-1.5 bg-gray-50 hover:bg-blue-50 text-gray-500 hover:text-blue-700 rounded-md border border-gray-200'>
+        <Power className='w-3.5 h-3.5' />
       </button>
       <button
         onClick={onDelete}
-        className='p-2 bg-red-50 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg'>
-        <Trash2 className='w-4 h-4' />
+        className='p-1.5 bg-gray-50 hover:bg-red-50 text-gray-500 hover:text-red-700 rounded-md border border-gray-200'>
+        <Trash2 className='w-3.5 h-3.5' />
       </button>
     </div>
 
-    <div className='flex items-start justify-between mb-4'>
+    <div className='flex items-center gap-2 mb-3'>
       <div
-        className={`px-3 py-1 rounded-full text-xs font-bold ${pkg.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+        className={`px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider ${pkg.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
         {pkg.isActive ? "ACTIVE" : "INACTIVE"}
       </div>
+      {pkg.isCombo && (
+        <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-purple-100 text-purple-800 flex items-center gap-1'>
+          <ListPlus className='w-3 h-3' /> COMBO
+        </div>
+      )}
     </div>
 
-    <h3 className='text-lg font-bold text-gray-900'>{pkg.packageName}</h3>
-    <div className='text-2xl font-bold text-emerald-900 mt-2 mb-4'>
+    <h3 className='text-base font-bold text-gray-900'>{pkg.packageName}</h3>
+    <div className='text-xl font-bold text-emerald-800 mt-1 mb-3'>
       {parseInt(pkg.packagePrice).toLocaleString("id-ID")} {pkg.currency}
     </div>
 
-    <div className='grid grid-cols-1 gap-3 text-sm text-gray-500 border-t border-gray-100 pt-4'>
-      <div className='flex items-start gap-2'>
-        <NotepadText className='w-4 h-4 text-gray-400 mt-0.5 shrink-0' />{" "}
-        <span className='line-clamp-2'>{pkg.packageDescription}</span>
+    <div className='flex-1 border-t border-gray-100 pt-3'>
+      <p className='text-sm text-gray-600 mb-4 line-clamp-2'>
+        {pkg.packageDescription}
+      </p>
+
+      <div className='flex items-center gap-2 text-sm text-gray-600 mb-4 font-medium'>
+        <Calendar className='w-4 h-4 text-gray-400' /> Valid for{" "}
+        {pkg.validityDays} Days
       </div>
 
-      {/* Updated: Display Instructor Types as Badges */}
-      <div className='flex items-start gap-2'>
-        <PersonStandingIcon className='w-4 h-4 text-gray-400 mt-1 shrink-0' />
-        <div className='flex flex-wrap gap-1'>
-          {pkg.instructorType && pkg.instructorType.length > 0 ? (
-            pkg.instructorType.map((type, i) => (
-              <span
-                key={i}
-                className='px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded border border-blue-100'>
-                {type}
-              </span>
-            ))
-          ) : (
-            <span className='text-gray-400 italic'>No instructors</span>
-          )}
+      {pkg.isCombo ? (
+        <div className='space-y-2 bg-gray-50/50 p-3 rounded-md border border-gray-100'>
+          <div className='text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2'>
+            Combo Includes
+          </div>
+          {pkg.comboItems?.map((item, idx) => (
+            <div
+              key={idx}
+              className='bg-white p-2.5 rounded-sm border border-gray-200 shadow-sm'>
+              <div className='font-bold text-sm text-gray-800 mb-1.5'>
+                {item.credits} Credits
+              </div>
+              <div className='flex flex-col gap-1 text-xs'>
+                <div className='flex items-start gap-1.5'>
+                  <PersonStandingIcon className='w-3.5 h-3.5 text-gray-400 shrink-0' />
+                  <span className='text-gray-600 leading-tight'>
+                    {item.instructorType.join(", ")}
+                  </span>
+                </div>
+                <div className='flex items-start gap-1.5'>
+                  <Settings className='w-3.5 h-3.5 text-gray-400 shrink-0' />
+                  <span className='text-gray-600 leading-tight'>
+                    {item.classType.join(", ")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-
-      {/* Updated: Display Class Types as Badges */}
-      <div className='flex items-start gap-2'>
-        {/* Using Settings Icon for Class Type generally, or utilize a specific icon */}
-        <Settings className='w-4 h-4 text-gray-400 mt-1 shrink-0' />
-        <div className='flex flex-wrap gap-1'>
-          {pkg.classType && pkg.classType.length > 0 ? (
-            pkg.classType.map((type, i) => (
-              <span
-                key={i}
-                className='px-1.5 py-0.5 bg-purple-50 text-purple-700 text-xs rounded border border-purple-100'>
-                {type}
-              </span>
-            ))
-          ) : (
-            <span className='text-gray-400 italic'>No class types</span>
-          )}
+      ) : (
+        <div className='grid grid-cols-1 gap-2.5 text-sm'>
+          <div className='flex items-start gap-2'>
+            <Layers className='w-4 h-4 text-gray-400 mt-0.5 shrink-0' />
+            <span className='font-medium text-gray-700'>
+              {pkg.credits} Credits
+            </span>
+          </div>
+          <div className='flex items-start gap-2'>
+            <PersonStandingIcon className='w-4 h-4 text-gray-400 mt-0.5 shrink-0' />
+            <div className='flex flex-wrap gap-1'>
+              {pkg.instructorType?.map((type, i) => (
+                <span
+                  key={i}
+                  className='px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[11px] rounded-sm border border-blue-100'>
+                  {type}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className='flex items-start gap-2'>
+            <Settings className='w-4 h-4 text-gray-400 mt-0.5 shrink-0' />
+            <div className='flex flex-wrap gap-1'>
+              {pkg.classType?.map((type, i) => (
+                <span
+                  key={i}
+                  className='px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[11px] rounded-sm border border-purple-100'>
+                  {type}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div className='flex items-center gap-2'>
-        <Layers className='w-4 h-4 text-gray-400' /> {pkg.credits} Credits
-      </div>
-      <div className='flex items-center gap-2'>
-        <Calendar className='w-4 h-4 text-gray-400' /> {pkg.validityDays} Days
-        Validity
-      </div>
+      )}
     </div>
   </div>
 );
 
-// --- UPDATED Form Modal ---
 const PackageFormModal = ({
   isOpen,
-  isEdit,
   onClose,
   initialData,
   onSuccess,
   config,
 }) => {
-  const [formState, setFormState] = useState({
-    loading: false,
-    errors: {},
-    success: false,
-  });
-
-  // Ensure initial data is an array for multi-select
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     packageName: initialData?.packageName || "",
     packageDescription: initialData?.packageDescription || "",
     packagePrice: initialData?.packagePrice || "",
     currency: initialData?.currency || "IDR",
     validityDays: initialData?.validityDays || "",
+    isCombo: initialData?.isCombo || false,
     credits: initialData?.credits || "",
-    // If it's legacy data (string), wrap in array. If undefined, empty array.
     instructorType: Array.isArray(initialData?.instructorType)
       ? initialData.instructorType
-      : initialData?.instructorType
-        ? [initialData.instructorType]
-        : [],
-
+      : [],
     classType: Array.isArray(initialData?.classType)
       ? initialData.classType
-      : initialData?.classType
-        ? [initialData.classType]
-        : [],
+      : [],
+    comboItems: initialData?.comboItems?.length
+      ? initialData.comboItems
+      : [{ credits: "", instructorType: [], classType: [] }],
   });
 
   const handleInputChange = (e) => {
@@ -454,43 +428,51 @@ const PackageFormModal = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleNewPackageSubmit = async (e) => {
-    e.preventDefault();
-    setFormState((prev) => ({ ...prev, loading: true }));
-    try {
-      // Basic Validation
-      if (formData.instructorType.length === 0) {
-        throw new Error("Please select at least one instructor type");
-      }
-      if (formData.classType.length === 0) {
-        throw new Error("Please select at least one class type");
-      }
+  const handleComboItemChange = (index, field, value) => {
+    const newItems = [...formData.comboItems];
+    newItems[index][field] = value;
+    setFormData({ ...formData, comboItems: newItems });
+  };
 
+  const addComboItem = () =>
+    setFormData({
+      ...formData,
+      comboItems: [
+        ...formData.comboItems,
+        { credits: "", instructorType: [], classType: [] },
+      ],
+    });
+  const removeComboItem = (index) =>
+    setFormData({
+      ...formData,
+      comboItems: formData.comboItems.filter((_, i) => i !== index),
+    });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
       const payload = {
         ...formData,
         packagePrice: Number(formData.packagePrice),
         validityDays: Number(formData.validityDays),
-        credits: Number(formData.credits),
+        credits: formData.isCombo ? 0 : Number(formData.credits),
       };
 
-      if (!initialData) {
+      if (!initialData)
         await axiosInstance.post(API_PATHS.PACKAGES.CREATE_PACKAGE, payload);
-      } else {
+      else
         await axiosInstance.put(
           API_PATHS.PACKAGES.UPDATE_PACKAGE(initialData._id),
           payload,
         );
-      }
-      setFormState((prev) => ({ ...prev, loading: false, success: true }));
+
       if (onSuccess) await onSuccess();
       onClose();
     } catch (error) {
-      alert(error.message);
-      setFormState((prev) => ({
-        ...prev,
-        loading: false,
-        errors: { ...prev.errors, submit: error.message },
-      }));
+      alert(error.response?.data?.message || error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -502,214 +484,305 @@ const PackageFormModal = ({
     "Principal Instructor",
     "Special Instructor",
   ];
-
-  // Merge default options with dynamic config options if you want,
-  // or just use defaults + config.classTypes
   const classTypeOptions = [
-    "Group",
-    "Mat Group",
-    "Private",
-    "Duet",
-    ...(config?.classTypes || []),
+    ...new Set([
+      "Group",
+      "Mat Group",
+      "Private",
+      "Duet",
+      ...(config?.classTypes || []),
+    ]),
   ];
-  // Remove duplicates just in case
-  const uniqueClassTypes = [...new Set(classTypeOptions)];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4'>
-      <motion.div className='bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar'>
-        <h2 className='text-2xl font-bold text-gray-900 mb-6'>
-          {initialData ? "Edit Package" : "Create New Package"}
-        </h2>
+    <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className='bg-white rounded-lg w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]'>
+        <div className='flex justify-between items-center p-6 border-b border-gray-100'>
+          <h2 className='text-xl font-bold text-gray-900'>
+            {initialData ? "Edit Package" : "Create Package"}
+          </h2>
+          <button
+            onClick={onClose}
+            className='text-gray-400 hover:text-gray-600'>
+            <X className='w-5 h-5' />
+          </button>
+        </div>
 
-        <form onSubmit={handleNewPackageSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Package Name
-            </label>
-            <input
-              type='text'
-              name='packageName'
-              required
-              value={formData.packageName}
-              onChange={handleInputChange}
-              className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
-            />
-          </div>
-          <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Package Description
-            </label>
-            <textarea
-              name='packageDescription'
-              value={formData.packageDescription}
-              onChange={handleInputChange}
-              className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
-            />
-          </div>
-
-          <div className='grid grid-cols-1 gap-4'>
-            {/* Use MultiSelect for Class Type */}
-            <div>
-              <MultiSelect
-                label='Class Types'
-                options={uniqueClassTypes}
-                value={formData.classType}
-                onChange={(val) => setFormData({ ...formData, classType: val })}
-                placeholder='Select Class Types'
-              />
+        <div className='overflow-y-auto p-6 custom-scrollbar'>
+          <form id='package-form' onSubmit={handleSubmit} className='space-y-5'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='md:col-span-2'>
+                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                  Package Name
+                </label>
+                <input
+                  type='text'
+                  name='packageName'
+                  required
+                  value={formData.packageName}
+                  onChange={handleInputChange}
+                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                />
+              </div>
+              <div className='md:col-span-2'>
+                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                  Description
+                </label>
+                <textarea
+                  name='packageDescription'
+                  rows='2'
+                  value={formData.packageDescription}
+                  onChange={handleInputChange}
+                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                />
+              </div>
+              <div>
+                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                  Price ({formData.currency})
+                </label>
+                <input
+                  type='number'
+                  name='packagePrice'
+                  required
+                  value={formData.packagePrice}
+                  onChange={handleInputChange}
+                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                />
+              </div>
+              <div>
+                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                  Validity (Days)
+                </label>
+                <input
+                  type='number'
+                  name='validityDays'
+                  required
+                  value={formData.validityDays}
+                  onChange={handleInputChange}
+                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                />
+              </div>
             </div>
-            {/* Use MultiSelect for Instructor Type */}
-            <div>
-              <MultiSelect
-                label='Instructor Levels'
-                options={instructorOptions}
-                value={formData.instructorType}
-                onChange={(val) =>
-                  setFormData({ ...formData, instructorType: val })
-                }
-                placeholder='Select Instructor Levels'
-              />
-            </div>
-          </div>
 
-          <div className='grid grid-cols-2 gap-4'>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 mb-1'>
-                Price (IDR)
+            <hr className='border-gray-100' />
+
+            <div className='flex items-center justify-between bg-gray-50 p-4 rounded-md border border-gray-200'>
+              <div>
+                <h4 className='font-bold text-gray-900 text-sm'>
+                  Combination Package
+                </h4>
+                <p className='text-xs text-gray-500 mt-0.5'>
+                  Enable this to mix different class and instructor types in one
+                  package.
+                </p>
+              </div>
+              <label className='relative inline-flex items-center cursor-pointer'>
+                <input
+                  type='checkbox'
+                  className='sr-only peer'
+                  checked={formData.isCombo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isCombo: e.target.checked })
+                  }
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
               </label>
-              <input
-                type='number'
-                name='packagePrice'
-                value={formData.packagePrice}
-                onChange={handleInputChange}
-                className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
-              />
             </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 mb-1'>
-                Credits
-              </label>
-              <input
-                type='number'
-                name='credits'
-                value={formData.credits}
-                onChange={handleInputChange}
-                className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
-              />
-            </div>
-            <div className='col-span-2'>
-              <label className='block text-sm font-medium text-gray-700 mb-1'>
-                Validity (Days)
-              </label>
-              <input
-                type='number'
-                name='validityDays'
-                value={formData.validityDays}
-                onChange={handleInputChange}
-                className='w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none'
-              />
-            </div>
-          </div>
 
-          <div className='flex gap-3 mt-auto pt-6'>
-            <button
-              type='button'
-              onClick={onClose}
-              className='flex-1 py-3 text-gray-600 font-bold hover:bg-gray-50 rounded-xl'>
-              Cancel
-            </button>
-            <button
-              type='submit'
-              disabled={formState.loading}
-              className='flex-1 py-3 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 shadow-lg shadow-emerald-900/20 disabled:opacity-50'>
-              {formState.loading ? "Saving..." : "Save Package"}
-            </button>
-          </div>
-        </form>
+            {!formData.isCombo ? (
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 border border-gray-200 rounded-md'>
+                <div className='md:col-span-2'>
+                  <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                    Total Credits
+                  </label>
+                  <input
+                    type='number'
+                    name='credits'
+                    required={!formData.isCombo}
+                    value={formData.credits}
+                    onChange={handleInputChange}
+                    className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                  />
+                </div>
+                <div>
+                  <MultiSelect
+                    label='Class Types'
+                    options={classTypeOptions}
+                    value={formData.classType}
+                    onChange={(val) =>
+                      setFormData({ ...formData, classType: val })
+                    }
+                    placeholder='Select...'
+                  />
+                </div>
+                <div>
+                  <MultiSelect
+                    label='Instructor Levels'
+                    options={instructorOptions}
+                    value={formData.instructorType}
+                    onChange={(val) =>
+                      setFormData({ ...formData, instructorType: val })
+                    }
+                    placeholder='Select...'
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className='space-y-4'>
+                {formData.comboItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className='relative bg-white p-4 border border-gray-200 rounded-md shadow-sm'>
+                    {formData.comboItems.length > 1 && (
+                      <button
+                        type='button'
+                        onClick={() => removeComboItem(index)}
+                        className='absolute top-3 right-3 text-gray-400 hover:text-red-500'>
+                        <Trash2 className='w-4 h-4' />
+                      </button>
+                    )}
+                    <h5 className='text-xs font-bold text-gray-800 uppercase tracking-wider mb-3'>
+                      Pass Segment {index + 1}
+                    </h5>
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                      <div className='md:col-span-2'>
+                        <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                          Credits for this segment
+                        </label>
+                        <input
+                          type='number'
+                          required
+                          value={item.credits}
+                          onChange={(e) =>
+                            handleComboItemChange(
+                              index,
+                              "credits",
+                              e.target.value,
+                            )
+                          }
+                          className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 outline-none text-sm'
+                        />
+                      </div>
+                      <div>
+                        <MultiSelect
+                          label='Class Types'
+                          options={classTypeOptions}
+                          value={item.classType}
+                          onChange={(val) =>
+                            handleComboItemChange(index, "classType", val)
+                          }
+                          placeholder='Select...'
+                        />
+                      </div>
+                      <div>
+                        <MultiSelect
+                          label='Instructors'
+                          options={instructorOptions}
+                          value={item.instructorType}
+                          onChange={(val) =>
+                            handleComboItemChange(index, "instructorType", val)
+                          }
+                          placeholder='Select...'
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type='button'
+                  onClick={addComboItem}
+                  className='w-full py-3 border-2 border-dashed border-gray-300 text-gray-600 font-medium rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors flex items-center justify-center gap-2 text-sm'>
+                  <PlusCircle className='w-4 h-4' /> Add Another Pass Segment
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
+
+        <div className='p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3'>
+          <button
+            type='button'
+            onClick={onClose}
+            className='px-5 py-2.5 text-gray-600 font-medium hover:bg-gray-200 rounded-md text-sm transition-colors'>
+            Cancel
+          </button>
+          <button
+            type='submit'
+            form='package-form'
+            disabled={loading}
+            className='px-6 py-2.5 bg-emerald-800 text-white font-medium rounded-md hover:bg-emerald-900 shadow-sm disabled:opacity-50 text-sm transition-colors'>
+            {loading ? "Saving..." : "Save Package"}
+          </button>
+        </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 };
 
-// ... (Previous Modals for Delete/Toggle/ManageTypes remain unchanged)
 const DeleteConfirmationModal = ({ onClose, onConfirm }) => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4'>
+  <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
     <motion.div
-      initial={{ scale: 0.95, y: 20 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0.95, y: 20 }}
-      className='bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center'>
-      <div className='w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600'>
-        <AlertTriangle className='w-6 h-6' />
+      initial={{ scale: 0.98, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className='bg-white rounded-lg w-full max-w-sm p-6 shadow-xl text-center'>
+      <div className='w-10 h-10 bg-red-50 border border-red-100 rounded-md flex items-center justify-center mx-auto mb-4 text-red-600'>
+        <AlertTriangle className='w-5 h-5' />
       </div>
-      <h3 className='text-lg font-bold text-gray-900 mb-2'>Delete Package?</h3>
+      <h3 className='text-lg font-bold text-gray-900 mb-1'>Delete Package?</h3>
       <p className='text-gray-500 text-sm mb-6'>
-        Are you sure you want to delete this package? This action cannot be
-        undone.
+        This action cannot be undone.
       </p>
       <div className='flex gap-3'>
         <button
           onClick={onClose}
-          className='flex-1 py-2.5 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition-colors'>
+          className='flex-1 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-md border border-gray-200 text-sm'>
           Cancel
         </button>
         <button
           onClick={onConfirm}
-          className='flex-1 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all'>
+          className='flex-1 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 text-sm'>
           Delete
         </button>
       </div>
     </motion.div>
-  </motion.div>
+  </div>
 );
 
 const ToggleConfirmationModal = ({ onClose, onConfirm, status }) => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4'>
+  <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
     <motion.div
-      initial={{ scale: 0.95, y: 20 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0.95, y: 20 }}
-      className='bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center'>
-      <div className='w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600'>
-        <AlertTriangle className='w-6 h-6' />
+      initial={{ scale: 0.98, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className='bg-white rounded-lg w-full max-w-sm p-6 shadow-xl text-center'>
+      <div className='w-10 h-10 bg-blue-50 border border-blue-100 rounded-md flex items-center justify-center mx-auto mb-4 text-blue-600'>
+        <Power className='w-5 h-5' />
       </div>
-      <h3 className='text-lg font-bold text-gray-900 mb-2'>
-        {status ? "Deactivate Package?" : "Activate Package?"}
+      <h3 className='text-lg font-bold text-gray-900 mb-1'>
+        {status ? "Deactivate" : "Activate"} Package?
       </h3>
       <p className='text-gray-500 text-sm mb-6'>
-        Are you sure you want to {status ? "deactivate" : "activate"} this
-        package?
+        Are you sure you want to change this status?
       </p>
       <div className='flex gap-3'>
         <button
           onClick={onClose}
-          className='flex-1 py-2.5 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition-colors'>
+          className='flex-1 py-2 text-gray-700 font-medium hover:bg-gray-100 border border-gray-200 rounded-md text-sm'>
           Cancel
         </button>
         <button
           onClick={onConfirm}
-          className='flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all'>
-          {status ? "Deactivate" : "Activate"}
+          className='flex-1 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 text-sm'>
+          Confirm
         </button>
       </div>
     </motion.div>
-  </motion.div>
+  </div>
 );
 
-const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
+const ManageTypesModal = ({ onClose, config, studioId, onUpdate }) => {
   const [activeTab] = useState("classTypes");
   const [newItem, setNewItem] = useState("");
   const [loading, setLoading] = useState(false);
@@ -726,7 +799,7 @@ const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
       onUpdate(res.data);
       setNewItem("");
     } catch (err) {
-      alert(err.response?.data?.error || "Failed to add");
+      alert(err.response?.data?.error || "Failed");
     } finally {
       setLoading(false);
     }
@@ -746,41 +819,39 @@ const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
   };
 
   return (
-    <div className='fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+    <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className='bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-hidden'>
-        <div className='flex justify-between items-center mb-6'>
-          <h3 className='text-xl font-bold'>Manage Class Types</h3>
+        className='bg-white rounded-lg w-full max-w-md p-6 shadow-xl'>
+        <div className='flex justify-between items-center mb-5'>
+          <h3 className='text-lg font-bold text-gray-900'>Categories</h3>
           <button onClick={onClose}>
-            <X className='text-gray-400 hover:text-gray-600' />
+            <X className='text-gray-400 hover:text-gray-600 w-5 h-5' />
           </button>
         </div>
-
         <form onSubmit={handleAdd} className='flex gap-2 mb-4'>
           <input
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
-            placeholder={`New ${activeTab === "classTypes" ? "Class" : "Level"}...`}
-            className='flex-1 border border-gray-300 rounded-xl px-4 outline-none focus:border-emerald-500'
+            placeholder='New Class Type...'
+            className='flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-emerald-500'
           />
           <button
             disabled={loading}
-            className='bg-emerald-900 text-white p-3 rounded-xl hover:bg-emerald-800 disabled:opacity-50'>
-            <PlusCircle className='w-5 h-5' />
+            className='bg-emerald-800 text-white px-4 py-2 rounded-md hover:bg-emerald-900 text-sm font-medium'>
+            Add
           </button>
         </form>
-
-        <div className='space-y-2 max-h-60 overflow-y-auto custom-scrollbar'>
+        <div className='space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1'>
           {config[activeTab]?.map((item) => (
             <div
               key={item}
-              className='flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100 group'>
+              className='flex justify-between items-center px-3 py-2 bg-gray-50 rounded-md border border-gray-200'>
               <span className='font-medium text-gray-700 text-sm'>{item}</span>
               <button
                 onClick={() => handleRemove(item)}
-                className='text-gray-300 hover:text-red-500'>
+                className='text-gray-400 hover:text-red-500'>
                 <Trash2 className='w-4 h-4' />
               </button>
             </div>

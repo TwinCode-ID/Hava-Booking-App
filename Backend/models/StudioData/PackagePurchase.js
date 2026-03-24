@@ -1,3 +1,4 @@
+// models/StudioData/PackagePurchase.js
 const mongoose = require("mongoose");
 
 const PackagePurchaseSchema = new mongoose.Schema(
@@ -22,7 +23,7 @@ const PackagePurchaseSchema = new mongoose.Schema(
 
     rejectionReason: { type: String, default: null },
 
-    creditsPurchased: { type: Number, required: true },
+    creditsPurchased: { type: Number, required: true, default: 0 },
     totalAmount: { type: Number, required: true },
     paymentMethod: {
       type: String,

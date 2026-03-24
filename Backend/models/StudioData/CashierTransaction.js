@@ -19,10 +19,13 @@ const CashierTransactionSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+
+    // UPDATED: Added qty to properly track cart items
     packages: [
       {
         packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Packages" },
         priceAtPurchase: { type: Number },
+        qty: { type: Number, default: 1 },
       },
     ],
 

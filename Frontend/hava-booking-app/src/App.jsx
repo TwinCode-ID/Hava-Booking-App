@@ -11,7 +11,6 @@ import SignUp from "./pages/Auth/SignUp";
 import BookNow from "./pages/BookingPage/BookNow";
 import ProtectedRoute from "./routers/ProtectedRoute";
 import AdminDashboard from "./pages/StudioAdminPage/Dashboard/AdminDashboard";
-import StudioSettings from "./pages/StudioAdminPage/StudioSettings/StudioSettings";
 import DevelopmentDashboard from "./pages/DevAdminPage/DeveloperDashboard";
 import ClientDashboard from "./pages/ClientPage/Dashboard/ClientDashboard";
 import ClientDashboardLayout from "./pages/ClientPage/layout/DashboardLayout";
@@ -70,7 +69,6 @@ const App = () => {
               />
               <Route path='/cashier' element={<CashierDashboard />} />
               <Route path='/studio-activities' element={<StudioActivities />} />
-              <Route path='/studio-settings' element={<StudioSettings />} />
               <Route path='/admin-inbox' element={<AdminInbox />} />
             </Route>
           </Route>
