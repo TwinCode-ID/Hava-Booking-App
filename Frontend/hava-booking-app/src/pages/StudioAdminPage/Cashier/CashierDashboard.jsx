@@ -431,7 +431,7 @@ const CashierDashboard = () => {
               <p className='text-sm font-medium'>No packages match filters.</p>
             </div>
           ) : (
-            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 w-full items-stretch'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3 w-full items-stretch'>
               {filteredPackages.map((pkg) => {
                 const qty = cart[pkg._id] || 0;
                 const activePrice = getEffectivePrice(pkg);
@@ -453,7 +453,7 @@ const CashierDashboard = () => {
                     className='bg-white border border-slate-200 rounded-2xl p-5 flex flex-col h-full min-h-[12rem] shadow-sm hover:shadow-md transition-all hover:border-[#1a4d3e]/40 group w-full'>
                     {/* Top Badges & Info Button */}
                     <div className='flex items-start justify-between mb-4'>
-                      <div className='flex flex-cols items-center gap-1.5'>
+                      <div className='flex items-center gap-1.5'>
                         {/* Primary Tag */}
                         <span className='flex items-center h-6 px-2.5 bg-slate-50 border border-slate-200 text-slate-600 font-extrabold text-[8px] tracking-widest uppercase rounded-md'>
                           {primaryCat}
@@ -497,7 +497,7 @@ const CashierDashboard = () => {
                     </div>
 
                     {/* Bottom Price & Controls */}
-                    <div className='flex items-center justify-between mt-auto pt-4 border-t border-slate-100 shrink-0 w-full min-h-[64px]'>
+                    <div className='flex items-center justify-between mt-auto pt-4 border-t border-slate-100 shrink-0 w-full min-h-[44px]'>
                       <div className='flex flex-col'>
                         {pkg.isPromo && (
                           <span className='text-xs text-slate-400 line-through leading-none mb-1'>
