@@ -8,6 +8,10 @@ const {
   getUserPassHistory,
   getMyInactivePasses,
   managePassFreeze,
+  generateShareLink,
+  sendShareLinkViaEmail,
+  getSharedPassDetails,
+  acceptSharedPass,
 } = require("../../controllers/UserController/user_passesController");
 const {
   generatePass,
@@ -18,6 +22,13 @@ router.get("/user/passes/:id", protect, generatePass);
 router.get("/user/active/:userId", protect, getMyActivePasses);
 router.get("/user/inactive/:userId", protect, getMyInactivePasses);
 router.get("/history/:studioId", protect, getUserPassHistory);
+
+// Sharing endpoints
+router.post("/share/:passId", protect, generateShareLink);
+router.post("/share/:passId/email", protect, sendShareLinkViaEmail);
+router.get("/shared/:code", getSharedPassDetails);
+router.post("/shared/:code/accept", protect, acceptSharedPass);
+
 router.put("/update/:passId", protect, updateUserPass);
 router.put("/freeze/:passId", protect, managePassFreeze);
 router.post("/assign", protect, assignPassToUser);

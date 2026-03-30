@@ -27,6 +27,7 @@ import GlobalSocketListener from "./components/GlobalSocketListener";
 import AdminInbox from "./pages/StudioAdminPage/StudioActivities/components/Messaging/AdminInbox";
 import ClientInbox from "./pages/ClientPage/ClientActivities/components/Messaging/ClientInbox";
 import CashierDashboard from "./pages/StudioAdminPage/Cashier/CashierDashboard";
+import AcceptSharedPass from "./pages/ClientPage/ClientActivities/components/ManagePackage/components/AcceptSharedPass";
 
 const App = () => {
   return (
@@ -48,6 +49,7 @@ const App = () => {
               <Route path='/book-the-class' element={<BookTheClass />} />
               <Route path='/client-activities' element={<ManageClient />} />
               <Route path='/client-inbox' element={<ClientInbox />} />
+              <Route path='/shared-pass/:code' element={<AcceptSharedPass />} />
               <Route
                 path='/client-account-settings'
                 element={<ClientAccountSettings />}

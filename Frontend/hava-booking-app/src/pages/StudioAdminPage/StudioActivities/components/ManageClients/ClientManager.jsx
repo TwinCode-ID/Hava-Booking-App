@@ -29,6 +29,9 @@ import {
   ArrowDown,
   ArrowUpDown,
   GraduationCap,
+  Share2,
+  Copy,
+  MessageCircle,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -76,7 +79,9 @@ const getSafePassData = (pass) => ({
   isActive: pass?.isActive || pass?.status === "confirmed",
   createdAt: pass?.createdAt || new Date().toISOString(),
   expiryDate: pass?.expiryDate || pass?.paymentWindowExpiry || null,
-  freeze: pass?.freeze || null, // Keep track of freeze data
+  freeze: pass?.freeze || null,
+  shareCode: pass?.shareCode || null,
+  isShared: pass?.isShared || false,
 });
 
 const getSafePurchaseData = (purchase) => ({
@@ -227,7 +232,6 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
   };
 
-  // --- UPDATED CORE LOGIC: COMBINE MULTIPLE PASSES TO ONE TXN ---
   const combinedHistory = useMemo(() => {
     if (!selectedClient) return [];
     const passes = selectedClient.passes || [];
@@ -242,9 +246,7 @@ const ClientManager = ({ isEmbedded = false }) => {
     const combined = [];
     const usedPassIds = new Set();
 
-    // 1. Map Transactions to Passes
     txns.forEach((txn) => {
-      // Find ALL passes associated with this transaction (within a 5 sec creation window)
       const matchedPasses = passes.filter((p) => {
         if (usedPassIds.has(p._id)) return false;
         if (p.packageId?._id !== txn.packageId?._id) return false;
@@ -258,18 +260,17 @@ const ClientManager = ({ isEmbedded = false }) => {
         matchedPasses.forEach((matchedPass, index) => {
           usedPassIds.add(matchedPass._id);
           combined.push({
-            _id: matchedPass._id, // unique key per pass
+            _id: matchedPass._id,
             isTxn: true,
             txnData: txn,
             passData: matchedPass,
-            createdAt: matchedPass.createdAt, // use pass time for accurate clustering
+            createdAt: matchedPass.createdAt,
             isComboPart: matchedPasses.length > 1,
             comboIndex: index + 1,
             comboTotal: matchedPasses.length,
           });
         });
       } else {
-        // Transaction with no passes
         combined.push({
           _id: txn._id,
           isTxn: true,
@@ -280,7 +281,6 @@ const ClientManager = ({ isEmbedded = false }) => {
       }
     });
 
-    // 2. Add remaining passes as Manual Assigns
     passes.forEach((pass) => {
       if (!usedPassIds.has(pass._id)) {
         combined.push({
@@ -293,14 +293,12 @@ const ClientManager = ({ isEmbedded = false }) => {
       }
     });
 
-    // 3. Sort intelligently
     return combined.sort((a, b) => {
       let aVal, bVal;
       if (historySortConfig.key === "createdAt") {
         aVal = new Date(a.createdAt).getTime();
         bVal = new Date(b.createdAt).getTime();
 
-        // Secondary sort to keep combo passes together visually
         if (aVal === bVal && a.isComboPart && b.isComboPart) {
           return a.comboIndex - b.comboIndex;
         }
@@ -444,18 +442,15 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   const handleManageFreeze = async (passId, action, data) => {
     try {
-      // NOTE: Ensure your router points this properly, e.g. /freeze/:passId
       const response = await axiosInstance.put(`/api/passes/freeze/${passId}`, {
         action,
         startDate: data?.startDate,
         endDate: data?.endDate,
       });
 
-      // Refetch data globally
       fetchData();
       fetchClientDetails();
 
-      // Update the modal view so the user sees changes immediately without closing
       if (viewingCombinedItem && viewingCombinedItem.passData?._id === passId) {
         setViewingCombinedItem((prev) => ({
           ...prev,
@@ -583,7 +578,6 @@ const ClientManager = ({ isEmbedded = false }) => {
   };
 
   const renderStatusBadge = (status, passData) => {
-    // Check if the pass is CURRENTLY within the frozen date range
     const today = new Date();
     const freezeEndDate = passData?.freeze?.endDate
       ? new Date(passData.freeze.endDate)
@@ -633,7 +627,6 @@ const ClientManager = ({ isEmbedded = false }) => {
         </div>
       )}
 
-      {/* --- CLIENT LIST VIEW --- */}
       {!selectedClient ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className='flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 gap-4'>
@@ -656,7 +649,6 @@ const ClientManager = ({ isEmbedded = false }) => {
 
           <div className='bg-white rounded-[20px] border border-gray-100 shadow-sm overflow-hidden'>
             <div className='overflow-x-hidden md:overflow-x-auto w-full custom-scrollbar'>
-              {/* DESKTOP TABLE */}
               <table className='w-full text-left border-collapse hidden md:table'>
                 <thead className='bg-slate-50/50 border-b border-gray-100'>
                   <tr>
@@ -733,7 +725,6 @@ const ClientManager = ({ isEmbedded = false }) => {
                 </tbody>
               </table>
 
-              {/* MOBILE LIST (Cards) */}
               <div className='block md:hidden divide-y divide-gray-50'>
                 {filteredClients.map((client) => (
                   <div
@@ -780,7 +771,6 @@ const ClientManager = ({ isEmbedded = false }) => {
           </div>
         </motion.div>
       ) : (
-        /* --- CLIENT DETAIL PAGE VIEW --- */
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -803,7 +793,6 @@ const ClientManager = ({ isEmbedded = false }) => {
           </div>
 
           <div className='grid grid-cols-1 lg:grid-cols-12 gap-6 items-start'>
-            {/* LEFT COLUMN: Client Info & Medical Details */}
             <div className='flex flex-col gap-6 lg:col-span-4 xl:col-span-3 w-full min-w-0'>
               <div className='bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm'>
                 <div className='flex items-center gap-4 mb-6'>
@@ -897,7 +886,6 @@ const ClientManager = ({ isEmbedded = false }) => {
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Unified Pass & Transaction History Engine */}
             <div className='lg:col-span-8 xl:col-span-9 w-full min-w-0'>
               <section className='bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden w-full'>
                 <div className='px-5 md:px-6 py-5 border-b border-gray-50 flex flex-wrap gap-2 items-center justify-between'>
@@ -913,7 +901,6 @@ const ClientManager = ({ isEmbedded = false }) => {
                 </div>
 
                 <div className='overflow-x-hidden md:overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar w-full'>
-                  {/* DESKTOP TABLE */}
                   <table className='w-full text-left border-collapse hidden md:table'>
                     <thead className='bg-[#F8FAFC] sticky top-0 z-10 border-b border-gray-100'>
                       <tr>
@@ -1068,10 +1055,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                             </td>
 
                             <td className='py-5 px-4 md:px-6 whitespace-nowrap'>
-                              {renderStatusBadge(
-                                displayStatus,
-                                item.passData, // Updated passing passData
-                              )}
+                              {renderStatusBadge(displayStatus, item.passData)}
                             </td>
                           </tr>
                         );
@@ -1088,7 +1072,6 @@ const ClientManager = ({ isEmbedded = false }) => {
                     </tbody>
                   </table>
 
-                  {/* MOBILE LIST (Cards) */}
                   <div className='block md:hidden divide-y divide-gray-50'>
                     {combinedHistory.map((item, idx) => {
                       const packageObj =
@@ -1106,7 +1089,6 @@ const ClientManager = ({ isEmbedded = false }) => {
                           key={item._id + idx}
                           onClick={() => setViewingCombinedItem(item)}
                           className='p-4 hover:bg-slate-50 transition-colors cursor-pointer flex flex-col gap-3 group'>
-                          {/* Top Row: Date/ID and Status */}
                           <div className='flex justify-between items-start'>
                             <div>
                               <div className='text-[13px] font-extrabold text-gray-900 mb-0.5'>
@@ -1124,14 +1106,10 @@ const ClientManager = ({ isEmbedded = false }) => {
                               </div>
                             </div>
                             <div>
-                              {renderStatusBadge(
-                                displayStatus,
-                                item.passData, // Updated passing passData
-                              )}
+                              {renderStatusBadge(displayStatus, item.passData)}
                             </div>
                           </div>
 
-                          {/* Middle Row: Package Info */}
                           <div>
                             <div className='text-[14px] font-extrabold text-gray-900 mb-2'>
                               {packageObj.packageName || "Unknown Package"}
@@ -1167,7 +1145,6 @@ const ClientManager = ({ isEmbedded = false }) => {
                             )}
                           </div>
 
-                          {/* Bottom Row: Payment Info */}
                           {item.isTxn && (
                             <div className='flex items-center justify-between mt-1 pt-3 border-t border-dashed border-gray-100'>
                               <div className='flex items-center gap-1.5 text-[11px] font-medium text-gray-500'>
@@ -1206,7 +1183,6 @@ const ClientManager = ({ isEmbedded = false }) => {
         </motion.div>
       )}
 
-      {/* --- MODALS OVERLAYS --- */}
       <AnimatePresence>
         {showViewMedicalModal && medicalData && (
           <ViewMedicalModal
@@ -1274,8 +1250,6 @@ const ClientManager = ({ isEmbedded = false }) => {
   );
 };
 
-// --- Modals Components ---
-
 const UnifiedDetailModal = ({
   item,
   client,
@@ -1296,16 +1270,20 @@ const UnifiedDetailModal = ({
       ? "confirmed"
       : "expired";
 
-  // Freeze State Management
   const [showFreezeForm, setShowFreezeForm] = useState(false);
   const [showUnfreezeConfirm, setShowUnfreezeConfirm] = useState(false);
   const [freezeData, setFreezeData] = useState({ startDate: "", endDate: "" });
   const [isFreezing, setIsFreezing] = useState(false);
 
+  const [shareData, setShareData] = useState(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
   const freezeStatus = passData?.freeze?.status || "none";
   const hasBeenFrozen = passData?.freeze?.hasBeenFrozen || false;
 
-  // Determine if it is CURRENTLY frozen based on dates
   const today = new Date();
   const freezeEndDate = passData?.freeze?.endDate
     ? new Date(passData.freeze.endDate)
@@ -1337,6 +1315,47 @@ const UnifiedDetailModal = ({
     setShowUnfreezeConfirm(false);
   };
 
+  const handleGenerateShare = async () => {
+    setIsSharing(true);
+    try {
+      const res = await axiosInstance.post(`/api/passes/share/${passData._id}`);
+      const link = `${window.location.origin}/shared-pass/${res.data.pass.shareCode}`;
+      setShareData({ link, code: res.data.pass.shareCode });
+
+      if (passData) {
+        passData.shareCode = res.data.pass.shareCode;
+        passData.isShared = res.data.pass.isShared;
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Failed to generate share link");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!shareEmail) return alert("Please enter an email address.");
+    setIsSendingEmail(true);
+    try {
+      const link =
+        shareData?.link ||
+        `${window.location.origin}/shared-pass/${passData.shareCode}`;
+      await axiosInstance.post(`/api/passes/share/${passData._id}/email`, {
+        email: shareEmail,
+        shareLink: link,
+      });
+      alert("Invitation sent successfully!");
+      setShowEmailInput(false);
+      setShareEmail("");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to send email.");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
       <motion.div
@@ -1356,7 +1375,6 @@ const UnifiedDetailModal = ({
         </div>
 
         <div className='overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50 p-5 sm:p-8 space-y-6'>
-          {/* Header Summary */}
           <div className='text-center space-y-3 mb-4'>
             {isTxn && (
               <p className='text-[32px] sm:text-[38px] font-extrabold font-mono text-gray-900 tracking-tight leading-none'>
@@ -1373,7 +1391,6 @@ const UnifiedDetailModal = ({
             )}
           </div>
 
-          {/* Pass Information Card */}
           {passData && (
             <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
               <div className='flex items-center justify-between mb-5 border-b border-gray-100 pb-4'>
@@ -1474,7 +1491,108 @@ const UnifiedDetailModal = ({
             </div>
           )}
 
-          {/* FREEZE MANAGEMENT CARD */}
+          {passData && (
+            <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
+              <div className='flex items-center justify-between mb-4 border-b border-gray-100 pb-4'>
+                <div className='flex items-center gap-2'>
+                  <Share2 className='w-4 h-4 text-indigo-500' />
+                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
+                    Share Package Pass
+                  </h4>
+                </div>
+              </div>
+              {!shareData && !passData.shareCode ? (
+                <div className='flex justify-between items-center'>
+                  <p className='text-xs text-gray-500 font-medium'>
+                    Generate a secure link to share this pass.
+                  </p>
+                  <button
+                    onClick={handleGenerateShare}
+                    disabled={isSharing}
+                    className='text-[11px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm'>
+                    {isSharing ? "Generating..." : "Generate Link"}
+                  </button>
+                </div>
+              ) : (
+                <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
+                  <div className='flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-lg'>
+                    <input
+                      type='text'
+                      readOnly
+                      value={
+                        shareData?.link ||
+                        `${window.location.origin}/shared-pass/${passData.shareCode}`
+                      }
+                      className='flex-1 bg-transparent text-xs text-gray-600 outline-none px-2 font-mono'
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          shareData?.link ||
+                            `${window.location.origin}/shared-pass/${passData.shareCode}`,
+                        );
+                        alert("Link copied!");
+                      }}
+                      className='p-1.5 bg-white border border-gray-200 rounded-md text-gray-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors shadow-sm'
+                      title='Copy Link'>
+                      <Copy className='w-3.5 h-3.5' />
+                    </button>
+                  </div>
+
+                  <AnimatePresence>
+                    {showEmailInput ? (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className='flex gap-2'>
+                        <input
+                          type='email'
+                          placeholder="Recipient's Email"
+                          value={shareEmail}
+                          onChange={(e) => setShareEmail(e.target.value)}
+                          className='flex-1 p-2 bg-white border border-gray-200 rounded-md text-xs font-medium outline-none focus:border-indigo-500'
+                        />
+                        <button
+                          onClick={handleSendEmail}
+                          disabled={isSendingEmail}
+                          className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
+                          {isSendingEmail ? "Sending..." : "Send"}
+                        </button>
+                        <button
+                          onClick={() => setShowEmailInput(false)}
+                          className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
+                          <X className='w-3.5 h-3.5' />
+                        </button>
+                      </motion.div>
+                    ) : (
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => {
+                            const link =
+                              shareData?.link ||
+                              `${window.location.origin}/shared-pass/${passData.shareCode}`;
+                            window.open(
+                              `https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`,
+                              "_blank",
+                            );
+                          }}
+                          className='flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
+                          <MessageCircle className='w-3.5 h-3.5' /> WhatsApp
+                        </button>
+                        <button
+                          onClick={() => setShowEmailInput(true)}
+                          className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
+                          <Mail className='w-3.5 h-3.5' /> Email
+                        </button>
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          )}
+
           {passData && (
             <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
               <div className='flex items-center gap-2 mb-4 border-b border-gray-100 pb-4'>
@@ -1673,7 +1791,6 @@ const UnifiedDetailModal = ({
             </div>
           )}
 
-          {/* Transaction Information Card */}
           {isTxn && (
             <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60 space-y-4'>
               <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900 mb-2 border-b border-gray-100 pb-4'>
@@ -1924,7 +2041,6 @@ const EditPassModal = ({ pass, config, onClose, onSubmit }) => {
         </div>
 
         <div className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-slate-50/30'>
-          {/* GENERAL SETTINGS */}
           <form
             id='edit-pass-form'
             onSubmit={handleSave}

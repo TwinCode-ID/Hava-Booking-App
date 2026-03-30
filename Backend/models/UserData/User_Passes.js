@@ -13,7 +13,7 @@ const user_passesSchema = new mongoose.Schema(
       required: true,
     },
     freeze: {
-      hasBeenFrozen: { type: Boolean, default: false }, // Enforces 1-time freeze rule
+      hasBeenFrozen: { type: Boolean, default: false },
       startDate: { type: Date, default: null },
       endDate: { type: Date, default: null },
       status: {
@@ -22,6 +22,8 @@ const user_passesSchema = new mongoose.Schema(
         default: "none",
       },
     },
+    shareCode: { type: String, default: null },
+    isShared: { type: Boolean, default: false },
     issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
     purchaseDate: { type: Date, required: true },
     expiryDate: { type: Date, required: true },

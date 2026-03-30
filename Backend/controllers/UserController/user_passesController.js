@@ -1,6 +1,7 @@
 const UserPasses = require("../../models/UserData/User_Passes");
 const Package = require("../../models/StudioData/Packages");
 const mongoose = require("mongoose");
+const { sendShareEmail } = require("../../helper/sendEmail");
 
 exports.assignPassToUser = async (req, res) => {
   try {
@@ -15,7 +16,6 @@ exports.assignPassToUser = async (req, res) => {
 
     let passesToCreate = [];
 
-    // Check if it's a combo package to map multiple items
     if (selectedPackage.isCombo && selectedPackage.comboItems.length > 0) {
       passesToCreate = selectedPackage.comboItems.map((item) => ({
         userId,
@@ -195,25 +195,20 @@ exports.managePassFreeze = async (req, res) => {
     const pass = await UserPasses.findById(passId);
     if (!pass) return res.status(404).json({ message: "Pass not found" });
 
-    // --- NEW UNFREEZE LOGIC ---
     if (action === "unfreeze") {
       const today = new Date();
       const currentFreezeEnd = new Date(pass.freeze.endDate);
 
       if (today < currentFreezeEnd) {
-        // Calculate how many frozen days were NOT used
         const unusedTime = Math.abs(currentFreezeEnd - today);
         const unusedDays = Math.ceil(unusedTime / (1000 * 60 * 60 * 24));
 
-        // Deduct those unused days from the current expiry date
         const currentExpiry = new Date(pass.expiryDate);
         pass.expiryDate = new Date(
           currentExpiry.setDate(currentExpiry.getDate() - unusedDays),
         );
 
-        // Set the end date to today to effectively "unfreeze" it right now
         pass.freeze.endDate = today;
-        // Keep hasBeenFrozen = true so they can't freeze it again
 
         await pass.save();
         return res.status(200).json({
@@ -226,7 +221,6 @@ exports.managePassFreeze = async (req, res) => {
           .json({ message: "Freeze period has already ended." });
       }
     }
-    // --------------------------
 
     if (pass.freeze && pass.freeze.hasBeenFrozen) {
       return res.status(400).json({
@@ -274,5 +268,101 @@ exports.managePassFreeze = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.generateShareLink = async (req, res) => {
+  try {
+    const pass = await UserPasses.findById(req.params.passId);
+    if (!pass) return res.status(404).json({ message: "Pass not found" });
+
+    if (!pass.shareCode) {
+      pass.shareCode =
+        Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+      pass.isShared = true;
+      await pass.save();
+    }
+
+    res.status(200).json({ message: "Share link generated", pass });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.sendShareLinkViaEmail = async (req, res) => {
+  try {
+    const { passId } = req.params;
+    const { email, shareLink } = req.body;
+
+    const pass = await UserPasses.findById(passId)
+      .populate("packageId", "packageName")
+      .populate("userId", "fullName");
+
+    if (!pass) return res.status(404).json({ message: "Pass not found" });
+    if (!pass.shareCode)
+      return res.status(400).json({ message: "Share code not generated yet." });
+
+    const senderName = pass.userId?.fullName || "A member";
+    const packageName = pass.packageId?.packageName || "a package";
+
+    await sendShareEmail(senderName, email, shareLink, packageName);
+
+    res.status(200).json({ message: "Invitation email sent successfully!" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getSharedPassDetails = async (req, res) => {
+  try {
+    const { code } = req.params;
+    const pass = await UserPasses.findOne({ shareCode: code, isShared: true })
+      .populate("packageId", "packageName packageDescription")
+      .populate("userId", "fullName avatar")
+      .populate("issuingStudio", "studioName");
+
+    if (!pass)
+      return res
+        .status(404)
+        .json({ message: "Invalid or expired share link." });
+    if (!pass.isActive)
+      return res
+        .status(400)
+        .json({ message: "This pass is no longer active." });
+
+    res.status(200).json(pass);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.acceptSharedPass = async (req, res) => {
+  try {
+    const { code } = req.params;
+    const acceptorId = req.user._id;
+
+    const pass = await UserPasses.findOne({ shareCode: code, isShared: true });
+    if (!pass)
+      return res
+        .status(404)
+        .json({ message: "Invalid or expired share link." });
+    if (!pass.isActive)
+      return res
+        .status(400)
+        .json({ message: "This pass is no longer active." });
+
+    if (pass.userId.toString() === acceptorId.toString()) {
+      return res.status(400).json({ message: "You already own this pass." });
+    }
+
+    pass.userId = acceptorId;
+    pass.shareCode = null;
+    pass.isShared = false;
+
+    await pass.save();
+
+    res.status(200).json({ message: "Pass successfully claimed!", pass });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
