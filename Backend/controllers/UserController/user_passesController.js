@@ -71,10 +71,11 @@ exports.deductCredits = async (req, res) => {
 
     const userPass = await UserPasses.findOne({
       _id: passId,
-      userId: userId,
+      // Check if the user is the owner OR is in the sharedWith array
+      $or: [{ userId: userId }, { sharedWith: userId }],
     }).session(session);
 
-    if (!userPass) throw new Error("Pass not found.");
+    if (!userPass) throw new Error("Pass not found or unauthorized.");
     if (!userPass.isActive) throw new Error("This pass is inactive.");
     if (new Date() > userPass.expiryDate)
       throw new Error("This pass has expired.");
@@ -143,8 +144,11 @@ exports.updateUserPass = async (req, res) => {
 exports.getMyActivePasses = async (req, res) => {
   try {
     const { userId } = req.params;
-    const activePasses = await UserPasses.find({ userId: userId })
-      .populate("userId", "fullName")
+    const activePasses = await UserPasses.find({
+      $or: [{ userId: userId }, { sharedWith: userId }],
+    })
+      .populate("userId", "fullName avatar email")
+      .populate("sharedWith", "fullName avatar email")
       .populate("issuingStudio", "studioName")
       .populate("packageId", "packageName")
       .sort({ isActive: -1, expiryDate: 1 });
@@ -158,13 +162,15 @@ exports.getMyInactivePasses = async (req, res) => {
   try {
     const userId = req.user._id;
     const inactivePasses = await UserPasses.find({
-      userId: userId,
+      $or: [{ userId: userId }, { sharedWith: userId }],
       $or: [
         { isActive: false },
         { remainingCredits: 0 },
         { expiryDate: { $lt: new Date() } },
       ],
     })
+      .populate("userId", "fullName avatar email")
+      .populate("sharedWith", "fullName avatar email")
       .populate("issuingStudio", "studioName")
       .populate("packageId", "packageName")
       .sort({ expiryDate: -1 });
@@ -180,7 +186,8 @@ exports.getUserPassHistory = async (req, res) => {
     const history = await UserPasses.find({ issuingStudio: studioId })
       .sort({ createdAt: -1 })
       .populate("packageId")
-      .populate("userId", "fullName email");
+      .populate("userId", "fullName email avatar")
+      .populate("sharedWith", "fullName email avatar"); // Populate shared users
     res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -276,12 +283,11 @@ exports.generateShareLink = async (req, res) => {
     const pass = await UserPasses.findById(req.params.passId);
     if (!pass) return res.status(404).json({ message: "Pass not found" });
 
-    if (!pass.shareCode) {
-      pass.shareCode =
-        Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-      pass.isShared = true;
-      await pass.save();
-    }
+    // In a shared pool, generating a new link overrides the old link to prevent indefinite use
+    pass.shareCode =
+      Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    pass.isShared = true;
+    await pass.save();
 
     res.status(200).json({ message: "Share link generated", pass });
   } catch (error) {
@@ -351,17 +357,31 @@ exports.acceptSharedPass = async (req, res) => {
         .status(400)
         .json({ message: "This pass is no longer active." });
 
+    // Ensure owner doesn't claim their own pass
     if (pass.userId.toString() === acceptorId.toString()) {
-      return res.status(400).json({ message: "You already own this pass." });
+      return res
+        .status(400)
+        .json({ message: "You are the owner of this pass." });
     }
 
-    pass.userId = acceptorId;
+    // Ensure recipient hasn't already claimed it
+    if (pass.sharedWith.includes(acceptorId)) {
+      return res
+        .status(400)
+        .json({ message: "You are already sharing this pass." });
+    }
+
+    // Add user to the shared pool
+    pass.sharedWith.push(acceptorId);
+
+    // Invalidate link after use (they can generate a new one if they want to invite a 3rd person)
     pass.shareCode = null;
-    pass.isShared = false;
 
     await pass.save();
 
-    res.status(200).json({ message: "Pass successfully claimed!", pass });
+    res
+      .status(200)
+      .json({ message: "Pass successfully added to your account!", pass });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

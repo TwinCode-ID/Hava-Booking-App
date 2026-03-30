@@ -48,7 +48,7 @@ const AcceptSharedPass = () => {
       await axiosInstance.post(`/api/passes/shared/${code}/accept`);
       setSuccess(true);
       setTimeout(() => {
-        navigate("/my-passes");
+        navigate("/client-dashboard");
       }, 3000);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to claim pass.");

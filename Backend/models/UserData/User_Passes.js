@@ -7,6 +7,11 @@ const user_passesSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    // NEW: Array of users who have accepted the share link
+    sharedWith: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
+    ],
+
     packageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Packages",

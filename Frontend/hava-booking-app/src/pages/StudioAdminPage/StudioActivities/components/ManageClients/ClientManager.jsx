@@ -69,7 +69,10 @@ const getSafeMedicalData = (med) => ({
 const getSafePassData = (pass) => ({
   ...pass,
   userId: getSafeClientData(pass?.userId),
-  packageId: getSafePackageData(pass?.packageId),
+  // Populating shared users array for frontend view
+  sharedWith: Array.isArray(pass?.sharedWith)
+    ? pass.sharedWith.map(getSafeClientData)
+    : [],
   remainingCredits: pass?.remainingCredits ?? pass?.initialCredits ?? 0,
   creditsPurchased:
     pass?.initialCredits ??
@@ -232,9 +235,58 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
   };
 
+  // Group passes to users, allowing shared passes to show up for BOTH owners and recipients
+  const clientsData = useMemo(() => {
+    const map = new Map();
+    purchases.forEach((pass) => {
+      // 1. Add pass to Owner
+      const clientObj = pass.userId;
+      if (clientObj && clientObj._id) {
+        if (!map.has(clientObj._id)) {
+          map.set(clientObj._id, {
+            ...clientObj,
+            passes: [],
+            activePassesCount: 0,
+          });
+        }
+        const clientRecord = map.get(clientObj._id);
+        if (!clientRecord.passes.find((p) => p._id === pass._id)) {
+          clientRecord.passes.push({ ...pass, isSharedToMe: false });
+          if (pass.isActive) clientRecord.activePassesCount++;
+        }
+      }
+
+      // 2. Add pass to Shared Users
+      if (Array.isArray(pass.sharedWith)) {
+        pass.sharedWith.forEach((sharedUser) => {
+          if (sharedUser && sharedUser._id) {
+            if (!map.has(sharedUser._id)) {
+              map.set(sharedUser._id, {
+                ...sharedUser,
+                passes: [],
+                activePassesCount: 0,
+              });
+            }
+            const sharedRecord = map.get(sharedUser._id);
+            if (!sharedRecord.passes.find((p) => p._id === pass._id)) {
+              // Flag this pass as received via share for them
+              sharedRecord.passes.push({ ...pass, isSharedToMe: true });
+              if (pass.isActive) sharedRecord.activePassesCount++;
+            }
+          }
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [purchases]);
+
   const combinedHistory = useMemo(() => {
     if (!selectedClient) return [];
-    const passes = selectedClient.passes || [];
+
+    // Find the full mapped user data matching the selectedClient
+    const mappedClient = clientsData.find((c) => c._id === selectedClient._id);
+    const passes = mappedClient?.passes || [];
+
     const currentStudioId =
       user?.adminStudioLocation?._id || user?.adminStudioLocation;
 
@@ -322,24 +374,7 @@ const ClientManager = ({ isEmbedded = false }) => {
       if (aVal > bVal) return historySortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
-  }, [selectedClient, purchaseHistory, historySortConfig, user]);
-
-  const clientsData = useMemo(() => {
-    const map = new Map();
-    purchases.forEach((pass) => {
-      const clientObj = pass.userId;
-      if (!map.has(clientObj._id))
-        map.set(clientObj._id, {
-          ...clientObj,
-          passes: [],
-          activePassesCount: 0,
-        });
-      const clientRecord = map.get(clientObj._id);
-      clientRecord.passes.push(pass);
-      if (pass.isActive) clientRecord.activePassesCount++;
-    });
-    return Array.from(map.values());
-  }, [purchases]);
+  }, [selectedClient, purchaseHistory, historySortConfig, user, clientsData]);
 
   const filteredClients = useMemo(() => {
     let filtered = clientsData.filter((client) => {
@@ -960,8 +995,15 @@ const ClientManager = ({ isEmbedded = false }) => {
                             onClick={() => setViewingCombinedItem(item)}
                             className='hover:bg-slate-50/80 transition-colors cursor-pointer group'>
                             <td className='py-5 px-4 md:px-6'>
-                              <div className='text-[13px] font-extrabold text-gray-900 mb-0.5 whitespace-nowrap'>
-                                {formatDate(item.createdAt)}
+                              <div className='flex items-center gap-2 mb-0.5 whitespace-nowrap'>
+                                <div className='text-[13px] font-extrabold text-gray-900'>
+                                  {formatDate(item.createdAt)}
+                                </div>
+                                {item.passData?.isSharedToMe && (
+                                  <span className='px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase'>
+                                    Shared
+                                  </span>
+                                )}
                               </div>
                               <div
                                 className='text-[10px] text-gray-400 font-mono truncate max-w-[100px] md:max-w-[150px]'
@@ -1091,8 +1133,15 @@ const ClientManager = ({ isEmbedded = false }) => {
                           className='p-4 hover:bg-slate-50 transition-colors cursor-pointer flex flex-col gap-3 group'>
                           <div className='flex justify-between items-start'>
                             <div>
-                              <div className='text-[13px] font-extrabold text-gray-900 mb-0.5'>
-                                {formatDate(item.createdAt)}
+                              <div className='flex items-center gap-2 mb-0.5'>
+                                <div className='text-[13px] font-extrabold text-gray-900'>
+                                  {formatDate(item.createdAt)}
+                                </div>
+                                {item.passData?.isSharedToMe && (
+                                  <span className='px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase'>
+                                    Shared
+                                  </span>
+                                )}
                               </div>
                               <div className='text-[10px] text-gray-400 font-mono'>
                                 {item.isTxn
@@ -1290,6 +1339,9 @@ const UnifiedDetailModal = ({
     : null;
   const isCurrentlyFrozen =
     hasBeenFrozen && freezeEndDate && today < freezeEndDate;
+
+  // Determine if the client we are viewing is the owner or just sharing the pass
+  const isSharedToMe = passData?.userId?._id !== client._id;
 
   const applyPreset = (days) => {
     const start = new Date();
@@ -1492,103 +1544,147 @@ const UnifiedDetailModal = ({
           )}
 
           {passData && (
-            <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
+            <div
+              className={`bg-white p-5 sm:p-6 rounded-xl shadow-sm border ${isSharedToMe ? "border-indigo-200/60 bg-indigo-50/20" : "border-gray-200/60"}`}>
               <div className='flex items-center justify-between mb-4 border-b border-gray-100 pb-4'>
                 <div className='flex items-center gap-2'>
                   <Share2 className='w-4 h-4 text-indigo-500' />
                   <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
-                    Share Package Pass
+                    {isSharedToMe ? "Shared Pass" : "Share Package Pass"}
                   </h4>
                 </div>
               </div>
-              {!shareData && !passData.shareCode ? (
-                <div className='flex justify-between items-center'>
-                  <p className='text-xs text-gray-500 font-medium'>
-                    Generate a secure link to share this pass.
+
+              {isSharedToMe ? (
+                <div className='space-y-2'>
+                  <p className='text-xs text-gray-600 leading-relaxed'>
+                    This package is owned by{" "}
+                    <span className='font-bold text-gray-900'>
+                      {passData.userId?.fullName}
+                    </span>{" "}
+                    and is being shared with you.
                   </p>
-                  <button
-                    onClick={handleGenerateShare}
-                    disabled={isSharing}
-                    className='text-[11px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm'>
-                    {isSharing ? "Generating..." : "Generate Link"}
-                  </button>
                 </div>
               ) : (
-                <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
-                  <div className='flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-lg'>
-                    <input
-                      type='text'
-                      readOnly
-                      value={
-                        shareData?.link ||
-                        `${window.location.origin}/shared-pass/${passData.shareCode}`
-                      }
-                      className='flex-1 bg-transparent text-xs text-gray-600 outline-none px-2 font-mono'
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          shareData?.link ||
-                            `${window.location.origin}/shared-pass/${passData.shareCode}`,
-                        );
-                        alert("Link copied!");
-                      }}
-                      className='p-1.5 bg-white border border-gray-200 rounded-md text-gray-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors shadow-sm'
-                      title='Copy Link'>
-                      <Copy className='w-3.5 h-3.5' />
-                    </button>
-                  </div>
-
-                  <AnimatePresence>
-                    {showEmailInput ? (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className='flex gap-2'>
+                <>
+                  {!shareData && !passData.shareCode ? (
+                    <div className='flex justify-between items-center'>
+                      <p className='text-xs text-gray-500 font-medium'>
+                        Generate a secure link to share this pass.
+                      </p>
+                      <button
+                        onClick={handleGenerateShare}
+                        disabled={isSharing}
+                        className='text-[11px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm'>
+                        {isSharing ? "Generating..." : "Generate Link"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
+                      <div className='flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-lg'>
                         <input
-                          type='email'
-                          placeholder="Recipient's Email"
-                          value={shareEmail}
-                          onChange={(e) => setShareEmail(e.target.value)}
-                          className='flex-1 p-2 bg-white border border-gray-200 rounded-md text-xs font-medium outline-none focus:border-indigo-500'
+                          type='text'
+                          readOnly
+                          value={
+                            shareData?.link ||
+                            `${window.location.origin}/shared-pass/${passData.shareCode}`
+                          }
+                          className='flex-1 bg-transparent text-xs text-gray-600 outline-none px-2 font-mono'
                         />
                         <button
-                          onClick={handleSendEmail}
-                          disabled={isSendingEmail}
-                          className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
-                          {isSendingEmail ? "Sending..." : "Send"}
-                        </button>
-                        <button
-                          onClick={() => setShowEmailInput(false)}
-                          className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
-                          <X className='w-3.5 h-3.5' />
-                        </button>
-                      </motion.div>
-                    ) : (
-                      <div className='flex gap-2'>
-                        <button
                           onClick={() => {
-                            const link =
+                            navigator.clipboard.writeText(
                               shareData?.link ||
-                              `${window.location.origin}/shared-pass/${passData.shareCode}`;
-                            window.open(
-                              `https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`,
-                              "_blank",
+                                `${window.location.origin}/shared-pass/${passData.shareCode}`,
                             );
+                            alert("Link copied!");
                           }}
-                          className='flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
-                          <MessageCircle className='w-3.5 h-3.5' /> WhatsApp
-                        </button>
-                        <button
-                          onClick={() => setShowEmailInput(true)}
-                          className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
-                          <Mail className='w-3.5 h-3.5' /> Email
+                          className='p-1.5 bg-white border border-gray-200 rounded-md text-gray-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors shadow-sm'
+                          title='Copy Link'>
+                          <Copy className='w-3.5 h-3.5' />
                         </button>
                       </div>
-                    )}
-                  </AnimatePresence>
-                </div>
+
+                      <AnimatePresence>
+                        {showEmailInput ? (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className='flex gap-2'>
+                            <input
+                              type='email'
+                              placeholder="Recipient's Email"
+                              value={shareEmail}
+                              onChange={(e) => setShareEmail(e.target.value)}
+                              className='flex-1 p-2 bg-white border border-gray-200 rounded-md text-xs font-medium outline-none focus:border-indigo-500'
+                            />
+                            <button
+                              onClick={handleSendEmail}
+                              disabled={isSendingEmail}
+                              className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
+                              {isSendingEmail ? "Sending..." : "Send"}
+                            </button>
+                            <button
+                              onClick={() => setShowEmailInput(false)}
+                              className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
+                              <X className='w-3.5 h-3.5' />
+                            </button>
+                          </motion.div>
+                        ) : (
+                          <div className='flex gap-2'>
+                            <button
+                              onClick={() => {
+                                const link =
+                                  shareData?.link ||
+                                  `${window.location.origin}/shared-pass/${passData.shareCode}`;
+                                window.open(
+                                  `https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`,
+                                  "_blank",
+                                );
+                              }}
+                              className='flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
+                              <MessageCircle className='w-3.5 h-3.5' /> WhatsApp
+                            </button>
+                            <button
+                              onClick={() => setShowEmailInput(true)}
+                              className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
+                              <Mail className='w-3.5 h-3.5' /> Email
+                            </button>
+                          </div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
+                  {/* Display list of shared users */}
+                  {passData.sharedWith && passData.sharedWith.length > 0 && (
+                    <div className='mt-5 pt-5 border-t border-gray-100'>
+                      <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3'>
+                        Shared With
+                      </p>
+                      <div className='space-y-2'>
+                        {passData.sharedWith.map((sharedUser) => (
+                          <div
+                            key={sharedUser._id}
+                            className='flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/60'>
+                            <div className='w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold uppercase shrink-0'>
+                              {sharedUser.fullName?.charAt(0)}
+                            </div>
+                            <div className='flex flex-col overflow-hidden'>
+                              <span className='text-xs font-bold text-gray-900 truncate'>
+                                {sharedUser.fullName}
+                              </span>
+                              <span className='text-[10px] text-gray-500 truncate'>
+                                {sharedUser.email}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
