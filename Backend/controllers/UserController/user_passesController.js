@@ -186,3 +186,93 @@ exports.getUserPassHistory = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.managePassFreeze = async (req, res) => {
+  try {
+    const { passId } = req.params;
+    const { action, startDate, endDate } = req.body;
+
+    const pass = await UserPasses.findById(passId);
+    if (!pass) return res.status(404).json({ message: "Pass not found" });
+
+    // --- NEW UNFREEZE LOGIC ---
+    if (action === "unfreeze") {
+      const today = new Date();
+      const currentFreezeEnd = new Date(pass.freeze.endDate);
+
+      if (today < currentFreezeEnd) {
+        // Calculate how many frozen days were NOT used
+        const unusedTime = Math.abs(currentFreezeEnd - today);
+        const unusedDays = Math.ceil(unusedTime / (1000 * 60 * 60 * 24));
+
+        // Deduct those unused days from the current expiry date
+        const currentExpiry = new Date(pass.expiryDate);
+        pass.expiryDate = new Date(
+          currentExpiry.setDate(currentExpiry.getDate() - unusedDays),
+        );
+
+        // Set the end date to today to effectively "unfreeze" it right now
+        pass.freeze.endDate = today;
+        // Keep hasBeenFrozen = true so they can't freeze it again
+
+        await pass.save();
+        return res.status(200).json({
+          message: "Package unfrozen and expiry date adjusted.",
+          pass,
+        });
+      } else {
+        return res
+          .status(400)
+          .json({ message: "Freeze period has already ended." });
+      }
+    }
+    // --------------------------
+
+    if (pass.freeze && pass.freeze.hasBeenFrozen) {
+      return res.status(400).json({
+        message: "This package has already used its one-time freeze allowance.",
+      });
+    }
+
+    if (action === "reject") {
+      pass.freeze.status = "rejected";
+      pass.freeze.startDate = null;
+      pass.freeze.endDate = null;
+      await pass.save();
+      return res
+        .status(200)
+        .json({ message: "Freeze request rejected.", pass });
+    }
+
+    if (action === "approve" || action === "admin_freeze") {
+      const start = new Date(startDate || pass.freeze.startDate);
+      const end = new Date(endDate || pass.freeze.endDate);
+
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      const currentExpiry = new Date(pass.expiryDate);
+      pass.expiryDate = new Date(
+        currentExpiry.setDate(currentExpiry.getDate() + diffDays),
+      );
+
+      pass.freeze = {
+        hasBeenFrozen: true,
+        startDate: start,
+        endDate: end,
+        status: "approved",
+      };
+
+      await pass.save();
+      return res
+        .status(200)
+        .json({ message: "Package frozen and expiry extended.", pass });
+    }
+
+    return res.status(400).json({ message: "Invalid action." });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};

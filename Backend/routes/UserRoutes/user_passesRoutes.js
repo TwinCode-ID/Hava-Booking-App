@@ -7,6 +7,7 @@ const {
   updateUserPass,
   getUserPassHistory,
   getMyInactivePasses,
+  managePassFreeze,
 } = require("../../controllers/UserController/user_passesController");
 const {
   generatePass,
@@ -18,6 +19,7 @@ router.get("/user/active/:userId", protect, getMyActivePasses);
 router.get("/user/inactive/:userId", protect, getMyInactivePasses);
 router.get("/history/:studioId", protect, getUserPassHistory);
 router.put("/update/:passId", protect, updateUserPass);
+router.put("/freeze/:passId", protect, managePassFreeze);
 router.post("/assign", protect, assignPassToUser);
 router.post("/deduct", protect, deductCredits);
 

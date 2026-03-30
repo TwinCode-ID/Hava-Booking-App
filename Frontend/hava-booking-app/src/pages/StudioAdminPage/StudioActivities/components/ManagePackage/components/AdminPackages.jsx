@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ListPlus,
   Tag,
+  Snowflake,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../../context/AuthContext";
@@ -309,7 +310,6 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
         {pkg.isActive ? "ACTIVE" : "INACTIVE"}
       </div>
 
-      {/* Dynamic Multi-Category Map */}
       {pkg.packageCategory?.map((cat, idx) => (
         <div
           key={idx}
@@ -318,10 +318,15 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
         </div>
       ))}
 
-      {/* New One-Time Badge */}
       {pkg.isOneTimePurchase && (
         <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-amber-100 text-amber-800 flex items-center gap-1'>
           <AlertTriangle className='w-3 h-3' /> ONE-TIME
+        </div>
+      )}
+
+      {pkg.isAvailableToFreeze && (
+        <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-cyan-100 text-cyan-800 flex items-center gap-1'>
+          <Snowflake className='w-3 h-3' /> FREEZABLE
         </div>
       )}
 
@@ -449,13 +454,12 @@ const PackageFormModal = ({
     isCombo: initialData?.isCombo || false,
     credits: initialData?.credits || "",
 
-    // Updated Category Array State
     packageCategory: Array.isArray(initialData?.packageCategory)
       ? initialData.packageCategory
       : ["Regular"],
 
-    // New One Time Purchase State
     isOneTimePurchase: initialData?.isOneTimePurchase || false,
+    isAvailableToFreeze: initialData?.isAvailableToFreeze || false,
 
     isPromo: initialData?.isPromo || false,
     promoPrice: initialData?.promoPrice || "",
@@ -563,7 +567,6 @@ const PackageFormModal = ({
         <div className='overflow-y-auto p-6 custom-scrollbar'>
           <form id='package-form' onSubmit={handleSubmit} className='space-y-5'>
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              {/* Replacing Select with MultiSelect */}
               <div className='md:col-span-2'>
                 <MultiSelect
                   label='Package Category'
@@ -632,7 +635,6 @@ const PackageFormModal = ({
 
             <hr className='border-gray-100' />
 
-            {/* --- NEW: One-Time Purchase Toggle --- */}
             <div className='flex items-center justify-between bg-amber-50 p-4 rounded-md border border-amber-100'>
               <div>
                 <h4 className='font-bold text-amber-900 text-sm'>
@@ -655,6 +657,31 @@ const PackageFormModal = ({
                   }
                 />
                 <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+              </label>
+            </div>
+
+            <div className='flex items-center justify-between bg-cyan-50 p-4 rounded-md border border-cyan-100'>
+              <div>
+                <h4 className='font-bold text-cyan-900 text-sm'>
+                  Freezable Package
+                </h4>
+                <p className='text-xs text-cyan-700 mt-0.5'>
+                  Allow clients to pause the validity period of this package.
+                </p>
+              </div>
+              <label className='relative inline-flex items-center cursor-pointer'>
+                <input
+                  type='checkbox'
+                  className='sr-only peer'
+                  checked={formData.isAvailableToFreeze}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      isAvailableToFreeze: e.target.checked,
+                    })
+                  }
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
               </label>
             </div>
 

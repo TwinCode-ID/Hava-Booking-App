@@ -9,6 +9,7 @@ import {
   Plus,
   X,
   Edit2,
+  Snowflake,
   Settings,
   Check,
   Calendar as CalendarIcon,
@@ -75,6 +76,7 @@ const getSafePassData = (pass) => ({
   isActive: pass?.isActive || pass?.status === "confirmed",
   createdAt: pass?.createdAt || new Date().toISOString(),
   expiryDate: pass?.expiryDate || pass?.paymentWindowExpiry || null,
+  freeze: pass?.freeze || null, // Keep track of freeze data
 });
 
 const getSafePurchaseData = (purchase) => ({
@@ -440,6 +442,32 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
   };
 
+  const handleManageFreeze = async (passId, action, data) => {
+    try {
+      // NOTE: Ensure your router points this properly, e.g. /freeze/:passId
+      const response = await axiosInstance.put(`/api/passes/freeze/${passId}`, {
+        action,
+        startDate: data?.startDate,
+        endDate: data?.endDate,
+      });
+
+      // Refetch data globally
+      fetchData();
+      fetchClientDetails();
+
+      // Update the modal view so the user sees changes immediately without closing
+      if (viewingCombinedItem && viewingCombinedItem.passData?._id === passId) {
+        setViewingCombinedItem((prev) => ({
+          ...prev,
+          passData: response.data.pass,
+        }));
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Failed to manage freeze");
+    }
+  };
+
   const generateInvoice = (txn, client) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -554,8 +582,24 @@ const ClientManager = ({ isEmbedded = false }) => {
     doc.save(`Invoice-${txn.transactionId}.pdf`);
   };
 
-  const renderStatusBadge = (status, isActive) => {
-    if (status === "confirmed" || isActive === true) {
+  const renderStatusBadge = (status, passData) => {
+    // Check if the pass is CURRENTLY within the frozen date range
+    const today = new Date();
+    const freezeEndDate = passData?.freeze?.endDate
+      ? new Date(passData.freeze.endDate)
+      : null;
+    const isCurrentlyFrozen =
+      passData?.freeze?.hasBeenFrozen && freezeEndDate && today < freezeEndDate;
+
+    if (isCurrentlyFrozen) {
+      return (
+        <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-blue-50 text-blue-700 uppercase tracking-wide border border-blue-100'>
+          <Snowflake className='w-3 h-3' /> Frozen
+        </span>
+      );
+    }
+
+    if (status === "confirmed" || passData?.isActive === true) {
       return (
         <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-wide border border-emerald-100'>
           <CheckCircle2 className='w-3 h-3' /> Active
@@ -1026,7 +1070,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                             <td className='py-5 px-4 md:px-6 whitespace-nowrap'>
                               {renderStatusBadge(
                                 displayStatus,
-                                item.passData?.isActive,
+                                item.passData, // Updated passing passData
                               )}
                             </td>
                           </tr>
@@ -1082,7 +1126,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                             <div>
                               {renderStatusBadge(
                                 displayStatus,
-                                item.passData?.isActive,
+                                item.passData, // Updated passing passData
                               )}
                             </div>
                           </div>
@@ -1204,6 +1248,7 @@ const ClientManager = ({ isEmbedded = false }) => {
               generateInvoice(viewingCombinedItem.txnData, selectedClient)
             }
             onEditPass={() => setEditingPass(viewingCombinedItem.passData)}
+            onManageFreeze={handleManageFreeze}
             formatDate={formatDate}
             formatDateTime={formatDateTime}
             formatCurrency={formatCurrency}
@@ -1237,6 +1282,7 @@ const UnifiedDetailModal = ({
   onClose,
   onDownloadInvoice,
   onEditPass,
+  onManageFreeze,
   formatDate,
   formatDateTime,
   formatCurrency,
@@ -1250,6 +1296,47 @@ const UnifiedDetailModal = ({
       ? "confirmed"
       : "expired";
 
+  // Freeze State Management
+  const [showFreezeForm, setShowFreezeForm] = useState(false);
+  const [showUnfreezeConfirm, setShowUnfreezeConfirm] = useState(false);
+  const [freezeData, setFreezeData] = useState({ startDate: "", endDate: "" });
+  const [isFreezing, setIsFreezing] = useState(false);
+
+  const freezeStatus = passData?.freeze?.status || "none";
+  const hasBeenFrozen = passData?.freeze?.hasBeenFrozen || false;
+
+  // Determine if it is CURRENTLY frozen based on dates
+  const today = new Date();
+  const freezeEndDate = passData?.freeze?.endDate
+    ? new Date(passData.freeze.endDate)
+    : null;
+  const isCurrentlyFrozen =
+    hasBeenFrozen && freezeEndDate && today < freezeEndDate;
+
+  const applyPreset = (days) => {
+    const start = new Date();
+    const end = new Date();
+    end.setDate(start.getDate() + days);
+    setFreezeData({
+      startDate: start.toISOString().split("T")[0],
+      endDate: end.toISOString().split("T")[0],
+    });
+  };
+
+  const handleFreezeAction = async (action) => {
+    if (
+      action === "admin_freeze" &&
+      (!freezeData.startDate || !freezeData.endDate)
+    ) {
+      return alert("Please select start and end dates.");
+    }
+    setIsFreezing(true);
+    await onManageFreeze(passData._id, action, freezeData);
+    setIsFreezing(false);
+    setShowFreezeForm(false);
+    setShowUnfreezeConfirm(false);
+  };
+
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
       <motion.div
@@ -1257,7 +1344,7 @@ const UnifiedDetailModal = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         className='bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]'>
-        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 flex justify-between items-center bg-white z-10'>
+        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0'>
           <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
             Package & Transaction Details
           </h3>
@@ -1277,7 +1364,7 @@ const UnifiedDetailModal = ({
               </p>
             )}
             <div className='flex justify-center mt-1'>
-              {renderStatusBadge(displayStatus, passData?.isActive)}
+              {renderStatusBadge(displayStatus, passData)}
             </div>
             {isTxn && (
               <p className='text-[11px] sm:text-[12px] text-gray-400 font-mono mt-2 tracking-wide select-all break-all px-4'>
@@ -1384,6 +1471,205 @@ const UnifiedDetailModal = ({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* FREEZE MANAGEMENT CARD */}
+          {passData && (
+            <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
+              <div className='flex items-center gap-2 mb-4 border-b border-gray-100 pb-4'>
+                <Snowflake className='w-4 h-4 text-blue-500' />
+                <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
+                  Freeze Management
+                </h4>
+              </div>
+
+              {freezeStatus === "requested" ? (
+                <div className='p-4 bg-amber-50 border border-amber-200 rounded-xl'>
+                  <p className='text-sm font-bold text-amber-900 mb-1'>
+                    Client Requested a Freeze
+                  </p>
+                  <p className='text-xs text-amber-700 mb-4'>
+                    Dates:{" "}
+                    <span className='font-bold'>
+                      {formatDate(passData.freeze?.startDate)}
+                    </span>{" "}
+                    to{" "}
+                    <span className='font-bold'>
+                      {formatDate(passData.freeze?.endDate)}
+                    </span>
+                  </p>
+                  <div className='flex gap-3'>
+                    <button
+                      onClick={() => handleFreezeAction("approve")}
+                      disabled={isFreezing}
+                      className='flex-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors'>
+                      Approve & Extend
+                    </button>
+                    <button
+                      onClick={() => handleFreezeAction("reject")}
+                      disabled={isFreezing}
+                      className='flex-1 bg-white border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-bold py-2.5 rounded-lg transition-colors'>
+                      Reject Request
+                    </button>
+                  </div>
+                </div>
+              ) : isCurrentlyFrozen ? (
+                <div className='p-4 bg-blue-50 border border-blue-200 rounded-xl'>
+                  <p className='text-sm font-bold text-blue-900 mb-1'>
+                    ❄️ Package is Currently Frozen
+                  </p>
+                  <p className='text-xs text-blue-700 mb-3'>
+                    Frozen until:{" "}
+                    <span className='font-bold'>
+                      {formatDate(passData.freeze.endDate)}
+                    </span>
+                  </p>
+
+                  {!showUnfreezeConfirm ? (
+                    <button
+                      onClick={() => setShowUnfreezeConfirm(true)}
+                      className='w-full bg-white border border-blue-200 text-blue-800 hover:bg-blue-100 text-xs font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
+                      Unfreeze Early
+                    </button>
+                  ) : (
+                    <div className='mt-3 p-3 bg-white rounded-lg border border-blue-100 shadow-sm animate-in fade-in slide-in-from-top-1'>
+                      <p className='text-[11px] text-gray-600 font-medium mb-3 leading-relaxed'>
+                        Are you sure you want to unfreeze this package now? The
+                        expiration date will be recalculated to reflect the
+                        actual frozen duration.
+                      </p>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => setShowUnfreezeConfirm(false)}
+                          className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors'>
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleFreezeAction("unfreeze")}
+                          disabled={isFreezing}
+                          className='flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 rounded-md transition-colors'>
+                          {isFreezing ? "Processing..." : "Confirm Unfreeze"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : hasBeenFrozen ? (
+                <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl text-center'>
+                  <p className='text-sm font-bold text-slate-700'>
+                    Freeze Allowance Used
+                  </p>
+                  <p className='text-xs text-slate-500 mt-1'>
+                    This package was already frozen once. It cannot be frozen
+                    again.
+                  </p>
+                  {passData.freeze?.startDate && (
+                    <p className='text-[11px] text-slate-400 mt-2 font-mono'>
+                      {formatDate(passData.freeze.startDate)} —{" "}
+                      {formatDate(passData.freeze.endDate)}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {!showFreezeForm ? (
+                    <div className='flex items-center justify-between'>
+                      <p className='text-xs text-gray-500 font-medium'>
+                        Temporarily pause package and extend expiry.
+                      </p>
+                      <button
+                        onClick={() => setShowFreezeForm(true)}
+                        className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap shadow-sm'>
+                        Freeze Pass
+                      </button>
+                    </div>
+                  ) : (
+                    <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
+                      <p className='text-xs text-gray-500 font-medium'>
+                        Select freeze duration.{" "}
+                        <span className='font-bold text-gray-700'>
+                          Client can only freeze once.
+                        </span>
+                      </p>
+
+                      <div className='grid grid-cols-2 gap-3'>
+                        <div>
+                          <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
+                            Start Date
+                          </label>
+                          <input
+                            type='date'
+                            value={freezeData.startDate}
+                            onChange={(e) =>
+                              setFreezeData({
+                                ...freezeData,
+                                startDate: e.target.value,
+                              })
+                            }
+                            className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
+                          />
+                        </div>
+                        <div>
+                          <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
+                            End Date
+                          </label>
+                          <input
+                            type='date'
+                            value={freezeData.endDate}
+                            onChange={(e) =>
+                              setFreezeData({
+                                ...freezeData,
+                                endDate: e.target.value,
+                              })
+                            }
+                            className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
+                          />
+                        </div>
+                      </div>
+
+                      <div className='flex gap-2'>
+                        <button
+                          type='button'
+                          onClick={() => applyPreset(1)}
+                          className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                          1 Day
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => applyPreset(7)}
+                          className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                          1 Week
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => applyPreset(30)}
+                          className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                          1 Month
+                        </button>
+                      </div>
+
+                      <div className='flex gap-3 pt-2'>
+                        <button
+                          onClick={() => setShowFreezeForm(false)}
+                          className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold py-2.5 rounded-lg transition-colors'>
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleFreezeAction("admin_freeze")}
+                          disabled={
+                            isFreezing ||
+                            !freezeData.startDate ||
+                            !freezeData.endDate
+                          }
+                          className='flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-[12px] font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
+                          {isFreezing ? "Processing..." : "Confirm Freeze"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1565,6 +1851,7 @@ const EditPassModal = ({ pass, config, onClose, onSubmit }) => {
       : [],
     classType: Array.isArray(pass.classType) ? pass.classType : [],
   });
+
   const [isLoading, setIsLoading] = useState(false);
 
   const availableInstructors =
@@ -1635,72 +1922,82 @@ const EditPassModal = ({ pass, config, onClose, onSubmit }) => {
             <X className='w-5 h-5 text-gray-400' />
           </button>
         </div>
-        <form
-          onSubmit={handleSave}
-          className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-slate-50/30'>
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6'>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
-                Remaining Credits
-              </label>
-              <input
-                type='number'
-                value={formData.remainingCredits}
-                onChange={(e) =>
-                  setFormData({ ...formData, remainingCredits: e.target.value })
-                }
-                className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-base sm:text-lg font-mono font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
-              />
-            </div>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
-                Expiry Date
-              </label>
-              <div className='relative group'>
+
+        <div className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-slate-50/30'>
+          {/* GENERAL SETTINGS */}
+          <form
+            id='edit-pass-form'
+            onSubmit={handleSave}
+            className='space-y-6 sm:space-y-8'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6'>
+              <div>
+                <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                  Remaining Credits
+                </label>
                 <input
-                  type='date'
-                  value={formData.expiryDate}
+                  type='number'
+                  value={formData.remainingCredits}
                   onChange={(e) =>
-                    setFormData({ ...formData, expiryDate: e.target.value })
+                    setFormData({
+                      ...formData,
+                      remainingCredits: e.target.value,
+                    })
                   }
-                  className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-[14px] sm:text-[15px] font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none relative z-10'
+                  className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-base sm:text-lg font-mono font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
                 />
-                <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-0 pointer-events-none group-focus-within:text-emerald-600 transition-colors' />
+              </div>
+              <div>
+                <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                  Expiry Date
+                </label>
+                <div className='relative group'>
+                  <input
+                    type='date'
+                    value={formData.expiryDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, expiryDate: e.target.value })
+                    }
+                    className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-[14px] sm:text-[15px] font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none relative z-10'
+                  />
+                  <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-0 pointer-events-none group-focus-within:text-emerald-600 transition-colors' />
+                </div>
               </div>
             </div>
-          </div>
-          <hr className='border-gray-100' />
-          <div>
-            <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
-              Allowed Class Types
-            </p>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-              {availableClasses.map((cls) => (
-                <SelectionItem
-                  key={cls}
-                  label={cls}
-                  isSelected={formData.classType.includes(cls)}
-                  onClick={() => handleToggle("classType", cls)}
-                />
-              ))}
+
+            <div>
+              <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
+                Allowed Class Types
+              </p>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                {availableClasses.map((cls) => (
+                  <SelectionItem
+                    key={cls}
+                    label={cls}
+                    isSelected={formData.classType.includes(cls)}
+                    onClick={() => handleToggle("classType", cls)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-          <div>
-            <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
-              Allowed Instructors
-            </p>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-              {availableInstructors.map((inst) => (
-                <SelectionItem
-                  key={inst}
-                  label={inst}
-                  isSelected={formData.instructorType.includes(inst)}
-                  onClick={() => handleToggle("instructorType", inst)}
-                />
-              ))}
+
+            <div>
+              <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
+                Allowed Instructors
+              </p>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                {availableInstructors.map((inst) => (
+                  <SelectionItem
+                    key={inst}
+                    label={inst}
+                    isSelected={formData.instructorType.includes(inst)}
+                    onClick={() => handleToggle("instructorType", inst)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
+
         <div className='p-5 sm:p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row gap-3 sm:gap-4'>
           <button
             type='button'
@@ -1709,10 +2006,11 @@ const EditPassModal = ({ pass, config, onClose, onSubmit }) => {
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            form='edit-pass-form'
+            type='submit'
             disabled={isLoading}
             className='flex-1 py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-emerald-800 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
-            {isLoading ? "Saving..." : "Save Changes"}
+            {isLoading ? "Saving..." : "Save General Changes"}
           </button>
         </div>
       </motion.div>

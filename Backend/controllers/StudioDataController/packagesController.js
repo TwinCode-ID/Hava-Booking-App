@@ -16,7 +16,8 @@ exports.createPackage = async (req, res) => {
       packageCategory,
       isPromo,
       promoPrice,
-      isOneTimePurchase, // NEW
+      isOneTimePurchase,
+      isAvailableToFreeze,
     } = req.body;
 
     if (!packageName) {
@@ -31,8 +32,9 @@ exports.createPackage = async (req, res) => {
       packagePrice,
       currency,
       validityDays,
-      packageCategory: packageCategory || ["Regular"], // Default to array
-      isOneTimePurchase: isOneTimePurchase || false, // NEW
+      packageCategory: packageCategory || ["Regular"],
+      isOneTimePurchase: isOneTimePurchase || false,
+      isAvailableToFreeze: isAvailableToFreeze || false,
       isPromo: isPromo || false,
       promoPrice: isPromo ? promoPrice : undefined,
       isCombo: isCombo || false,
@@ -107,7 +109,8 @@ exports.updatePackage = async (req, res) => {
       packageCategory,
       isPromo,
       promoPrice,
-      isOneTimePurchase, // NEW
+      isOneTimePurchase,
+      isAvailableToFreeze,
     } = req.body;
 
     const existingPackage = await Package.findById(req.params.id);
@@ -128,7 +131,11 @@ exports.updatePackage = async (req, res) => {
     existingPackage.isOneTimePurchase =
       isOneTimePurchase !== undefined
         ? isOneTimePurchase
-        : existingPackage.isOneTimePurchase; // NEW
+        : existingPackage.isOneTimePurchase;
+    existingPackage.isAvailableToFreeze =
+      isAvailableToFreeze !== undefined
+        ? isAvailableToFreeze
+        : existingPackage.isAvailableToFreeze;
 
     existingPackage.isPromo =
       isPromo !== undefined ? isPromo : existingPackage.isPromo;

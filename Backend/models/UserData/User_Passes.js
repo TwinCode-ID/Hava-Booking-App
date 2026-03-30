@@ -12,6 +12,16 @@ const user_passesSchema = new mongoose.Schema(
       ref: "Packages",
       required: true,
     },
+    freeze: {
+      hasBeenFrozen: { type: Boolean, default: false }, // Enforces 1-time freeze rule
+      startDate: { type: Date, default: null },
+      endDate: { type: Date, default: null },
+      status: {
+        type: String,
+        enum: ["none", "requested", "approved", "rejected"],
+        default: "none",
+      },
+    },
     issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
     purchaseDate: { type: Date, required: true },
     expiryDate: { type: Date, required: true },
