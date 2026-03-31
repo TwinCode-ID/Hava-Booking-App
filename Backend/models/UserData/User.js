@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
+    fcmTokens: [{ type: String }],
     fullName: { type: String, require: true },
     email: { type: String, require: true, unique: true },
     appleUserId: {

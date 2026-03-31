@@ -1,4 +1,6 @@
 require("dotenv").config();
+require("./cron/expiryReminderJob");
+
 const express = require("express");
 const http = require("http"); // 1. Import HTTP
 const { Server } = require("socket.io"); // 2. Import Socket.io

@@ -18,6 +18,8 @@ exports.createPackage = async (req, res) => {
       promoPrice,
       isOneTimePurchase,
       isAvailableToFreeze,
+      enableExpiryReminder,
+      reminderDaysBefore,
     } = req.body;
 
     if (!packageName) {
@@ -43,6 +45,8 @@ exports.createPackage = async (req, res) => {
       classType,
       comboItems: isCombo ? comboItems : [],
       studioLocation,
+      enableExpiryReminder: enableExpiryReminder || false,
+      reminderDaysBefore: enableExpiryReminder ? reminderDaysBefore : 7,
     });
 
     res.status(201).json(newPackage);

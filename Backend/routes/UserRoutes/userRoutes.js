@@ -8,6 +8,7 @@ const {
   updatePassword,
   updateProfileDeveloper,
   getSystemMetrics,
+  saveFcmToken,
 } = require("../../controllers/UserController/userController");
 
 const {
@@ -24,6 +25,8 @@ const {
 } = require("../../middlewares/authMiddleware");
 
 const router = express.Router();
+
+router.post("/push-token", protect, saveFcmToken);
 router.get("/metrics", protect, devTeam, getSystemMetrics);
 router.put("/update-password", protect, updatePassword);
 router.put("/set-password", protect, setNewUserPassword);

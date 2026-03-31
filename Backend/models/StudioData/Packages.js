@@ -16,6 +16,9 @@ const packagesSchema = new mongoose.Schema(
       default: ["Regular"],
     },
 
+    enableExpiryReminder: { type: Boolean, default: false },
+    reminderDaysBefore: { type: Number, default: 7 },
+
     isOneTimePurchase: { type: Boolean, default: false },
     isAvailableToFreeze: { type: Boolean, default: false },
 
