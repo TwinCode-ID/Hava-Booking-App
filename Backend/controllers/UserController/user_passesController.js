@@ -1,7 +1,70 @@
 const UserPasses = require("../../models/UserData/User_Passes");
 const Package = require("../../models/StudioData/Packages");
+const admin = require("../../config/firebase");
 const mongoose = require("mongoose");
 const { sendShareEmail } = require("../../helper/sendEmail");
+
+exports.passReminder = async (req, res) => {
+  try {
+    const { passId } = req.params;
+
+    const pass = await UserPasses.findById(passId)
+      .populate("userId", "fullName fcmTokens")
+      .populate("packageId", "packageName reminderDaysBefore");
+
+    if (!pass) return res.status(404).json({ message: "Pass not found" });
+
+    const user = pass.userId;
+    const pkg = pass.packageId;
+
+    if (!user.fcmTokens || user.fcmTokens.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "User has no registered devices for notifications." });
+    }
+
+    const reminderDays = pkg?.reminderDaysBefore || 7;
+    const sendPromises = user.fcmTokens.map((token) => {
+      const message = {
+        notification: {
+          title: "Package Expiring Soon! ⏳",
+          body: `Hi ${user.fullName}, your ${pkg?.packageName || "Pass"} will expire in ${reminderDays} days.`,
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              interruptionLevel: "active", // Optional: Ensures it lights up the screen immediately
+            },
+          },
+        },
+        android: {
+          notification: {
+            sound: "default",
+            defaultVibrateTimings: true,
+          },
+        },
+        token: token, // Send to a single device token
+      };
+      return admin.messaging().send(message);
+    });
+
+    // Execute all send requests in parallel
+    const results = await Promise.allSettled(sendPromises);
+
+    // Count how many succeeded vs failed
+    const successCount = results.filter((r) => r.status === "fulfilled").length;
+    const failureCount = results.filter((r) => r.status === "rejected").length;
+
+    res.status(200).json({
+      message: "Test reminder processed",
+      successCount,
+      failureCount,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 exports.assignPassToUser = async (req, res) => {
   try {

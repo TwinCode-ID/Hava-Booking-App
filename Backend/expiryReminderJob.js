@@ -3,8 +3,10 @@ const UserPasses = require("../models/UserData/User_Passes");
 const admin = require("../config/firebase");
 
 // Run every day at 08:00 AM server time
-cron.schedule("0 8 * * *", async () => {
-  console.log("CRON: Running daily package expiry check...");
+// cron.schedule("0 8 * * *", async () => {
+//  console.log("CRON: Running daily package expiry check...");
+cron.schedule("* * * * *", async () => {
+  console.log("TEST CRON: Running every minute...");
 
   try {
     const activePasses = await UserPasses.find({ isActive: true })
@@ -47,6 +49,20 @@ cron.schedule("0 8 * * *", async () => {
             notification: {
               title: "Package Expiring Soon! ⏳",
               body: `Hi ${user.fullName}, your ${pkg.packageName} pass will expire in ${pkg.reminderDaysBefore} days.`,
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: "default",
+                  interruptionLevel: "active", // Optional: Ensures it lights up the screen immediately
+                },
+              },
+            },
+            android: {
+              notification: {
+                sound: "default",
+                defaultVibrateTimings: true,
+              },
             },
             token: token,
           };

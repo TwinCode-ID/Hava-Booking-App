@@ -463,6 +463,8 @@ const PackageFormModal = ({
 
     isPromo: initialData?.isPromo || false,
     promoPrice: initialData?.promoPrice || "",
+    enableExpiryReminder: initialData?.enableExpiryReminder || false,
+    reminderDaysBefore: initialData?.reminderDaysBefore || 7,
     instructorType: Array.isArray(initialData?.instructorType)
       ? initialData.instructorType
       : [],
@@ -510,6 +512,10 @@ const PackageFormModal = ({
         credits: formData.isCombo ? 0 : Number(formData.credits),
         comboItems: formData.isCombo ? formData.comboItems : [],
         promoPrice: formData.isPromo ? Number(formData.promoPrice) : undefined,
+        enableExpiryReminder: formData.enableExpiryReminder,
+        reminderDaysBefore: formData.enableExpiryReminder
+          ? Number(formData.reminderDaysBefore)
+          : 0,
       };
 
       if (!initialData)
@@ -659,6 +665,83 @@ const PackageFormModal = ({
                 <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
               </label>
             </div>
+
+            <div className='flex items-center justify-between bg-indigo-50 p-4 rounded-md border border-indigo-100'>
+              <div>
+                <h4 className='font-bold text-indigo-900 text-sm'>
+                  Automated Expiry Reminder
+                </h4>
+                <p className='text-xs text-indigo-700 mt-0.5'>
+                  Send push notifications to clients before this package
+                  expires.
+                </p>
+              </div>
+              <label className='relative inline-flex items-center cursor-pointer'>
+                <input
+                  type='checkbox'
+                  className='sr-only peer'
+                  checked={formData.enableExpiryReminder}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      enableExpiryReminder: e.target.checked,
+                    })
+                  }
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+
+            {/* EXPIRY REMINDER SETTINGS (Only visible if toggled on) */}
+            {formData.enableExpiryReminder && (
+              <div className='p-4 bg-white border border-indigo-100 rounded-md shadow-sm'>
+                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3'>
+                  Remind client before expiry:
+                </label>
+
+                {/* Presets */}
+                <div className='flex flex-wrap gap-2 mb-4'>
+                  {[
+                    { label: "1 Day", value: 1 },
+                    { label: "1 Week", value: 7 },
+                    { label: "1 Month", value: 30 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      type='button'
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          reminderDaysBefore: preset.value,
+                        })
+                      }
+                      className={`px-4 py-2 text-xs font-bold rounded-md transition-colors border ${
+                        Number(formData.reminderDaysBefore) === preset.value
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}>
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Input */}
+                <div className='flex items-center gap-3 pt-3 border-t border-gray-100'>
+                  <span className='text-xs font-medium text-gray-500'>
+                    Custom Days:
+                  </span>
+                  <input
+                    type='number'
+                    name='reminderDaysBefore'
+                    min='1'
+                    required={formData.enableExpiryReminder}
+                    value={formData.reminderDaysBefore}
+                    onChange={handleInputChange}
+                    className='w-24 p-2 rounded-md border border-indigo-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold bg-indigo-50/30'
+                  />
+                </div>
+              </div>
+            )}
 
             <div className='flex items-center justify-between bg-cyan-50 p-4 rounded-md border border-cyan-100'>
               <div>

@@ -115,6 +115,8 @@ exports.updatePackage = async (req, res) => {
       promoPrice,
       isOneTimePurchase,
       isAvailableToFreeze,
+      enableExpiryReminder,
+      reminderDaysBefore,
     } = req.body;
 
     const existingPackage = await Package.findById(req.params.id);
@@ -154,6 +156,14 @@ exports.updatePackage = async (req, res) => {
     existingPackage.classType = classType || existingPackage.classType;
 
     existingPackage.comboItems = isCombo ? comboItems : [];
+    existingPackage.enableExpiryReminder =
+      enableExpiryReminder !== undefined
+        ? enableExpiryReminder
+        : existingPackage.enableExpiryReminder;
+
+    existingPackage.reminderDaysBefore = enableExpiryReminder
+      ? reminderDaysBefore
+      : existingPackage.reminderDaysBefore;
 
     await existingPackage.save();
     res.status(200).json(existingPackage);

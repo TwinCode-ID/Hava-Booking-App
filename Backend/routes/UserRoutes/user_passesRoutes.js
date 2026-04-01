@@ -12,6 +12,7 @@ const {
   sendShareLinkViaEmail,
   getSharedPassDetails,
   acceptSharedPass,
+  passReminder,
 } = require("../../controllers/UserController/user_passesController");
 const {
   generatePass,
@@ -23,6 +24,7 @@ router.get("/user/active/:userId", protect, getMyActivePasses);
 router.get("/user/inactive/:userId", protect, getMyInactivePasses);
 router.get("/history/:studioId", protect, getUserPassHistory);
 
+router.post("/:passId/reminder", protect, passReminder);
 // Sharing endpoints
 router.post("/share/:passId", protect, generateShareLink);
 router.post("/share/:passId/email", protect, sendShareLinkViaEmail);

@@ -32,6 +32,7 @@ import {
   Share2,
   Copy,
   MessageCircle,
+  Bell,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -1323,7 +1324,7 @@ const UnifiedDetailModal = ({
   const [showUnfreezeConfirm, setShowUnfreezeConfirm] = useState(false);
   const [freezeData, setFreezeData] = useState({ startDate: "", endDate: "" });
   const [isFreezing, setIsFreezing] = useState(false);
-
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
   const [shareData, setShareData] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showEmailInput, setShowEmailInput] = useState(false);
@@ -1408,6 +1409,19 @@ const UnifiedDetailModal = ({
     }
   };
 
+  const handleReminder = async () => {
+    setIsSendingReminder(true);
+    try {
+      await axiosInstance.post(`/api/passes/${passData._id}/reminder`);
+      alert("Reminder sent successfully to the user's devices!");
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Failed to send test reminder.");
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
       <motion.div
@@ -1449,11 +1463,20 @@ const UnifiedDetailModal = ({
                 <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
                   Pass Configuration
                 </h4>
-                <button
-                  onClick={onEditPass}
-                  className='text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5'>
-                  <Edit2 className='w-3 h-3' /> Edit
-                </button>
+                <div className='flex items-center gap-2'>
+                  <button
+                    onClick={handleReminder}
+                    disabled={isSendingReminder}
+                    className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1.5 disabled:opacity-50'>
+                    <Bell className='w-3 h-3' />
+                    {isSendingReminder ? "Sending..." : "Send Reminder"}
+                  </button>
+                  <button
+                    onClick={onEditPass}
+                    className='text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5'>
+                    <Edit2 className='w-3 h-3' /> Edit
+                  </button>
+                </div>
               </div>
 
               <div className='grid grid-cols-2 gap-y-6 gap-x-4 mb-6'>
