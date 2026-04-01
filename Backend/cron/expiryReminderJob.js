@@ -3,10 +3,10 @@ const UserPasses = require("../models/UserData/User_Passes");
 const admin = require("../config/firebase");
 
 // Run every day at 08:00 AM server time
-// cron.schedule("0 8 * * *", async () => {
-//  console.log("CRON: Running daily package expiry check...");
-cron.schedule("* * * * *", async () => {
-  console.log("TEST CRON: Running every minute...");
+cron.schedule("0 8 * * *", async () => {
+  console.log("CRON: Running daily package expiry check...");
+  // cron.schedule("* * * * *", async () => {
+  //  console.log("TEST CRON: Running every minute...");
 
   try {
     const activePasses = await UserPasses.find({ isActive: true })
