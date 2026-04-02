@@ -1,12 +1,12 @@
 const cron = require("node-cron");
 const UserPasses = require("../models/UserData/User_Passes");
+// Make sure you import the User model for the token cleanup at the bottom!
+const User = require("../models/UserData/User");
 const admin = require("../config/firebase");
 
 // Run every day at 08:00 AM server time
 cron.schedule("0 8 * * *", async () => {
   console.log("CRON: Running daily package expiry check...");
-  // cron.schedule("* * * * *", async () => {
-  //  console.log("TEST CRON: Running every minute...");
 
   try {
     const activePasses = await UserPasses.find({ isActive: true })
@@ -37,24 +37,34 @@ cron.schedule("0 8 * * *", async () => {
       const expiryDate = new Date(pass.expiryDate);
       expiryDate.setHours(0, 0, 0, 0);
 
-      const targetReminderDate = new Date(expiryDate);
-      targetReminderDate.setDate(
-        targetReminderDate.getDate() - pkg.reminderDaysBefore,
-      );
+      const diffTime = expiryDate.getTime() - today.getTime();
+      const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-      // Trigger if today matches the target date
-      if (today.getTime() === targetReminderDate.getTime()) {
+      if (daysRemaining <= pkg.reminderDaysBefore && daysRemaining >= 0) {
+        // Dynamically build the notification message based on days left
+        let bodyText = "";
+        if (daysRemaining === 0) {
+          bodyText = `Hi ${user.fullName}, your ${pkg.packageName} pass expires TODAY!`;
+        } else if (daysRemaining === 1) {
+          bodyText = `Hi ${user.fullName}, your ${pkg.packageName} pass will expire in 1 day.`;
+        } else {
+          bodyText = `Hi ${user.fullName}, your ${pkg.packageName} pass will expire in ${daysRemaining} days.`;
+        }
+
         const sendPromises = user.fcmTokens.map((token) => {
           const message = {
             notification: {
-              title: "Package Expiring Soon! ⏳",
-              body: `Hi ${user.fullName}, your ${pkg.packageName} pass will expire in ${pkg.reminderDaysBefore} days.`,
+              title:
+                daysRemaining === 0
+                  ? "Package Expiring Today! 🚨"
+                  : "Package Expiring Soon! ⏳",
+              body: bodyText,
             },
             apns: {
               payload: {
                 aps: {
                   sound: "default",
-                  interruptionLevel: "active", // Optional: Ensures it lights up the screen immediately
+                  "interruption-level": "active",
                 },
               },
             },
@@ -79,7 +89,7 @@ cron.schedule("0 8 * * *", async () => {
           ).length;
 
           console.log(
-            `Sent to ${user.fullName}. Success: ${successCount}, Failed: ${failureCount}`,
+            `Sent countdown (${daysRemaining} days) to ${user.fullName}. Success: ${successCount}, Failed: ${failureCount}`,
           );
 
           // Cleanup invalid tokens (e.g., user uninstalled the app)

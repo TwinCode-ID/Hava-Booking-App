@@ -23,18 +23,41 @@ exports.passReminder = async (req, res) => {
         .json({ message: "User has no registered devices for notifications." });
     }
 
-    const reminderDays = pkg?.reminderDaysBefore || 7;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiryDate = new Date(pass.expiryDate);
+    expiryDate.setHours(0, 0, 0, 0);
+
+    const diffTime = expiryDate.getTime() - today.getTime();
+    const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    let bodyText = "";
+    let titleText = "Package Expiring Soon! ⏳";
+
+    if (daysRemaining < 0) {
+      titleText = "Package Expired! 🚨";
+      bodyText = `Hi ${user.fullName}, your ${pkg?.packageName || "Pass"} has already expired.`;
+    } else if (daysRemaining === 0) {
+      titleText = "Package Expiring Today! 🚨";
+      bodyText = `Hi ${user.fullName}, your ${pkg?.packageName || "Pass"} expires TODAY!`;
+    } else if (daysRemaining === 1) {
+      bodyText = `Hi ${user.fullName}, your ${pkg?.packageName || "Pass"} will expire in 1 day.`;
+    } else {
+      bodyText = `Hi ${user.fullName}, your ${pkg?.packageName || "Pass"} will expire in ${daysRemaining} days.`;
+    }
+
     const sendPromises = user.fcmTokens.map((token) => {
       const message = {
         notification: {
-          title: "Package Expiring Soon! ⏳",
-          body: `Hi ${user.fullName}, your ${pkg?.packageName || "Pass"} will expire in ${reminderDays} days.`,
+          title: titleText,
+          body: bodyText,
         },
         apns: {
           payload: {
             aps: {
               sound: "default",
-              interruptionLevel: "active", // Optional: Ensures it lights up the screen immediately
+              "interruption-level": "active",
             },
           },
         },
@@ -44,7 +67,7 @@ exports.passReminder = async (req, res) => {
             defaultVibrateTimings: true,
           },
         },
-        token: token, // Send to a single device token
+        token: token,
       };
       return admin.messaging().send(message);
     });
@@ -57,7 +80,7 @@ exports.passReminder = async (req, res) => {
     const failureCount = results.filter((r) => r.status === "rejected").length;
 
     res.status(200).json({
-      message: "Test reminder processed",
+      message: `Test reminder processed (${daysRemaining} days remaining)`,
       successCount,
       failureCount,
     });
