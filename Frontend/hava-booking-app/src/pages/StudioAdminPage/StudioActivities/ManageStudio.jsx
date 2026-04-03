@@ -6,12 +6,11 @@ import {
   Briefcase,
   Package,
   Calendar,
-  DollarSign,
   ChevronRight,
   Info,
-  Cog,
   ChevronLeft,
-  TicketPercent, // <-- New icon for Promos
+  TicketPercent,
+  BarChart3, // <-- Added for Reports
 } from "lucide-react";
 
 // Components (Ensure paths are correct)
@@ -19,10 +18,11 @@ import ManageInstructors from "./components/ManageInstructors/ManageInstructors"
 import ClientManager from "./components/ManageClients/ClientManager";
 import AdminPaymentManager from "./components/ManagePurchases/AdminPaymentManager";
 import ManagePackage from "./components/ManagePackage/ManagePackage";
-import RevenueDetails from "./components/StudioRevenue/RevenueDetails";
 import SchedulesList from "./components/ManageSchedules/SchedulesList";
 import ManagePromos from "./components/ManagePromos/ManagePromos";
 import StudioSettings from "./components/StudioSettings/StudioSettings";
+// Make sure this path points to the new StudioReports file you saved above
+import StudioReports from "./components/Reports/StudioReports";
 
 const StudioActivities = () => {
   const [activeTab, setActiveTab] = useState("package");
@@ -82,9 +82,9 @@ const StudioActivities = () => {
       color: "text-yellow-600",
     },
     {
-      id: "revenue",
-      label: "Revenue",
-      icon: DollarSign,
+      id: "reports", // <-- Changed from "revenue" to "reports"
+      label: "Reports", // <-- Label changed
+      icon: BarChart3, // <-- Better icon for overall reports
       color: "text-teal-600",
     },
   ];
@@ -161,7 +161,6 @@ const StudioActivities = () => {
             {activeTab === "package" && <ManagePackage isEmbedded={true} />}
             {activeTab === "promos" && <ManagePromos isEmbedded={true} />}
             {activeTab === "schedule" && <SchedulesList isEmbedded={true} />}
-            {/* <-- New Tab Component Render */}
             {activeTab === "instructors" && (
               <ManageInstructors isEmbedded={true} />
             )}
@@ -169,7 +168,7 @@ const StudioActivities = () => {
             {activeTab === "payments" && (
               <AdminPaymentManager isEmbedded={true} />
             )}
-            {activeTab === "revenue" && <RevenueDetails isEmbedded={true} />}
+            {activeTab === "reports" && <StudioReports isEmbedded={true} />}
             {activeTab === "settings" && <StudioSettings isEmbedded={true} />}
           </motion.div>
         </AnimatePresence>
