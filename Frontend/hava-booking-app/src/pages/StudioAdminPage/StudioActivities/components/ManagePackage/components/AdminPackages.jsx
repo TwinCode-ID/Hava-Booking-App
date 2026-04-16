@@ -481,6 +481,12 @@ const PackageFormModal = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handlePriceChange = (e) => {
+    const { name, value } = e.target;
+    const numericValue = value.replace(/\D/g, ""); // Remove non-digits
+    setFormData((prev) => ({ ...prev, [name]: numericValue }));
+  };
+
   const handleComboItemChange = (index, field, value) => {
     const newItems = [...formData.comboItems];
     newItems[index][field] = value;
@@ -507,11 +513,13 @@ const PackageFormModal = ({
     try {
       const payload = {
         ...formData,
-        packagePrice: Number(formData.packagePrice),
+        packagePrice: Number(String(formData.packagePrice).replace(/\D/g, "")),
         validityDays: Number(formData.validityDays),
         credits: formData.isCombo ? 0 : Number(formData.credits),
         comboItems: formData.isCombo ? formData.comboItems : [],
-        promoPrice: formData.isPromo ? Number(formData.promoPrice) : undefined,
+        promoPrice: formData.isPromo
+          ? Number(String(formData.promoPrice).replace(/\D/g, ""))
+          : undefined,
         enableExpiryReminder: formData.enableExpiryReminder,
         reminderDaysBefore: formData.enableExpiryReminder
           ? Number(formData.reminderDaysBefore)
@@ -616,11 +624,17 @@ const PackageFormModal = ({
                   {formData.currency})
                 </label>
                 <input
-                  type='number'
+                  type='text' // Changed to text
                   name='packagePrice'
                   required
-                  value={formData.packagePrice}
-                  onChange={handleInputChange}
+                  value={
+                    formData.packagePrice
+                      ? new Intl.NumberFormat("id-ID").format(
+                          formData.packagePrice,
+                        )
+                      : ""
+                  }
+                  onChange={handlePriceChange} // Changed handler
                   className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
                 />
               </div>
@@ -796,11 +810,17 @@ const PackageFormModal = ({
                   Promo Price ({formData.currency})
                 </label>
                 <input
-                  type='number'
+                  type='text' // Changed to text
                   name='promoPrice'
                   required={formData.isPromo}
-                  value={formData.promoPrice}
-                  onChange={handleInputChange}
+                  value={
+                    formData.promoPrice
+                      ? new Intl.NumberFormat("id-ID").format(
+                          formData.promoPrice,
+                        )
+                      : ""
+                  }
+                  onChange={handlePriceChange} // Changed handler
                   className='w-full p-2.5 rounded-md border border-emerald-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm bg-emerald-50/30'
                 />
               </div>
