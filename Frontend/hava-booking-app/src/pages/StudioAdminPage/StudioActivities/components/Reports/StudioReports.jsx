@@ -12,7 +12,6 @@ import {
   XCircle,
   X,
   CalendarX,
-  CheckCircle2,
   Clock,
   AlertCircle,
   Search,
@@ -27,6 +26,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../context/AuthContext";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
@@ -174,10 +174,514 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
 };
 
 // ==========================================
+// MODAL COMPONENT: Stylized Receipt / Invoice
+// ==========================================
+const InvoiceReceiptModal = ({ transaction, onClose }) => {
+  const { user } = useAuth();
+  const [downloading, setDownloading] = useState(false);
+
+  const getReceiptNo = (id) => {
+    if (!id) return "";
+    const parts = id.split("-");
+    if (parts.length > 2) {
+      return `${parts[1].slice(-2)}-${parts[2]}`;
+    }
+    return id.slice(-6).toUpperCase();
+  };
+
+  const handleDownloadPDF = () => {
+    setDownloading(true);
+
+    try {
+      // 1. Setup PDF (80mm width = Standard Thermal Receipt size)
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [80, 160],
+      });
+
+      const textDark = "#111827";
+      const textGray = "#6B7280";
+
+      let y = 14;
+
+      // 2. Header
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(textDark);
+      doc.text("Hava Studio", 8, y);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(textGray);
+      doc.text(
+        `RECEIPT NO. ${getReceiptNo(transaction.transactionId)}`,
+        72,
+        y - 3,
+        { align: "right" },
+      );
+
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        new Date(transaction.createdAt).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        72,
+        y,
+        { align: "right" },
+      );
+
+      y += 14;
+
+      // 3. Greeting
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(textDark);
+      doc.text("Thanks for", 8, y);
+      y += 6;
+      doc.text("your purchase!", 8, y);
+
+      y += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(textGray);
+      doc.text(`Order #${transaction.transactionId}`, 8, y);
+
+      y += 6;
+
+      // 4. Dashed Divider
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.5);
+      doc.setLineDash([1.5, 1.5], 0);
+      doc.line(8, y, 72, y);
+      doc.setLineDash([]); // Reset dash
+
+      y += 8;
+
+      // 5. Order Item (With Wrap support so it never overlaps the price)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(textDark);
+      doc.text("1", 8, y);
+
+      const pkgName = transaction.packageId?.packageName || "Custom Package";
+      const splitPkgName = doc.splitTextToSize(pkgName, 35); // Wrap text at 35mm wide to avoid price overlap
+
+      doc.text(splitPkgName, 13, y);
+      doc.text(formatCurrency(transaction.totalAmount), 72, y, {
+        align: "right",
+      });
+
+      // Move Y down based on how many lines the package name took
+      y += splitPkgName.length * 4 + 1;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(textGray);
+      doc.text(`1 x ${formatCurrency(transaction.totalAmount)}`, 13, y);
+
+      y += 8;
+
+      // 6. Total Gray Box
+      doc.setFillColor(243, 244, 246); // Tailwind gray-100
+      doc.roundedRect(8, y, 64, 26, 2, 2, "F");
+
+      y += 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(textDark);
+      doc.text("Total", 12, y);
+
+      doc.setFontSize(14);
+      doc.text(formatCurrency(transaction.totalAmount), 70, y, {
+        align: "right",
+      });
+
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(textGray);
+      doc.text("Payment Method", 12, y);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(textDark);
+      doc.text(
+        (transaction.paymentMethod?.replace(/_/g, " ") || "").toUpperCase(),
+        70,
+        y,
+        { align: "right" },
+      );
+
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(textGray);
+      doc.text("Status", 12, y);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(5, 150, 105); // emerald-600
+      doc.text((transaction.status || "Confirmed").toUpperCase(), 70, y, {
+        align: "right",
+      });
+
+      y += 12;
+
+      // 7. QR Code Integration
+      const qrCanvas = document.getElementById("qr-canvas");
+      if (qrCanvas) {
+        const qrDataUrl = qrCanvas.toDataURL("image/png");
+        doc.addImage(qrDataUrl, "PNG", 8, y, 20, 20);
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(textDark);
+      doc.text("Verify Transaction", 32, y + 4);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(textGray);
+      doc.text("Scan the QR code to securely", 32, y + 8);
+      doc.text("view and verify these details", 32, y + 11);
+      doc.text("online.", 32, y + 14);
+
+      y += 28;
+
+      // 8. Footer
+      doc.setFontSize(6);
+      doc.text("www.havastudio.id", 40, Math.min(y, 155), { align: "center" }); // Keep within bounds
+
+      // 9. Save natively generated PDF
+      doc.save(`Receipt_${transaction.transactionId}.pdf`);
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const qrUrl = `${window.location.origin}/verify/${transaction.transactionId}`;
+
+  return (
+    <div className='fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm'>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 30 }}
+        className='flex flex-col items-center max-h-[95vh] overflow-y-auto w-full no-scrollbar pb-6 mt-6'>
+        {/* Clean, Modern UI Receipt Container */}
+        <div className='w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-2xl relative font-sans pb-8'>
+          <div className='p-8 pb-6'>
+            <div className='flex justify-between items-start mb-8'>
+              <div className='flex items-center gap-2.5'>
+                <div className='grid grid-cols-3 gap-[3px]'>
+                  {[...Array(9)].map((_, i) => (
+                    <div
+                      key={i}
+                      className='w-1.5 h-1.5 bg-gray-900 rounded-full'></div>
+                  ))}
+                </div>
+                <span className='font-bold text-gray-900 text-[20px] tracking-tight'>
+                  Hava Studio
+                </span>
+              </div>
+              <div className='text-right'>
+                <p className='text-[10px] text-gray-500 font-bold tracking-wider uppercase'>
+                  Receipt No. {getReceiptNo(transaction.transactionId)}
+                </p>
+                <p className='text-[11px] text-gray-400 font-medium mt-0.5'>
+                  {new Date(transaction.createdAt).toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <h2 className='text-[32px] font-extrabold text-gray-900 mb-3 leading-[1.1] tracking-tight'>
+              Thanks for
+              <br />
+              your purchase!
+            </h2>
+            <p className='text-[14px] text-gray-500 font-medium leading-relaxed'>
+              Your order{" "}
+              <span className='text-blue-600 font-bold'>
+                #{transaction.transactionId}
+              </span>{" "}
+              has been successfully processed.
+            </p>
+          </div>
+
+          {/* Simple Dashed Divider */}
+          <div className='w-full border-t-[2px] border-dashed border-gray-200'></div>
+
+          <div className='p-8 pt-8'>
+            <div className='flex justify-between items-start mb-8'>
+              <div className='flex gap-4 pr-4'>
+                <span className='font-bold text-lg text-gray-900'>1</span>
+                <div>
+                  <p className='font-bold text-[16px] text-gray-900 leading-snug mb-1'>
+                    {transaction.packageId?.packageName || "Custom Package"}
+                  </p>
+                  <p className='text-[13px] text-gray-500 font-medium'>
+                    1 × {formatCurrency(transaction.totalAmount)}
+                  </p>
+                </div>
+              </div>
+              <span className='font-bold text-[16px] text-gray-900 whitespace-nowrap'>
+                {formatCurrency(transaction.totalAmount)}
+              </span>
+            </div>
+
+            {/* Total Area Box */}
+            <div className='bg-[#F3F4F6] p-6 rounded-[20px] mb-8'>
+              <div className='flex justify-between items-end mb-6'>
+                <span className='font-bold text-xl text-gray-800'>Total</span>
+                <span className='font-extrabold text-[26px] text-gray-900 tracking-tight leading-none'>
+                  {formatCurrency(transaction.totalAmount)}
+                </span>
+              </div>
+              <div className='flex justify-between items-center text-[13px] font-bold mb-3'>
+                <span className='text-gray-500'>Payment Method</span>
+                <span className='text-gray-800 capitalize'>
+                  {transaction.paymentMethod?.replace(/_/g, " ")}
+                </span>
+              </div>
+              <div className='flex justify-between items-center text-[13px] font-bold'>
+                <span className='text-gray-500'>Status</span>
+                <span className='text-emerald-600 capitalize'>
+                  {transaction.status || "Confirmed"}
+                </span>
+              </div>
+            </div>
+
+            {/* Verification Box & QR */}
+            <div className='flex items-center justify-between gap-4 bg-white rounded-[16px] p-4 border border-gray-200'>
+              <div className='flex-1 pr-2'>
+                <h3 className='font-bold text-[14px] text-gray-900 mb-1'>
+                  Verify Transaction
+                </h3>
+                <p className='text-[12px] text-gray-500 leading-relaxed'>
+                  Scan the QR code to securely view and verify these details
+                  online.
+                </p>
+              </div>
+              <div className='shrink-0'>
+                {/* Important: Using QRCodeCanvas so jsPDF can snapshot it natively */}
+                <QRCodeCanvas
+                  id='qr-canvas'
+                  value={qrUrl}
+                  size={64}
+                  level='M'
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Buttons now placed cleanly at the bottom */}
+        <div className='flex gap-3 w-full max-w-[400px] mt-6'>
+          <button
+            onClick={onClose}
+            className='flex-1 py-3.5 bg-white text-gray-800 border border-gray-200 rounded-xl text-[15px] font-bold hover:bg-gray-50 transition-colors shadow-sm'>
+            Close
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={downloading}
+            className='flex-[2] flex justify-center items-center gap-2 py-3.5 bg-emerald-500 text-white rounded-xl text-[15px] font-bold hover:bg-emerald-400 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-500/20'>
+            <Download className='w-4 h-4' />{" "}
+            {downloading ? "Generating..." : "Download Invoice"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ==========================================
+// MODAL COMPONENT: Transaction Details
+// ==========================================
+const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
+  if (!transaction) return null;
+
+  return (
+    <div className='fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className='bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden'>
+        {/* Header */}
+        <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-white shrink-0'>
+          <div className='flex items-center gap-4'>
+            <div className='w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center'>
+              <Wallet className='w-6 h-6' />
+            </div>
+            <div>
+              <h3 className='text-xl font-bold text-gray-900'>
+                Transaction Details
+              </h3>
+              <p className='text-sm font-medium text-gray-500 font-mono mt-0.5'>
+                ID: {transaction.transactionId || "N/A"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className='p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500'>
+            <X className='w-6 h-6' />
+          </button>
+        </div>
+
+        {/* Scrollable Body */}
+        <div className='p-6 overflow-y-auto flex-1 space-y-6 bg-white'>
+          {/* Top Info Cards */}
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-gray-100'>
+              <p className='text-xs font-bold text-gray-500 uppercase tracking-wider mb-2'>
+                Amount Paid
+              </p>
+              <p className='text-3xl font-extrabold text-emerald-600 tracking-tight'>
+                {formatCurrency(transaction.totalAmount)}
+              </p>
+            </div>
+            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-gray-100'>
+              <p className='text-xs font-bold text-gray-500 uppercase tracking-wider mb-2'>
+                Status
+              </p>
+              <div className='flex items-center gap-2'>
+                <CheckCircle className='w-6 h-6 text-emerald-500' />
+                <p className='text-xl font-bold text-gray-900 capitalize'>
+                  {transaction.status || "Confirmed"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Data Grid */}
+          <div className='bg-white border border-gray-200 rounded-2xl overflow-hidden'>
+            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-gray-200'>
+              <h4 className='text-[15px] font-bold text-gray-900'>
+                Purchase Information
+              </h4>
+            </div>
+            <div className='divide-y divide-gray-100'>
+              <div className='grid grid-cols-3 p-5 items-center'>
+                <span className='text-[15px] font-semibold text-gray-500'>
+                  Client Name
+                </span>
+                <span className='text-[15px] font-bold text-gray-900 col-span-2'>
+                  {transaction.userId?.fullName || "N/A"}
+                </span>
+              </div>
+              <div className='grid grid-cols-3 p-5 items-center'>
+                <span className='text-[15px] font-semibold text-gray-500'>
+                  Package
+                </span>
+                <span className='text-[15px] font-medium text-gray-900 col-span-2 flex'>
+                  <span className='bg-[#f1f3f5] px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-bold'>
+                    {transaction.packageId?.packageName || "N/A"}
+                  </span>
+                </span>
+              </div>
+              <div className='grid grid-cols-3 p-5 items-center'>
+                <span className='text-[15px] font-semibold text-gray-500'>
+                  Payment Method
+                </span>
+                <span className='text-[15px] font-bold text-gray-900 capitalize col-span-2'>
+                  {transaction.paymentMethod?.replace(/_/g, " ")}
+                </span>
+              </div>
+              <div className='grid grid-cols-3 p-5 items-center'>
+                <span className='text-[15px] font-semibold text-gray-500'>
+                  Purchase Date
+                </span>
+                <span className='text-[15px] font-bold text-gray-900 col-span-2'>
+                  {new Date(transaction.createdAt).toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Credits & Lifecycle Data */}
+          <div className='bg-white border border-gray-200 rounded-2xl overflow-hidden'>
+            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-gray-200'>
+              <h4 className='text-[15px] font-bold text-gray-900'>
+                Package Lifecycle & Credits
+              </h4>
+            </div>
+            <div className='divide-y divide-gray-100'>
+              <div className='grid grid-cols-3 p-5 items-center'>
+                <span className='text-[15px] font-semibold text-gray-500'>
+                  Credits
+                </span>
+                <span className='text-[15px] font-bold text-gray-900 col-span-2'>
+                  {transaction.remainingCredits} Remaining /{" "}
+                  {transaction.creditsPurchased} Total
+                </span>
+              </div>
+              {transaction.mustActivateBy && (
+                <div className='grid grid-cols-3 p-5 items-center'>
+                  <span className='text-[15px] font-semibold text-gray-500'>
+                    Must Activate By
+                  </span>
+                  <span className='text-[15px] font-bold text-amber-700 col-span-2'>
+                    {new Date(transaction.mustActivateBy).toLocaleDateString(
+                      "en-GB",
+                    )}
+                  </span>
+                </div>
+              )}
+              {transaction.expiryDate && (
+                <div className='grid grid-cols-3 p-5 items-center'>
+                  <span className='text-[15px] font-semibold text-gray-500'>
+                    Expiry Date
+                  </span>
+                  <span className='text-[15px] font-bold text-red-600 col-span-2'>
+                    {new Date(transaction.expiryDate).toLocaleDateString(
+                      "en-GB",
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className='p-6 bg-white shrink-0'>
+          <button
+            onClick={() => onOpenReceipt(transaction)}
+            className='w-full py-4 bg-[#0f172a] text-white rounded-xl font-bold hover:bg-gray-800 transition-colors flex justify-center items-center gap-2 shadow-md'>
+            <FileText className='w-5 h-5' /> Generate Stylized Receipt
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ==========================================
 // SECTION COMPONENTS
 // ==========================================
 
-const RevenueSection = ({ stats, tableData, selectedMonth, selectedYear }) => {
+const RevenueSection = ({
+  stats,
+  tableData,
+  selectedMonth,
+  selectedYear,
+  onRowSelected,
+}) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState("All");
 
@@ -187,14 +691,19 @@ const RevenueSection = ({ stats, tableData, selectedMonth, selectedYear }) => {
       const match =
         (t.userId?.fullName || "").toLowerCase().includes(q) ||
         (t.packageId?.packageName || "").toLowerCase().includes(q);
-      const isMethodMatch =
-        methodFilter === "All" ||
-        (methodFilter === "Pay at Studio" &&
-          t.paymentMethod === "pay_at_studio") ||
-        (methodFilter === "Transfer" &&
-          t.paymentMethod === "manual_transfer") ||
-        (methodFilter === "QRIS" &&
-          t.paymentMethod.toLowerCase().includes("qris"));
+
+      const methodStr = (t.paymentMethod || "").toLowerCase();
+      const isPayAtStudio = methodStr === "pay_at_studio";
+      const isTransfer = methodStr === "manual_transfer";
+      const isQris = methodStr.includes("qris");
+      const isOthers = !isPayAtStudio && !isTransfer && !isQris;
+
+      let isMethodMatch = true;
+      if (methodFilter === "Pay at Studio") isMethodMatch = isPayAtStudio;
+      else if (methodFilter === "Transfer") isMethodMatch = isTransfer;
+      else if (methodFilter === "QRIS") isMethodMatch = isQris;
+      else if (methodFilter === "Others") isMethodMatch = isOthers;
+
       return match && isMethodMatch;
     });
   }, [tableData, searchQuery, methodFilter]);
@@ -301,15 +810,16 @@ const RevenueSection = ({ stats, tableData, selectedMonth, selectedYear }) => {
                 filteredData.map((trx) => (
                   <tr
                     key={trx._id}
-                    className='hover:bg-emerald-50/80 transition-colors'>
-                    <td className='px-6 py-4 text-sm text-gray-500'>
+                    onClick={() => onRowSelected(trx)}
+                    className='hover:bg-emerald-50/80 cursor-pointer transition-colors group'>
+                    <td className='px-6 py-4 text-sm text-gray-500 group-hover:text-emerald-700 transition-colors'>
                       {new Date(trx.createdAt).toLocaleDateString()}
                     </td>
-                    <td className='px-6 py-4 text-sm font-semibold text-gray-900'>
+                    <td className='px-6 py-4 text-sm font-semibold text-gray-900 group-hover:text-emerald-800 transition-colors'>
                       {trx.userId?.fullName}
                     </td>
                     <td className='px-6 py-4 text-sm'>
-                      <span className='px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200'>
+                      <span className='px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200 group-hover:bg-white transition-colors'>
                         {trx.packageId?.packageName}
                       </span>
                     </td>
@@ -326,7 +836,7 @@ const RevenueSection = ({ stats, tableData, selectedMonth, selectedYear }) => {
                   <td
                     colSpan='5'
                     className='px-6 py-8 text-center text-gray-400'>
-                    No transactions found.
+                    No successful transactions found for this period.
                   </td>
                 </tr>
               )}
@@ -666,11 +1176,7 @@ const PackageUsageSection = ({ passes, onRowClick }) => {
   );
 };
 
-// ==========================================
-// MODAL COMPONENT: Student Attendance Details
-// ==========================================
 const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
-  // Filter bookings for this specific student
   const studentBookings = useMemo(() => {
     return allBookings
       .filter((b) => b.userId?._id === student._id)
@@ -694,7 +1200,7 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
 
   const generateStudentPDF = () => {
     const doc = new jsPDF();
-    const primaryColor = [126, 34, 206]; // Purple 700
+    const primaryColor = [126, 34, 206];
 
     doc.setFontSize(20);
     doc.setTextColor(0, 0, 0);
@@ -750,7 +1256,6 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden'>
-        {/* Header */}
         <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0'>
           <div className='flex items-center gap-3'>
             <div className='w-12 h-12 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-bold text-xl'>
@@ -771,10 +1276,7 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
             <X className='w-6 h-6' />
           </button>
         </div>
-
-        {/* Scrollable Body */}
         <div className='p-6 overflow-y-auto flex-1 space-y-6'>
-          {/* Stats Row */}
           <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
             <div className='p-4 bg-gray-50 rounded-xl border border-gray-100 text-center'>
               <p className='text-xs font-bold text-gray-500 uppercase tracking-wider mb-1'>
@@ -809,8 +1311,6 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
               </p>
             </div>
           </div>
-
-          {/* Detailed Table */}
           <div className='border border-gray-200 rounded-xl overflow-hidden'>
             <table className='w-full text-left border-collapse'>
               <thead>
@@ -826,7 +1326,6 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
                   const isPast = new Date(b.bookingDate) < new Date();
                   const isAbsent =
                     !b.isAttend && b.status !== "Cancelled" && isPast;
-
                   return (
                     <tr
                       key={b._id}
@@ -873,8 +1372,6 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
             </table>
           </div>
         </div>
-
-        {/* Footer Actions */}
         <div className='p-4 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0'>
           <button
             onClick={generateStudentPDF}
@@ -888,7 +1385,7 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
 };
 
 // ==========================================
-// MAIN COMPONENT: STUDIO REPORTS (Single Page)
+// MAIN COMPONENT: STUDIO REPORTS
 // ==========================================
 const StudioReports = () => {
   const { user } = useAuth();
@@ -898,11 +1395,11 @@ const StudioReports = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // --- Student Specific State (For Main Section) ---
-  const [selectedStudentId, setSelectedStudentId] = useState("All");
-
   // --- Modal State ---
+  const [selectedStudentId, setSelectedStudentId] = useState("All");
   const [modalStudent, setModalStudent] = useState(null);
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [receiptTx, setReceiptTx] = useState(null);
 
   // --- Revenue State (Gated) ---
   const [isRevenueLocked, setIsRevenueLocked] = useState(true);
@@ -984,7 +1481,6 @@ const StudioReports = () => {
   }, [isRevenueLocked, user.adminStudioLocation]);
 
   // --- Derived Stats Calculations ---
-
   const studentOptions = useMemo(() => {
     const distinctStudents = Array.from(
       new Map(
@@ -1005,10 +1501,19 @@ const StudioReports = () => {
   const revenueStats = useMemo(() => {
     const currentMonth = transactions.filter((t) => {
       const d = new Date(t.createdAt);
+      const validStatuses = [
+        "approved",
+        "confirmed",
+        "active",
+        "queued",
+        "completed",
+        "success",
+      ];
+      const isSuccess = validStatuses.includes((t.status || "").toLowerCase());
       return (
         d.getMonth() === selectedMonth &&
         d.getFullYear() === selectedYear &&
-        t.status === "confirmed"
+        isSuccess
       );
     });
     const totalRevenue = currentMonth.reduce(
@@ -1052,13 +1557,11 @@ const StudioReports = () => {
   }, [transactions, selectedMonth, selectedYear]);
 
   const attendanceStats = useMemo(() => {
-    // Filter bookings by selected month/year
     const periodFilteredBookings = bookings.filter((b) => {
       const d = new Date(b.bookingDate);
       return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
     });
 
-    // Apply Student Filter if active
     let finalBookings = periodFilteredBookings;
     if (selectedStudentId !== "All") {
       finalBookings = periodFilteredBookings.filter(
@@ -1073,11 +1576,11 @@ const StudioReports = () => {
     ).length;
     const rate =
       total > 0 ? Math.round((attended / (total - cancelled)) * 100) || 0 : 0;
+
     return { data: finalBookings, stats: { total, attended, cancelled, rate } };
   }, [bookings, selectedMonth, selectedYear, selectedStudentId]);
 
   const instructorStats = useMemo(() => {
-    // Filter classes by selected month/year
     const filteredClasses = classes.filter((c) => {
       const d = new Date(c.startTime);
       return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
@@ -1111,7 +1614,6 @@ const StudioReports = () => {
     });
   }, [passes, selectedMonth, selectedYear]);
 
-  // --- Master PDF Generation ---
   const generateMasterPDF = () => {
     if (isRevenueLocked) {
       alert(
@@ -1119,16 +1621,12 @@ const StudioReports = () => {
       );
       return;
     }
-
     const doc = new jsPDF();
     const monthName = monthNames[selectedMonth];
     const reportTitle = `Studio Master Report - ${monthName} ${selectedYear}`;
+    const primaryColor = [6, 78, 59];
+    const secondaryColor = [100, 116, 139];
 
-    // Brand Colors
-    const primaryColor = [6, 78, 59]; // Emerald 900
-    const secondaryColor = [100, 116, 139]; // Slate 500
-
-    // --- Page Header ---
     doc.setFontSize(22);
     doc.setTextColor(0, 0, 0);
     doc.text(reportTitle, 14, 25);
@@ -1139,12 +1637,10 @@ const StudioReports = () => {
     doc.setDrawColor(...primaryColor);
     doc.line(14, 36, 196, 36);
 
-    // --- 1. Financial Overview ---
     doc.setFontSize(16);
     doc.setTextColor(...primaryColor);
     doc.setFont("helvetica", "bold");
     doc.text("1. Financial Overview", 14, 50);
-
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
@@ -1156,8 +1652,6 @@ const StudioReports = () => {
     doc.text(`Total Transactions: ${revenueStats.totalTransactions}`, 14, 64);
 
     let currentY = 72;
-
-    // Revenue Table
     if (revenueStats.tableData.length > 0) {
       const revCols = ["Date", "Client", "Package", "Method", "Amount"];
       const revRows = revenueStats.tableData.map((t) => [
@@ -1180,20 +1674,20 @@ const StudioReports = () => {
       currentY += 18;
     }
 
-    // --- 2. Class Attendance ---
     if (currentY > 250) {
       doc.addPage();
       currentY = 25;
     }
-
     doc.setFontSize(16);
     doc.setTextColor(...primaryColor);
     doc.setFont("helvetica", "bold");
-    const attTitle = selectedStudentName
-      ? `2. Attendance: ${selectedStudentName}`
-      : "2. Class Attendance Overview";
-    doc.text(attTitle, 14, currentY);
-
+    doc.text(
+      selectedStudentName
+        ? `2. Attendance: ${selectedStudentName}`
+        : "2. Class Attendance Overview",
+      14,
+      currentY,
+    );
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
@@ -1231,7 +1725,7 @@ const StudioReports = () => {
         body: attRows,
         startY: currentY,
         headStyles: { fillColor: [37, 99, 235] },
-        styles: { fontSize: 8 }, // Blue header
+        styles: { fontSize: 8 },
       });
       currentY = doc.lastAutoTable.finalY + 18;
     } else {
@@ -1239,18 +1733,15 @@ const StudioReports = () => {
       currentY += 18;
     }
 
-    // --- 3. Instructor Workload ---
     if (currentY > 250) {
       doc.addPage();
       currentY = 25;
     }
-
     doc.setFontSize(16);
     doc.setTextColor(...primaryColor);
     doc.setFont("helvetica", "bold");
     doc.text("3. Instructor Workload", 14, currentY);
     currentY += 10;
-
     if (instructorStats.data.length > 0) {
       const instCols = [
         "Instructor Name",
@@ -1271,7 +1762,7 @@ const StudioReports = () => {
         body: instRows,
         startY: currentY,
         headStyles: { fillColor: [234, 88, 12] },
-        styles: { fontSize: 8 }, // Orange header
+        styles: { fontSize: 8 },
       });
       currentY = doc.lastAutoTable.finalY + 18;
     } else {
@@ -1279,18 +1770,15 @@ const StudioReports = () => {
       currentY += 18;
     }
 
-    // --- 4. Package Usage ---
     if (currentY > 250) {
       doc.addPage();
       currentY = 25;
     }
-
     doc.setFontSize(16);
     doc.setTextColor(...primaryColor);
     doc.setFont("helvetica", "bold");
     doc.text("4. Issued Packages", 14, currentY);
     currentY += 10;
-
     if (packageFiltered.length > 0) {
       const packCols = [
         "Owner",
@@ -1311,13 +1799,12 @@ const StudioReports = () => {
         body: packRows,
         startY: currentY,
         headStyles: { fillColor: [147, 51, 234] },
-        styles: { fontSize: 8 }, // Purple header
+        styles: { fontSize: 8 },
       });
     } else {
       doc.text("No new packages issued during this period.", 14, currentY);
     }
 
-    // --- Footer with Page Number ---
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -1325,7 +1812,6 @@ const StudioReports = () => {
       doc.setTextColor(...secondaryColor);
       doc.text(`Page ${i} of ${pageCount}`, 196, 290, { align: "right" });
     }
-
     doc.save(`Studio_Master_Report_${monthName}_${selectedYear}.pdf`);
   };
 
@@ -1333,7 +1819,6 @@ const StudioReports = () => {
 
   return (
     <div className='p-6 md:p-10 bg-gray-50 h-full overflow-y-auto relative'>
-      {/* Header & Controls */}
       <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-gray-200 pb-8 bg-white p-6 rounded-2xl shadow-sm'>
         <div>
           <h2 className='text-3xl font-extrabold text-gray-900 tracking-tight'>
@@ -1345,7 +1830,6 @@ const StudioReports = () => {
             view.
           </p>
         </div>
-
         <div className='flex flex-wrap gap-3 items-center w-full md:w-auto'>
           <div className='w-28'>
             <CustomSelect
@@ -1383,9 +1867,7 @@ const StudioReports = () => {
         </div>
       </div>
 
-      {/* Sections Stacked */}
       <div className='space-y-12 pb-20'>
-        {/* 1. Revenue */}
         <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
           {isRevenueLocked ? (
             <PasswordGateInline
@@ -1397,11 +1879,12 @@ const StudioReports = () => {
             <RevenueSection
               stats={revenueStats}
               tableData={revenueStats.tableData}
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onRowSelected={(trx) => setSelectedTx(trx)}
             />
           )}
         </div>
-
-        {/* 2. Attendance */}
         <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
           <AttendanceSection
             bookings={attendanceStats.data}
@@ -1410,16 +1893,12 @@ const StudioReports = () => {
             selectedStudentName={selectedStudentName}
           />
         </div>
-
-        {/* 3. Instructors */}
         <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
           <InstructorSection
             stats={instructorStats.data}
             classesCount={instructorStats.totalClasses}
           />
         </div>
-
-        {/* 4. Packages */}
         <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
           <PackageUsageSection
             passes={packageFiltered}
@@ -1428,7 +1907,26 @@ const StudioReports = () => {
         </div>
       </div>
 
-      {/* Student Details Modal */}
+      {/* Modals */}
+      <AnimatePresence>
+        {selectedTx && !receiptTx && (
+          <TransactionDetailsModal
+            transaction={selectedTx}
+            onClose={() => setSelectedTx(null)}
+            onOpenReceipt={(tx) => setReceiptTx(tx)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {receiptTx && (
+          <InvoiceReceiptModal
+            transaction={receiptTx}
+            onClose={() => setReceiptTx(null)}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {modalStudent && (
           <StudentAttendanceModal

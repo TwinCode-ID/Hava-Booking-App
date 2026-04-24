@@ -365,9 +365,14 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
         {pkg.packageDescription}
       </p>
 
-      <div className='flex items-center gap-2 text-sm text-gray-600 mb-4 font-medium'>
-        <Calendar className='w-4 h-4 text-gray-400' /> Valid for{" "}
-        {pkg.validityDays} Days
+      <div className='flex flex-col gap-1 mb-4'>
+        <div className='flex items-center gap-2 text-sm text-gray-600 font-medium'>
+          <Calendar className='w-4 h-4 text-gray-400' /> 
+          Active for {pkg.validityDays} days after first use
+        </div>
+        <div className='flex items-center gap-2 text-[11px] text-gray-500 font-medium ml-6'>
+          *Must be activated within {pkg.activationPeriodDays} days
+        </div>
       </div>
 
       {pkg.isCombo ? (
@@ -450,6 +455,7 @@ const PackageFormModal = ({
     packageDescription: initialData?.packageDescription || "",
     packagePrice: initialData?.packagePrice || "",
     currency: initialData?.currency || "IDR",
+    activationPeriodDays: initialData?.activationPeriodDays || 30, // Default 30 days
     validityDays: initialData?.validityDays || "",
     isCombo: initialData?.isCombo || false,
     credits: initialData?.credits || "",
@@ -514,6 +520,7 @@ const PackageFormModal = ({
       const payload = {
         ...formData,
         packagePrice: Number(String(formData.packagePrice).replace(/\D/g, "")),
+        activationPeriodDays: Number(formData.activationPeriodDays),
         validityDays: Number(formData.validityDays),
         credits: formData.isCombo ? 0 : Number(formData.credits),
         comboItems: formData.isCombo ? formData.comboItems : [],
@@ -638,9 +645,24 @@ const PackageFormModal = ({
                   className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
                 />
               </div>
+              <div></div> {/* Empty div to keep the grid clean */}
+              
               <div>
                 <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
-                  Validity (Days)
+                  Must Activate Within (Days)
+                </label>
+                <input
+                  type='number'
+                  name='activationPeriodDays'
+                  required
+                  value={formData.activationPeriodDays}
+                  onChange={handleInputChange}
+                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                />
+              </div>
+              <div>
+                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                  Validity After 1st Class (Days)
                 </label>
                 <input
                   type='number'

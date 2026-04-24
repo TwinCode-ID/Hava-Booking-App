@@ -64,7 +64,6 @@ exports.createCashierBulkPurchase = async (req, res) => {
       // --- SERVER-SIDE 1-TIME PURCHASE VALIDATION ---
       const pkg = pkgMap[id];
       if (pkg.isOneTimePurchase) {
-        // Find if ANY of the userIds have bought this package before
         const existingPurchases = await PackagePurchase.find({
           userId: { $in: userIds },
           packageId: id,
@@ -104,7 +103,6 @@ exports.createCashierBulkPurchase = async (req, res) => {
 
     await cashierTrx.save({ session });
 
-    // Loop through users and packageIds
     for (const uid of userIds) {
       for (const pkgId of packageIds) {
         const pkg = pkgMap[pkgId];
@@ -136,12 +134,14 @@ exports.createCashierBulkPurchase = async (req, res) => {
         const passExpiry = new Date();
         passExpiry.setDate(passExpiry.getDate() + (pkg.validityDays || 30));
 
-        // 2. Create Active Passes (Supporting Combo Logic)
+        // 2. Create Active Passes (Supporting Combo Logic & Snapshotting)
         let passesToCreate = [];
         if (pkg.isCombo && pkg.comboItems && pkg.comboItems.length > 0) {
           passesToCreate = pkg.comboItems.map((item) => ({
             userId: uid,
             packageId: pkg._id,
+            packageNameSnapshot: pkg.packageName, // SNAPSHOT ADDED
+            packageCategorySnapshot: pkg.packageCategory, // SNAPSHOT ADDED
             purchaseDate: new Date(),
             expiryDate: passExpiry,
             remainingCredits: item.credits,
@@ -157,6 +157,8 @@ exports.createCashierBulkPurchase = async (req, res) => {
             {
               userId: uid,
               packageId: pkg._id,
+              packageNameSnapshot: pkg.packageName, // SNAPSHOT ADDED
+              packageCategorySnapshot: pkg.packageCategory, // SNAPSHOT ADDED
               purchaseDate: new Date(),
               expiryDate: passExpiry,
               remainingCredits: pkg.credits,
@@ -267,12 +269,15 @@ exports.createPurchase = async (req, res) => {
     const sendNotification = () => {
       const io = req.app.get("io");
       if (io) {
-        io.to(issuingStudio._id.toString()).emit("purchase_notification", {
-          role: "admin",
-          type: "NEW_PURCHASE",
-          message: `New purchase initiated by ${notificationData.userId?.fullName || "Client"}`,
-          data: notificationData,
-        });
+        io.to(issuingStudio._id?.toString() || issuingStudio).emit(
+          "purchase_notification",
+          {
+            role: "admin",
+            type: "NEW_PURCHASE",
+            message: `New purchase initiated by ${notificationData.userId?.fullName || "Client"}`,
+            data: notificationData,
+          },
+        );
       }
     };
 
@@ -292,6 +297,8 @@ exports.createPurchase = async (req, res) => {
         passesToCreate = packageInfo.comboItems.map((item) => ({
           userId: finalUserId,
           packageId: packageId,
+          packageNameSnapshot: packageInfo.packageName, // SNAPSHOT ADDED
+          packageCategorySnapshot: packageInfo.packageCategory, // SNAPSHOT ADDED
           purchaseDate: new Date(),
           expiryDate: passExpiry,
           remainingCredits: item.credits,
@@ -307,6 +314,8 @@ exports.createPurchase = async (req, res) => {
           {
             userId: finalUserId,
             packageId: packageId,
+            packageNameSnapshot: packageInfo.packageName, // SNAPSHOT ADDED
+            packageCategorySnapshot: packageInfo.packageCategory, // SNAPSHOT ADDED
             purchaseDate: new Date(),
             expiryDate: passExpiry,
             remainingCredits: packageInfo.credits,
@@ -422,6 +431,8 @@ exports.adminReviewPayment = async (req, res) => {
         passesToCreate = packageDetails.comboItems.map((item) => ({
           userId: purchase.userId,
           packageId: purchase.packageId,
+          packageNameSnapshot: packageDetails.packageName, // SNAPSHOT ADDED
+          packageCategorySnapshot: packageDetails.packageCategory, // SNAPSHOT ADDED
           purchaseDate: new Date(),
           expiryDate: passExpiry,
           remainingCredits: item.credits,
@@ -437,6 +448,8 @@ exports.adminReviewPayment = async (req, res) => {
           {
             userId: purchase.userId,
             packageId: purchase.packageId,
+            packageNameSnapshot: packageDetails.packageName, // SNAPSHOT ADDED
+            packageCategorySnapshot: packageDetails.packageCategory, // SNAPSHOT ADDED
             purchaseDate: new Date(),
             expiryDate: passExpiry,
             remainingCredits: packageDetails.credits,
@@ -547,5 +560,30 @@ exports.getStudioPurchasesHistory = async (req, res) => {
     res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.verifyTransaction = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+
+    // Find the purchase and populate needed fields
+    const transaction = await Package_Purchase.findOne({ transactionId })
+      .populate("userId", "fullName email")
+      .populate("packageId", "packageName");
+
+    if (!transaction) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Transaction not found." });
+    }
+
+    res.status(200).json({ success: true, data: transaction });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Verification error",
+      error: error.message,
+    });
   }
 };

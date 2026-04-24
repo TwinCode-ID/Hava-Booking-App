@@ -33,6 +33,7 @@ import {
   Copy,
   MessageCircle,
   Bell,
+  Layers,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -53,6 +54,7 @@ const getSafeClientData = (user) => ({
 const getSafePackageData = (pkg) => ({
   _id: pkg?._id || "unknown",
   packageName: pkg?.packageName || "Custom / Unknown Package",
+  packageCategory: pkg?.packageCategory || [],
   credits: pkg?.credits || 0,
   isStudent: pkg?.isStudent || false,
 });
@@ -70,10 +72,11 @@ const getSafeMedicalData = (med) => ({
 const getSafePassData = (pass) => ({
   ...pass,
   userId: getSafeClientData(pass?.userId),
-  // Populating shared users array for frontend view
   sharedWith: Array.isArray(pass?.sharedWith)
     ? pass.sharedWith.map(getSafeClientData)
     : [],
+  snapshotName: pass?.packageNameSnapshot || pass?.packageId?.packageName || "Unknown Package",
+  snapshotCategory: pass?.packageCategorySnapshot || pass?.packageId?.packageCategory || [],
   remainingCredits: pass?.remainingCredits ?? pass?.initialCredits ?? 0,
   creditsPurchased:
     pass?.initialCredits ??
@@ -163,7 +166,9 @@ const ClientManager = ({ isEmbedded = false }) => {
   const [showAddMedicalModal, setShowAddMedicalModal] = useState(false);
   const [showViewMedicalModal, setShowViewMedicalModal] = useState(false);
   const [viewingCombinedItem, setViewingCombinedItem] = useState(null);
-  const [editingPass, setEditingPass] = useState(null);
+  
+  // State for Editing: Handles global expiry update or single pass limit updates
+  const [editingTarget, setEditingTarget] = useState(null);
 
   const [config, setConfig] = useState({ classTypes: [], instructorTypes: [] });
 
@@ -236,11 +241,9 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
   };
 
-  // Group passes to users, allowing shared passes to show up for BOTH owners and recipients
   const clientsData = useMemo(() => {
     const map = new Map();
     purchases.forEach((pass) => {
-      // 1. Add pass to Owner
       const clientObj = pass.userId;
       if (clientObj && clientObj._id) {
         if (!map.has(clientObj._id)) {
@@ -257,7 +260,6 @@ const ClientManager = ({ isEmbedded = false }) => {
         }
       }
 
-      // 2. Add pass to Shared Users
       if (Array.isArray(pass.sharedWith)) {
         pass.sharedWith.forEach((sharedUser) => {
           if (sharedUser && sharedUser._id) {
@@ -270,7 +272,6 @@ const ClientManager = ({ isEmbedded = false }) => {
             }
             const sharedRecord = map.get(sharedUser._id);
             if (!sharedRecord.passes.find((p) => p._id === pass._id)) {
-              // Flag this pass as received via share for them
               sharedRecord.passes.push({ ...pass, isSharedToMe: true });
               if (pass.isActive) sharedRecord.activePassesCount++;
             }
@@ -284,7 +285,6 @@ const ClientManager = ({ isEmbedded = false }) => {
   const combinedHistory = useMemo(() => {
     if (!selectedClient) return [];
 
-    // Find the full mapped user data matching the selectedClient
     const mappedClient = clientsData.find((c) => c._id === selectedClient._id);
     const passes = mappedClient?.passes || [];
 
@@ -299,6 +299,7 @@ const ClientManager = ({ isEmbedded = false }) => {
     const combined = [];
     const usedPassIds = new Set();
 
+    // 1. Group by Transaction
     txns.forEach((txn) => {
       const matchedPasses = passes.filter((p) => {
         if (usedPassIds.has(p._id)) return false;
@@ -309,60 +310,54 @@ const ClientManager = ({ isEmbedded = false }) => {
         return Math.abs(txnTime - passTime) < 5000;
       });
 
-      if (matchedPasses.length > 0) {
-        matchedPasses.forEach((matchedPass, index) => {
-          usedPassIds.add(matchedPass._id);
-          combined.push({
-            _id: matchedPass._id,
-            isTxn: true,
-            txnData: txn,
-            passData: matchedPass,
-            createdAt: matchedPass.createdAt,
-            isComboPart: matchedPasses.length > 1,
-            comboIndex: index + 1,
-            comboTotal: matchedPasses.length,
-          });
-        });
-      } else {
-        combined.push({
-          _id: txn._id,
-          isTxn: true,
-          txnData: txn,
-          passData: null,
-          createdAt: txn.createdAt,
-        });
-      }
+      matchedPasses.forEach(p => usedPassIds.add(p._id));
+
+      combined.push({
+        _id: txn._id,
+        isTxn: true,
+        txnData: txn,
+        passes: matchedPasses, 
+        createdAt: txn.createdAt,
+      });
     });
 
-    passes.forEach((pass) => {
-      if (!usedPassIds.has(pass._id)) {
-        combined.push({
-          _id: pass._id,
-          isTxn: false,
-          txnData: null,
-          passData: pass,
-          createdAt: pass.createdAt,
-        });
-      }
+    // 2. Group remaining passes
+    const remainingPasses = passes.filter(p => !usedPassIds.has(p._id));
+    const groupedRemaining = [];
+
+    remainingPasses.forEach(pass => {
+      if (usedPassIds.has(pass._id)) return;
+
+      const siblings = remainingPasses.filter(p => 
+        !usedPassIds.has(p._id) &&
+        p.packageId?._id === pass.packageId?._id &&
+        Math.abs(new Date(p.createdAt).getTime() - new Date(pass.createdAt).getTime()) < 5000
+      );
+
+      siblings.forEach(p => usedPassIds.add(p._id));
+
+      groupedRemaining.push({
+        _id: siblings[0]._id, 
+        isTxn: false,
+        txnData: null,
+        passes: siblings,
+        createdAt: siblings[0].createdAt,
+      });
     });
 
-    return combined.sort((a, b) => {
+    return [...combined, ...groupedRemaining].sort((a, b) => {
       let aVal, bVal;
       if (historySortConfig.key === "createdAt") {
         aVal = new Date(a.createdAt).getTime();
         bVal = new Date(b.createdAt).getTime();
-
-        if (aVal === bVal && a.isComboPart && b.isComboPart) {
-          return a.comboIndex - b.comboIndex;
-        }
       } else if (historySortConfig.key === "packageName") {
         aVal = (
-          a.passData?.packageId?.packageName ||
+          a.passes[0]?.snapshotName ||
           a.txnData?.packageId?.packageName ||
           ""
         ).toLowerCase();
         bVal = (
-          b.passData?.packageId?.packageName ||
+          b.passes[0]?.snapshotName ||
           b.txnData?.packageId?.packageName ||
           ""
         ).toLowerCase();
@@ -484,15 +479,15 @@ const ClientManager = ({ isEmbedded = false }) => {
         endDate: data?.endDate,
       });
 
-      fetchData();
-      fetchClientDetails();
-
-      if (viewingCombinedItem && viewingCombinedItem.passData?._id === passId) {
-        setViewingCombinedItem((prev) => ({
+      if (viewingCombinedItem) {
+        setViewingCombinedItem(prev => ({
           ...prev,
-          passData: response.data.pass,
+          passes: prev.passes.map(p => p._id === passId ? response.data.pass : p)
         }));
       }
+
+      fetchData();
+      fetchClientDetails();
     } catch (error) {
       console.error(error);
       alert(error.response?.data?.message || "Failed to manage freeze");
@@ -500,6 +495,7 @@ const ClientManager = ({ isEmbedded = false }) => {
   };
 
   const generateInvoice = (txn, client) => {
+    if (!txn) return;
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
 
@@ -613,30 +609,47 @@ const ClientManager = ({ isEmbedded = false }) => {
     doc.save(`Invoice-${txn.transactionId}.pdf`);
   };
 
-  const renderStatusBadge = (status, passData) => {
-    const today = new Date();
-    const freezeEndDate = passData?.freeze?.endDate
-      ? new Date(passData.freeze.endDate)
-      : null;
-    const isCurrentlyFrozen =
-      passData?.freeze?.hasBeenFrozen && freezeEndDate && today < freezeEndDate;
+  const getOverallItemStatus = (item) => {
+    if (item.isTxn && item.txnData.status !== "confirmed") {
+        return item.txnData.status; 
+    }
 
-    if (isCurrentlyFrozen) {
+    if (!item.passes || item.passes.length === 0) return "inactive";
+
+    const today = new Date();
+    let hasFrozen = false;
+    let hasActive = false;
+
+    item.passes.forEach(p => {
+        const freezeEndDate = p.freeze?.endDate ? new Date(p.freeze.endDate) : null;
+        if (p.freeze?.hasBeenFrozen && freezeEndDate && today < freezeEndDate) {
+            hasFrozen = true;
+        } else if (p.isActive) {
+            hasActive = true;
+        }
+    });
+
+    if (hasFrozen) return "frozen";
+    if (hasActive) return "confirmed"; 
+    return "inactive";
+  };
+
+  const renderStatusBadge = (status) => {
+    if (status === "frozen") {
       return (
         <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-blue-50 text-blue-700 uppercase tracking-wide border border-blue-100'>
           <Snowflake className='w-3 h-3' /> Frozen
         </span>
       );
     }
-
-    if (status === "confirmed" || passData?.isActive === true) {
+    if (status === "confirmed" || status === "active") {
       return (
         <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-wide border border-emerald-100'>
           <CheckCircle2 className='w-3 h-3' /> Active
         </span>
       );
     }
-    if (status === "waiting_confirmation") {
+    if (status === "waiting_confirmation" || status === "pending") {
       return (
         <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-700 uppercase tracking-wide border border-amber-100'>
           <AlertCircle className='w-3 h-3' /> Pending
@@ -980,15 +993,20 @@ const ClientManager = ({ isEmbedded = false }) => {
                     </thead>
                     <tbody className='divide-y divide-slate-50'>
                       {combinedHistory.map((item, idx) => {
+                        const isCombo = item.passes && item.passes.length > 1;
                         const packageObj =
-                          item.passData?.packageId ||
+                          item.passes[0]?.packageId ||
                           item.txnData?.packageId ||
                           {};
-                        const displayStatus = item.isTxn
-                          ? item.txnData.status
-                          : item.passData?.isActive
-                            ? "confirmed"
-                            : "expired";
+                        
+                        const snapshotName = item.passes[0]?.snapshotName || packageObj.packageName || "Unknown Package";
+                        const snapshotCategory = item.passes[0]?.snapshotCategory || packageObj.packageCategory || [];
+
+                        const displayStatus = getOverallItemStatus(item);
+
+                        // Summarize credits across all passes in item
+                        const totalRemaining = item.passes.reduce((sum, p) => sum + (p.remainingCredits || 0), 0);
+                        const totalPurchased = item.passes.reduce((sum, p) => sum + (p.creditsPurchased || 0), 0);
 
                         return (
                           <tr
@@ -1000,7 +1018,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 <div className='text-[13px] font-extrabold text-gray-900'>
                                   {formatDate(item.createdAt)}
                                 </div>
-                                {item.passData?.isSharedToMe && (
+                                {item.passes[0]?.isSharedToMe && (
                                   <span className='px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase'>
                                     Shared
                                   </span>
@@ -1016,50 +1034,62 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 {item.isTxn
                                   ? item.txnData.transactionId
                                   : "Manual Assign"}
-                                {item.isComboPart && (
-                                  <span className='text-emerald-500 font-bold ml-1'>
-                                    ({item.comboIndex}/{item.comboTotal})
-                                  </span>
-                                )}
                               </div>
                             </td>
 
                             <td className='py-5 px-4 md:px-6 w-56'>
-                              <div
-                                className='text-sm font-extrabold text-gray-900 mb-2 truncate max-w-[150px] md:max-w-[180px]'
-                                title={
-                                  packageObj.packageName || "Unknown Package"
-                                }>
-                                {packageObj.packageName || "Unknown Package"}
+                              <div className='flex items-center gap-2 mb-1'>
+                                <div
+                                  className='text-[13px] font-extrabold text-gray-900 truncate max-w-[150px] md:max-w-[180px]'
+                                  title={snapshotName}>
+                                  {snapshotName}
+                                </div>
+                                {isCombo && (
+                                  <span className='px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
+                                    <Layers className="w-3 h-3"/> Combo
+                                  </span>
+                                )}
                               </div>
-                              {item.passData && (
+                              
+                              {snapshotCategory.length > 0 && (
+                                <div className='flex gap-1 mb-2 flex-wrap'>
+                                  {snapshotCategory.map((cat, i) => (
+                                    <span key={i} className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                                      {cat}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {item.passes.length > 0 ? (
                                 <div className='w-full max-w-[140px]'>
                                   <div className='flex items-center justify-between text-[10px] font-bold mb-1.5 whitespace-nowrap'>
                                     <span
                                       className={
-                                        item.passData.remainingCredits > 0
+                                        totalRemaining > 0
                                           ? "text-emerald-600"
                                           : "text-gray-400"
                                       }>
-                                      {item.passData.remainingCredits} left
+                                      {totalRemaining} left
                                     </span>
                                     <span className='text-gray-400'>
-                                      / {item.passData.creditsPurchased} total
+                                      / {totalPurchased} total {isCombo && "across combo"}
                                     </span>
                                   </div>
                                   <div className='w-full bg-slate-100 rounded-full h-1.5 overflow-hidden'>
                                     <div
-                                      className={`h-1.5 rounded-full transition-all duration-500 ${item.passData.remainingCredits === 0 ? "bg-slate-300" : "bg-emerald-500"}`}
+                                      className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-slate-300" : "bg-emerald-500"}`}
                                       style={{
-                                        width: `${Math.min(100, (item.passData.remainingCredits / Math.max(1, item.passData.creditsPurchased)) * 100)}%`,
+                                        width: `${Math.min(100, (totalRemaining / Math.max(1, totalPurchased)) * 100)}%`,
                                       }}></div>
                                   </div>
                                 </div>
-                              )}
-                              {!item.passData && item.isTxn && (
-                                <div className='text-[11px] font-medium text-gray-500 mt-1 whitespace-nowrap'>
-                                  {item.txnData.creditsPurchased} Credits
-                                </div>
+                              ) : (
+                                item.isTxn && (
+                                  <div className='text-[11px] font-medium text-gray-500 mt-1 whitespace-nowrap'>
+                                    {item.txnData.creditsPurchased} Credits
+                                  </div>
+                                )
                               )}
                             </td>
 
@@ -1067,13 +1097,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                               {item.isTxn ? (
                                 <div>
                                   <span className='font-mono font-bold text-gray-900 text-[13px] block mb-1 whitespace-nowrap'>
-                                    {item.isComboPart && item.comboIndex > 1 ? (
-                                      <span className='text-emerald-600 text-[11px] uppercase tracking-wider'>
-                                        Included in Combo
-                                      </span>
-                                    ) : (
-                                      formatCurrency(item.txnData.totalAmount)
-                                    )}
+                                    {formatCurrency(item.txnData.totalAmount)}
                                   </span>
                                   <div className='flex items-center gap-1.5 text-[10px] font-medium text-gray-500'>
                                     <CreditCard className='w-3 h-3 text-gray-400 shrink-0' />
@@ -1098,7 +1122,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                             </td>
 
                             <td className='py-5 px-4 md:px-6 whitespace-nowrap'>
-                              {renderStatusBadge(displayStatus, item.passData)}
+                              {renderStatusBadge(displayStatus)}
                             </td>
                           </tr>
                         );
@@ -1117,15 +1141,18 @@ const ClientManager = ({ isEmbedded = false }) => {
 
                   <div className='block md:hidden divide-y divide-gray-50'>
                     {combinedHistory.map((item, idx) => {
+                      const isCombo = item.passes && item.passes.length > 1;
                       const packageObj =
-                        item.passData?.packageId ||
-                        item.txnData?.packageId ||
-                        {};
-                      const displayStatus = item.isTxn
-                        ? item.txnData.status
-                        : item.passData?.isActive
-                          ? "confirmed"
-                          : "expired";
+                          item.passes[0]?.packageId ||
+                          item.txnData?.packageId ||
+                          {};
+                        
+                      const snapshotName = item.passes[0]?.snapshotName || packageObj.packageName || "Unknown Package";
+                      const snapshotCategory = item.passes[0]?.snapshotCategory || packageObj.packageCategory || [];
+                      const displayStatus = getOverallItemStatus(item);
+
+                      const totalRemaining = item.passes.reduce((sum, p) => sum + (p.remainingCredits || 0), 0);
+                      const totalPurchased = item.passes.reduce((sum, p) => sum + (p.creditsPurchased || 0), 0);
 
                       return (
                         <div
@@ -1138,7 +1165,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 <div className='text-[13px] font-extrabold text-gray-900'>
                                   {formatDate(item.createdAt)}
                                 </div>
-                                {item.passData?.isSharedToMe && (
+                                {item.passes[0]?.isSharedToMe && (
                                   <span className='px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase'>
                                     Shared
                                   </span>
@@ -1148,50 +1175,64 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 {item.isTxn
                                   ? item.txnData.transactionId
                                   : "Manual Assign"}
-                                {item.isComboPart && (
-                                  <span className='text-emerald-500 font-bold ml-1'>
-                                    ({item.comboIndex}/{item.comboTotal})
-                                  </span>
-                                )}
                               </div>
                             </div>
                             <div>
-                              {renderStatusBadge(displayStatus, item.passData)}
+                              {renderStatusBadge(displayStatus)}
                             </div>
                           </div>
 
                           <div>
-                            <div className='text-[14px] font-extrabold text-gray-900 mb-2'>
-                              {packageObj.packageName || "Unknown Package"}
+                            <div className='flex items-center gap-2 mb-1'>
+                              <div className='text-[14px] font-extrabold text-gray-900'>
+                                {snapshotName}
+                              </div>
+                              {isCombo && (
+                                <span className='px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
+                                  <Layers className="w-3 h-3"/> Combo
+                                </span>
+                              )}
                             </div>
-                            {item.passData && (
+                            
+                            {snapshotCategory.length > 0 && (
+                              <div className='flex gap-1 mb-2 flex-wrap'>
+                                {snapshotCategory.map((cat, i) => (
+                                  <span key={i} className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                                    {cat}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {item.passes.length > 0 ? (
                               <div className='w-full'>
                                 <div className='flex items-center justify-between text-[10px] font-bold mb-1.5'>
                                   <span
                                     className={
-                                      item.passData.remainingCredits > 0
+                                      totalRemaining > 0
                                         ? "text-emerald-600"
                                         : "text-gray-400"
                                     }>
-                                    {item.passData.remainingCredits} left
+                                    {totalRemaining} left
                                   </span>
                                   <span className='text-gray-400'>
-                                    / {item.passData.creditsPurchased} total
+                                    / {totalPurchased} total
                                   </span>
                                 </div>
                                 <div className='w-full bg-slate-100 rounded-full h-1.5 overflow-hidden'>
                                   <div
-                                    className={`h-1.5 rounded-full transition-all duration-500 ${item.passData.remainingCredits === 0 ? "bg-slate-300" : "bg-emerald-500"}`}
+                                    className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-slate-300" : "bg-emerald-500"}`}
                                     style={{
-                                      width: `${Math.min(100, (item.passData.remainingCredits / Math.max(1, item.passData.creditsPurchased)) * 100)}%`,
+                                      width: `${Math.min(100, (totalRemaining / Math.max(1, totalPurchased)) * 100)}%`,
                                     }}></div>
                                 </div>
                               </div>
-                            )}
-                            {!item.passData && item.isTxn && (
-                              <div className='text-[11px] font-medium text-gray-500'>
-                                {item.txnData.creditsPurchased} Credits
-                              </div>
+                            ) : (
+                              item.isTxn && (
+                                <div className='text-[11px] font-medium text-gray-500'>
+                                  {item.txnData.creditsPurchased} Credits
+                                </div>
+                              )
                             )}
                           </div>
 
@@ -1207,13 +1248,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 </span>
                               </div>
                               <span className='font-mono font-bold text-gray-900 text-[13px]'>
-                                {item.isComboPart && item.comboIndex > 1 ? (
-                                  <span className='text-emerald-600 text-[11px] uppercase tracking-wider'>
-                                    Included in Combo
-                                  </span>
-                                ) : (
-                                  formatCurrency(item.txnData.totalAmount)
-                                )}
+                                {formatCurrency(item.txnData.totalAmount)}
                               </span>
                             </div>
                           )}
@@ -1273,23 +1308,24 @@ const ClientManager = ({ isEmbedded = false }) => {
             onDownloadInvoice={() =>
               generateInvoice(viewingCombinedItem.txnData, selectedClient)
             }
-            onEditPass={() => setEditingPass(viewingCombinedItem.passData)}
+            onEditTarget={(target) => setEditingTarget(target)}
             onManageFreeze={handleManageFreeze}
             formatDate={formatDate}
             formatDateTime={formatDateTime}
             formatCurrency={formatCurrency}
             formatPaymentMethod={formatPaymentMethod}
+            getOverallItemStatus={getOverallItemStatus}
             renderStatusBadge={renderStatusBadge}
           />
         )}
 
-        {editingPass && (
+        {editingTarget && (
           <EditPassModal
-            pass={editingPass}
+            target={editingTarget}
             config={config}
-            onClose={() => setEditingPass(null)}
+            onClose={() => setEditingTarget(null)}
             onSubmit={() => {
-              setEditingPass(null);
+              setEditingTarget(null);
               fetchData();
               fetchClientDetails();
             }}
@@ -1300,49 +1336,48 @@ const ClientManager = ({ isEmbedded = false }) => {
   );
 };
 
+// --- Modal Wrapper ---
 const UnifiedDetailModal = ({
   item,
   client,
   onClose,
   onDownloadInvoice,
-  onEditPass,
+  onEditTarget,
   onManageFreeze,
   formatDate,
   formatDateTime,
   formatCurrency,
   formatPaymentMethod,
+  getOverallItemStatus,
   renderStatusBadge,
 }) => {
-  const { isTxn, txnData, passData } = item;
-  const displayStatus = isTxn
-    ? txnData.status
-    : passData?.isActive
-      ? "confirmed"
-      : "expired";
+  const { isTxn, txnData, passes } = item;
+  const isCombo = passes.length > 1;
+  const basePass = passes[0];
+
+  const displayStatus = getOverallItemStatus(item);
 
   const [showFreezeForm, setShowFreezeForm] = useState(false);
   const [showUnfreezeConfirm, setShowUnfreezeConfirm] = useState(false);
   const [freezeData, setFreezeData] = useState({ startDate: "", endDate: "" });
   const [isFreezing, setIsFreezing] = useState(false);
+  
   const [isSendingReminder, setIsSendingReminder] = useState(false);
+  
   const [shareData, setShareData] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [shareEmail, setShareEmail] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-  const freezeStatus = passData?.freeze?.status || "none";
-  const hasBeenFrozen = passData?.freeze?.hasBeenFrozen || false;
+  const freezeStatus = basePass?.freeze?.status || "none";
+  const hasBeenFrozen = basePass?.freeze?.hasBeenFrozen || false;
 
   const today = new Date();
-  const freezeEndDate = passData?.freeze?.endDate
-    ? new Date(passData.freeze.endDate)
-    : null;
-  const isCurrentlyFrozen =
-    hasBeenFrozen && freezeEndDate && today < freezeEndDate;
+  const freezeEndDate = basePass?.freeze?.endDate ? new Date(basePass.freeze.endDate) : null;
+  const isCurrentlyFrozen = hasBeenFrozen && freezeEndDate && today < freezeEndDate;
 
-  // Determine if the client we are viewing is the owner or just sharing the pass
-  const isSharedToMe = passData?.userId?._id !== client._id;
+  const isSharedToMe = basePass?.userId?._id !== client._id;
 
   const applyPreset = (days) => {
     const start = new Date();
@@ -1354,30 +1389,46 @@ const UnifiedDetailModal = ({
     });
   };
 
-  const handleFreezeAction = async (action) => {
-    if (
-      action === "admin_freeze" &&
-      (!freezeData.startDate || !freezeData.endDate)
-    ) {
+  const handleGlobalFreezeAction = async (action) => {
+    if (action === "admin_freeze" && (!freezeData.startDate || !freezeData.endDate)) {
       return alert("Please select start and end dates.");
     }
     setIsFreezing(true);
-    await onManageFreeze(passData._id, action, freezeData);
-    setIsFreezing(false);
-    setShowFreezeForm(false);
-    setShowUnfreezeConfirm(false);
+    
+    try {
+      await Promise.all(passes.map(p => onManageFreeze(p._id, action, freezeData)));
+      setShowFreezeForm(false);
+      setShowUnfreezeConfirm(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsFreezing(false);
+    }
+  };
+
+  const handleGlobalReminder = async () => {
+    setIsSendingReminder(true);
+    try {
+      await Promise.all(passes.map(p => axiosInstance.post(`/api/passes/${p._id}/reminder`)));
+      alert("Reminder sent successfully to the user's devices!");
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Failed to send test reminder.");
+    } finally {
+      setIsSendingReminder(false);
+    }
   };
 
   const handleGenerateShare = async () => {
     setIsSharing(true);
     try {
-      const res = await axiosInstance.post(`/api/passes/share/${passData._id}`);
+      const res = await axiosInstance.post(`/api/passes/share/${basePass._id}`);
       const link = `${window.location.origin}/shared-pass/${res.data.pass.shareCode}`;
       setShareData({ link, code: res.data.pass.shareCode });
 
-      if (passData) {
-        passData.shareCode = res.data.pass.shareCode;
-        passData.isShared = res.data.pass.isShared;
+      if (basePass) {
+        basePass.shareCode = res.data.pass.shareCode;
+        basePass.isShared = res.data.pass.isShared;
       }
     } catch (error) {
       console.error(error);
@@ -1391,10 +1442,8 @@ const UnifiedDetailModal = ({
     if (!shareEmail) return alert("Please enter an email address.");
     setIsSendingEmail(true);
     try {
-      const link =
-        shareData?.link ||
-        `${window.location.origin}/shared-pass/${passData.shareCode}`;
-      await axiosInstance.post(`/api/passes/share/${passData._id}/email`, {
+      const link = shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`;
+      await axiosInstance.post(`/api/passes/share/${basePass._id}/email`, {
         email: shareEmail,
         shareLink: link,
       });
@@ -1409,19 +1458,6 @@ const UnifiedDetailModal = ({
     }
   };
 
-  const handleReminder = async () => {
-    setIsSendingReminder(true);
-    try {
-      await axiosInstance.post(`/api/passes/${passData._id}/reminder`);
-      alert("Reminder sent successfully to the user's devices!");
-    } catch (error) {
-      console.error(error);
-      alert(error.response?.data?.message || "Failed to send test reminder.");
-    } finally {
-      setIsSendingReminder(false);
-    }
-  };
-
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
       <motion.div
@@ -1429,18 +1465,19 @@ const UnifiedDetailModal = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         className='bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]'>
+        
         <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0'>
-          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
-            Package & Transaction Details
+          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900 flex items-center gap-2'>
+             {isCombo ? "Combo Package Details" : "Package & Transaction"}
+             {isCombo && <Layers className="w-5 h-5 text-emerald-600"/>}
           </h3>
-          <button
-            onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
+          <button onClick={onClose} className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
             <X className='w-5 h-5 text-gray-500' />
           </button>
         </div>
 
         <div className='overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50 p-5 sm:p-8 space-y-6'>
+          
           <div className='text-center space-y-3 mb-4'>
             {isTxn && (
               <p className='text-[32px] sm:text-[38px] font-extrabold font-mono text-gray-900 tracking-tight leading-none'>
@@ -1448,7 +1485,7 @@ const UnifiedDetailModal = ({
               </p>
             )}
             <div className='flex justify-center mt-1'>
-              {renderStatusBadge(displayStatus, passData)}
+              {renderStatusBadge(displayStatus)}
             </div>
             {isTxn && (
               <p className='text-[11px] sm:text-[12px] text-gray-400 font-mono mt-2 tracking-wide select-all break-all px-4'>
@@ -1457,495 +1494,355 @@ const UnifiedDetailModal = ({
             )}
           </div>
 
-          {passData && (
-            <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
-              <div className='flex items-center justify-between mb-5 border-b border-gray-100 pb-4'>
-                <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
-                  Pass Configuration
-                </h4>
-                <div className='flex items-center gap-2'>
-                  <button
-                    onClick={handleReminder}
-                    disabled={isSendingReminder}
-                    className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1.5 disabled:opacity-50'>
-                    <Bell className='w-3 h-3' />
-                    {isSendingReminder ? "Sending..." : "Send Reminder"}
-                  </button>
-                  <button
-                    onClick={onEditPass}
-                    className='text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5'>
-                    <Edit2 className='w-3 h-3' /> Edit
-                  </button>
+          {basePass && (
+            <>
+              {isCombo && (
+                <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 p-4 rounded-xl text-sm font-medium leading-relaxed">
+                  This is a <strong>Combo Package</strong> containing {passes.length} passes.
                 </div>
-              </div>
+              )}
 
-              <div className='grid grid-cols-2 gap-y-6 gap-x-4 mb-6'>
-                <div>
-                  <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
-                    Package
-                  </p>
-                  <p className='text-sm font-bold text-gray-900'>
-                    {passData.packageId?.packageName || "Unknown"}
-                  </p>
-                </div>
-                <div>
-                  <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
-                    Expiry Date
-                  </p>
-                  <p className='text-sm font-bold text-gray-900'>
-                    {passData.expiryDate
-                      ? formatDate(passData.expiryDate)
-                      : "None"}
-                  </p>
-                </div>
-                <div className='col-span-2'>
-                  <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>
-                    Credits Status
-                  </p>
-                  <div className='flex items-center gap-2 mb-1.5 font-medium'>
-                    <span
-                      className={`text-lg font-bold ${passData.remainingCredits > 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                      {passData.remainingCredits}
-                    </span>
-                    <span className='text-gray-400 text-xs'>
-                      / {passData.creditsPurchased} remaining
-                    </span>
-                  </div>
-                  <div className='w-full bg-slate-100 rounded-full h-2 overflow-hidden'>
-                    <div
-                      className={`h-2 rounded-full transition-all duration-500 ${passData.remainingCredits === 0 ? "bg-rose-400" : "bg-emerald-500"}`}
-                      style={{
-                        width: `${Math.min(100, (passData.remainingCredits / Math.max(1, passData.creditsPurchased)) * 100)}%`,
-                      }}></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className='space-y-4 pt-4 border-t border-gray-50'>
-                <div>
-                  <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>
-                    Allowed Classes
-                  </p>
-                  <div className='flex flex-wrap gap-2'>
-                    {(!passData.classType ||
-                      passData.classType.length === 0) && (
-                      <span className='text-[12px] text-gray-400 font-medium italic'>
-                        No restrictions
-                      </span>
-                    )}
-                    {passData.classType?.map((t) => (
-                      <span
-                        key={t}
-                        className='px-3 py-1 bg-slate-50 text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60'>
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>
-                    Allowed Instructors
-                  </p>
-                  <div className='flex flex-wrap gap-2'>
-                    {(!passData.instructorType ||
-                      passData.instructorType.length === 0) && (
-                      <span className='text-[12px] text-gray-400 font-medium italic'>
-                        No restrictions
-                      </span>
-                    )}
-                    {passData.instructorType?.map((t) => (
-                      <span
-                        key={t}
-                        className='px-3 py-1 bg-slate-50 text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60'>
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {passData && (
-            <div
-              className={`bg-white p-5 sm:p-6 rounded-xl shadow-sm border ${isSharedToMe ? "border-indigo-200/60 bg-indigo-50/20" : "border-gray-200/60"}`}>
-              <div className='flex items-center justify-between mb-4 border-b border-gray-100 pb-4'>
-                <div className='flex items-center gap-2'>
-                  <Share2 className='w-4 h-4 text-indigo-500' />
+              {/* 1. Global Package Configuration */}
+              <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
+                <div className='flex items-center justify-between mb-5 border-b border-gray-100 pb-4'>
                   <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
-                    {isSharedToMe ? "Shared Pass" : "Share Package Pass"}
+                    Package Configuration
                   </h4>
-                </div>
-              </div>
-
-              {isSharedToMe ? (
-                <div className='space-y-2'>
-                  <p className='text-xs text-gray-600 leading-relaxed'>
-                    This package is owned by{" "}
-                    <span className='font-bold text-gray-900'>
-                      {passData.userId?.fullName}
-                    </span>{" "}
-                    and is being shared with you.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {!shareData && !passData.shareCode ? (
-                    <div className='flex justify-between items-center'>
-                      <p className='text-xs text-gray-500 font-medium'>
-                        Generate a secure link to share this pass.
-                      </p>
-                      <button
-                        onClick={handleGenerateShare}
-                        disabled={isSharing}
-                        className='text-[11px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm'>
-                        {isSharing ? "Generating..." : "Generate Link"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
-                      <div className='flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-lg'>
-                        <input
-                          type='text'
-                          readOnly
-                          value={
-                            shareData?.link ||
-                            `${window.location.origin}/shared-pass/${passData.shareCode}`
-                          }
-                          className='flex-1 bg-transparent text-xs text-gray-600 outline-none px-2 font-mono'
-                        />
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(
-                              shareData?.link ||
-                                `${window.location.origin}/shared-pass/${passData.shareCode}`,
-                            );
-                            alert("Link copied!");
-                          }}
-                          className='p-1.5 bg-white border border-gray-200 rounded-md text-gray-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors shadow-sm'
-                          title='Copy Link'>
-                          <Copy className='w-3.5 h-3.5' />
-                        </button>
-                      </div>
-
-                      <AnimatePresence>
-                        {showEmailInput ? (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className='flex gap-2'>
-                            <input
-                              type='email'
-                              placeholder="Recipient's Email"
-                              value={shareEmail}
-                              onChange={(e) => setShareEmail(e.target.value)}
-                              className='flex-1 p-2 bg-white border border-gray-200 rounded-md text-xs font-medium outline-none focus:border-indigo-500'
-                            />
-                            <button
-                              onClick={handleSendEmail}
-                              disabled={isSendingEmail}
-                              className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
-                              {isSendingEmail ? "Sending..." : "Send"}
-                            </button>
-                            <button
-                              onClick={() => setShowEmailInput(false)}
-                              className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
-                              <X className='w-3.5 h-3.5' />
-                            </button>
-                          </motion.div>
-                        ) : (
-                          <div className='flex gap-2'>
-                            <button
-                              onClick={() => {
-                                const link =
-                                  shareData?.link ||
-                                  `${window.location.origin}/shared-pass/${passData.shareCode}`;
-                                window.open(
-                                  `https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`,
-                                  "_blank",
-                                );
-                              }}
-                              className='flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
-                              <MessageCircle className='w-3.5 h-3.5' /> WhatsApp
-                            </button>
-                            <button
-                              onClick={() => setShowEmailInput(true)}
-                              className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
-                              <Mail className='w-3.5 h-3.5' /> Email
-                            </button>
-                          </div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )}
-
-                  {/* Display list of shared users */}
-                  {passData.sharedWith && passData.sharedWith.length > 0 && (
-                    <div className='mt-5 pt-5 border-t border-gray-100'>
-                      <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3'>
-                        Shared With
-                      </p>
-                      <div className='space-y-2'>
-                        {passData.sharedWith.map((sharedUser) => (
-                          <div
-                            key={sharedUser._id}
-                            className='flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/60'>
-                            <div className='w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold uppercase shrink-0'>
-                              {sharedUser.fullName?.charAt(0)}
-                            </div>
-                            <div className='flex flex-col overflow-hidden'>
-                              <span className='text-xs font-bold text-gray-900 truncate'>
-                                {sharedUser.fullName}
-                              </span>
-                              <span className='text-[10px] text-gray-500 truncate'>
-                                {sharedUser.email}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {passData && (
-            <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
-              <div className='flex items-center gap-2 mb-4 border-b border-gray-100 pb-4'>
-                <Snowflake className='w-4 h-4 text-blue-500' />
-                <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
-                  Freeze Management
-                </h4>
-              </div>
-
-              {freezeStatus === "requested" ? (
-                <div className='p-4 bg-amber-50 border border-amber-200 rounded-xl'>
-                  <p className='text-sm font-bold text-amber-900 mb-1'>
-                    Client Requested a Freeze
-                  </p>
-                  <p className='text-xs text-amber-700 mb-4'>
-                    Dates:{" "}
-                    <span className='font-bold'>
-                      {formatDate(passData.freeze?.startDate)}
-                    </span>{" "}
-                    to{" "}
-                    <span className='font-bold'>
-                      {formatDate(passData.freeze?.endDate)}
-                    </span>
-                  </p>
-                  <div className='flex gap-3'>
+                  <div className='flex items-center gap-2'>
                     <button
-                      onClick={() => handleFreezeAction("approve")}
-                      disabled={isFreezing}
-                      className='flex-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors'>
-                      Approve & Extend
+                      onClick={handleGlobalReminder}
+                      disabled={isSendingReminder}
+                      className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1.5 disabled:opacity-50'>
+                      <Bell className='w-3 h-3' />
+                      {isSendingReminder ? "Sending..." : "Reminder"}
                     </button>
                     <button
-                      onClick={() => handleFreezeAction("reject")}
-                      disabled={isFreezing}
-                      className='flex-1 bg-white border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-bold py-2.5 rounded-lg transition-colors'>
-                      Reject Request
+                      onClick={() => onEditTarget({ type: 'global', passes })}
+                      className='text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5'>
+                      <Edit2 className='w-3 h-3' /> Edit Expiry
                     </button>
                   </div>
                 </div>
-              ) : isCurrentlyFrozen ? (
-                <div className='p-4 bg-blue-50 border border-blue-200 rounded-xl'>
-                  <p className='text-sm font-bold text-blue-900 mb-1'>
-                    ❄️ Package is Currently Frozen
-                  </p>
-                  <p className='text-xs text-blue-700 mb-3'>
-                    Frozen until:{" "}
-                    <span className='font-bold'>
-                      {formatDate(passData.freeze.endDate)}
-                    </span>
-                  </p>
 
-                  {!showUnfreezeConfirm ? (
-                    <button
-                      onClick={() => setShowUnfreezeConfirm(true)}
-                      className='w-full bg-white border border-blue-200 text-blue-800 hover:bg-blue-100 text-xs font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
-                      Unfreeze Early
-                    </button>
-                  ) : (
-                    <div className='mt-3 p-3 bg-white rounded-lg border border-blue-100 shadow-sm animate-in fade-in slide-in-from-top-1'>
-                      <p className='text-[11px] text-gray-600 font-medium mb-3 leading-relaxed'>
-                        Are you sure you want to unfreeze this package now? The
-                        expiration date will be recalculated to reflect the
-                        actual frozen duration.
-                      </p>
-                      <div className='flex gap-2'>
+                <div className='grid grid-cols-2 gap-y-6 gap-x-4'>
+                  <div>
+                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>Package</p>
+                    <p className='text-sm font-bold text-gray-900 mb-1.5'>
+                      {basePass?.snapshotName || basePass.packageId?.packageName || "Unknown"}
+                    </p>
+                    <div className='flex gap-1 flex-wrap'>
+                      {(basePass?.snapshotCategory || basePass.packageId?.packageCategory || []).map((cat, i) => (
+                        <span key={i} className='px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>Expiry Date</p>
+                    <p className='text-sm font-bold text-gray-900'>
+                      {basePass.expiryDate ? formatDate(basePass.expiryDate) : "None"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Sub-Passes Config (Credits & Classes) */}
+              <div className="space-y-4">
+                 {isCombo && <h4 className="text-[14px] font-extrabold text-gray-900 px-1 mt-2">Included Passes</h4>}
+                 {passes.map((pass, index) => (
+                    <div key={pass._id} className="bg-slate-50 border border-gray-200/60 p-5 rounded-xl">
+                       <div className="flex items-center justify-between mb-5">
+                          <span className="font-extrabold text-gray-700 text-sm">
+                             {isCombo ? `Pass ${index + 1}` : "Pass Limits"}
+                          </span>
+                          <button
+                            onClick={() => onEditTarget({ type: 'single', pass })}
+                            className='text-[10px] font-bold text-emerald-700 bg-emerald-100/50 px-2.5 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5'>
+                            <Edit2 className='w-3 h-3' /> Edit Limits
+                          </button>
+                       </div>
+
+                       <div className='mb-6'>
+                          <div className='flex items-center gap-2 mb-1.5 font-medium'>
+                            <span className={`text-lg font-bold ${pass.remainingCredits > 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                              {pass.remainingCredits}
+                            </span>
+                            <span className='text-gray-400 text-xs'>/ {pass.creditsPurchased} remaining</span>
+                          </div>
+                          <div className='w-full bg-slate-200 rounded-full h-2 overflow-hidden'>
+                            <div
+                              className={`h-2 rounded-full transition-all duration-500 ${pass.remainingCredits === 0 ? "bg-rose-400" : "bg-emerald-500"}`}
+                              style={{ width: `${Math.min(100, (pass.remainingCredits / Math.max(1, pass.creditsPurchased)) * 100)}%` }}>
+                            </div>
+                          </div>
+                       </div>
+
+                       <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200/60'>
+                          <div>
+                            <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>Allowed Classes</p>
+                            <div className='flex flex-wrap gap-2'>
+                              {(!pass.classType || pass.classType.length === 0) && (
+                                <span className='text-[12px] text-gray-400 font-medium italic'>No restrictions</span>
+                              )}
+                              {pass.classType?.map((t) => (
+                                <span key={t} className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>Allowed Instructors</p>
+                            <div className='flex flex-wrap gap-2'>
+                              {(!pass.instructorType || pass.instructorType.length === 0) && (
+                                <span className='text-[12px] text-gray-400 font-medium italic'>No restrictions</span>
+                              )}
+                              {pass.instructorType?.map((t) => (
+                                <span key={t} className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+
+              {/* 3. Global Share Configuration */}
+              <div className={`p-5 sm:p-6 rounded-xl border ${isSharedToMe ? "border-indigo-200/60 bg-indigo-50/20" : "border-gray-200/60 bg-white"}`}>
+                <div className='flex items-center justify-between mb-4 border-b border-gray-100 pb-4'>
+                  <div className='flex items-center gap-2'>
+                    <Share2 className='w-4 h-4 text-indigo-500' />
+                    <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
+                      {isSharedToMe ? "Shared Pass" : "Share Package"}
+                    </h4>
+                  </div>
+                </div>
+
+                {isSharedToMe ? (
+                  <div className='space-y-2'>
+                    <p className='text-xs text-gray-600 leading-relaxed'>
+                      This package is owned by <span className='font-bold text-gray-900'>{basePass.userId?.fullName}</span> and is being shared with you.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {!shareData && !basePass.shareCode ? (
+                      <div className='flex justify-between items-center'>
+                        <p className='text-xs text-gray-500 font-medium'>Generate a secure link to share this pass.</p>
                         <button
-                          onClick={() => setShowUnfreezeConfirm(false)}
-                          className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors'>
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleFreezeAction("unfreeze")}
-                          disabled={isFreezing}
-                          className='flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 rounded-md transition-colors'>
-                          {isFreezing ? "Processing..." : "Confirm Unfreeze"}
+                          onClick={handleGenerateShare}
+                          disabled={isSharing}
+                          className='text-[11px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm'>
+                          {isSharing ? "Generating..." : "Generate Link"}
                         </button>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
+                        <div className='flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-lg'>
+                          <input
+                            type='text'
+                            readOnly
+                            value={shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`}
+                            className='flex-1 bg-transparent text-xs text-gray-600 outline-none px-2 font-mono'
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`);
+                              alert("Link copied!");
+                            }}
+                            className='p-1.5 bg-white border border-gray-200 rounded-md text-gray-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors shadow-sm'
+                            title='Copy Link'>
+                            <Copy className='w-3.5 h-3.5' />
+                          </button>
+                        </div>
+
+                        <AnimatePresence>
+                          {showEmailInput ? (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className='flex gap-2'>
+                              <input
+                                type='email'
+                                placeholder="Recipient's Email"
+                                value={shareEmail}
+                                onChange={(e) => setShareEmail(e.target.value)}
+                                className='flex-1 p-2 bg-white border border-gray-200 rounded-md text-xs font-medium outline-none focus:border-indigo-500'
+                              />
+                              <button onClick={handleSendEmail} disabled={isSendingEmail} className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
+                                {isSendingEmail ? "Sending..." : "Send"}
+                              </button>
+                              <button onClick={() => setShowEmailInput(false)} className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
+                                <X className='w-3.5 h-3.5' />
+                              </button>
+                            </motion.div>
+                          ) : (
+                            <div className='flex gap-2'>
+                              <button
+                                onClick={() => {
+                                  const link = shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`;
+                                  window.open(`https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`, "_blank");
+                                }}
+                                className='flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
+                                <MessageCircle className='w-3.5 h-3.5' /> WhatsApp
+                              </button>
+                              <button onClick={() => setShowEmailInput(true)} className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
+                                <Mail className='w-3.5 h-3.5' /> Email
+                              </button>
+                            </div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+
+                    {basePass.sharedWith && basePass.sharedWith.length > 0 && (
+                      <div className='mt-5 pt-5 border-t border-gray-100'>
+                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3'>Shared With</p>
+                        <div className='space-y-2'>
+                          {basePass.sharedWith.map((sharedUser) => (
+                            <div key={sharedUser._id} className='flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/60'>
+                              <div className='w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold uppercase shrink-0'>
+                                {sharedUser.fullName?.charAt(0)}
+                              </div>
+                              <div className='flex flex-col overflow-hidden'>
+                                <span className='text-xs font-bold text-gray-900 truncate'>{sharedUser.fullName}</span>
+                                <span className='text-[10px] text-gray-500 truncate'>{sharedUser.email}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* 4. Global Freeze Configuration */}
+              <div className='p-5 sm:p-6 border border-gray-200/60 rounded-xl bg-white'>
+                <div className='flex items-center gap-2 mb-4 border-b border-gray-100 pb-4'>
+                  <Snowflake className='w-4 h-4 text-blue-500' />
+                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>Freeze Management</h4>
                 </div>
-              ) : hasBeenFrozen ? (
-                <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl text-center'>
-                  <p className='text-sm font-bold text-slate-700'>
-                    Freeze Allowance Used
-                  </p>
-                  <p className='text-xs text-slate-500 mt-1'>
-                    This package was already frozen once. It cannot be frozen
-                    again.
-                  </p>
-                  {passData.freeze?.startDate && (
-                    <p className='text-[11px] text-slate-400 mt-2 font-mono'>
-                      {formatDate(passData.freeze.startDate)} —{" "}
-                      {formatDate(passData.freeze.endDate)}
+
+                {freezeStatus === "requested" ? (
+                  <div className='p-4 bg-amber-50 border border-amber-200 rounded-xl'>
+                    <p className='text-sm font-bold text-amber-900 mb-1'>Client Requested a Freeze</p>
+                    <p className='text-xs text-amber-700 mb-4'>
+                      Dates: <span className='font-bold'>{formatDate(basePass.freeze?.startDate)}</span> to <span className='font-bold'>{formatDate(basePass.freeze?.endDate)}</span>
                     </p>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  {!showFreezeForm ? (
-                    <div className='flex items-center justify-between'>
-                      <p className='text-xs text-gray-500 font-medium'>
-                        Temporarily pause package and extend expiry.
-                      </p>
-                      <button
-                        onClick={() => setShowFreezeForm(true)}
-                        className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap shadow-sm'>
-                        Freeze Pass
+                    <div className='flex gap-3'>
+                      <button onClick={() => handleGlobalFreezeAction("approve")} disabled={isFreezing} className='flex-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors'>
+                        Approve & Extend
+                      </button>
+                      <button onClick={() => handleGlobalFreezeAction("reject")} disabled={isFreezing} className='flex-1 bg-white border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-bold py-2.5 rounded-lg transition-colors'>
+                        Reject Request
                       </button>
                     </div>
-                  ) : (
-                    <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
-                      <p className='text-xs text-gray-500 font-medium'>
-                        Select freeze duration.{" "}
-                        <span className='font-bold text-gray-700'>
-                          Client can only freeze once.
-                        </span>
+                  </div>
+                ) : isCurrentlyFrozen ? (
+                  <div className='p-4 bg-blue-50 border border-blue-200 rounded-xl'>
+                    <p className='text-sm font-bold text-blue-900 mb-1'>❄️ Package is Currently Frozen</p>
+                    <p className='text-xs text-blue-700 mb-3'>
+                      Frozen until: <span className='font-bold'>{formatDate(basePass.freeze.endDate)}</span>
+                    </p>
+
+                    {!showUnfreezeConfirm ? (
+                      <button onClick={() => setShowUnfreezeConfirm(true)} className='w-full bg-white border border-blue-200 text-blue-800 hover:bg-blue-100 text-xs font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
+                        Unfreeze Early
+                      </button>
+                    ) : (
+                      <div className='mt-3 p-3 bg-white rounded-lg border border-blue-100 shadow-sm animate-in fade-in slide-in-from-top-1'>
+                        <p className='text-[11px] text-gray-600 font-medium mb-3 leading-relaxed'>
+                          Are you sure you want to unfreeze this package now? The expiration date will be recalculated to reflect the actual frozen duration.
+                        </p>
+                        <div className='flex gap-2'>
+                          <button onClick={() => setShowUnfreezeConfirm(false)} className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors'>Cancel</button>
+                          <button onClick={() => handleGlobalFreezeAction("unfreeze")} disabled={isFreezing} className='flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 rounded-md transition-colors'>
+                            {isFreezing ? "Processing..." : "Confirm Unfreeze"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : hasBeenFrozen ? (
+                  <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl text-center'>
+                    <p className='text-sm font-bold text-slate-700'>Freeze Allowance Used</p>
+                    <p className='text-xs text-slate-500 mt-1'>This package was already frozen once. It cannot be frozen again.</p>
+                    {basePass.freeze?.startDate && (
+                      <p className='text-[11px] text-slate-400 mt-2 font-mono'>
+                        {formatDate(basePass.freeze.startDate)} — {formatDate(basePass.freeze.endDate)}
                       </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {!showFreezeForm ? (
+                      <div className='flex items-center justify-between'>
+                        <p className='text-xs text-gray-500 font-medium'>Temporarily pause package and extend expiry.</p>
+                        <button onClick={() => setShowFreezeForm(true)} className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap shadow-sm'>
+                          Freeze Pass
+                        </button>
+                      </div>
+                    ) : (
+                      <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
+                        <p className='text-xs text-gray-500 font-medium'>
+                          Select freeze duration. <span className='font-bold text-gray-700'>Client can only freeze once.</span>
+                        </p>
 
-                      <div className='grid grid-cols-2 gap-3'>
-                        <div>
-                          <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
-                            Start Date
-                          </label>
-                          <input
-                            type='date'
-                            value={freezeData.startDate}
-                            onChange={(e) =>
-                              setFreezeData({
-                                ...freezeData,
-                                startDate: e.target.value,
-                              })
-                            }
-                            className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
-                          />
+                        <div className='grid grid-cols-2 gap-3'>
+                          <div>
+                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>Start Date</label>
+                            <input type='date' value={freezeData.startDate} onChange={(e) => setFreezeData({ ...freezeData, startDate: e.target.value })} className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500' />
+                          </div>
+                          <div>
+                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>End Date</label>
+                            <input type='date' value={freezeData.endDate} onChange={(e) => setFreezeData({ ...freezeData, endDate: e.target.value })} className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500' />
+                          </div>
                         </div>
-                        <div>
-                          <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
-                            End Date
-                          </label>
-                          <input
-                            type='date'
-                            value={freezeData.endDate}
-                            onChange={(e) =>
-                              setFreezeData({
-                                ...freezeData,
-                                endDate: e.target.value,
-                              })
-                            }
-                            className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
-                          />
+
+                        <div className='flex gap-2'>
+                          <button type='button' onClick={() => applyPreset(1)} className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>1 Day</button>
+                          <button type='button' onClick={() => applyPreset(7)} className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>1 Week</button>
+                          <button type='button' onClick={() => applyPreset(30)} className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>1 Month</button>
+                        </div>
+
+                        <div className='flex gap-3 pt-2'>
+                          <button onClick={() => setShowFreezeForm(false)} className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold py-2.5 rounded-lg transition-colors'>Cancel</button>
+                          <button onClick={() => handleGlobalFreezeAction("admin_freeze")} disabled={isFreezing || !freezeData.startDate || !freezeData.endDate} className='flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-[12px] font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
+                            {isFreezing ? "Processing..." : "Confirm Freeze"}
+                          </button>
                         </div>
                       </div>
-
-                      <div className='flex gap-2'>
-                        <button
-                          type='button'
-                          onClick={() => applyPreset(1)}
-                          className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
-                          1 Day
-                        </button>
-                        <button
-                          type='button'
-                          onClick={() => applyPreset(7)}
-                          className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
-                          1 Week
-                        </button>
-                        <button
-                          type='button'
-                          onClick={() => applyPreset(30)}
-                          className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
-                          1 Month
-                        </button>
-                      </div>
-
-                      <div className='flex gap-3 pt-2'>
-                        <button
-                          onClick={() => setShowFreezeForm(false)}
-                          className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold py-2.5 rounded-lg transition-colors'>
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleFreezeAction("admin_freeze")}
-                          disabled={
-                            isFreezing ||
-                            !freezeData.startDate ||
-                            !freezeData.endDate
-                          }
-                          className='flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-[12px] font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
-                          {isFreezing ? "Processing..." : "Confirm Freeze"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
+          {/* Payment Method Details if Transaction */}
           {isTxn && (
             <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60 space-y-4'>
               <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900 mb-2 border-b border-gray-100 pb-4'>
                 Payment Details
               </h4>
               <div className='flex justify-between items-center'>
-                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
-                  Date
-                </span>
+                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>Date</span>
                 <span className='text-[12px] sm:text-[13px] font-bold text-gray-900'>
                   {formatDateTime(txnData.createdAt)}
                 </span>
               </div>
               <div className='flex justify-between items-center'>
-                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
-                  Payment Method
-                </span>
+                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>Payment Method</span>
                 <span
                   className='text-[12px] sm:text-[13px] font-bold text-gray-900 truncate max-w-[130px] sm:max-w-[150px]'
-                  title={formatPaymentMethod(
-                    txnData.paymentMethod,
-                    txnData.paymentIssuer,
-                  )}>
-                  {formatPaymentMethod(
-                    txnData.paymentMethod,
-                    txnData.paymentIssuer,
-                  )}
+                  title={formatPaymentMethod(txnData.paymentMethod, txnData.paymentIssuer)}>
+                  {formatPaymentMethod(txnData.paymentMethod, txnData.paymentIssuer)}
                 </span>
               </div>
-              {txnData.proofOfPayment &&
-                txnData.proofOfPayment !== "Manual Assignment" &&
-                txnData.proofOfPayment.startsWith("http") && (
+              {txnData.proofOfPayment && txnData.proofOfPayment !== "Manual Assignment" && txnData.proofOfPayment.startsWith("http") && (
                   <div className='flex justify-between items-center pt-3 mt-1 border-t border-dashed border-gray-200'>
-                    <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
-                      Receipt
-                    </span>
+                    <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>Receipt</span>
                     <a
                       href={txnData.proofOfPayment}
                       target='_blank'
@@ -1954,7 +1851,7 @@ const UnifiedDetailModal = ({
                       View Proof <ExternalLink className='w-3.5 h-3.5' />
                     </a>
                   </div>
-                )}
+              )}
             </div>
           )}
         </div>
@@ -1972,6 +1869,183 @@ const UnifiedDetailModal = ({
               <Download className='w-4 h-4' /> Invoice
             </button>
           )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+
+const EditPassModal = ({ target, config, onClose, onSubmit }) => {
+  const isGlobal = target.type === 'global';
+  const passesToEdit = isGlobal ? target.passes : [target.pass];
+  const basePass = passesToEdit[0];
+
+  const [formData, setFormData] = useState({
+    expiryDate: basePass.expiryDate ? basePass.expiryDate.split("T")[0] : "",
+    remainingCredits: basePass.remainingCredits || 0,
+    instructorType: Array.isArray(basePass.instructorType) ? basePass.instructorType : [],
+    classType: Array.isArray(basePass.classType) ? basePass.classType : [],
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const availableInstructors = config?.instructorTypes?.length > 0
+    ? config.instructorTypes
+    : ["Apprentice Instructor", "Junior Instructor", "Senior Instructor"];
+  
+  const availableClasses = config?.classTypes?.length > 0
+    ? config.classTypes
+    : ["Group", "Private", "Duet"];
+
+  const handleToggle = (field, value) => {
+    setFormData((prev) => {
+      const currentArray = prev[field];
+      if (currentArray.includes(value))
+        return { ...prev, [field]: currentArray.filter((item) => item !== value) };
+      return { ...prev, [field]: [...currentArray, value] };
+    });
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      if (isGlobal) {
+        // Update ONLY Expiry Date across ALL passes in the combo
+        await Promise.all(passesToEdit.map(p => 
+          axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(p._id), { expiryDate: formData.expiryDate })
+        ));
+      } else {
+        // Update Specific Pass Limits
+        await axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(basePass._id), {
+          remainingCredits: formData.remainingCredits,
+          classType: formData.classType,
+          instructorType: formData.instructorType
+        });
+      }
+      onSubmit();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update pass");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const SelectionItem = ({ label, isSelected, onClick }) => (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 shadow-sm ${isSelected ? "border-emerald-500 bg-emerald-50/30" : "border-gray-100 bg-white hover:border-emerald-200 hover:bg-emerald-50/10"}`}>
+      <div
+        className={`w-5 h-5 shrink-0 rounded-[6px] flex items-center justify-center transition-colors border ${isSelected ? "bg-emerald-500 border-emerald-500" : "bg-white border-gray-300"}`}>
+        {isSelected && (
+          <Check size={14} className='text-white' strokeWidth={4} />
+        )}
+      </div>
+      <span
+        className={`text-[12px] sm:text-[13px] font-bold ${isSelected ? "text-emerald-900" : "text-gray-600"}`}>
+        {label}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className='bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-white/20'>
+        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 bg-white flex justify-between items-center'>
+          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
+            {isGlobal ? "Edit Package Expiry" : "Edit Pass Limits"}
+          </h3>
+          <button onClick={onClose} className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
+            <X className='w-5 h-5 text-gray-400' />
+          </button>
+        </div>
+
+        <div className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-slate-50/30'>
+          <form id='edit-pass-form' onSubmit={handleSave} className='space-y-6 sm:space-y-8'>
+            
+            {isGlobal ? (
+              // GLOBAL MODE: Edit only Expiry Date
+              <div>
+                <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                  New Expiry Date
+                </label>
+                <div className='relative group'>
+                  <input
+                    type='date'
+                    value={formData.expiryDate}
+                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                    className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-[14px] sm:text-[15px] font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none relative z-10'
+                  />
+                  <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-0 pointer-events-none group-focus-within:text-emerald-600 transition-colors' />
+                </div>
+                <p className="text-xs text-gray-500 mt-3 px-1">This will apply the new expiry date to all passes included in this package.</p>
+              </div>
+            ) : (
+              // SINGLE PASS MODE: Edit Limits Only
+              <>
+                <div>
+                  <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                    Remaining Credits
+                  </label>
+                  <input
+                    type='number'
+                    value={formData.remainingCredits}
+                    onChange={(e) => setFormData({ ...formData, remainingCredits: e.target.value })}
+                    className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-base sm:text-lg font-mono font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+                  />
+                </div>
+
+                <div>
+                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>Allowed Class Types</p>
+                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                    {availableClasses.map((cls) => (
+                      <SelectionItem
+                        key={cls}
+                        label={cls}
+                        isSelected={formData.classType.includes(cls)}
+                        onClick={() => handleToggle("classType", cls)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>Allowed Instructors</p>
+                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                    {availableInstructors.map((inst) => (
+                      <SelectionItem
+                        key={inst}
+                        label={inst}
+                        isSelected={formData.instructorType.includes(inst)}
+                        onClick={() => handleToggle("instructorType", inst)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </form>
+        </div>
+
+        <div className='p-5 sm:p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row gap-3 sm:gap-4'>
+          <button
+            type='button'
+            onClick={onClose}
+            className='flex-1 py-3.5 sm:py-4 text-gray-600 font-bold hover:bg-slate-100 rounded-xl transition-colors text-[14px] sm:text-[15px] border border-transparent'>
+            Cancel
+          </button>
+          <button
+            form='edit-pass-form'
+            type='submit'
+            disabled={isLoading}
+            className='flex-1 py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-emerald-800 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
+            {isLoading ? "Saving..." : "Save Changes"}
+          </button>
         </div>
       </motion.div>
     </div>
@@ -2077,181 +2151,6 @@ const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
     </motion.div>
   </div>
 );
-
-const EditPassModal = ({ pass, config, onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({
-    remainingCredits: pass.remainingCredits || 0,
-    expiryDate: pass.expiryDate ? pass.expiryDate.split("T")[0] : "",
-    instructorType: Array.isArray(pass.instructorType)
-      ? pass.instructorType
-      : [],
-    classType: Array.isArray(pass.classType) ? pass.classType : [],
-  });
-
-  const [isLoading, setIsLoading] = useState(false);
-
-  const availableInstructors =
-    config?.instructorTypes?.length > 0
-      ? config.instructorTypes
-      : ["Apprentice Instructor", "Junior Instructor", "Senior Instructor"];
-  const availableClasses =
-    config?.classTypes?.length > 0
-      ? config.classTypes
-      : ["Group", "Private", "Duet"];
-
-  const handleToggle = (field, value) => {
-    setFormData((prev) => {
-      const currentArray = prev[field];
-      if (currentArray.includes(value))
-        return {
-          ...prev,
-          [field]: currentArray.filter((item) => item !== value),
-        };
-      return { ...prev, [field]: [...currentArray, value] };
-    });
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      await axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(pass._id), formData);
-      onSubmit();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to update pass");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const SelectionItem = ({ label, isSelected, onClick }) => (
-    <div
-      onClick={onClick}
-      className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 shadow-sm ${isSelected ? "border-emerald-500 bg-emerald-50/30" : "border-gray-100 bg-white hover:border-emerald-200 hover:bg-emerald-50/10"}`}>
-      <div
-        className={`w-5 h-5 shrink-0 rounded-[6px] flex items-center justify-center transition-colors border ${isSelected ? "bg-emerald-500 border-emerald-500" : "bg-white border-gray-300"}`}>
-        {isSelected && (
-          <Check size={14} className='text-white' strokeWidth={4} />
-        )}
-      </div>
-      <span
-        className={`text-[12px] sm:text-[13px] font-bold ${isSelected ? "text-emerald-900" : "text-gray-600"}`}>
-        {label}
-      </span>
-    </div>
-  );
-
-  return (
-    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className='bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-white/20'>
-        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 bg-white flex justify-between items-center'>
-          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
-            Edit Pass Details
-          </h3>
-          <button
-            onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-400' />
-          </button>
-        </div>
-
-        <div className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-slate-50/30'>
-          <form
-            id='edit-pass-form'
-            onSubmit={handleSave}
-            className='space-y-6 sm:space-y-8'>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6'>
-              <div>
-                <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
-                  Remaining Credits
-                </label>
-                <input
-                  type='number'
-                  value={formData.remainingCredits}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      remainingCredits: e.target.value,
-                    })
-                  }
-                  className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-base sm:text-lg font-mono font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
-                />
-              </div>
-              <div>
-                <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
-                  Expiry Date
-                </label>
-                <div className='relative group'>
-                  <input
-                    type='date'
-                    value={formData.expiryDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, expiryDate: e.target.value })
-                    }
-                    className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-[14px] sm:text-[15px] font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none relative z-10'
-                  />
-                  <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-0 pointer-events-none group-focus-within:text-emerald-600 transition-colors' />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
-                Allowed Class Types
-              </p>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                {availableClasses.map((cls) => (
-                  <SelectionItem
-                    key={cls}
-                    label={cls}
-                    isSelected={formData.classType.includes(cls)}
-                    onClick={() => handleToggle("classType", cls)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
-                Allowed Instructors
-              </p>
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                {availableInstructors.map((inst) => (
-                  <SelectionItem
-                    key={inst}
-                    label={inst}
-                    isSelected={formData.instructorType.includes(inst)}
-                    onClick={() => handleToggle("instructorType", inst)}
-                  />
-                ))}
-              </div>
-            </div>
-          </form>
-        </div>
-
-        <div className='p-5 sm:p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row gap-3 sm:gap-4'>
-          <button
-            type='button'
-            onClick={onClose}
-            className='flex-1 py-3.5 sm:py-4 text-gray-600 font-bold hover:bg-slate-100 rounded-xl transition-colors text-[14px] sm:text-[15px] border border-transparent'>
-            Cancel
-          </button>
-          <button
-            form='edit-pass-form'
-            type='submit'
-            disabled={isLoading}
-            className='flex-1 py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-emerald-800 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
-            {isLoading ? "Saving..." : "Save General Changes"}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
   const { user } = useAuth();

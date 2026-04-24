@@ -7,6 +7,7 @@ exports.createPackage = async (req, res) => {
       packageDescription,
       packagePrice,
       currency,
+      activationPeriodDays,
       validityDays,
       isCombo,
       credits,
@@ -33,6 +34,7 @@ exports.createPackage = async (req, res) => {
       packageDescription,
       packagePrice,
       currency,
+      activationPeriodDays: activationPeriodDays || 30,
       validityDays,
       packageCategory: packageCategory || ["Regular"],
       isOneTimePurchase: isOneTimePurchase || false,
@@ -103,6 +105,7 @@ exports.updatePackage = async (req, res) => {
       packageDescription,
       packagePrice,
       currency,
+      activationPeriodDays,
       validityDays,
       isActive,
       isCombo,
@@ -128,6 +131,7 @@ exports.updatePackage = async (req, res) => {
       packageDescription || existingPackage.packageDescription;
     existingPackage.packagePrice = packagePrice || existingPackage.packagePrice;
     existingPackage.currency = currency || existingPackage.currency;
+    existingPackage.activationPeriodDays = activationPeriodDays || existingPackage.activationPeriodDays;
     existingPackage.validityDays = validityDays || existingPackage.validityDays;
     existingPackage.isActive =
       isActive !== undefined ? isActive : existingPackage.isActive;

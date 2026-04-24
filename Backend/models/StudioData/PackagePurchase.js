@@ -1,4 +1,3 @@
-// models/StudioData/PackagePurchase.js
 const mongoose = require("mongoose");
 
 const PackagePurchaseSchema = new mongoose.Schema(
@@ -16,6 +15,7 @@ const PackagePurchaseSchema = new mongoose.Schema(
     },
     paymentWindowExpiry: { type: Date, required: true },
 
+    // UPDATED: Supports queuing (pending -> queued -> active -> completed/expired/frozen)
     status: {
       type: String,
       default: "pending",
@@ -23,7 +23,20 @@ const PackagePurchaseSchema = new mongoose.Schema(
 
     rejectionReason: { type: String, default: null },
 
+    // NEW: Track credits to know when the "first package is done"
     creditsPurchased: { type: Number, required: true, default: 0 },
+    remainingCredits: { type: Number, required: true, default: 0 },
+
+    // NEW: Timeline and Queuing logic
+    mustActivateBy: { type: Date }, // Set when payment is approved (Approval Date + activationPeriodDays)
+    activationDate: { type: Date }, // Set when first class is attended OR when the previous queued package finishes
+    expiryDate: { type: Date }, // Set upon activation (activationDate + validityDays)
+
+    // NEW: Freeze logic specific to THIS purchase instance
+    isFrozen: { type: Boolean, default: false },
+    freezeStartDate: { type: Date, default: null },
+    totalFrozenDays: { type: Number, default: 0 },
+
     totalAmount: { type: Number, required: true },
     paymentMethod: {
       type: String,

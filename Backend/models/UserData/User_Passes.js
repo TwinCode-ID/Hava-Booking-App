@@ -7,7 +7,6 @@ const user_passesSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    // NEW: Array of users who have accepted the share link
     sharedWith: [
       { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
     ],
@@ -17,6 +16,11 @@ const user_passesSchema = new mongoose.Schema(
       ref: "Packages",
       required: true,
     },
+    
+    // NEW: Snapshot fields to prevent data loss if a package is deleted
+    packageNameSnapshot: { type: String, default: "Unknown Package" },
+    packageCategorySnapshot: { type: [String], default: [] },
+
     freeze: {
       hasBeenFrozen: { type: Boolean, default: false },
       startDate: { type: Date, default: null },

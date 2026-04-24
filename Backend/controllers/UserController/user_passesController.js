@@ -72,10 +72,8 @@ exports.passReminder = async (req, res) => {
       return admin.messaging().send(message);
     });
 
-    // Execute all send requests in parallel
     const results = await Promise.allSettled(sendPromises);
 
-    // Count how many succeeded vs failed
     const successCount = results.filter((r) => r.status === "fulfilled").length;
     const failureCount = results.filter((r) => r.status === "rejected").length;
 
@@ -106,6 +104,8 @@ exports.assignPassToUser = async (req, res) => {
       passesToCreate = selectedPackage.comboItems.map((item) => ({
         userId,
         packageId,
+        packageNameSnapshot: selectedPackage.packageName,
+        packageCategorySnapshot: selectedPackage.packageCategory,
         purchaseDate,
         expiryDate,
         validityDuration: durationInDays,
@@ -121,6 +121,8 @@ exports.assignPassToUser = async (req, res) => {
         {
           userId,
           packageId,
+          packageNameSnapshot: selectedPackage.packageName,
+          packageCategorySnapshot: selectedPackage.packageCategory,
           purchaseDate,
           expiryDate,
           validityDuration: durationInDays,
@@ -157,7 +159,6 @@ exports.deductCredits = async (req, res) => {
 
     const userPass = await UserPasses.findOne({
       _id: passId,
-      // Check if the user is the owner OR is in the sharedWith array
       $or: [{ userId: userId }, { sharedWith: userId }],
     }).session(session);
 
@@ -273,7 +274,7 @@ exports.getUserPassHistory = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate("packageId")
       .populate("userId", "fullName email avatar")
-      .populate("sharedWith", "fullName email avatar"); // Populate shared users
+      .populate("sharedWith", "fullName email avatar"); 
     res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -369,7 +370,6 @@ exports.generateShareLink = async (req, res) => {
     const pass = await UserPasses.findById(req.params.passId);
     if (!pass) return res.status(404).json({ message: "Pass not found" });
 
-    // In a shared pool, generating a new link overrides the old link to prevent indefinite use
     pass.shareCode =
       Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
     pass.isShared = true;
@@ -443,24 +443,19 @@ exports.acceptSharedPass = async (req, res) => {
         .status(400)
         .json({ message: "This pass is no longer active." });
 
-    // Ensure owner doesn't claim their own pass
     if (pass.userId.toString() === acceptorId.toString()) {
       return res
         .status(400)
         .json({ message: "You are the owner of this pass." });
     }
 
-    // Ensure recipient hasn't already claimed it
     if (pass.sharedWith.includes(acceptorId)) {
       return res
         .status(400)
         .json({ message: "You are already sharing this pass." });
     }
 
-    // Add user to the shared pool
     pass.sharedWith.push(acceptorId);
-
-    // Invalidate link after use (they can generate a new one if they want to invite a 3rd person)
     pass.shareCode = null;
 
     await pass.save();
