@@ -1,4 +1,22 @@
 const Instructor = require("../../models/StudioData/Instructors");
+const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
+
+const getLocalTimeParts = (dateObj) => {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    weekday: "long",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(dateObj);
+  const day = parts.find((p) => p.type === "weekday").value.toLowerCase();
+  let hourStr = parts.find((p) => p.type === "hour").value;
+  let hour = parseInt(hourStr);
+  if (hour === 24) hour = 0;
+  const min = parseInt(parts.find((p) => p.type === "minute").value);
+  return { day, hour, min };
+};
 
 exports.createInstructor = async (req, res) => {
   try {
@@ -11,9 +29,8 @@ exports.createInstructor = async (req, res) => {
       instructorType,
       instructorTier,
     } = req.body;
-    if (!fullName) {
+    if (!fullName)
       return res.status(400).json({ message: "Instructor name is required" });
-    }
     const instructor = await Instructor.create({
       fullName,
       bio,
@@ -23,18 +40,7 @@ exports.createInstructor = async (req, res) => {
       instructorType,
       instructorTier,
     });
-
-    res.status(201).json({
-      _id: instructor._id,
-      fullName: instructor.fullName,
-      bio: instructor.bio,
-      assignedStudiosId: instructor.assignedStudiosId,
-      avatar: instructor.avatar,
-      workingHours: instructor.workingHours,
-      instructorType: instructor.instructorType,
-      instructorTier: instructor.instructorTier,
-      isActive: instructor.isActive,
-    });
+    res.status(201).json(instructor);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -57,28 +63,19 @@ exports.updateProfile = async (req, res) => {
       return res.status(400).json({ message: "Instructor not found" });
 
     instructor.fullName = fullName || instructor.fullName;
-    instructor.phoneNumber = bio || instructor.bio;
+    instructor.bio = bio || instructor.bio;
     instructor.assignedStudiosId =
       assignedStudiosId || instructor.assignedStudiosId;
     instructor.avatar = avatar || instructor.avatar;
     instructor.workingHours = workingHours || instructor.workingHours;
     instructor.instructorType = instructorType || instructor.instructorType;
     instructor.instructorTier = instructorTier || instructor.instructorTier;
-    instructor.isActive = isActive || instructor.isActive;
+    instructor.isActive =
+      isActive !== undefined ? isActive : instructor.isActive;
 
+    instructor.markModified("workingHours");
     await instructor.save();
-
-    res.status(201).json({
-      _id: instructor._id,
-      fullName: instructor.fullName,
-      bio: instructor.bio,
-      assignedStudiosId: instructor.assignedStudiosId,
-      avatar: instructor.avatar,
-      workingHours: instructor.workingHours,
-      instructorType: instructor.instructorType,
-      instructorTier: instructor.instructorTier,
-      isActive: instructor.isActive,
-    });
+    res.status(201).json(instructor);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -95,9 +92,7 @@ exports.getPublicProfile = async (req, res) => {
       .populate("workingHours.friday.location", "studioName address")
       .populate("workingHours.saturday.location", "studioName address")
       .populate("workingHours.sunday.location", "studioName address");
-
     if (!instructor) return res.status(404).json({ message: "User not found" });
-
     res.json(instructor);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -107,9 +102,8 @@ exports.getPublicProfile = async (req, res) => {
 exports.deleteInstructor = async (req, res) => {
   try {
     const instructor = await Instructor.findByIdAndDelete(req.params.id);
-    if (!instructor) {
+    if (!instructor)
       return res.status(404).json({ message: "Instructor not found" });
-    }
     res.json({ message: "Instructor deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -119,21 +113,15 @@ exports.deleteInstructor = async (req, res) => {
 exports.instructorStatus = async (req, res) => {
   try {
     const instructor = await Instructor.findById(req.params.id);
-    if (!instructor) {
+    if (!instructor)
       return res.status(404).json({ message: "Instructor not found" });
-    }
-
-    if (instructor.isActive) {
-      instructor.isActive = false;
-      await instructor.save();
-
-      res.json({ message: "Instructor inactive" });
-    } else {
-      instructor.isActive = true;
-      await instructor.save();
-
-      res.json({ message: "Instructor active" });
-    }
+    instructor.isActive = !instructor.isActive;
+    await instructor.save();
+    res.json({
+      message: instructor.isActive
+        ? "Instructor active"
+        : "Instructor inactive",
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -141,7 +129,7 @@ exports.instructorStatus = async (req, res) => {
 
 exports.getAllInstructors = async (req, res) => {
   try {
-    const instructor = await Instructor.find()
+    const instructors = await Instructor.find()
       .populate("assignedStudiosId", "studioName address")
       .populate("workingHours.monday.location", "studioName address")
       .populate("workingHours.tuesday.location", "studioName address")
@@ -150,7 +138,7 @@ exports.getAllInstructors = async (req, res) => {
       .populate("workingHours.friday.location", "studioName address")
       .populate("workingHours.saturday.location", "studioName address")
       .populate("workingHours.sunday.location", "studioName address");
-    res.json(instructor);
+    res.json(instructors);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -161,7 +149,7 @@ exports.toggleInstructorShift = async (req, res) => {
     const { id, shiftId } = req.params;
     const { day, updateMode, targetDate, isActive } = req.body;
 
-    const instructor = await Instructors.findById(id);
+    const instructor = await Instructor.findById(id);
     if (!instructor) throw new Error("Instructor not found");
 
     const shiftArray = instructor.workingHours[day];
@@ -170,9 +158,9 @@ exports.toggleInstructorShift = async (req, res) => {
     const shift = shiftArray.id(shiftId);
     if (!shift) throw new Error("Shift not found");
 
-    // --> FIX: ONLY modify the recurring template if we are updating "all" or "none"
     if (updateMode !== "single") {
       shift.isActive = isActive;
+      instructor.markModified("workingHours");
       await instructor.save();
     }
 
@@ -192,33 +180,23 @@ exports.toggleInstructorShift = async (req, res) => {
       const shiftEndMins = getMinutes(shift.end);
 
       const classesToUpdate = classes.filter((cls) => {
-        const daysOfWeek = [
-          "sunday",
-          "monday",
-          "tuesday",
-          "wednesday",
-          "thursday",
-          "friday",
-          "saturday",
-        ];
-        const clsDay = daysOfWeek[cls.startTime.getDay()];
-
-        if (clsDay !== day) return false;
-
-        const clsStartMins =
-          cls.startTime.getHours() * 60 + cls.startTime.getMinutes();
+        const clsLocal = getLocalTimeParts(cls.startTime);
+        if (clsLocal.day !== day) return false;
+        const clsStartMins = clsLocal.hour * 60 + clsLocal.min;
         const clsEndMins = clsStartMins + cls.duration;
-
         return clsStartMins >= shiftStartMins && clsEndMins <= shiftEndMins;
       });
 
       if (updateMode === "single" && targetDate) {
-        const tDate = new Date(targetDate);
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: "Asia/Jakarta",
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+        });
+        const targetFormatted = formatter.format(new Date(targetDate));
         const singleClass = classesToUpdate.find(
-          (cls) =>
-            cls.startTime.getFullYear() === tDate.getFullYear() &&
-            cls.startTime.getMonth() === tDate.getMonth() &&
-            cls.startTime.getDate() === tDate.getDate(),
+          (cls) => formatter.format(cls.startTime) === targetFormatted,
         );
 
         if (singleClass) {
@@ -232,7 +210,6 @@ exports.toggleInstructorShift = async (req, res) => {
         }
       }
     }
-
     res.status(200).json({ message: "Shift updated successfully", shift });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -2,15 +2,31 @@ const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
 
-// --- PERFECTED COLLISION ENGINE ---
+const getLocalTimeParts = (dateObj) => {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    weekday: "long",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(dateObj);
+  const day = parts.find((p) => p.type === "weekday").value.toLowerCase();
+  let hourStr = parts.find((p) => p.type === "hour").value;
+  let hour = parseInt(hourStr);
+  if (hour === 24) hour = 0;
+  const min = parseInt(parts.find((p) => p.type === "minute").value);
+  return { day, hour, min };
+};
+
 const localCheckConflicts = async (
   instructorId,
   start,
   end,
   excludeClassId = null,
   studioId = null,
+  isSingleClass = false,
 ) => {
-  // 1. Check Class Schedule Overlaps (Ignores inactive classes)
   const query = {
     instructorId,
     isActive: true,
@@ -25,55 +41,58 @@ const localCheckConflicts = async (
     return `Instructor is already booked and active at ${studioName} for this time.`;
   }
 
-  // 2. Check Instructor Working Hours & Global Status
   if (studioId) {
-    const Instructors = mongoose.model("Instructors");
-    const instructor = await Instructors.findById(instructorId);
+    const Instructor = mongoose.model("Instructors");
+    const instructor = await Instructor.findById(instructorId);
 
     if (!instructor) return "Instructor not found.";
+    if (instructor.isActive === false)
+      return "Instructor profile is globally inactive. They cannot be scheduled.";
 
-    // --> NEW: Block if instructor is completely off globally
-    if (instructor.isActive === false) {
-      return "Instructor profile is currently globally inactive. They cannot be scheduled.";
+    const startParts = getLocalTimeParts(start);
+    const endParts = getLocalTimeParts(end);
+    const shifts = instructor.workingHours[startParts.day] || [];
+    const startMins = startParts.hour * 60 + startParts.min;
+    const endMins = endParts.hour * 60 + endParts.min;
+
+    if (!isSingleClass) {
+      const hasValidShift = shifts.some((shift) => {
+        if (shift.isActive === false) return false;
+        if (String(shift.location) !== String(studioId)) return false;
+        const shiftStartMins =
+          parseInt(shift.start.split(":")[0]) * 60 +
+          parseInt(shift.start.split(":")[1]);
+        const shiftEndMins =
+          parseInt(shift.end.split(":")[0]) * 60 +
+          parseInt(shift.end.split(":")[1]);
+        return startMins >= shiftStartMins && endMins <= shiftEndMins;
+      });
+
+      if (!hasValidShift) {
+        const minStr =
+          startParts.min < 10 ? `0${startParts.min}` : startParts.min;
+        return `This recurring time (${startParts.day}, ${startParts.hour}:${minStr}) falls outside of the instructor's active working hours for this studio.`;
+      }
+    } else {
+      const conflictingOtherStudioShift = shifts.some((shift) => {
+        if (shift.isActive === false) return false;
+        if (String(shift.location) === String(studioId)) return false;
+        const shiftStartMins =
+          parseInt(shift.start.split(":")[0]) * 60 +
+          parseInt(shift.start.split(":")[1]);
+        const shiftEndMins =
+          parseInt(shift.end.split(":")[0]) * 60 +
+          parseInt(shift.end.split(":")[1]);
+        return startMins < shiftEndMins && endMins > shiftStartMins;
+      });
+
+      if (conflictingOtherStudioShift)
+        return `Instructor is bound to active working hours at another studio during this time.`;
     }
-
-    const daysOfWeek = [
-      "sunday",
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-    ];
-    const dayOfWeek = daysOfWeek[start.getDay()];
-    const shifts = instructor.workingHours[dayOfWeek] || [];
-
-    const startMins = start.getHours() * 60 + start.getMinutes();
-    const endMins = end.getHours() * 60 + end.getMinutes();
-
-    const hasValidShift = shifts.some((shift) => {
-      if (shift.isActive === false) return false; // Ignore inactive shift templates
-      if (String(shift.location) !== String(studioId)) return false;
-
-      const shiftStartMins =
-        parseInt(shift.start.split(":")[0]) * 60 +
-        parseInt(shift.start.split(":")[1]);
-      const shiftEndMins =
-        parseInt(shift.end.split(":")[0]) * 60 +
-        parseInt(shift.end.split(":")[1]);
-
-      return startMins >= shiftStartMins && endMins <= shiftEndMins;
-    });
-
-    if (!hasValidShift)
-      return "This time falls outside of the instructor's active working hours for your studio.";
   }
-
   return null;
 };
 
-// --- CREATE CLASS ---
 exports.createClass = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -92,53 +111,32 @@ exports.createClass = async (req, res) => {
       isRecurring,
       recurrenceRule,
       recurrenceCount,
+      scheduleDates,
     } = req.body;
-
-    const start = new Date(startTime);
-    const end = new Date(start.getTime() + duration * 60000);
-
-    const conflictMsg = await localCheckConflicts(
-      instructorId,
-      start,
-      end,
-      null,
-      studioId,
-    );
-    if (conflictMsg) throw new Error(conflictMsg);
-
     const classesToCreate = [];
     const batchId = isRecurring ? uuidv4() : null;
-    const loopCount = isRecurring ? recurrenceCount || 1 : 1;
+    const datesToProcess =
+      scheduleDates && scheduleDates.length > 0
+        ? scheduleDates.map((d) => new Date(d))
+        : [new Date(startTime)];
+    const isSingleClass = datesToProcess.length === 1;
 
-    for (let i = 0; i < loopCount; i++) {
-      const currentStart = new Date(start);
-      const currentEnd = new Date(end);
+    for (let i = 0; i < datesToProcess.length; i++) {
+      const currentStart = datesToProcess[i];
+      const currentEnd = new Date(currentStart.getTime() + duration * 60000);
 
-      if (i > 0) {
-        if (recurrenceRule === "Daily") {
-          currentStart.setDate(start.getDate() + i);
-          currentEnd.setDate(end.getDate() + i);
-        } else if (recurrenceRule === "Weekly") {
-          currentStart.setDate(start.getDate() + i * 7);
-          currentEnd.setDate(end.getDate() + i * 7);
-        } else if (recurrenceRule === "Monthly") {
-          currentStart.setMonth(start.getMonth() + i);
-          currentEnd.setMonth(end.getMonth() + i);
-        }
-
-        const stepConflict = await localCheckConflicts(
-          instructorId,
-          currentStart,
-          currentEnd,
-          null,
-          studioId,
+      const conflictMsg = await localCheckConflicts(
+        instructorId,
+        currentStart,
+        currentEnd,
+        null,
+        studioId,
+        isSingleClass,
+      );
+      if (conflictMsg)
+        throw new Error(
+          `Conflict detected on ${currentStart.toDateString()}: ${conflictMsg}`,
         );
-        if (stepConflict) {
-          throw new Error(
-            `Conflict detected for recurrence #${i + 1} at ${currentStart}: ${stepConflict}`,
-          );
-        }
-      }
 
       classesToCreate.push({
         className,
@@ -159,7 +157,6 @@ exports.createClass = async (req, res) => {
 
     await ClassSchedule.insertMany(classesToCreate, { session });
     await session.commitTransaction();
-
     res.status(201).json({
       message: `Created ${classesToCreate.length} classes`,
       recurrenceGroupId: batchId,
@@ -172,7 +169,6 @@ exports.createClass = async (req, res) => {
   }
 };
 
-// --- GET CLASSES ---
 exports.getClasses = async (req, res) => {
   try {
     const { start, end, studioId, instructorId } = req.query;
@@ -186,7 +182,6 @@ exports.getClasses = async (req, res) => {
       .populate("instructorId", "fullName")
       .populate("studioId", "studioName")
       .sort({ startTime: 1 });
-
     res.status(200).json(classes);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -200,14 +195,12 @@ exports.getStudioClasses = async (req, res) => {
       .populate("instructorId", "fullName instructorType")
       .populate("studioId", "studioName")
       .sort({ startTime: 1 });
-
     res.status(200).json(classes);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// --- UPDATE CLASS ---
 exports.updateClass = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -215,7 +208,6 @@ exports.updateClass = async (req, res) => {
   try {
     const { id } = req.params;
     const { updateMode, ...updateData } = req.body;
-
     const targetClass = await ClassSchedule.findById(id).session(session);
     if (!targetClass) throw new Error("Class not found");
 
@@ -231,7 +223,6 @@ exports.updateClass = async (req, res) => {
           : new Date(targetClass.startTime);
         const dur = updateData.duration || targetClass.duration;
         const newEnd = new Date(newStart.getTime() + dur * 60000);
-
         const checkActive = updateData.hasOwnProperty("isActive")
           ? updateData.isActive
           : targetClass.isActive;
@@ -242,12 +233,12 @@ exports.updateClass = async (req, res) => {
             newEnd,
             id,
             targetClass.studioId,
+            true,
           );
           if (conflictMsg) throw new Error(conflictMsg);
         }
         updateData.endTime = newEnd;
       }
-
       const updated = await ClassSchedule.findByIdAndUpdate(id, updateData, {
         new: true,
         session,
@@ -277,7 +268,6 @@ exports.updateClass = async (req, res) => {
           );
           isTimeChanged = true;
         }
-
         if (updateData.duration || isTimeChanged) {
           const duration = updateData.duration || currentClass.duration;
           newEnd = new Date(newStart.getTime() + duration * 60000);
@@ -286,7 +276,6 @@ exports.updateClass = async (req, res) => {
         const checkActive = updateData.hasOwnProperty("isActive")
           ? updateData.isActive
           : currentClass.isActive;
-
         if (
           checkActive &&
           (updateData.startTime ||
@@ -300,6 +289,7 @@ exports.updateClass = async (req, res) => {
             newEnd,
             currentClass._id,
             currentClass.studioId,
+            false,
           );
           if (conflictMsg)
             throw new Error(
@@ -329,7 +319,6 @@ exports.updateClass = async (req, res) => {
       await session.commitTransaction();
       return res.status(200).json({ message: "Series updated successfully" });
     }
-
     res.status(400).json({ error: "Invalid update mode" });
   } catch (error) {
     await session.abortTransaction();
@@ -339,16 +328,47 @@ exports.updateClass = async (req, res) => {
   }
 };
 
-// --- TOGGLE CLASS ---
 exports.toggleClass = async (req, res) => {
   try {
     const { id } = req.params;
-    const { toggleMode } = req.body;
-
+    const { toggleMode, targetDate } = req.body;
     const targetClass = await ClassSchedule.findById(id);
     if (!targetClass) throw new Error("Class not found");
 
     const willBeActive = !targetClass.isActive;
+
+    if (toggleMode === "single" && targetDate) {
+      const d = new Date(targetDate);
+      const targetInstance = await ClassSchedule.findOne({
+        recurrenceGroupId: targetClass.recurrenceGroupId || targetClass._id,
+        startTime: {
+          $gte: new Date(d.setHours(0, 0, 0, 0)),
+          $lt: new Date(d.setHours(23, 59, 59, 999)),
+        },
+      });
+
+      if (targetInstance) {
+        if (willBeActive) {
+          const conflictMsg = await localCheckConflicts(
+            targetInstance.instructorId,
+            targetInstance.startTime,
+            targetInstance.endTime,
+            targetInstance._id,
+            targetInstance.studioId,
+            true,
+          );
+          if (conflictMsg)
+            throw new Error(`Cannot activate class: ${conflictMsg}`);
+        }
+        targetInstance.isActive = willBeActive;
+        await targetInstance.save();
+        return res
+          .status(200)
+          .json({ message: `Class on specific date updated.` });
+      } else {
+        throw new Error("Could not find class instance for that exact date.");
+      }
+    }
 
     if (toggleMode === "all" && targetClass.recurrenceGroupId) {
       if (willBeActive) {
@@ -362,6 +382,7 @@ exports.toggleClass = async (req, res) => {
             cls.endTime,
             cls._id,
             cls.studioId,
+            false,
           );
           if (conflictMsg)
             throw new Error(
@@ -385,6 +406,7 @@ exports.toggleClass = async (req, res) => {
         targetClass.endTime,
         targetClass._id,
         targetClass.studioId,
+        true,
       );
       if (conflictMsg) throw new Error(`Cannot activate class: ${conflictMsg}`);
     }
@@ -399,14 +421,26 @@ exports.toggleClass = async (req, res) => {
   }
 };
 
-// --- DELETE CLASS ---
 exports.deleteClass = async (req, res) => {
   try {
     const { id } = req.params;
-    const { deleteMode } = req.body;
-
+    const { deleteMode, targetDate } = req.body;
     const targetClass = await ClassSchedule.findById(id);
     if (!targetClass) throw new Error("Class not found");
+
+    if (deleteMode === "single" && targetDate) {
+      const d = new Date(targetDate);
+      await ClassSchedule.deleteOne({
+        recurrenceGroupId: targetClass.recurrenceGroupId || targetClass._id,
+        startTime: {
+          $gte: new Date(d.setHours(0, 0, 0, 0)),
+          $lt: new Date(d.setHours(23, 59, 59, 999)),
+        },
+      });
+      return res
+        .status(200)
+        .json({ message: "Specific class instance deleted" });
+    }
 
     if (deleteMode === "all" && targetClass.recurrenceGroupId) {
       await ClassSchedule.deleteMany({
@@ -414,6 +448,7 @@ exports.deleteClass = async (req, res) => {
       });
       return res.status(200).json({ message: "Entire series deleted" });
     }
+
     await ClassSchedule.deleteOne({ _id: id });
     res.status(200).json({ message: "Class deleted" });
   } catch (error) {

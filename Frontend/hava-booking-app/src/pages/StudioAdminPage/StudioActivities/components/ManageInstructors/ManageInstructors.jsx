@@ -1,5 +1,19 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  subMonths,
+  addMonths,
+  isSameDay,
+  isSameWeek,
+  parseISO,
+  startOfMonth,
+  endOfMonth,
+  isSameMonth,
+} from "date-fns";
 import {
   Search,
   Plus,
@@ -22,6 +36,8 @@ import {
   Settings,
   CalendarDays,
   Layers,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -64,7 +80,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
         axiosInstance.get(API_PATHS.STUDIO.GET_ALL),
         axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
       ]);
-
       setInstructors(instRes.data);
       setConfig(configRes.data);
       setStudios(studiosRes.data);
@@ -95,7 +110,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
   const handleFormSubmit = async (formData) => {
     try {
       let avatarUrl = formData.avatar;
-
       if (formData.avatar instanceof File) {
         try {
           const imgUploadRes = await uploadStudio(
@@ -330,7 +344,7 @@ const InstructorCard = React.memo(
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className='bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all relative group'>
+        className={`bg-white rounded-2xl p-6 border transition-all relative group ${instructor.isActive === false ? "opacity-70 border-red-200 bg-red-50/20" : "border-gray-100 hover:shadow-md shadow-sm"}`}>
         <div className='flex justify-between items-start mb-4'>
           <div className='flex gap-4'>
             <InstructorAvatar
@@ -339,7 +353,8 @@ const InstructorCard = React.memo(
               fallbackChar={instructor.fullName.charAt(0)}
             />
             <div className='min-w-0'>
-              <h3 className='font-bold text-gray-900 text-lg leading-tight truncate'>
+              <h3
+                className={`font-bold text-lg leading-tight truncate ${instructor.isActive === false ? "text-red-900 line-through" : "text-gray-900"}`}>
                 {instructor.fullName}
               </h3>
               <p className='text-xs text-gray-500 mt-1 line-clamp-1'>
@@ -347,7 +362,7 @@ const InstructorCard = React.memo(
               </p>
             </div>
           </div>
-          <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 bg-white pl-2'>
+          <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 bg-white pl-2 rounded-lg'>
             <button
               onClick={onEdit}
               className='p-2 bg-emerald-100 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded-lg transition-colors'>
@@ -361,6 +376,11 @@ const InstructorCard = React.memo(
           </div>
         </div>
         <div className='flex flex-wrap gap-2 mb-6'>
+          {instructor.isActive === false && (
+            <span className='px-2.5 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700 border border-red-200 flex items-center gap-1'>
+              Inactive
+            </span>
+          )}
           <span
             className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeColor(instructor.instructorType)}`}>
             {instructor.instructorType}
@@ -388,6 +408,132 @@ const InstructorCard = React.memo(
     );
   },
 );
+
+const InputDatePicker = ({ selectedDate, onChange }) => {
+  const [currentMonth, setCurrentMonth] = useState(selectedDate);
+  useEffect(() => {
+    setCurrentMonth(selectedDate);
+  }, [selectedDate]);
+  const monthStart = startOfMonth(currentMonth);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 });
+
+  const rows = [];
+  let day = startDate;
+  while (day <= endDate) {
+    let days = [];
+    for (let i = 0; i < 7; i++) {
+      const cloneDay = day;
+      const isSpecificDay = isSameDay(day, selectedDate);
+      const isCurrentMonth = isSameMonth(day, monthStart);
+      days.push(
+        <button
+          key={day.toString()}
+          type='button'
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onChange(cloneDay);
+          }}
+          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all ${!isCurrentMonth ? "text-gray-300" : "text-gray-700 hover:bg-gray-100"} ${isSpecificDay ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700" : ""}`}>
+          {format(day, "d")}
+        </button>,
+      );
+      day = addDays(day, 1);
+    }
+    rows.push(
+      <div className='flex justify-between mb-1' key={day.toString()}>
+        {days}
+      </div>,
+    );
+  }
+
+  return (
+    <div className='p-3'>
+      <div className='flex justify-between items-center mb-4 px-1'>
+        <h3 className='font-bold text-gray-900 text-sm'>
+          {format(currentMonth, "MMMM yyyy")}
+        </h3>
+        <div className='flex gap-1'>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentMonth(subMonths(currentMonth, 1));
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronLeft className='w-4 h-4' />
+          </button>
+          <button
+            type='button'
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentMonth(addMonths(currentMonth, 1));
+            }}
+            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            <ChevronRight className='w-4 h-4' />
+          </button>
+        </div>
+      </div>
+      <div className='flex justify-between mb-2 text-center'>
+        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
+          <div
+            key={d}
+            className='w-8 text-[10px] font-bold text-gray-400 uppercase'>
+            {d}
+          </div>
+        ))}
+      </div>
+      <div>{rows}</div>
+    </div>
+  );
+};
+
+const DateSelectPopover = ({ value, onChange, label }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className='relative' ref={ref}>
+      <label className='block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider'>
+        {label}
+      </label>
+      <button
+        type='button'
+        onClick={() => setOpen(!open)}
+        className='w-full p-3.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all flex items-center justify-between bg-white shadow-sm hover:bg-gray-50'>
+        <div className='flex items-center gap-2'>
+          <CalendarDays className='w-4 h-4 text-emerald-600' />
+          {value ? format(parseISO(value), "dd MMMM yyyy") : "Select Date"}
+        </div>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className='absolute z-[100] mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 w-[300px] left-1/2 -translate-x-1/2 bottom-full mb-2'>
+            <InputDatePicker
+              selectedDate={value ? parseISO(value) : new Date()}
+              onChange={(d) => {
+                onChange(d.toISOString());
+                setOpen(false);
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 // --- Instructor Form with Modular Shift Toggles ---
 const InstructorFormModal = ({
@@ -426,7 +572,7 @@ const InstructorFormModal = ({
     initialData?.avatar ? fetchImage(initialData.avatar) : "",
   );
 
-  const [shiftToToggle, setShiftToToggle] = useState(null); // Stores intent to pop modal
+  const [shiftToToggle, setShiftToToggle] = useState(null);
   const [shiftConfirmLoading, setShiftConfirmLoading] = useState(false);
 
   const shiftLocation = user?.adminStudioLocation;
@@ -476,7 +622,6 @@ const InstructorFormModal = ({
         shiftStart < existing.end &&
         shiftEnd > existing.start,
     );
-
     if (hasCollision)
       return showAlert(
         "Schedule Conflict",
@@ -516,7 +661,7 @@ const InstructorFormModal = ({
   const triggerShiftToggle = (day, index, shift) => {
     if (!shift._id) {
       setFormData((prev) => {
-        const newWorkingHours = { ...prev.workingHours };
+        const newWorkingHours = JSON.parse(JSON.stringify(prev.workingHours));
         newWorkingHours[day][index].isActive = !(shift.isActive !== false);
         return { ...prev, workingHours: newWorkingHours };
       });
@@ -528,30 +673,32 @@ const InstructorFormModal = ({
   const executeBackendShiftToggle = async (mode, targetDate) => {
     setShiftConfirmLoading(true);
     try {
-      const { day, shift } = shiftToToggle;
+      const { day, shift, index } = shiftToToggle;
       const newStatus = !(shift.isActive !== false);
 
-      await axiosInstance.put(
-        `/api/instructors/${initialData._id}/shift/${shift._id}/toggle`,
-        {
-          day,
-          updateMode: mode,
-          targetDate,
-          isActive: newStatus,
-        },
-      );
+      const basePath = API_PATHS.INSTRUCTOR.GET_ALL.split("?")[0];
+      const sanitizedBasePath = basePath.endsWith("/")
+        ? basePath.slice(0, -1)
+        : basePath;
+      const url = `${sanitizedBasePath}/${initialData._id}/shift/${shift._id}/toggle`;
+
+      await axiosInstance.put(url, {
+        day,
+        updateMode: mode,
+        targetDate,
+        isActive: newStatus,
+      });
 
       if (mode !== "single") {
         setFormData((prev) => {
-          const newWorkingHours = { ...prev.workingHours };
-          newWorkingHours[shiftToToggle.day][shiftToToggle.index].isActive =
-            newStatus;
+          const newWorkingHours = JSON.parse(JSON.stringify(prev.workingHours)); // Ensures deep copy map
+          newWorkingHours[day][index].isActive = newStatus;
           return { ...prev, workingHours: newWorkingHours };
         });
       } else {
         showAlert(
           "Class Updated",
-          `The specific class on ${targetDate} was ${newStatus ? "activated" : "deactivated"}. The regular weekly shift remains unchanged.`,
+          `The specific class on ${format(parseISO(targetDate), "dd MMM")} was ${newStatus ? "activated" : "deactivated"}. The regular weekly shift template remains unchanged.`,
           "success",
         );
       }
@@ -781,10 +928,10 @@ const InstructorFormModal = ({
                   <div
                     key={day}
                     className='flex items-start gap-4 py-3 border-b border-gray-50 last:border-0'>
-                    <div className='w-20 pt-1.5 text-xs font-bold text-gray-400 uppercase'>
+                    <div className='w-20 pt-2 text-xs font-bold text-gray-400 uppercase'>
                       {day.slice(0, 3)}
                     </div>
-                    <div className='flex-1 flex flex-wrap gap-2'>
+                    <div className='flex-1 flex flex-col gap-2'>
                       {shifts.map((shift, idx) => {
                         const shiftLocId =
                           typeof shift.location === "object"
@@ -806,47 +953,59 @@ const InstructorFormModal = ({
                         return (
                           <div
                             key={idx}
-                            className={`group flex items-center gap-2 border pl-3 pr-2 py-1.5 rounded-lg text-xs shadow-sm transition-colors ${isMyStudio ? (isShiftActive ? "bg-white border-gray-200 hover:border-emerald-200" : "bg-gray-100 border-gray-200 opacity-60") : "bg-gray-50 border-gray-100 text-gray-500 opacity-80"}`}>
-                            <Clock
-                              className={`w-3 h-3 ${isMyStudio ? (isShiftActive ? "text-emerald-600" : "text-gray-400") : "text-gray-400"}`}
-                            />
-                            <span
-                              className={`font-bold ${isMyStudio ? "text-gray-900" : "text-gray-500"}`}>
-                              {shift.start} - {shift.end}
-                            </span>
-                            <span className='text-gray-300 mx-1'>|</span>
-                            <span
-                              className={`${isMyStudio ? "text-gray-500" : "text-gray-400"} truncate max-w-[150px]`}>
-                              {studioName}
-                            </span>
+                            className={`group flex items-center justify-between border pl-4 pr-3 py-3 rounded-xl text-xs shadow-sm transition-all ${isMyStudio ? (isShiftActive ? "bg-white border-emerald-100" : "bg-gray-50 border-gray-200 opacity-75") : "bg-gray-50 border-gray-100 text-gray-500 opacity-80"}`}>
+                            <div className='flex items-center gap-2'>
+                              <Clock
+                                className={`w-4 h-4 ${isMyStudio ? (isShiftActive ? "text-emerald-600" : "text-gray-400") : "text-gray-400"}`}
+                              />
+                              <span
+                                className={`font-bold text-sm ${isMyStudio ? (isShiftActive ? "text-gray-900" : "text-gray-500 line-through") : "text-gray-500"}`}>
+                                {shift.start} - {shift.end}
+                              </span>
+                              <span className='text-gray-300 mx-1'>|</span>
+                              <span
+                                className={`${isMyStudio ? "text-gray-500" : "text-gray-400"} truncate max-w-[120px]`}>
+                                {studioName}
+                              </span>
+
+                              {isMyStudio && (
+                                <span
+                                  className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${isShiftActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}`}>
+                                  {isShiftActive ? "Active" : "Inactive"}
+                                </span>
+                              )}
+                            </div>
 
                             {isMyStudio ? (
-                              <>
+                              <div className='flex items-center gap-1'>
                                 <button
                                   type='button'
                                   onClick={() =>
                                     triggerShiftToggle(day, idx, shift)
                                   }
-                                  className='ml-1 p-1 rounded-md text-gray-400 hover:bg-gray-200 transition-colors'
+                                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-colors ${isShiftActive ? "text-gray-500 hover:text-red-600 hover:bg-red-50" : "text-emerald-600 hover:bg-emerald-50"}`}
                                   title={
                                     isShiftActive
                                       ? "Deactivate Shift"
                                       : "Activate Shift"
                                   }>
-                                  <Power
-                                    className={`w-3 h-3 ${isShiftActive ? "text-emerald-600" : "text-gray-500"}`}
-                                  />
+                                  <Power className='w-3.5 h-3.5' />
+                                  <span>
+                                    {isShiftActive ? "Turn Off" : "Turn On"}
+                                  </span>
                                 </button>
+                                <div className='w-px h-4 bg-gray-200 mx-1'></div>
                                 <button
                                   type='button'
                                   onClick={() => removeShift(day, idx)}
-                                  className='p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors'>
-                                  <X className='w-3 h-3' />
+                                  className='p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors'
+                                  title='Delete Shift'>
+                                  <Trash2 className='w-4 h-4' />
                                 </button>
-                              </>
+                              </div>
                             ) : (
                               <div className='ml-1 p-1'>
-                                <Lock className='w-3 h-3 text-gray-300' />
+                                <Lock className='w-4 h-4 text-gray-300' />
                               </div>
                             )}
                           </div>
@@ -919,7 +1078,6 @@ const InstructorFormModal = ({
   );
 };
 
-// Elevated Design: Custom Interactive Cards replacing the native `<select>` dropdown
 const ShiftToggleActions = ({ isActivating, onConfirm, onCancel, loading }) => {
   const [mode, setMode] = useState("all");
   const [targetDate, setTargetDate] = useState("");
@@ -954,11 +1112,7 @@ const ShiftToggleActions = ({ isActivating, onConfirm, onCancel, loading }) => {
           <div
             key={opt.id}
             onClick={() => setMode(opt.id)}
-            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-              mode === opt.id
-                ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
-                : "border-gray-100 bg-white hover:border-emerald-200"
-            }`}>
+            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${mode === opt.id ? "border-emerald-500 bg-emerald-50/50 shadow-sm" : "border-gray-100 bg-white hover:border-emerald-200"}`}>
             <div
               className={`mt-0.5 ${mode === opt.id ? "text-emerald-600" : "text-gray-400"}`}>
               {opt.icon}
@@ -973,7 +1127,6 @@ const ShiftToggleActions = ({ isActivating, onConfirm, onCancel, loading }) => {
                 {opt.desc}
               </p>
             </div>
-
             {mode === opt.id && (
               <div className='ml-auto mt-0.5 text-emerald-600'>
                 <CheckCircle2 className='w-5 h-5' />
@@ -989,17 +1142,12 @@ const ShiftToggleActions = ({ isActivating, onConfirm, onCancel, loading }) => {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className='overflow-hidden'>
+            className='overflow-visible'>
             <div className='pt-2 pb-1'>
-              <label className='block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider'>
-                Select Date to {actionText}
-              </label>
-              <input
-                type='date'
+              <DateSelectPopover
                 value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                className='w-full p-3.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all'
-                required
+                onChange={setTargetDate}
+                label={`Select Date to ${actionText}`}
               />
             </div>
           </motion.div>
