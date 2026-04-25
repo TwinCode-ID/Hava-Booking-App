@@ -8,12 +8,12 @@ const ClassScheduleSchema = new mongoose.Schema(
     // Relationships
     instructorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Instructors", // Ensure this matches your Instructor model name
+      ref: "Instructors",
       required: true,
     },
     studioId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Studios", // Ensure this matches your Studio model name
+      ref: "Studios",
       required: true,
     },
 
@@ -39,14 +39,14 @@ const ClassScheduleSchema = new mongoose.Schema(
 
     // Recurrence Logic
     isRecurring: { type: Boolean, default: false },
-    recurrenceGroupId: { type: String, index: true }, // Links recurring series together
+    recurrenceGroupId: { type: String, index: true },
     recurrenceRule: {
       type: String,
       enum: ["None", "Daily", "Weekly", "Monthly"],
       default: "None",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("ClassSchedule", ClassScheduleSchema);

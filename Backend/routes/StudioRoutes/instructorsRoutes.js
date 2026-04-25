@@ -6,6 +6,7 @@ const {
   deleteInstructor,
   instructorStatus,
   getAllInstructors,
+  toggleInstructorShift, // NEW
 } = require("../../controllers/StudioDataController/instructorsController");
 const { protect, studioAdmin } = require("../../middlewares/authMiddleware");
 
@@ -17,5 +18,12 @@ router.get("/:id", protect, getPublicProfile);
 router.delete("/:id", protect, studioAdmin, deleteInstructor);
 router.put("/:id", protect, studioAdmin, instructorStatus);
 router.get("/", getAllInstructors);
+// NEW ROUTE FOR SHIFT TOGGLING
+router.put(
+  "/:id/shift/:shiftId/toggle",
+  protect,
+  studioAdmin,
+  toggleInstructorShift,
+);
 
 module.exports = router;

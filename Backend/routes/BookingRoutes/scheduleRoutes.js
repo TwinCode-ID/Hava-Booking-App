@@ -9,20 +9,12 @@ const {
   getStudioClasses,
 } = require("../../controllers/ClassBookingController/classScheduleController");
 const { protect } = require("../../middlewares/authMiddleware");
-// You likely want an 'admin' middleware here too
 
-// GET /api/schedule - Public or Protected (View Calendar)
 router.get("/", getClasses);
-
-// POST /api/schedule - Create new class (Admin only)
 router.post("/", protect, createClass);
 router.get("/:id", protect, getStudioClasses);
-// PUT /api/schedule/:id - Update class details (Admin only)
 router.put("/:id", protect, updateClass);
-
-// DELETE /api/schedule/:id - Cancel/Delete class (Admin only)
 router.put("/toggle/:id", protect, toggleClass);
-
 router.delete("/:id", protect, deleteClass);
 
 module.exports = router;

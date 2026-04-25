@@ -155,3 +155,86 @@ exports.getAllInstructors = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.toggleInstructorShift = async (req, res) => {
+  try {
+    const { id, shiftId } = req.params;
+    const { day, updateMode, targetDate, isActive } = req.body;
+
+    const instructor = await Instructors.findById(id);
+    if (!instructor) throw new Error("Instructor not found");
+
+    const shiftArray = instructor.workingHours[day];
+    if (!shiftArray) throw new Error("Invalid day");
+
+    const shift = shiftArray.id(shiftId);
+    if (!shift) throw new Error("Shift not found");
+
+    // --> FIX: ONLY modify the recurring template if we are updating "all" or "none"
+    if (updateMode !== "single") {
+      shift.isActive = isActive;
+      await instructor.save();
+    }
+
+    if (updateMode === "all" || updateMode === "single") {
+      const getMinutes = (timeStr) => {
+        const [h, m] = timeStr.split(":").map(Number);
+        return h * 60 + m;
+      };
+
+      const classes = await ClassSchedule.find({
+        instructorId: id,
+        studioId: shift.location,
+        startTime: { $gte: new Date() },
+      });
+
+      const shiftStartMins = getMinutes(shift.start);
+      const shiftEndMins = getMinutes(shift.end);
+
+      const classesToUpdate = classes.filter((cls) => {
+        const daysOfWeek = [
+          "sunday",
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+        ];
+        const clsDay = daysOfWeek[cls.startTime.getDay()];
+
+        if (clsDay !== day) return false;
+
+        const clsStartMins =
+          cls.startTime.getHours() * 60 + cls.startTime.getMinutes();
+        const clsEndMins = clsStartMins + cls.duration;
+
+        return clsStartMins >= shiftStartMins && clsEndMins <= shiftEndMins;
+      });
+
+      if (updateMode === "single" && targetDate) {
+        const tDate = new Date(targetDate);
+        const singleClass = classesToUpdate.find(
+          (cls) =>
+            cls.startTime.getFullYear() === tDate.getFullYear() &&
+            cls.startTime.getMonth() === tDate.getMonth() &&
+            cls.startTime.getDate() === tDate.getDate(),
+        );
+
+        if (singleClass) {
+          singleClass.isActive = isActive;
+          await singleClass.save();
+        }
+      } else if (updateMode === "all") {
+        for (let cls of classesToUpdate) {
+          cls.isActive = isActive;
+          await cls.save();
+        }
+      }
+    }
+
+    res.status(200).json({ message: "Shift updated successfully", shift });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

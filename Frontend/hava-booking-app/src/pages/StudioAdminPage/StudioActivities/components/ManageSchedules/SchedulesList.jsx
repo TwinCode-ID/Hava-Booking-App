@@ -41,6 +41,8 @@ import {
   Lock,
   Building2,
   CalendarDays,
+  Power,
+  FileEdit,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import jsPDF from "jspdf";
@@ -56,20 +58,14 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // --- VIEW MODE STATE (ALL vs LOCAL) ---
   const [viewMode, setViewMode] = useState("LOCAL");
-
-  // Printing State
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Modals State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [editingClass, setEditingClass] = useState(null);
 
-  // Header Calendar State
   const [showDatePicker, setShowDatePicker] = useState(false);
   const headerCalendarRef = useRef(null);
 
@@ -77,7 +73,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
 
-  // Close menus on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -91,7 +86,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 1. Fetch Instructors
   useEffect(() => {
     const fetchInstructors = async () => {
       try {
@@ -104,14 +98,9 @@ const SchedulesList = ({ isEmbedded = false }) => {
     fetchInstructors();
   }, []);
 
-  // 2. Fetch Schedules
   useEffect(() => {
-    if (instructors.length > 0) {
-      fetchAllSchedules();
-    } else {
-      fetchLocalSchedule();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (instructors.length > 0) fetchAllSchedules();
+    else fetchLocalSchedule();
   }, [currentDate, user.adminStudioLocation, instructors]);
 
   const fetchLocalSchedule = async () => {
@@ -130,18 +119,14 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const fetchAllSchedules = async () => {
     setLoading(true);
     try {
-      // A. Fetch Local Studio Schedule
       const localData = await fetchLocalSchedule();
 
-      // B. Fetch External Schedules
       const otherStudioIds = new Set();
       instructors.forEach((inst) => {
         if (inst.assignedStudiosId && Array.isArray(inst.assignedStudiosId)) {
           inst.assignedStudiosId.forEach((studio) => {
             const sId = typeof studio === "object" ? studio._id : studio;
-            if (sId !== user.adminStudioLocation) {
-              otherStudioIds.add(sId);
-            }
+            if (sId !== user.adminStudioLocation) otherStudioIds.add(sId);
           });
         }
       });
@@ -175,7 +160,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
     }
   };
 
-  // --- FILTER LOGIC ---
   const filteredClasses = useMemo(() => {
     if (viewMode === "ALL") return classes;
     return classes.filter((cls) => {
@@ -204,8 +188,8 @@ const SchedulesList = ({ isEmbedded = false }) => {
     setEditingClass(null);
   };
 
-  // --- PDF GENERATION ---
   const handleGenerateMasterPDF = async () => {
+    // (PDF Generation logic remains identical to your working copy)
     setIsPrinting(true);
     try {
       const bookingsRes = await axiosInstance.get(
@@ -219,7 +203,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
             typeof b.classId === "object" ? b.classId._id : b.classId;
           return String(bClassId) === String(classId);
         });
-
         if (classBookings.length === 0) return "";
         const uniqueNames = new Set(
           classBookings.map((b) => b.userId?.fullName).filter(Boolean),
@@ -228,35 +211,27 @@ const SchedulesList = ({ isEmbedded = false }) => {
       };
 
       const doc = new jsPDF({ orientation: "landscape" });
-
       const activeInstructors = instructors.sort((a, b) =>
         a.fullName.localeCompare(b.fullName),
       );
-
       const instructorColumns = activeInstructors.map((inst) => ({
         header: inst.fullName.toUpperCase(),
         dataKey: inst._id,
       }));
-
       const columns = [
         { header: "TIME", dataKey: "time" },
         ...instructorColumns,
       ];
-
       const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
       const weekDays = Array.from({ length: 7 }).map((_, i) =>
         addDays(weekStart, i),
       );
-
       const hours = Array.from({ length: 13 }, (_, i) => i + 7);
 
       weekDays.forEach((dayDate, dayIndex) => {
-        if (dayIndex > 0) {
-          doc.addPage();
-        }
+        if (dayIndex > 0) doc.addPage();
 
-        // Header Styling
-        doc.setFillColor(6, 78, 59); // Emerald 900
+        doc.setFillColor(6, 78, 59);
         doc.rect(0, 0, 297, 24, "F");
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(18);
@@ -275,16 +250,12 @@ const SchedulesList = ({ isEmbedded = false }) => {
         let occupied = {};
 
         hours.forEach((hour) => {
-          const row = {
-            time: `${hour.toString().padStart(2, "0")}:00`,
-          };
-
+          const row = { time: `${hour.toString().padStart(2, "0")}:00` };
           activeInstructors.forEach((inst) => {
             if (occupied[inst._id] && occupied[inst._id] > 0) {
               occupied[inst._id]--;
               return;
             }
-
             const foundClass = filteredClasses.find((cls) => {
               const clsDate = parseISO(cls.startTime);
               const clsInstrId = cls.instructorId?._id || cls.instructorId;
@@ -298,18 +269,11 @@ const SchedulesList = ({ isEmbedded = false }) => {
             if (foundClass) {
               const start = parseISO(foundClass.startTime);
               const end = parseISO(foundClass.endTime);
-              const durationMinutes = differenceInMinutes(end, start);
-              let span = Math.ceil(durationMinutes / 60);
+              let span = Math.ceil(differenceInMinutes(end, start) / 60);
               if (span < 1) span = 1;
-
               const students = getStudentNames(foundClass._id);
-              const startStr = format(start, "HH:mm");
-              const endStr = format(end, "HH:mm");
-
-              let cellContent = `${startStr} - ${endStr}\n${foundClass.className}\n[${foundClass.classType}]`;
-              if (students) {
-                cellContent += `\n\nStudents: ${students}`;
-              }
+              let cellContent = `${format(start, "HH:mm")} - ${format(end, "HH:mm")}\n${foundClass.className}\n[${foundClass.classType}]`;
+              if (students) cellContent += `\n\nStudents: ${students}`;
 
               row[inst._id] = {
                 content: cellContent,
@@ -320,10 +284,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
                   fillColor: [255, 255, 255],
                 },
               };
-
-              if (span > 1) {
-                occupied[inst._id] = span - 1;
-              }
+              if (span > 1) occupied[inst._id] = span - 1;
             } else {
               row[inst._id] = "";
             }
@@ -361,17 +322,15 @@ const SchedulesList = ({ isEmbedded = false }) => {
               textColor: [50, 50, 50],
             },
           },
-          alternateRowStyles: {
-            fillColor: [250, 253, 250],
-          },
+          alternateRowStyles: { fillColor: [250, 253, 250] },
         });
       });
 
       setPdfUrl(doc.output("bloburl"));
       setShowPdfPreview(true);
     } catch (error) {
-      console.error("Error printing schedule:", error);
-      alert("Failed to load student data for print.");
+      console.error("Error printing:", error);
+      alert("Failed to load data for print.");
     } finally {
       setIsPrinting(false);
     }
@@ -381,24 +340,17 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const weekDays = Array.from({ length: 7 }).map((_, i) =>
     addDays(weekStart, i),
   );
-  const nextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
-  const prevWeek = () => setCurrentDate(subWeeks(currentDate, 1));
-  const goToToday = () => setCurrentDate(new Date());
 
   return (
     <div
       className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 min-h-screen relative`}>
-      {/* --- Header Controls --- */}
+      {/* Header Controls */}
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-20'>
         <div className='flex items-center gap-4 relative w-full md:w-auto'>
           <div className='relative' ref={headerCalendarRef}>
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all border ${
-                showDatePicker
-                  ? "bg-emerald-50 border-emerald-200 ring-2 ring-emerald-100"
-                  : "bg-white border-transparent hover:bg-gray-100"
-              }`}>
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all border ${showDatePicker ? "bg-emerald-50 border-emerald-200 ring-2 ring-emerald-100" : "bg-white border-transparent hover:bg-gray-100"}`}>
               <div className='bg-emerald-100 text-emerald-700 p-2 rounded-lg'>
                 <CalendarIcon className='w-5 h-5' />
               </div>
@@ -411,12 +363,12 @@ const SchedulesList = ({ isEmbedded = false }) => {
                     className='flex items-center gap-1 ml-1'
                     onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={prevWeek}
+                      onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
                       className='p-1 hover:bg-gray-200 rounded-md text-gray-500 transition-colors'>
                       <ChevronLeft className='w-4 h-4' />
                     </button>
                     <button
-                      onClick={nextWeek}
+                      onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
                       className='p-1 hover:bg-gray-200 rounded-md text-gray-500 transition-colors'>
                       <ChevronRight className='w-4 h-4' />
                     </button>
@@ -447,14 +399,13 @@ const SchedulesList = ({ isEmbedded = false }) => {
             </AnimatePresence>
           </div>
           <button
-            onClick={goToToday}
+            onClick={() => setCurrentDate(new Date())}
             className='text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors ml-2 whitespace-nowrap hidden md:block'>
             Current Week
           </button>
         </div>
 
         <div className='flex items-center justify-end gap-3 w-full md:w-auto'>
-          {/* --- Studio Filter --- */}
           <div className='flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm'>
             <button
               onClick={() => setViewMode("ALL")}
@@ -467,7 +418,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
               <Building2 className='w-3.5 h-3.5' /> My Studio
             </button>
           </div>
-
           <button
             disabled={isPrinting}
             onClick={handleGenerateMasterPDF}
@@ -481,7 +431,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
               {isPrinting ? "Printing..." : "Print"}
             </span>
           </button>
-
           <button
             onClick={() => setShowCreateModal(true)}
             className='flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-shadow shadow-lg shadow-gray-900/20 whitespace-nowrap'>
@@ -490,9 +439,8 @@ const SchedulesList = ({ isEmbedded = false }) => {
         </div>
       </div>
 
-      {/* --- Calendar Container --- */}
+      {/* Calendar Grid */}
       <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
-        {/* Header Row */}
         <div className='grid grid-cols-7 border-b border-gray-100 bg-gray-50/80'>
           {weekDays.map((day) => {
             const isToday = isSameDay(day, new Date());
@@ -506,11 +454,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
                 </p>
                 <div className='flex justify-center'>
                   <span
-                    className={`text-sm font-bold px-2 py-1 rounded-full ${
-                      isToday
-                        ? "bg-emerald-500 text-white shadow-sm"
-                        : "text-gray-900"
-                    }`}>
+                    className={`text-sm font-bold px-2 py-1 rounded-full ${isToday ? "bg-emerald-500 text-white shadow-sm" : "text-gray-900"}`}>
                     {format(day, "dd MMM")}
                   </span>
                 </div>
@@ -519,7 +463,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
           })}
         </div>
 
-        {/* Calendar Grid Body */}
         {loading ? (
           <div className='p-20'>
             <LoadingSpinner />
@@ -541,10 +484,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
                         ? cls.studioId._id
                         : cls.studioId;
                     const isExternal = clsStudioId !== user.adminStudioLocation;
-                    const studioName =
-                      typeof cls.studioId === "object"
-                        ? cls.studioId.studioName
-                        : "External Studio";
 
                     return (
                       <motion.div
@@ -553,12 +492,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
                         whileHover={{ scale: 1.02, y: -2 }}
-                        className={`p-3 rounded-xl border border-l-4 shadow-sm transition-all relative group
-                            ${
-                              isExternal
-                                ? "bg-gray-50 border-gray-200 border-l-gray-400 opacity-80"
-                                : `cursor-pointer hover:shadow-md bg-white border-gray-200 ${!cls.isActive ? "opacity-60 grayscale bg-gray-50" : "border-l-emerald-500"}`
-                            }`}>
+                        className={`p-3 rounded-xl border border-l-4 shadow-sm transition-all relative group ${isExternal ? "bg-gray-50 border-gray-200 border-l-gray-400 opacity-80" : `cursor-pointer hover:shadow-md bg-white border-gray-200 ${!cls.isActive ? "opacity-60 grayscale bg-gray-50" : "border-l-emerald-500"}`}`}>
                         <div className='flex justify-between items-start mb-1'>
                           <p
                             className={`text-xs font-bold flex items-center gap-1 ${isExternal ? "text-gray-500" : "text-emerald-700"}`}>
@@ -572,7 +506,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
                             <Lock className='w-3 h-3 text-gray-300' />
                           )}
                         </div>
-
                         <h4
                           className={`font-bold text-sm leading-tight mb-1 ${isExternal || !cls.isActive ? "text-gray-500" : "text-gray-900"}`}>
                           {cls.className}
@@ -580,16 +513,9 @@ const SchedulesList = ({ isEmbedded = false }) => {
                         <p className='text-xs text-gray-500 mb-2 truncate'>
                           {cls.instructorId?.fullName || "No Instructor"}
                         </p>
-
                         <div className='flex items-center gap-1.5 pt-2 border-t border-gray-100'>
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                              isExternal
-                                ? "bg-gray-200 text-gray-600"
-                                : cls.classType === "Private"
-                                  ? "bg-purple-50 text-purple-700 border border-purple-100"
-                                  : "bg-blue-50 text-blue-700 border border-blue-100"
-                            }`}>
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isExternal ? "bg-gray-200 text-gray-600" : cls.classType === "Private" ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
                             {cls.classType}
                           </span>
                         </div>
@@ -604,7 +530,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
       </div>
 
       <AnimatePresence>
-        {/* ... (Modals) ... */}
         {showCreateModal && (
           <CreateClassModal
             onClose={handleModalClose}
@@ -618,7 +543,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
             }}
           />
         )}
-
         {showDetailModal && selectedClass && (
           <ClassDetailsModal
             classData={selectedClass}
@@ -628,7 +552,6 @@ const SchedulesList = ({ isEmbedded = false }) => {
             canEdit={!selectedClass.isExternal}
           />
         )}
-
         {showPdfPreview && (
           <PDFPreviewModal
             pdfUrl={pdfUrl}
@@ -640,53 +563,34 @@ const SchedulesList = ({ isEmbedded = false }) => {
   );
 };
 
-// --- 1. HEADER WEEK CALENDAR (For top navigation) ---
+// --- HELPER COMPONENTS ---
 const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
   const [currentMonth, setCurrentMonth] = useState(selectedDate);
-
   useEffect(() => {
     setCurrentMonth(selectedDate);
   }, [selectedDate]);
-
-  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-
   const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(monthStart);
   const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const endDate = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 });
 
   const rows = [];
-  let days = [];
   let day = startDate;
-  let formattedDate = "";
-
   while (day <= endDate) {
+    let days = [];
     for (let i = 0; i < 7; i++) {
-      formattedDate = format(day, "d");
       const cloneDay = day;
       const isWeekSelected = isSameWeek(day, selectedDate, { weekStartsOn: 1 });
       const isSpecificDay = isSameDay(day, selectedDate);
       const isCurrentMonth = isSameMonth(day, monthStart);
-
       days.push(
         <button
           key={day.toString()}
-          type='button' // Important: Prevents form submission
+          type='button'
           onClick={() => onChange(cloneDay)}
-          className={`
-            w-full h-9 flex items-center justify-center text-xs font-bold transition-all relative
-            ${isWeekSelected ? "bg-emerald-50 text-emerald-900" : "hover:bg-gray-50 text-gray-700"}
-            ${!isCurrentMonth && !isWeekSelected ? "text-gray-300" : ""}
-            ${isWeekSelected && i === 0 ? "rounded-l-lg" : ""}
-            ${isWeekSelected && i === 6 ? "rounded-r-lg" : ""}
-          `}>
+          className={`w-full h-9 flex items-center justify-center text-xs font-bold transition-all relative ${isWeekSelected ? "bg-emerald-50 text-emerald-900" : "hover:bg-gray-50 text-gray-700"} ${!isCurrentMonth && !isWeekSelected ? "text-gray-300" : ""} ${isWeekSelected && i === 0 ? "rounded-l-lg" : ""} ${isWeekSelected && i === 6 ? "rounded-r-lg" : ""}`}>
           <span
-            className={`
-            flex items-center justify-center w-7 h-7 rounded-full
-            ${isSpecificDay ? "bg-emerald-600 text-white shadow-md" : ""}
-          `}>
-            {formattedDate}
+            className={`flex items-center justify-center w-7 h-7 rounded-full ${isSpecificDay ? "bg-emerald-600 text-white shadow-md" : ""}`}>
+            {format(day, "d")}
           </span>
         </button>,
       );
@@ -699,7 +603,6 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
         {days}
       </div>,
     );
-    days = [];
   }
 
   return (
@@ -713,7 +616,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
             type='button'
             onClick={(e) => {
               e.stopPropagation();
-              prevMonth();
+              setCurrentMonth(subMonths(currentMonth, 1));
             }}
             className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
             <ChevronLeft className='w-4 h-4' />
@@ -722,7 +625,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
             type='button'
             onClick={(e) => {
               e.stopPropagation();
-              nextMonth();
+              setCurrentMonth(addMonths(currentMonth, 1));
             }}
             className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
             <ChevronRight className='w-4 h-4' />
@@ -743,49 +646,34 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
   );
 };
 
-// --- 2. INPUT DATE PICKER (For Modal Form) ---
 const InputDatePicker = ({ selectedDate, onChange }) => {
   const [currentMonth, setCurrentMonth] = useState(selectedDate);
-
   useEffect(() => {
     setCurrentMonth(selectedDate);
   }, [selectedDate]);
-
-  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-
   const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(monthStart);
   const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const endDate = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 });
 
   const rows = [];
-  let days = [];
   let day = startDate;
-  let formattedDate = "";
-
   while (day <= endDate) {
+    let days = [];
     for (let i = 0; i < 7; i++) {
-      formattedDate = format(day, "d");
       const cloneDay = day;
       const isSpecificDay = isSameDay(day, selectedDate);
       const isCurrentMonth = isSameMonth(day, monthStart);
-
       days.push(
         <button
           key={day.toString()}
-          type='button' // CRITICAL: PREVENTS FORM SUBMISSION
+          type='button'
           onClick={(e) => {
-            e.stopPropagation(); // Stop bubbling
-            e.preventDefault(); // Stop default form action
+            e.stopPropagation();
+            e.preventDefault();
             onChange(cloneDay);
           }}
-          className={`
-            w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all
-            ${!isCurrentMonth ? "text-gray-300" : "text-gray-700 hover:bg-gray-100"}
-            ${isSpecificDay ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700" : ""}
-          `}>
-          {formattedDate}
+          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all ${!isCurrentMonth ? "text-gray-300" : "text-gray-700 hover:bg-gray-100"} ${isSpecificDay ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700" : ""}`}>
+          {format(day, "d")}
         </button>,
       );
       day = addDays(day, 1);
@@ -795,7 +683,6 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
         {days}
       </div>,
     );
-    days = [];
   }
 
   return (
@@ -809,7 +696,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
             type='button'
             onClick={(e) => {
               e.stopPropagation();
-              prevMonth();
+              setCurrentMonth(subMonths(currentMonth, 1));
             }}
             className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
             <ChevronLeft className='w-4 h-4' />
@@ -818,7 +705,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
             type='button'
             onClick={(e) => {
               e.stopPropagation();
-              nextMonth();
+              setCurrentMonth(addMonths(currentMonth, 1));
             }}
             className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
             <ChevronRight className='w-4 h-4' />
@@ -835,6 +722,93 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
         ))}
       </div>
       <div>{rows}</div>
+    </div>
+  );
+};
+
+// --- CUSTOM RECURRENCE CARD UI ---
+const RecurrenceActionCards = ({
+  actionType,
+  isActivating,
+  onConfirm,
+  onCancel,
+  loading,
+}) => {
+  const [mode, setMode] = useState("all");
+
+  let actionText = "";
+  if (actionType === "delete") actionText = "Delete";
+  else if (actionType === "toggle")
+    actionText = isActivating ? "Activate" : "Deactivate";
+  else actionText = "Update";
+
+  const options = [
+    {
+      id: "single",
+      title: "This Class Only",
+      desc: `Applies this ${actionText.toLowerCase()} to the currently selected date only.`,
+      icon: <CalendarDays className='w-5 h-5' />,
+    },
+    {
+      id: "all",
+      title: "Entire Series",
+      desc: `Applies this ${actionText.toLowerCase()} to all scheduled future classes in this series.`,
+      icon: <Layers className='w-5 h-5' />,
+    },
+  ];
+
+  return (
+    <div className='space-y-4 text-left w-full max-w-sm mx-auto mt-4'>
+      <div className='space-y-3'>
+        {options.map((opt) => (
+          <div
+            key={opt.id}
+            onClick={() => setMode(opt.id)}
+            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+              mode === opt.id
+                ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
+                : "border-gray-100 bg-white hover:border-emerald-200"
+            }`}>
+            <div
+              className={`mt-0.5 ${mode === opt.id ? "text-emerald-600" : "text-gray-400"}`}>
+              {opt.icon}
+            </div>
+            <div>
+              <h4
+                className={`text-sm font-bold ${mode === opt.id ? "text-emerald-900" : "text-gray-700"}`}>
+                {opt.title}
+              </h4>
+              <p
+                className={`text-xs mt-1 ${mode === opt.id ? "text-emerald-700" : "text-gray-500"}`}>
+                {opt.desc}
+              </p>
+            </div>
+            {mode === opt.id && (
+              <div className='ml-auto mt-0.5 text-emerald-600'>
+                <CheckCircle2 className='w-5 h-5' />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className='flex gap-3 pt-4 border-t border-gray-100'>
+        <button
+          onClick={onCancel}
+          className='flex-1 py-3 bg-white text-gray-600 border border-gray-200 font-bold rounded-xl hover:bg-gray-50 transition-colors'>
+          Cancel
+        </button>
+        <button
+          onClick={() => onConfirm(mode)}
+          disabled={loading}
+          className={`flex-1 py-3 font-bold rounded-xl transition-all shadow-lg active:scale-95 text-white ${
+            actionType === "delete"
+              ? "bg-red-600 hover:bg-red-700 shadow-red-600/20"
+              : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+          }`}>
+          {loading ? "Processing..." : `Confirm ${actionText}`}
+        </button>
+      </div>
     </div>
   );
 };
@@ -857,8 +831,9 @@ const ClassDetailsModal = ({
   const [userPasses, setUserPasses] = useState([]);
   const [selectedPass, setSelectedPass] = useState(null);
   const [bookingProcessing, setBookingProcessing] = useState(false);
+
   const [actionLoading, setActionLoading] = useState(false);
-  const [showRecurrenceOption, setShowRecurrenceOption] = useState(null);
+  const [showRecurrenceOption, setShowRecurrenceOption] = useState(null); // 'delete' or 'toggle'
   const [confirmationData, setConfirmationData] = useState(null);
 
   const fetchBookings = async () => {
@@ -905,39 +880,24 @@ const ClassDetailsModal = ({
         API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(userId),
         { params: { studioId: user.adminStudioLocation } },
       );
-
       const validPasses = res.data.filter((p) => {
         const passStudioId =
           typeof p.issuingStudio === "object"
             ? p.issuingStudio._id
             : p.issuingStudio;
         const currentStudioId = user.adminStudioLocation;
-
-        // --- FIX: ARRAY LOGIC START ---
-
-        // 1. Check Class Type (Pass has Array, Class has String)
-        // Ensure p.classType is treated as an array
         const passClassTypes = Array.isArray(p.classType)
           ? p.classType
-          : [p.classType]; // Fallback for legacy string data
-
+          : [p.classType];
         const isClassTypeValid = passClassTypes.includes(classData.classType);
-
-        // 2. Check Instructor Type (Pass has Array, Class has String)
-        // Get the instructor level of the class we are trying to book
         const targetInstructorLevel =
           classData.instructorId?.instructorType || classData.instructorType;
-
-        // Ensure p.instructorType is treated as an array
         const passInstructorTypes = Array.isArray(p.instructorType)
           ? p.instructorType
-          : [p.instructorType]; // Fallback for legacy string data
-
+          : [p.instructorType];
         const isInstructorTypeValid = passInstructorTypes.includes(
           targetInstructorLevel,
         );
-
-        // --- FIX END ---
 
         return (
           p.isActive &&
@@ -948,7 +908,6 @@ const ClassDetailsModal = ({
           String(passStudioId) === String(currentStudioId)
         );
       });
-
       setUserPasses(validPasses);
     } catch (e) {
       console.error(e);
@@ -976,6 +935,7 @@ const ClassDetailsModal = ({
       setBookingProcessing(false);
     }
   };
+
   const handleCheckIn = async (bookingId) => {
     try {
       await axiosInstance.put(API_PATHS.BOOKING.STUDENT_CHECK_IN(bookingId));
@@ -984,6 +944,7 @@ const ClassDetailsModal = ({
       console.error(error);
     }
   };
+
   const handleCancelBooking = async (bookingId) => {
     if (!window.confirm("Remove?")) return;
     try {
@@ -994,14 +955,18 @@ const ClassDetailsModal = ({
       alert("Cancel failed");
     }
   };
+
   const handleInitialClick = (actionType) => {
     if (classData.isRecurring) setShowRecurrenceOption(actionType);
     else setConfirmationData({ type: actionType, mode: "single" });
   };
-  const executeAction = async () => {
-    if (!confirmationData) return;
+
+  const executeAction = async (modeOverride = null) => {
+    const type = confirmationData?.type || showRecurrenceOption;
+    const mode = modeOverride || confirmationData?.mode;
+    if (!type || !mode) return;
+
     setActionLoading(true);
-    const { type, mode } = confirmationData;
     try {
       if (type === "delete")
         await axiosInstance.delete(
@@ -1016,17 +981,17 @@ const ClassDetailsModal = ({
       onClose();
       onRefresh();
     } catch (error) {
-      alert("Action failed");
+      alert(error.response?.data?.error || "Action failed");
     } finally {
       setActionLoading(false);
       setConfirmationData(null);
+      setShowRecurrenceOption(null);
     }
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'>
       <div className='bg-white rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] shadow-xl'>
-        {/* Header */}
         <div className='flex justify-between items-center p-4 border-b'>
           <div className='flex gap-4'>
             <button
@@ -1047,7 +1012,6 @@ const ClassDetailsModal = ({
           </button>
         </div>
 
-        {/* Content */}
         <div className='flex-1 overflow-y-auto'>
           {activeTab === "details" && (
             <div className='p-6 space-y-4'>
@@ -1065,7 +1029,6 @@ const ClassDetailsModal = ({
                   </p>
                 </div>
               </div>
-
               <div className='flex items-center gap-3'>
                 <div className='bg-orange-50 p-2 rounded-lg text-orange-600'>
                   <BadgeCheck className='w-5 h-5' />
@@ -1080,7 +1043,6 @@ const ClassDetailsModal = ({
                   </p>
                 </div>
               </div>
-
               <div className='flex items-center gap-3'>
                 <div className='bg-purple-50 p-2 rounded-lg text-purple-600'>
                   <Users className='w-5 h-5' />
@@ -1094,7 +1056,6 @@ const ClassDetailsModal = ({
                   </p>
                 </div>
               </div>
-
               <div className='flex items-center gap-3'>
                 <div className='bg-gray-100 p-2 rounded-lg text-gray-600'>
                   <MapPin className='w-5 h-5' />
@@ -1137,7 +1098,6 @@ const ClassDetailsModal = ({
             <div className='p-0 h-full flex flex-col'>
               {canEdit ? (
                 <>
-                  {/* Add Student Header */}
                   {!showAddStudent ? (
                     <div className='p-4 flex justify-between items-center border-b'>
                       <h4 className='font-bold'>Roster</h4>
@@ -1178,12 +1138,7 @@ const ClassDetailsModal = ({
                                   <div
                                     key={p._id}
                                     onClick={() => setSelectedPass(p._id)}
-                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer group ${
-                                      isSelected
-                                        ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
-                                        : "border-gray-100 bg-white hover:border-emerald-200"
-                                    }`}>
-                                    {/* Header: Name & Credits */}
+                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer group ${isSelected ? "border-emerald-500 bg-emerald-50/50 shadow-sm" : "border-gray-100 bg-white hover:border-emerald-200"}`}>
                                     <div className='flex justify-between items-start mb-2'>
                                       <div>
                                         <h5
@@ -1213,10 +1168,7 @@ const ClassDetailsModal = ({
                                         </span>
                                       </div>
                                     </div>
-
-                                    {/* Tags Section */}
                                     <div className='space-y-1.5 pt-2 border-t border-gray-100/50'>
-                                      {/* Class Types */}
                                       <div className='flex flex-wrap gap-1'>
                                         {p.classType &&
                                           p.classType.map((type, i) => (
@@ -1227,7 +1179,6 @@ const ClassDetailsModal = ({
                                             </span>
                                           ))}
                                       </div>
-                                      {/* Instructor Levels */}
                                       <div className='flex flex-wrap gap-1'>
                                         {p.instructorType &&
                                           p.instructorType.map((type, i) => (
@@ -1239,8 +1190,6 @@ const ClassDetailsModal = ({
                                           ))}
                                       </div>
                                     </div>
-
-                                    {/* Selection Checkmark */}
                                     {isSelected && (
                                       <div className='absolute bottom-3 right-3 bg-emerald-500 text-white rounded-full p-0.5'>
                                         <Check className='w-3 h-3' />
@@ -1267,8 +1216,6 @@ const ClassDetailsModal = ({
                       )}
                     </div>
                   )}
-
-                  {/* List */}
                   <div className='flex-1 overflow-y-auto p-4 space-y-2'>
                     {bookings.map((b) => (
                       <div
@@ -1316,26 +1263,83 @@ const ClassDetailsModal = ({
           )}
         </div>
 
-        {/* Confirmations */}
+        {/* --- CONFIRMATION MODALS (Single Edit) --- */}
         <AnimatePresence>
           {confirmationData && (
-            <div className='absolute inset-0 bg-white/90 z-50 flex items-center justify-center'>
-              <div className='text-center p-6'>
-                <h3 className='font-bold text-lg mb-4'>Are you sure?</h3>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className='absolute inset-0 bg-white/95 z-[70] flex items-center justify-center backdrop-blur-sm'>
+              <div className='text-center p-6 w-full max-w-sm'>
+                <div
+                  className={`mx-auto flex items-center justify-center w-12 h-12 rounded-full mb-4 ${confirmationData.type === "delete" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>
+                  {confirmationData.type === "delete" ? (
+                    <Trash2 className='w-6 h-6' />
+                  ) : (
+                    <Power className='w-6 h-6' />
+                  )}
+                </div>
+                <h3 className='font-bold text-lg text-gray-900 mb-2'>
+                  Are you sure?
+                </h3>
+                <p className='text-sm text-gray-500 mb-6'>
+                  You are about to{" "}
+                  {confirmationData.type === "delete"
+                    ? "permanently delete"
+                    : classData.isActive
+                      ? "deactivate"
+                      : "activate"}{" "}
+                  this class.
+                </p>
                 <div className='flex gap-3 justify-center'>
                   <button
                     onClick={() => setConfirmationData(null)}
-                    className='text-gray-500 font-bold'>
+                    className='flex-1 py-3 text-gray-600 border border-gray-200 rounded-xl font-bold hover:bg-gray-50'>
                     Cancel
                   </button>
                   <button
-                    onClick={executeAction}
-                    className='bg-red-600 text-white px-6 py-2 rounded-xl font-bold'>
+                    onClick={() => executeAction()}
+                    className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg ${confirmationData.type === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}>
                     Confirm
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* --- RECURRENCE OVERLAY (Toggle/Delete) --- */}
+        <AnimatePresence>
+          {showRecurrenceOption && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className='absolute inset-0 bg-white/95 z-[70] flex flex-col items-center justify-center p-6 backdrop-blur-sm'>
+              <div
+                className={`flex items-center justify-center w-12 h-12 rounded-full mb-4 ${showRecurrenceOption === "delete" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>
+                {showRecurrenceOption === "delete" ? (
+                  <Trash2 className='w-6 h-6' />
+                ) : (
+                  <Power className='w-6 h-6' />
+                )}
+              </div>
+              <h3 className='text-xl font-bold text-gray-900 mb-2'>
+                Recurring Class
+              </h3>
+              <p className='text-sm text-gray-500 mb-2 text-center max-w-xs'>
+                This class is part of an ongoing series. How would you like to
+                apply this action?
+              </p>
+              <RecurrenceActionCards
+                actionType={showRecurrenceOption}
+                isActivating={!classData.isActive}
+                onConfirm={(mode) => executeAction(mode)}
+                onCancel={() => setShowRecurrenceOption(null)}
+                loading={actionLoading}
+              />
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -1369,7 +1373,7 @@ const PDFPreviewModal = ({ pdfUrl, onClose }) => (
   </div>
 );
 
-// --- MODIFIED CREATE CLASS MODAL WITH CUSTOM DATE PICKER ---
+// --- CREATE CLASS MODAL ---
 const CreateClassModal = ({
   onClose,
   instructors,
@@ -1383,10 +1387,7 @@ const CreateClassModal = ({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showRecurrenceSelect, setShowRecurrenceSelect] = useState(false);
 
-  // New State for Multi-Select Days
   const [selectedRecurrenceDays, setSelectedRecurrenceDays] = useState([]);
-
-  // --- NEW: State for Date Picker Popover ---
   const [showCalendarPopover, setShowCalendarPopover] = useState(false);
   const calendarRef = useRef(null);
 
@@ -1403,23 +1404,22 @@ const CreateClassModal = ({
     isActive: true,
     recurrenceRule: "Weekly",
     recurrenceCount: "",
+    isAlways: false,
   });
 
-  // Handle outside click for calendar popover
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+      if (calendarRef.current && !calendarRef.current.contains(event.target))
         setShowCalendarPopover(false);
-      }
     };
-    if (showCalendarPopover) {
+    if (showCalendarPopover)
       document.addEventListener("mousedown", handleClickOutside);
-    }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCalendarPopover]);
 
   useEffect(() => {
     if (initialData) {
+      const isBulk = initialData.recurrenceCount >= 52;
       setForm({
         className: initialData.className,
         description: initialData.description || "",
@@ -1431,29 +1431,24 @@ const CreateClassModal = ({
         capacity: initialData.capacity,
         isRecurring: initialData.isRecurring,
         recurrenceRule: "Weekly",
-        recurrenceCount: initialData.recurrenceCount || 1,
+        recurrenceCount: isBulk ? "" : initialData.recurrenceCount || 1,
+        isAlways: isBulk,
       });
-      if (initialData.selectedDays && Array.isArray(initialData.selectedDays)) {
+      if (initialData.selectedDays && Array.isArray(initialData.selectedDays))
         setSelectedRecurrenceDays(initialData.selectedDays);
-      } else {
-        setSelectedRecurrenceDays([getDay(parseISO(initialData.startTime))]);
-      }
+      else setSelectedRecurrenceDays([getDay(parseISO(initialData.startTime))]);
     } else {
       setSelectedRecurrenceDays([getDay(new Date())]);
     }
   }, [initialData]);
 
-  // Sync day with date picker
   useEffect(() => {
-    if (!initialData && !form.isRecurring) {
+    if (!initialData && !form.isRecurring)
       setSelectedRecurrenceDays([getDay(parseISO(form.startTime))]);
-    }
   }, [form.startTime, initialData, form.isRecurring]);
 
-  // ... (Availability Logic from original) ...
   const [isAvailable, setIsAvailable] = useState(true);
   const [availabilityMessage, setAvailabilityMessage] = useState("");
-  const [workingHoursDisplay, setWorkingHoursDisplay] = useState([]);
   const [availableDaysSuggestion, setAvailableDaysSuggestion] = useState("");
 
   const weekDayButtons = [
@@ -1465,7 +1460,6 @@ const CreateClassModal = ({
     { label: "Fri", value: 5 },
     { label: "Sat", value: 6 },
   ];
-
   const classTypeOptions = ["Group", "Mat Group", "Private", "Duet"];
 
   const availableInstructors = useMemo(() => {
@@ -1476,12 +1470,9 @@ const CreateClassModal = ({
 
   const toggleDay = (dayIndex) => {
     setSelectedRecurrenceDays((prev) => {
-      if (prev.includes(dayIndex)) {
-        if (prev.length === 1) return prev;
-        return prev.filter((d) => d !== dayIndex);
-      } else {
-        return [...prev, dayIndex].sort();
-      }
+      if (prev.includes(dayIndex))
+        return prev.length === 1 ? prev : prev.filter((d) => d !== dayIndex);
+      else return [...prev, dayIndex].sort();
     });
   };
 
@@ -1497,16 +1488,14 @@ const CreateClassModal = ({
     form.startTime,
     form.duration,
     form.isRecurring,
-    form.recurrenceRule,
     form.recurrenceCount,
+    form.isAlways,
     selectedRecurrenceDays,
     existingClasses,
   ]);
 
   const checkAvailability = () => {
-    // ... (Availability check logic remains exact same as previous) ...
     setAvailableDaysSuggestion("");
-    setWorkingHoursDisplay([]);
     setIsAvailable(true);
     setAvailabilityMessage("");
 
@@ -1515,21 +1504,31 @@ const CreateClassModal = ({
     const instructor = instructors.find((i) => i._id === form.instructorId);
     if (!instructor) return;
 
+    // --> NEW: Block immediately if instructor is globally inactive
+    if (instructor.isActive === false) {
+      setIsAvailable(false);
+      setAvailabilityMessage(
+        "Instructor profile is globally inactive. They cannot be scheduled.",
+      );
+      return;
+    }
+
     let datesToCheck = [];
     const startDate = new Date(form.startTime);
 
     if (!form.isRecurring || (initialData && updateMode === "single")) {
       datesToCheck.push(startDate);
     } else {
-      const weeksToRun = parseInt(form.recurrenceCount) || 1;
+      const weeksToRun = form.isAlways
+        ? 52
+        : parseInt(form.recurrenceCount) || 1;
       for (let i = 0; i < weeksToRun; i++) {
         const weekBase = startOfWeek(addWeeks(startDate, i), {
           weekStartsOn: 0,
         });
-        selectedRecurrenceDays.forEach((dayIndex) => {
-          const targetDate = addDays(weekBase, dayIndex);
-          datesToCheck.push(targetDate);
-        });
+        selectedRecurrenceDays.forEach((dayIndex) =>
+          datesToCheck.push(addDays(weekBase, dayIndex)),
+        );
       }
     }
 
@@ -1541,11 +1540,8 @@ const CreateClassModal = ({
       const dayKey = format(dateObj, "EEEE").toLowerCase();
       const dailyShifts = instructor.workingHours?.[dayKey] || [];
       const studioShifts = dailyShifts.filter(
-        (shift) => shift.location?._id === studioId,
+        (shift) => shift.location?._id === studioId && shift.isActive !== false,
       );
-
-      if (datesToCheck.indexOf(dateObj) === 0)
-        setWorkingHoursDisplay(studioShifts);
 
       if (studioShifts.length === 0) {
         notWorkingDates.push(format(dateObj, "d MMM"));
@@ -1555,7 +1551,6 @@ const CreateClassModal = ({
       const classStart = new Date(dateObj);
       classStart.setHours(new Date(form.startTime).getHours());
       classStart.setMinutes(new Date(form.startTime).getMinutes());
-
       const classEnd = addMinutes(classStart, parseInt(form.duration) || 0);
       const classStartMins =
         classStart.getHours() * 60 + classStart.getMinutes();
@@ -1581,6 +1576,7 @@ const CreateClassModal = ({
         const isSelf = initialData && cls._id === initialData._id;
         return (
           !isSelf &&
+          cls.isActive === true &&
           clsInstructorId === form.instructorId &&
           isSameDay(parseISO(cls.startTime), dateObj)
         );
@@ -1642,7 +1638,7 @@ const CreateClassModal = ({
     const updated = new Date(newDate);
     updated.setHours(current.getHours(), current.getMinutes());
     setForm({ ...form, startTime: updated.toISOString() });
-    setShowCalendarPopover(false); // Close popover on selection
+    setShowCalendarPopover(false);
   };
 
   const handleTimeChange = (timeStr) => {
@@ -1676,26 +1672,28 @@ const CreateClassModal = ({
   const handleFinalSubmit = async (mode) => {
     setLoading(true);
     try {
+      const finalRecurrenceCount = form.isAlways
+        ? 52
+        : parseInt(form.recurrenceCount) || 1;
       const payload = {
         ...form,
         studioId: studioId,
         isRecurring: Boolean(form.isRecurring),
         recurrenceRule: "Weekly",
+        recurrenceCount: finalRecurrenceCount,
         selectedDays: selectedRecurrenceDays,
         updateMode: mode || "single",
       };
 
-      if (initialData) {
+      if (initialData)
         await axiosInstance.put(
           API_PATHS.SCHEDULE.UPDATE_SCHEDULE(initialData._id),
           payload,
         );
-      } else {
+      else
         await axiosInstance.post(API_PATHS.SCHEDULE.CREATE_SCHEDULE, payload);
-      }
       onSuccess();
     } catch (err) {
-      console.error(err);
       alert(err.response?.data?.error || "Error saving class");
     } finally {
       setLoading(false);
@@ -1703,7 +1701,6 @@ const CreateClassModal = ({
     }
   };
 
-  // --- RECURRING TOGGLE LOGIC ---
   const showRecurringSection =
     !initialData || (initialData && initialData.isRecurring);
 
@@ -1774,7 +1771,7 @@ const CreateClassModal = ({
                 <label className='block text-xs font-bold text-gray-700 mb-1'>
                   Instructor Type
                 </label>
-                <div className='w-full h-10.5 px-3 border bg-gray-50 rounded-xl flex items-center gap-2 text-gray-500'>
+                <div className='w-full h-[46px] px-3 border bg-gray-50 rounded-xl flex items-center gap-2 text-gray-500'>
                   <BadgeCheck className='w-4 h-4 text-emerald-600' />
                   <span className='text-sm font-medium'>
                     {form.instructorType || "Auto-detected"}
@@ -1782,7 +1779,6 @@ const CreateClassModal = ({
                 </div>
               </div>
               <div>
-                {/* FIX: getValue logic for simple string array */}
                 <CustomSelect
                   label='Class Type'
                   placeholder='Select Type'
@@ -1799,7 +1795,7 @@ const CreateClassModal = ({
                 </label>
                 <input
                   type='string'
-                  className='w-full h-10.5 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
+                  className='w-full h-[46px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
                   value={form.capacity}
                   onChange={(e) =>
                     setForm({ ...form, capacity: e.target.value })
@@ -1808,7 +1804,6 @@ const CreateClassModal = ({
                 />
               </div>
 
-              {/* --- CUSTOM DATE PICKER (REPLACED NATIVE) --- */}
               <div className='relative'>
                 <label className='block text-xs font-bold text-gray-700 mb-1'>
                   Date
@@ -1817,7 +1812,7 @@ const CreateClassModal = ({
                   <button
                     type='button'
                     onClick={() => setShowCalendarPopover(!showCalendarPopover)}
-                    className='w-full p-3 border rounded-xl text-left flex items-center gap-2 text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none'>
+                    className='w-full h-[46px] px-3 border rounded-xl text-left flex items-center gap-2 text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none'>
                     <CalendarDays className='w-4 h-4 text-emerald-600' />
                     {form.startTime
                       ? format(parseISO(form.startTime), "dd/MM/yyyy")
@@ -1853,7 +1848,7 @@ const CreateClassModal = ({
                 </label>
                 <input
                   type='string'
-                  className='w-full h-10.5 p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
+                  className='w-full h-[46px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
                   value={form.duration}
                   onChange={(e) =>
                     setForm({ ...form, duration: e.target.value })
@@ -1863,22 +1858,13 @@ const CreateClassModal = ({
               </div>
             </div>
 
-            {/* ... Rest of the form logic ... */}
             {form.instructorId && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`p-4 rounded-2xl border flex items-start gap-4 ${
-                  isAvailable
-                    ? "bg-emerald-50 border-emerald-100"
-                    : "bg-red-50 border-red-100"
-                }`}>
+                className={`p-4 rounded-2xl border flex items-start gap-4 ${isAvailable ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}`}>
                 <div
-                  className={`mt-0.5 p-1.5 rounded-full shrink-0 ${
-                    isAvailable
-                      ? "bg-emerald-100 text-emerald-600"
-                      : "bg-red-100 text-red-600"
-                  }`}>
+                  className={`mt-0.5 p-1.5 rounded-full shrink-0 ${isAvailable ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}>
                   {isAvailable ? (
                     <CheckCircle2 className='w-5 h-5' />
                   ) : (
@@ -1887,15 +1873,11 @@ const CreateClassModal = ({
                 </div>
                 <div>
                   <h4
-                    className={`font-bold text-base leading-tight ${
-                      isAvailable ? "text-emerald-900" : "text-red-900"
-                    }`}>
+                    className={`font-bold text-base leading-tight ${isAvailable ? "text-emerald-900" : "text-red-900"}`}>
                     {isAvailable ? "Available" : "Unavailable"}
                   </h4>
                   <p
-                    className={`text-sm mt-1 font-medium leading-relaxed ${
-                      isAvailable ? "text-emerald-700" : "text-red-700"
-                    }`}>
+                    className={`text-sm mt-1 font-medium leading-relaxed ${isAvailable ? "text-emerald-700" : "text-red-700"}`}>
                     {availabilityMessage}
                   </p>
                   {!isAvailable && availableDaysSuggestion && (
@@ -1907,7 +1889,6 @@ const CreateClassModal = ({
               </motion.div>
             )}
 
-            {/* --- UPDATED RECURRING SECTION --- */}
             {showRecurringSection && (
               <div className='bg-gray-50 p-4 rounded-xl border border-gray-200 transition-all'>
                 {!initialData ? (
@@ -1949,7 +1930,6 @@ const CreateClassModal = ({
                 {form.isRecurring && (
                   <div className='mt-4 animate-in fade-in slide-in-from-top-2 duration-300'>
                     <div className='flex flex-col md:flex-row gap-6 items-start'>
-                      {/* Day Selector */}
                       <div className='flex-1'>
                         <label className='block text-xs font-bold text-gray-500 mb-2'>
                           Select Days
@@ -1964,11 +1944,7 @@ const CreateClassModal = ({
                                 key={day.value}
                                 type='button'
                                 onClick={() => toggleDay(day.value)}
-                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
-                                  isSelected
-                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
-                                    : "bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50"
-                                }`}>
+                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${isSelected ? "bg-emerald-600 text-white border-emerald-600 shadow-md" : "bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50"}`}>
                                 {day.label}
                               </button>
                             );
@@ -1976,28 +1952,59 @@ const CreateClassModal = ({
                         </div>
                       </div>
 
-                      {/* Weeks Input */}
-                      <div className='w-full md:w-32 shrink-0'>
-                        <label className='block text-xs font-bold text-gray-500 mb-2'>
-                          Duration (Weeks)
-                        </label>
-                        <input
-                          type='string'
-                          className='w-full p-2.5 border rounded-xl text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-emerald-500'
-                          value={form.recurrenceCount}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              recurrenceCount: e.target.value,
-                            })
-                          }
-                          placeholder='1'
-                        />
+                      <div className='w-full md:w-48 shrink-0'>
+                        <div className='flex justify-between items-end mb-2'>
+                          <label className='block text-xs font-bold text-gray-500'>
+                            Duration
+                          </label>
+                          <div className='flex items-center gap-1.5'>
+                            <input
+                              type='checkbox'
+                              id='isAlways'
+                              checked={form.isAlways}
+                              onChange={(e) =>
+                                setForm({ ...form, isAlways: e.target.checked })
+                              }
+                              className='w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500 accent-emerald-600'
+                            />
+                            <label
+                              htmlFor='isAlways'
+                              className='text-[10px] font-bold text-gray-600 cursor-pointer uppercase tracking-wider'>
+                              Ongoing
+                            </label>
+                          </div>
+                        </div>
+
+                        {!form.isAlways ? (
+                          <div className='relative'>
+                            <input
+                              type='number'
+                              min='1'
+                              className='w-full p-2.5 pr-14 border rounded-xl text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-emerald-500'
+                              value={form.recurrenceCount}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  recurrenceCount: e.target.value,
+                                })
+                              }
+                              placeholder='1'
+                            />
+                            <span className='absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-bold pointer-events-none'>
+                              Weeks
+                            </span>
+                          </div>
+                        ) : (
+                          <div className='w-full h-[42px] px-3 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2'>
+                            <Repeat className='w-4 h-4' /> Always
+                          </div>
+                        )}
                       </div>
                     </div>
                     <p className='text-[10px] text-gray-400 mt-2'>
-                      Class will repeat for {form.recurrenceCount || 1} week(s)
-                      on selected days.
+                      {form.isAlways
+                        ? "Class will repeat continuously (generated for 1 year ahead) on selected days."
+                        : `Class will repeat for ${form.recurrenceCount || 1} week(s) on selected days.`}
                     </p>
                   </div>
                 )}
@@ -2014,11 +2021,7 @@ const CreateClassModal = ({
               <button
                 type='submit'
                 disabled={loading || !isAvailable}
-                className={`flex-1 py-3 font-bold text-white rounded-xl shadow-lg transition-all ${
-                  isAvailable
-                    ? "bg-emerald-900 hover:bg-emerald-800"
-                    : "bg-gray-400 cursor-not-allowed"
-                }`}>
+                className={`flex-1 py-3 font-bold text-white rounded-xl shadow-lg transition-all ${isAvailable ? "bg-emerald-900 hover:bg-emerald-800" : "bg-gray-400 cursor-not-allowed"}`}>
                 {loading
                   ? "Saving..."
                   : initialData
@@ -2029,44 +2032,31 @@ const CreateClassModal = ({
           </form>
         </div>
 
-        {/* ... (Confirmation Overlays) ... */}
+        {/* --- CONFIRMATION MODALS (Form Edits) --- */}
         <AnimatePresence>
           {showRecurrenceSelect && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className='absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-8 text-center'>
+              className='absolute inset-0 bg-white/95 backdrop-blur-sm z-[70] flex flex-col items-center justify-center p-8 text-center'>
               <div className='bg-blue-50 p-4 rounded-full mb-4 shadow-sm text-blue-600'>
-                <Layers className='w-8 h-8' />
+                <FileEdit className='w-8 h-8' />
               </div>
               <h3 className='font-bold text-xl text-gray-900 mb-2'>
-                Recurring Class
+                Edit Recurring Class
               </h3>
-              <p className='text-gray-500 mb-8 max-w-xs mx-auto leading-relaxed'>
+              <p className='text-sm text-gray-500 mb-6 max-w-xs mx-auto'>
                 This class is part of a series. How would you like to apply your
                 changes?
               </p>
-              <div className='flex flex-col w-full max-w-xs gap-3'>
-                <button
-                  type='button'
-                  onClick={() => handleRecurrenceChoice("single")}
-                  className='w-full py-3.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all'>
-                  Update This Class Only
-                </button>
-                <button
-                  type='button'
-                  onClick={() => handleRecurrenceChoice("all")}
-                  className='w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/20'>
-                  Update Entire Series
-                </button>
-                <button
-                  type='button'
-                  onClick={() => setShowRecurrenceSelect(false)}
-                  className='text-sm text-gray-400 mt-2 hover:text-gray-600'>
-                  Cancel
-                </button>
-              </div>
+
+              <RecurrenceActionCards
+                actionType='edit'
+                onConfirm={handleRecurrenceChoice}
+                onCancel={() => setShowRecurrenceSelect(false)}
+                loading={false}
+              />
             </motion.div>
           )}
           {showConfirmation && (
@@ -2074,14 +2064,14 @@ const CreateClassModal = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className='absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-8 text-center'>
+              className='absolute inset-0 bg-white/95 backdrop-blur-sm z-[70] flex flex-col items-center justify-center p-8 text-center'>
               <div className='bg-emerald-50 p-4 rounded-full mb-4 shadow-sm'>
                 <Check className='w-8 h-8 text-emerald-600' />
               </div>
               <h3 className='font-bold text-xl text-gray-900 mb-2'>
                 {initialData ? "Confirm Update?" : "Confirm Class Creation?"}
               </h3>
-              <div className='flex flex-col w-full max-w-xs gap-3'>
+              <div className='flex flex-col w-full max-w-xs gap-3 mt-4'>
                 <button
                   type='button'
                   onClick={handleConfirmCreate}

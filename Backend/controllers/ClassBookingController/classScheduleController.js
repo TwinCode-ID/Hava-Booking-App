@@ -1,10 +1,79 @@
 const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
-// Make sure this helper exists in your project
-const { checkConflicts } = require("../../helper/ScheduleHelper");
 
-// --- 1. CREATE CLASS ---
+// --- PERFECTED COLLISION ENGINE ---
+const localCheckConflicts = async (
+  instructorId,
+  start,
+  end,
+  excludeClassId = null,
+  studioId = null,
+) => {
+  // 1. Check Class Schedule Overlaps (Ignores inactive classes)
+  const query = {
+    instructorId,
+    isActive: true,
+    startTime: { $lt: end },
+    endTime: { $gt: start },
+  };
+  if (excludeClassId) query._id = { $ne: excludeClassId };
+
+  const classConflict = await ClassSchedule.findOne(query).populate("studioId");
+  if (classConflict) {
+    const studioName = classConflict.studioId?.studioName || "another studio";
+    return `Instructor is already booked and active at ${studioName} for this time.`;
+  }
+
+  // 2. Check Instructor Working Hours & Global Status
+  if (studioId) {
+    const Instructors = mongoose.model("Instructors");
+    const instructor = await Instructors.findById(instructorId);
+
+    if (!instructor) return "Instructor not found.";
+
+    // --> NEW: Block if instructor is completely off globally
+    if (instructor.isActive === false) {
+      return "Instructor profile is currently globally inactive. They cannot be scheduled.";
+    }
+
+    const daysOfWeek = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ];
+    const dayOfWeek = daysOfWeek[start.getDay()];
+    const shifts = instructor.workingHours[dayOfWeek] || [];
+
+    const startMins = start.getHours() * 60 + start.getMinutes();
+    const endMins = end.getHours() * 60 + end.getMinutes();
+
+    const hasValidShift = shifts.some((shift) => {
+      if (shift.isActive === false) return false; // Ignore inactive shift templates
+      if (String(shift.location) !== String(studioId)) return false;
+
+      const shiftStartMins =
+        parseInt(shift.start.split(":")[0]) * 60 +
+        parseInt(shift.start.split(":")[1]);
+      const shiftEndMins =
+        parseInt(shift.end.split(":")[0]) * 60 +
+        parseInt(shift.end.split(":")[1]);
+
+      return startMins >= shiftStartMins && endMins <= shiftEndMins;
+    });
+
+    if (!hasValidShift)
+      return "This time falls outside of the instructor's active working hours for your studio.";
+  }
+
+  return null;
+};
+
+// --- CREATE CLASS ---
 exports.createClass = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -28,12 +97,14 @@ exports.createClass = async (req, res) => {
     const start = new Date(startTime);
     const end = new Date(start.getTime() + duration * 60000);
 
-    // Initial Conflict Check
-    if (await checkConflicts(instructorId, start, end)) {
-      throw new Error(
-        `Instructor conflict detected on ${start.toDateString()} at ${start.toTimeString()}`,
-      );
-    }
+    const conflictMsg = await localCheckConflicts(
+      instructorId,
+      start,
+      end,
+      null,
+      studioId,
+    );
+    if (conflictMsg) throw new Error(conflictMsg);
 
     const classesToCreate = [];
     const batchId = isRecurring ? uuidv4() : null;
@@ -43,7 +114,6 @@ exports.createClass = async (req, res) => {
       const currentStart = new Date(start);
       const currentEnd = new Date(end);
 
-      // Calculate Dates for Recurrence
       if (i > 0) {
         if (recurrenceRule === "Daily") {
           currentStart.setDate(start.getDate() + i);
@@ -56,10 +126,16 @@ exports.createClass = async (req, res) => {
           currentEnd.setMonth(end.getMonth() + i);
         }
 
-        // Check Conflict for this specific instance
-        if (await checkConflicts(instructorId, currentStart, currentEnd)) {
+        const stepConflict = await localCheckConflicts(
+          instructorId,
+          currentStart,
+          currentEnd,
+          null,
+          studioId,
+        );
+        if (stepConflict) {
           throw new Error(
-            `Conflict detected for recurrence #${i + 1} at ${currentStart}`,
+            `Conflict detected for recurrence #${i + 1} at ${currentStart}: ${stepConflict}`,
           );
         }
       }
@@ -96,20 +172,19 @@ exports.createClass = async (req, res) => {
   }
 };
 
-// --- 2. GET CLASSES ---
+// --- GET CLASSES ---
 exports.getClasses = async (req, res) => {
   try {
     const { start, end, studioId, instructorId } = req.query;
+    let query = {};
+    if (start && end)
+      query.startTime = { $gte: new Date(start), $lte: new Date(end) };
+    if (studioId) query.studioId = studioId;
+    if (instructorId) query.instructorId = instructorId;
 
-    if (start && end) {
-      startTime = { $gte: new Date(start), $lte: new Date(end) };
-    }
-    if (studioId) studioId = studioId;
-    if (instructorId) instructorId = instructorId;
-
-    const classes = await ClassSchedule.find()
+    const classes = await ClassSchedule.find(query)
       .populate("instructorId", "fullName")
-      .populate("studioId", "studioName") // Adjusted based on your likely Studio model
+      .populate("studioId", "studioName")
       .sort({ startTime: 1 });
 
     res.status(200).json(classes);
@@ -121,10 +196,9 @@ exports.getClasses = async (req, res) => {
 exports.getStudioClasses = async (req, res) => {
   try {
     const { id } = req.params;
-
     const classes = await ClassSchedule.find({ studioId: id })
       .populate("instructorId", "fullName instructorType")
-      .populate("studioId", "studioName") // Adjusted based on your likely Studio model
+      .populate("studioId", "studioName")
       .sort({ startTime: 1 });
 
     res.status(200).json(classes);
@@ -133,7 +207,7 @@ exports.getStudioClasses = async (req, res) => {
   }
 };
 
-// --- 3. UPDATE CLASS ---
+// --- UPDATE CLASS ---
 exports.updateClass = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -145,28 +219,32 @@ exports.updateClass = async (req, res) => {
     const targetClass = await ClassSchedule.findById(id).session(session);
     if (!targetClass) throw new Error("Class not found");
 
-    // --- CASE A: Update Single Class ---
     if (!updateMode || updateMode === "single") {
-      if (updateData.startTime || updateData.duration) {
+      if (
+        updateData.startTime ||
+        updateData.duration ||
+        updateData.instructorId ||
+        updateData.isActive
+      ) {
         const newStart = updateData.startTime
           ? new Date(updateData.startTime)
           : new Date(targetClass.startTime);
-
         const dur = updateData.duration || targetClass.duration;
         const newEnd = new Date(newStart.getTime() + dur * 60000);
 
-        // Conflict Check
-        const hasConflict = await checkConflicts(
-          updateData.instructorId || targetClass.instructorId,
-          newStart,
-          newEnd,
-          id,
-        );
-
-        if (hasConflict) {
-          throw new Error(`Time conflict detected for this class.`);
+        const checkActive = updateData.hasOwnProperty("isActive")
+          ? updateData.isActive
+          : targetClass.isActive;
+        if (checkActive) {
+          const conflictMsg = await localCheckConflicts(
+            updateData.instructorId || targetClass.instructorId,
+            newStart,
+            newEnd,
+            id,
+            targetClass.studioId,
+          );
+          if (conflictMsg) throw new Error(conflictMsg);
         }
-
         updateData.endTime = newEnd;
       }
 
@@ -174,31 +252,23 @@ exports.updateClass = async (req, res) => {
         new: true,
         session,
       });
-
       await session.commitTransaction();
       return res.status(200).json(updated);
     }
 
-    // --- CASE B: Update Entire Series ---
     if (updateMode === "all" && targetClass.recurrenceGroupId) {
-      // 1. Fetch all classes in the series
       const seriesClasses = await ClassSchedule.find({
         recurrenceGroupId: targetClass.recurrenceGroupId,
       }).session(session);
-
       const bulkOps = [];
 
-      // 2. Iterate through EVERY class in the series
       for (const currentClass of seriesClasses) {
         let newStart = new Date(currentClass.startTime);
         let newEnd = new Date(currentClass.endTime);
         let isTimeChanged = false;
 
-        // A. Handle Time Change (Apply new HH:MM to existing Date)
         if (updateData.startTime) {
           const requestedTime = new Date(updateData.startTime);
-
-          // Set the hours/minutes from the request, but keep the original Year/Month/Day
           newStart.setHours(
             requestedTime.getHours(),
             requestedTime.getMinutes(),
@@ -208,51 +278,44 @@ exports.updateClass = async (req, res) => {
           isTimeChanged = true;
         }
 
-        // B. Handle Duration Change
         if (updateData.duration || isTimeChanged) {
           const duration = updateData.duration || currentClass.duration;
           newEnd = new Date(newStart.getTime() + duration * 60000);
         }
 
-        // C. Check Conflicts for THIS specific instance
-        if (
-          updateData.startTime ||
-          updateData.duration ||
-          updateData.instructorId
-        ) {
-          const instructorToCheck =
-            updateData.instructorId || currentClass.instructorId;
+        const checkActive = updateData.hasOwnProperty("isActive")
+          ? updateData.isActive
+          : currentClass.isActive;
 
-          // We must check if this specific calculated slot is free
-          const hasConflict = await checkConflicts(
-            instructorToCheck,
+        if (
+          checkActive &&
+          (updateData.startTime ||
+            updateData.duration ||
+            updateData.instructorId ||
+            updateData.isActive)
+        ) {
+          const conflictMsg = await localCheckConflicts(
+            updateData.instructorId || currentClass.instructorId,
             newStart,
             newEnd,
-            currentClass._id, // Exclude itself
+            currentClass._id,
+            currentClass.studioId,
           );
-
-          if (hasConflict) {
+          if (conflictMsg)
             throw new Error(
-              `Conflict detected for class on ${newStart.toDateString()} at ${newStart.toTimeString()}. Update aborted.`,
+              `Conflict for class on ${newStart.toDateString()}: ${conflictMsg}`,
             );
-          }
         }
 
-        // D. Prepare the update object
         const finalUpdateData = { ...updateData };
-
-        // If we calculated new times, explicitly set them
         if (isTimeChanged || updateData.duration) {
           finalUpdateData.startTime = newStart;
           finalUpdateData.endTime = newEnd;
         } else {
-          // If time wasn't touched, remove startTime from updateData
-          // to prevent overwriting dates with the single date from req.body
           delete finalUpdateData.startTime;
           delete finalUpdateData.endTime;
         }
 
-        // E. Add to Bulk Operations
         bulkOps.push({
           updateOne: {
             filter: { _id: currentClass._id },
@@ -261,16 +324,10 @@ exports.updateClass = async (req, res) => {
         });
       }
 
-      // 3. Execute all updates at once
-      if (bulkOps.length > 0) {
+      if (bulkOps.length > 0)
         await ClassSchedule.bulkWrite(bulkOps, { session });
-      }
-
       await session.commitTransaction();
-      return res.status(200).json({
-        message: "Series updated successfully",
-        modifiedCount: bulkOps.length,
-      });
+      return res.status(200).json({ message: "Series updated successfully" });
     }
 
     res.status(400).json({ error: "Invalid update mode" });
@@ -281,7 +338,8 @@ exports.updateClass = async (req, res) => {
     session.endSession();
   }
 };
-// --- 4. DELETE CLASS ---
+
+// --- TOGGLE CLASS ---
 exports.toggleClass = async (req, res) => {
   try {
     const { id } = req.params;
@@ -290,35 +348,58 @@ exports.toggleClass = async (req, res) => {
     const targetClass = await ClassSchedule.findById(id);
     if (!targetClass) throw new Error("Class not found");
 
-    if (toggleMode === "all" && targetClass.recurrenceGroupId) {
-      const status = !targetClass.isActive ? "Active" : "Inactive";
-      if (targetClass.isActive) {
-        await ClassSchedule.updateMany(
-          { recurrenceGroupId: targetClass.recurrenceGroupId },
-          { isActive: false },
-        );
-      } else {
-        await ClassSchedule.updateMany(
-          { recurrenceGroupId: targetClass.recurrenceGroupId },
-          { isActive: true },
-        );
-      }
+    const willBeActive = !targetClass.isActive;
 
-      res.status(200).json({ message: `Entire Class ${status}` });
+    if (toggleMode === "all" && targetClass.recurrenceGroupId) {
+      if (willBeActive) {
+        const series = await ClassSchedule.find({
+          recurrenceGroupId: targetClass.recurrenceGroupId,
+        });
+        for (let cls of series) {
+          const conflictMsg = await localCheckConflicts(
+            cls.instructorId,
+            cls.startTime,
+            cls.endTime,
+            cls._id,
+            cls.studioId,
+          );
+          if (conflictMsg)
+            throw new Error(
+              `Cannot activate all: Conflict on ${cls.startTime.toDateString()}: ${conflictMsg}`,
+            );
+        }
+      }
+      await ClassSchedule.updateMany(
+        { recurrenceGroupId: targetClass.recurrenceGroupId },
+        { isActive: willBeActive },
+      );
+      return res.status(200).json({
+        message: `Entire Class Series ${willBeActive ? "Activated" : "Deactivated"}`,
+      });
     }
-    if (targetClass.isActive) {
-      targetClass.isActive = false;
-    } else {
-      targetClass.isActive = true;
+
+    if (willBeActive) {
+      const conflictMsg = await localCheckConflicts(
+        targetClass.instructorId,
+        targetClass.startTime,
+        targetClass.endTime,
+        targetClass._id,
+        targetClass.studioId,
+      );
+      if (conflictMsg) throw new Error(`Cannot activate class: ${conflictMsg}`);
     }
+
+    targetClass.isActive = willBeActive;
     await targetClass.save();
-    const status = targetClass.isActive ? "Active" : "Inactive";
-    res.status(200).json({ message: `Class ${status}` });
+    res
+      .status(200)
+      .json({ message: `Class ${willBeActive ? "Activated" : "Deactivated"}` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
+// --- DELETE CLASS ---
 exports.deleteClass = async (req, res) => {
   try {
     const { id } = req.params;

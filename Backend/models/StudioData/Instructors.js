@@ -15,6 +15,10 @@ const workingHoursSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Studios",
   },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const InstructorsSchema = new mongoose.Schema(
@@ -47,7 +51,7 @@ const InstructorsSchema = new mongoose.Schema(
     },
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Instructors", InstructorsSchema);

@@ -20,6 +20,8 @@ import {
   Camera,
   Lock,
   Settings,
+  CalendarDays,
+  Layers,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -38,29 +40,22 @@ const ManageInstructors = ({ isEmbedded = false }) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // --- Modal States ---
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
 
-  // --- Alert State ---
   const [alertState, setAlertState] = useState({
     isOpen: false,
     title: "",
     message: "",
     type: "error",
   });
-
-  const showAlert = (title, message, type = "error") => {
+  const showAlert = (title, message, type = "error") =>
     setAlertState({ isOpen: true, title, message, type });
-  };
-
-  const closeAlert = () => {
+  const closeAlert = () =>
     setAlertState((prev) => ({ ...prev, isOpen: false }));
-  };
 
-  // --- 1. Fetch Data ---
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -81,12 +76,9 @@ const ManageInstructors = ({ isEmbedded = false }) => {
   };
 
   useEffect(() => {
-    if (user?.adminStudioLocation) {
-      fetchData();
-    }
+    if (user?.adminStudioLocation) fetchData();
   }, [user.adminStudioLocation]);
 
-  // --- 2. Actions ---
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
@@ -97,19 +89,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
       setDeleteId(null);
     } catch (error) {
       showAlert("Delete Failed", "Could not delete the instructor.");
-    }
-  };
-
-  const handleToggleStatus = async (instructor) => {
-    try {
-      setActionMenuOpen(null);
-      await axiosInstance.put(
-        API_PATHS.INSTRUCTOR.TOGGLE_INSTRUCTOR(instructor._id),
-        { isActive: !instructor.isActive },
-      );
-      fetchData();
-    } catch (error) {
-      showAlert("Update Failed", "Could not update status.");
     }
   };
 
@@ -154,7 +133,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
       setEditingInstructor(null);
       fetchData();
     } catch (error) {
-      console.error("Save failed", error);
       showAlert(
         "Save Failed",
         error.response?.data?.message || "Failed to save instructor data.",
@@ -162,7 +140,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
     }
   };
 
-  // --- 3. Filter ---
   const filteredInstructors = useMemo(() => {
     return instructors.filter(
       (inst) =>
@@ -181,10 +158,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-6 md:p-10 ${
-        isEmbedded ? "pt-8" : ""
-      } bg-gray-50 relative min-h-screen`}>
-      {/* Header */}
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 relative min-h-screen`}>
       {!isEmbedded && (
         <div className='mb-8'>
           <h1 className='text-2xl font-bold text-gray-900'>
@@ -196,7 +170,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
         </div>
       )}
 
-      {/* Toolbar */}
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4'>
         <div className='relative w-full md:w-96'>
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
@@ -216,13 +189,11 @@ const ManageInstructors = ({ isEmbedded = false }) => {
             </span>{" "}
             instructors
           </div>
-
           <button
             onClick={() => setIsConfigModalOpen(true)}
             className='bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-colors font-bold text-sm shadow-sm'>
             <Settings className='w-4 h-4' /> Class Type Setting
           </button>
-
           <button
             onClick={() => {
               setEditingInstructor(null);
@@ -234,7 +205,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
         </div>
       </div>
 
-      {/* Grid */}
       <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20'>
         {filteredInstructors.map((inst) => (
           <InstructorCard
@@ -254,12 +224,10 @@ const ManageInstructors = ({ isEmbedded = false }) => {
               setDeleteId(inst._id);
               setActionMenuOpen(null);
             }}
-            onToggleStatus={() => handleToggleStatus(inst)}
           />
         ))}
       </div>
 
-      {/* --- Modals --- */}
       <AnimatePresence>
         {isFormOpen && (
           <InstructorFormModal
@@ -269,6 +237,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
             studios={studios}
             onSubmit={handleFormSubmit}
             showAlert={showAlert}
+            onRefresh={fetchData}
           />
         )}
       </AnimatePresence>
@@ -288,7 +257,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
         )}
       </AnimatePresence>
 
-      {/* --- CUSTOM ALERT MODAL --- */}
       <AnimatePresence>
         {alertState.isOpen && (
           <GenericAlertModal
@@ -316,16 +284,13 @@ const ManageInstructors = ({ isEmbedded = false }) => {
 };
 
 const InstructorAvatar = ({ src, alt, fallbackChar }) => {
-  const [imageState, setImageState] = useState("loading"); // loading, loaded, error
+  const [imageState, setImageState] = useState("loading");
 
   return (
     <div className='w-14 h-14 rounded-2xl bg-gray-100 overflow-hidden relative border border-gray-100 shrink-0'>
-      {/* 1. Loading Skeleton */}
       {imageState === "loading" && (
         <div className='absolute inset-0 bg-gray-200 animate-pulse' />
       )}
-
-      {/* 2. Actual Image */}
       {src && imageState !== "error" ? (
         <img
           src={src}
@@ -334,12 +299,9 @@ const InstructorAvatar = ({ src, alt, fallbackChar }) => {
           decoding='async'
           onLoad={() => setImageState("loaded")}
           onError={() => setImageState("error")}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            imageState === "loaded" ? "opacity-100" : "opacity-0"
-          }`}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${imageState === "loaded" ? "opacity-100" : "opacity-0"}`}
         />
       ) : (
-        /* 3. Fallback / Error State */
         <div className='absolute inset-0 flex items-center justify-center bg-emerald-100 text-emerald-800 font-bold text-xl'>
           {fallbackChar}
         </div>
@@ -349,14 +311,7 @@ const InstructorAvatar = ({ src, alt, fallbackChar }) => {
 };
 
 const InstructorCard = React.memo(
-  ({
-    instructor,
-    onEdit,
-    onDelete,
-    onToggleStatus,
-    isMenuOpen,
-    onToggleMenu,
-  }) => {
+  ({ instructor, onEdit, onDelete, isMenuOpen, onToggleMenu }) => {
     const getTypeColor = (type) => {
       if (type?.includes("Master"))
         return "bg-purple-50 text-purple-700 border-purple-100";
@@ -365,8 +320,9 @@ const InstructorCard = React.memo(
       return "bg-emerald-50 text-emerald-700 border-emerald-100";
     };
 
-    const shiftCount = Object.values(instructor.workingHours || {}).flat()
-      .length;
+    const shiftCount = Object.values(instructor.workingHours || {})
+      .flat()
+      .filter((s) => s.isActive !== false).length;
 
     return (
       <div
@@ -377,16 +333,12 @@ const InstructorCard = React.memo(
         className='bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all relative group'>
         <div className='flex justify-between items-start mb-4'>
           <div className='flex gap-4'>
-            {/* Use the new Optimized Avatar Component */}
             <InstructorAvatar
               src={instructor.avatar ? fetchImage(instructor.avatar) : null}
               alt={instructor.fullName}
               fallbackChar={instructor.fullName.charAt(0)}
             />
-
             <div className='min-w-0'>
-              {" "}
-              {/* min-w-0 fixes text truncation in flex */}
               <h3 className='font-bold text-gray-900 text-lg leading-tight truncate'>
                 {instructor.fullName}
               </h3>
@@ -395,18 +347,11 @@ const InstructorCard = React.memo(
               </p>
             </div>
           </div>
-
-          {/* Action Buttons */}
           <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 bg-white pl-2'>
             <button
               onClick={onEdit}
               className='p-2 bg-emerald-100 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded-lg transition-colors'>
               <Edit2 className='w-4 h-4' />
-            </button>
-            <button
-              onClick={onToggleStatus}
-              className='p-2 bg-blue-100 hover:bg-blue-50 text-blue-500 hover:text-blue-700 rounded-lg transition-colors'>
-              <Power className='w-4 h-4' />
             </button>
             <button
               onClick={onDelete}
@@ -415,20 +360,9 @@ const InstructorCard = React.memo(
             </button>
           </div>
         </div>
-
         <div className='flex flex-wrap gap-2 mb-6'>
           <span
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-              instructor.isActive
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-100 "
-                : "bg-red-50 text-red-500 border border-red-100"
-            }   flex items-center gap-1`}>
-            {instructor.isActive ? "Active" : "Inactive"}
-          </span>
-          <span
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeColor(
-              instructor.instructorType,
-            )}`}>
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${getTypeColor(instructor.instructorType)}`}>
             {instructor.instructorType}
           </span>
           <span className='px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-50 text-gray-600 border border-gray-100 flex items-center gap-1'>
@@ -436,12 +370,11 @@ const InstructorCard = React.memo(
             {instructor.assignedStudiosId?.length || 0} Studios
           </span>
         </div>
-
         <div className='flex items-center justify-between pt-4 border-t border-gray-50'>
           <div className='flex items-center gap-2 text-sm text-gray-500'>
             <Calendar className='w-4 h-4' />
             <span>
-              Weekly Shifts:{" "}
+              Active Shifts:{" "}
               <span className='font-bold text-gray-900'>{shiftCount}</span>
             </span>
           </div>
@@ -456,21 +389,20 @@ const InstructorCard = React.memo(
   },
 );
 
-// --- Sub-Component: Create/Edit Modal ---
+// --- Instructor Form with Modular Shift Toggles ---
 const InstructorFormModal = ({
   onClose,
   initialData,
   studios,
   onSubmit,
   showAlert,
+  onRefresh,
 }) => {
   const { user } = useAuth();
-
   const [formData, setFormData] = useState({
     fullName: initialData?.fullName || "",
     bio: initialData?.bio || "",
     instructorType: initialData?.instructorType || "Apprentice Instructor",
-    // Default to admin studio if creating new
     assignedStudiosId:
       initialData?.assignedStudiosId?.map((s) =>
         typeof s === "object" ? s._id : s,
@@ -490,32 +422,25 @@ const InstructorFormModal = ({
   const [shiftDay, setShiftDay] = useState("monday");
   const [shiftStart, setShiftStart] = useState("");
   const [shiftEnd, setShiftEnd] = useState("");
-  const [avatarPreview, setAvatarPreview] = useState(initialData?.avatar || "");
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(
+    initialData?.avatar ? fetchImage(initialData.avatar) : "",
+  );
 
-  // Auto-set the shift location to the admin's studio
+  const [shiftToToggle, setShiftToToggle] = useState(null); // Stores intent to pop modal
+  const [shiftConfirmLoading, setShiftConfirmLoading] = useState(false);
+
   const shiftLocation = user?.adminStudioLocation;
-
   const currentStudioName =
     studios.find((s) => s._id === user.adminStudioLocation)?.studioName ||
     "Current Studio";
 
-  const inputClass =
-    "w-full h-[46px] px-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400 flex items-center";
-  const textareaClass =
-    "w-full p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400";
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  const handleInputChange = (e) =>
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const previewUrl = URL.createObjectURL(file);
-      setAvatarPreview(previewUrl);
+      setAvatarPreview(URL.createObjectURL(file));
       setFormData((prev) => ({ ...prev, avatar: file }));
     }
   };
@@ -523,46 +448,40 @@ const InstructorFormModal = ({
   const toggleStudio = (studioId) => {
     setFormData((prev) => {
       const current = prev.assignedStudiosId;
-      if (current.includes(studioId)) {
-        return {
-          ...prev,
-          assignedStudiosId: current.filter((id) => id !== studioId),
-        };
-      } else {
-        return { ...prev, assignedStudiosId: [...current, studioId] };
-      }
+      return current.includes(studioId)
+        ? {
+            ...prev,
+            assignedStudiosId: current.filter((id) => id !== studioId),
+          }
+        : { ...prev, assignedStudiosId: [...current, studioId] };
     });
   };
 
-  const isOverlapping = (start1, end1, start2, end2) => {
-    return start1 < end2 && start2 < end1;
-  };
-
   const addShift = () => {
-    if (!shiftStart || !shiftEnd) {
-      showAlert("Missing Information", "Please fill in start and end time.");
-      return;
-    }
-
-    if (shiftStart >= shiftEnd) {
-      showAlert("Invalid Time", "End time must be later than start time.");
-      return;
-    }
+    if (!shiftStart || !shiftEnd)
+      return showAlert(
+        "Missing Information",
+        "Please fill in start and end time.",
+      );
+    if (shiftStart >= shiftEnd)
+      return showAlert(
+        "Invalid Time",
+        "End time must be later than start time.",
+      );
 
     const existingShifts = formData.workingHours[shiftDay] || [];
-    const hasCollision = existingShifts.some((existing) =>
-      isOverlapping(shiftStart, shiftEnd, existing.start, existing.end),
+    const hasCollision = existingShifts.some(
+      (existing) =>
+        existing.isActive !== false &&
+        shiftStart < existing.end &&
+        shiftEnd > existing.start,
     );
 
-    if (hasCollision) {
-      showAlert(
+    if (hasCollision)
+      return showAlert(
         "Schedule Conflict",
-        `This shift overlaps with an existing shift on ${
-          shiftDay.charAt(0).toUpperCase() + shiftDay.slice(1)
-        }.`,
+        `This overlaps with an active shift on ${shiftDay.charAt(0).toUpperCase() + shiftDay.slice(1)}.`,
       );
-      return;
-    }
 
     setFormData((prev) => ({
       ...prev,
@@ -570,7 +489,12 @@ const InstructorFormModal = ({
         ...prev.workingHours,
         [shiftDay]: [
           ...(prev.workingHours[shiftDay] || []),
-          { start: shiftStart, end: shiftEnd, location: shiftLocation },
+          {
+            start: shiftStart,
+            end: shiftEnd,
+            location: shiftLocation,
+            isActive: true,
+          },
         ].sort((a, b) => a.start.localeCompare(b.start)),
       },
     }));
@@ -589,31 +513,65 @@ const InstructorFormModal = ({
     });
   };
 
-  const handleSaveClick = (e) => {
-    e.preventDefault();
-    if (!formData.fullName) {
-      showAlert("Missing Name", "Please enter a full name.");
+  const triggerShiftToggle = (day, index, shift) => {
+    if (!shift._id) {
+      setFormData((prev) => {
+        const newWorkingHours = { ...prev.workingHours };
+        newWorkingHours[day][index].isActive = !(shift.isActive !== false);
+        return { ...prev, workingHours: newWorkingHours };
+      });
       return;
     }
-    setShowSaveConfirm(true);
+    setShiftToToggle({ day, index, shift });
   };
 
-  const handleCancelClick = () => {
-    if (JSON.stringify(formData) !== JSON.stringify(initialData || {})) {
-      setShowCancelConfirm(true);
-    } else {
-      onClose();
+  const executeBackendShiftToggle = async (mode, targetDate) => {
+    setShiftConfirmLoading(true);
+    try {
+      const { day, shift } = shiftToToggle;
+      const newStatus = !(shift.isActive !== false);
+
+      await axiosInstance.put(
+        `/api/instructors/${initialData._id}/shift/${shift._id}/toggle`,
+        {
+          day,
+          updateMode: mode,
+          targetDate,
+          isActive: newStatus,
+        },
+      );
+
+      if (mode !== "single") {
+        setFormData((prev) => {
+          const newWorkingHours = { ...prev.workingHours };
+          newWorkingHours[shiftToToggle.day][shiftToToggle.index].isActive =
+            newStatus;
+          return { ...prev, workingHours: newWorkingHours };
+        });
+      } else {
+        showAlert(
+          "Class Updated",
+          `The specific class on ${targetDate} was ${newStatus ? "activated" : "deactivated"}. The regular weekly shift remains unchanged.`,
+          "success",
+        );
+      }
+      onRefresh();
+    } catch (error) {
+      showAlert(
+        "Toggle Failed",
+        error.response?.data?.error || "Could not toggle the shift.",
+      );
+    } finally {
+      setShiftConfirmLoading(false);
+      setShiftToToggle(null);
     }
   };
 
-  const confirmSave = () => {
+  const handleSaveClick = (e) => {
+    e.preventDefault();
+    if (!formData.fullName)
+      return showAlert("Missing Name", "Please enter a full name.");
     onSubmit(formData);
-    setShowSaveConfirm(false);
-  };
-
-  const confirmCancel = () => {
-    onClose();
-    setShowCancelConfirm(false);
   };
 
   const days = [
@@ -631,10 +589,11 @@ const InstructorFormModal = ({
     "Senior Instructor",
     "Master Instructor",
   ];
-  const getDayLabel = (d) => d.charAt(0).toUpperCase() + d.slice(1);
+  const inputClass =
+    "w-full h-[46px] px-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400 flex items-center";
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm'>
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -644,7 +603,7 @@ const InstructorFormModal = ({
             {initialData ? "Edit Instructor" : "Create Instructor"}
           </h2>
           <button
-            onClick={handleCancelClick}
+            onClick={onClose}
             className='p-1 rounded-full hover:bg-gray-200'>
             <X className='w-5 h-5 text-gray-500' />
           </button>
@@ -652,9 +611,6 @@ const InstructorFormModal = ({
 
         <div className='flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar'>
           <div className='space-y-4'>
-            <h3 className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
-              Basic Information
-            </h3>
             <div className='flex items-center gap-4'>
               <div className='relative w-20 h-20 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0 group'>
                 {avatarPreview ? (
@@ -683,7 +639,6 @@ const InstructorFormModal = ({
                 </p>
               </div>
             </div>
-
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
               <div>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -719,7 +674,7 @@ const InstructorFormModal = ({
                 value={formData.bio}
                 onChange={handleInputChange}
                 rows='3'
-                className={textareaClass}
+                className='w-full p-3 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-gray-400'
                 placeholder='Short biography...'
               />
             </div>
@@ -734,7 +689,6 @@ const InstructorFormModal = ({
                 const isSelected = formData.assignedStudiosId.includes(
                   studio._id,
                 );
-                // Strict check: IDs must match exactly as strings
                 const isAllowed =
                   String(studio._id) === String(user.adminStudioLocation);
 
@@ -744,28 +698,7 @@ const InstructorFormModal = ({
                     type='button'
                     disabled={!isAllowed}
                     onClick={() => toggleStudio(studio._id)}
-                    className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 
-                      ${
-                        isSelected && isAllowed
-                          ? "bg-emerald-100 border-emerald-200 text-emerald-800"
-                          : ""
-                      } 
-                      ${
-                        isSelected && !isAllowed
-                          ? "bg-gray-100 border-gray-200 text-gray-500 opacity-70 cursor-not-allowed"
-                          : ""
-                      }
-                      ${
-                        !isSelected && isAllowed
-                          ? "bg-white border-gray-200 text-gray-500 hover:border-emerald-300 cursor-pointer"
-                          : ""
-                      }
-                      ${
-                        !isSelected && !isAllowed
-                          ? "bg-gray-50 border-gray-100 text-gray-300 opacity-50 cursor-not-allowed"
-                          : ""
-                      }
-                    `}>
+                    className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${isSelected && isAllowed ? "bg-emerald-100 border-emerald-200 text-emerald-800" : ""} ${isSelected && !isAllowed ? "bg-gray-100 border-gray-200 text-gray-500 opacity-70 cursor-not-allowed" : ""} ${!isSelected && isAllowed ? "bg-white border-gray-200 text-gray-500 hover:border-emerald-300 cursor-pointer" : ""} ${!isSelected && !isAllowed ? "bg-gray-50 border-gray-100 text-gray-300 opacity-50 cursor-not-allowed" : ""}`}>
                     {isSelected ? (
                       isAllowed ? (
                         <CheckCircle2 className='w-4 h-4' />
@@ -786,15 +719,16 @@ const InstructorFormModal = ({
 
           <div className='space-y-4 pt-2 border-t border-gray-100'>
             <h3 className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
-              Manage Schedule
+              Manage Studio Schedule
             </h3>
-            {/* Shift Input Box */}
             <div className='bg-gray-50 p-4 rounded-2xl border border-gray-200 grid grid-cols-1 md:grid-cols-12 gap-3 items-end'>
               <div className='md:col-span-3'>
                 <CustomSelect
                   label='Day'
-                  value={getDayLabel(shiftDay)}
-                  options={days.map(getDayLabel)}
+                  value={shiftDay.charAt(0).toUpperCase() + shiftDay.slice(1)}
+                  options={days.map(
+                    (d) => d.charAt(0).toUpperCase() + d.slice(1),
+                  )}
                   onChange={(val) => setShiftDay(val.toLowerCase())}
                 />
               </div>
@@ -820,7 +754,6 @@ const InstructorFormModal = ({
                   className={inputClass}
                 />
               </div>
-              {/* Auto-Locked Location Display */}
               <div className='md:col-span-3'>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
                   Location
@@ -840,7 +773,6 @@ const InstructorFormModal = ({
               </div>
             </div>
 
-            {/* Shift List */}
             <div className='space-y-2 mt-4'>
               {days.map((day) => {
                 const shifts = formData.workingHours[day] || [];
@@ -861,8 +793,6 @@ const InstructorFormModal = ({
                         const isMyStudio =
                           String(shiftLocId) ===
                           String(user.adminStudioLocation);
-
-                        // Find studio name safely
                         const studioObj = studios.find(
                           (s) => String(s._id) === String(shiftLocId),
                         );
@@ -871,17 +801,14 @@ const InstructorFormModal = ({
                           (typeof shift.location === "object"
                             ? shift.location.studioName
                             : "Unknown");
+                        const isShiftActive = shift.isActive !== false;
 
                         return (
                           <div
                             key={idx}
-                            className={`group flex items-center gap-2 border pl-3 pr-2 py-1.5 rounded-lg text-xs shadow-sm transition-colors ${
-                              isMyStudio
-                                ? "bg-white border-gray-200 hover:border-emerald-200"
-                                : "bg-gray-50 border-gray-100 text-gray-500 opacity-80"
-                            }`}>
+                            className={`group flex items-center gap-2 border pl-3 pr-2 py-1.5 rounded-lg text-xs shadow-sm transition-colors ${isMyStudio ? (isShiftActive ? "bg-white border-gray-200 hover:border-emerald-200" : "bg-gray-100 border-gray-200 opacity-60") : "bg-gray-50 border-gray-100 text-gray-500 opacity-80"}`}>
                             <Clock
-                              className={`w-3 h-3 ${isMyStudio ? "text-emerald-600" : "text-gray-400"}`}
+                              className={`w-3 h-3 ${isMyStudio ? (isShiftActive ? "text-emerald-600" : "text-gray-400") : "text-gray-400"}`}
                             />
                             <span
                               className={`font-bold ${isMyStudio ? "text-gray-900" : "text-gray-500"}`}>
@@ -893,13 +820,30 @@ const InstructorFormModal = ({
                               {studioName}
                             </span>
 
-                            {/* Only allow deleting if it's the admin's studio */}
                             {isMyStudio ? (
-                              <button
-                                onClick={() => removeShift(day, idx)}
-                                className='ml-1 p-1 rounded-md text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors'>
-                                <X className='w-3 h-3' />
-                              </button>
+                              <>
+                                <button
+                                  type='button'
+                                  onClick={() =>
+                                    triggerShiftToggle(day, idx, shift)
+                                  }
+                                  className='ml-1 p-1 rounded-md text-gray-400 hover:bg-gray-200 transition-colors'
+                                  title={
+                                    isShiftActive
+                                      ? "Deactivate Shift"
+                                      : "Activate Shift"
+                                  }>
+                                  <Power
+                                    className={`w-3 h-3 ${isShiftActive ? "text-emerald-600" : "text-gray-500"}`}
+                                  />
+                                </button>
+                                <button
+                                  type='button'
+                                  onClick={() => removeShift(day, idx)}
+                                  className='p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors'>
+                                  <X className='w-3 h-3' />
+                                </button>
+                              </>
                             ) : (
                               <div className='ml-1 p-1'>
                                 <Lock className='w-3 h-3 text-gray-300' />
@@ -918,7 +862,7 @@ const InstructorFormModal = ({
 
         <div className='p-4 border-t border-gray-100 flex gap-3 bg-white'>
           <button
-            onClick={handleCancelClick}
+            onClick={onClose}
             className='flex-1 py-3 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition-colors'>
             Cancel
           </button>
@@ -930,38 +874,155 @@ const InstructorFormModal = ({
         </div>
       </motion.div>
 
-      {/* Confirmation Modals nested inside the form modal */}
+      {/* --- Sub-Modal: Target Class Options on Shift Toggle --- */}
       <AnimatePresence>
-        {showSaveConfirm && (
-          <ConfirmationModal
-            title='Save Changes?'
-            message='Are you sure you want to save these changes?'
-            confirmText='Yes, Save'
-            confirmColor='bg-emerald-600 hover:bg-emerald-700'
-            icon={<Save className='w-6 h-6' />}
-            iconColor='text-emerald-600 bg-emerald-100'
-            onClose={() => setShowSaveConfirm(false)}
-            onConfirm={confirmSave}
-          />
-        )}
-        {showCancelConfirm && (
-          <ConfirmationModal
-            title='Discard Changes?'
-            message='You have unsaved changes. Are you sure you want to discard them?'
-            confirmText='Yes, Discard'
-            confirmColor='bg-red-600 hover:bg-red-700'
-            icon={<AlertTriangle className='w-6 h-6' />}
-            iconColor='text-amber-600 bg-amber-100'
-            onClose={() => setShowCancelConfirm(false)}
-            onConfirm={confirmCancel}
-          />
+        {shiftToToggle && (
+          <div className='fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm'>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className='bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden'>
+              <div className='bg-gray-50 p-6 border-b border-gray-100 flex flex-col items-center text-center'>
+                <div
+                  className={`flex items-center justify-center w-12 h-12 rounded-full mb-4 ${shiftToToggle.shift.isActive !== false ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>
+                  <Power className='w-6 h-6' />
+                </div>
+                <h3 className='text-xl font-bold text-gray-900 mb-2'>
+                  {shiftToToggle.shift.isActive !== false
+                    ? "Deactivate"
+                    : "Activate"}{" "}
+                  Weekly Shift?
+                </h3>
+                <p className='text-sm text-gray-500'>
+                  You are about to{" "}
+                  {shiftToToggle.shift.isActive !== false
+                    ? "deactivate"
+                    : "activate"}{" "}
+                  this instructor's shift. How should this affect the currently
+                  scheduled classes?
+                </p>
+              </div>
+              <div className='p-6'>
+                <ShiftToggleActions
+                  isActivating={shiftToToggle.shift.isActive === false}
+                  onConfirm={executeBackendShiftToggle}
+                  onCancel={() => setShiftToToggle(null)}
+                  loading={shiftConfirmLoading}
+                />
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
   );
 };
 
-// --- Generic Alert Modal ---
+// Elevated Design: Custom Interactive Cards replacing the native `<select>` dropdown
+const ShiftToggleActions = ({ isActivating, onConfirm, onCancel, loading }) => {
+  const [mode, setMode] = useState("all");
+  const [targetDate, setTargetDate] = useState("");
+
+  const actionText = isActivating ? "Activate" : "Deactivate";
+
+  const options = [
+    {
+      id: "none",
+      title: "Template Only",
+      desc: "Updates the weekly shift template without modifying existing classes.",
+      icon: <Settings className='w-5 h-5' />,
+    },
+    {
+      id: "single",
+      title: "Single Class Date",
+      desc: `Applies this status change to a specific date only.`,
+      icon: <CalendarDays className='w-5 h-5' />,
+    },
+    {
+      id: "all",
+      title: "All Future Classes",
+      desc: "Applies this status change to all currently scheduled future classes.",
+      icon: <Layers className='w-5 h-5' />,
+    },
+  ];
+
+  return (
+    <div className='space-y-5'>
+      <div className='space-y-3'>
+        {options.map((opt) => (
+          <div
+            key={opt.id}
+            onClick={() => setMode(opt.id)}
+            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+              mode === opt.id
+                ? "border-emerald-500 bg-emerald-50/50 shadow-sm"
+                : "border-gray-100 bg-white hover:border-emerald-200"
+            }`}>
+            <div
+              className={`mt-0.5 ${mode === opt.id ? "text-emerald-600" : "text-gray-400"}`}>
+              {opt.icon}
+            </div>
+            <div>
+              <h4
+                className={`text-sm font-bold ${mode === opt.id ? "text-emerald-900" : "text-gray-700"}`}>
+                {opt.title}
+              </h4>
+              <p
+                className={`text-xs mt-1 ${mode === opt.id ? "text-emerald-700" : "text-gray-500"}`}>
+                {opt.desc}
+              </p>
+            </div>
+
+            {mode === opt.id && (
+              <div className='ml-auto mt-0.5 text-emerald-600'>
+                <CheckCircle2 className='w-5 h-5' />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {mode === "single" && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className='overflow-hidden'>
+            <div className='pt-2 pb-1'>
+              <label className='block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider'>
+                Select Date to {actionText}
+              </label>
+              <input
+                type='date'
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                className='w-full p-3.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all'
+                required
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className='flex gap-3 pt-4 border-t border-gray-100'>
+        <button
+          onClick={onCancel}
+          className='flex-1 py-3 bg-white text-gray-600 border border-gray-200 font-bold rounded-xl hover:bg-gray-50 transition-colors'>
+          Cancel
+        </button>
+        <button
+          onClick={() => onConfirm(mode, targetDate)}
+          disabled={loading || (mode === "single" && !targetDate)}
+          className='flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-lg shadow-emerald-600/20 active:scale-95'>
+          {loading ? "Saving..." : "Confirm"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const GenericAlertModal = ({ title, message, type, onClose }) => {
   return (
     <div className='fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs'>
@@ -971,11 +1032,7 @@ const GenericAlertModal = ({ title, message, type, onClose }) => {
         exit={{ scale: 0.9, opacity: 0 }}
         className='bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center border border-gray-100'>
         <div
-          className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            type === "error"
-              ? "bg-red-100 text-red-600"
-              : "bg-blue-100 text-blue-600"
-          }`}>
+          className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${type === "error" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}>
           {type === "error" ? (
             <AlertCircle className='w-6 h-6' />
           ) : (
@@ -994,7 +1051,6 @@ const GenericAlertModal = ({ title, message, type, onClose }) => {
   );
 };
 
-// --- Generic Confirmation Modal ---
 const ConfirmationModal = ({
   title,
   message,
@@ -1005,7 +1061,7 @@ const ConfirmationModal = ({
   onClose,
   onConfirm,
 }) => (
-  <div className='fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/20 backdrop-blur-[2px]'>
+  <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/20 backdrop-blur-[2px]'>
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -1070,7 +1126,7 @@ const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
   };
 
   return (
-    <div className='fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+    <div className='fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -1081,7 +1137,6 @@ const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
             <X className='text-gray-400 hover:text-gray-600' />
           </button>
         </div>
-
         <form onSubmit={handleAdd} className='flex gap-2 mb-4'>
           <input
             value={newItem}
@@ -1095,7 +1150,6 @@ const ManageTypesModal = ({ isOpen, onClose, config, studioId, onUpdate }) => {
             <PlusCircle className='w-5 h-5' />
           </button>
         </form>
-
         <div className='space-y-2 max-h-60 overflow-y-auto custom-scrollbar'>
           {config[activeTab]?.map((item) => (
             <div
