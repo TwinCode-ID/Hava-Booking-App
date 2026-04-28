@@ -75,8 +75,12 @@ const getSafePassData = (pass) => ({
   sharedWith: Array.isArray(pass?.sharedWith)
     ? pass.sharedWith.map(getSafeClientData)
     : [],
-  snapshotName: pass?.packageNameSnapshot || pass?.packageId?.packageName || "Unknown Package",
-  snapshotCategory: pass?.packageCategorySnapshot || pass?.packageId?.packageCategory || [],
+  snapshotName:
+    pass?.packageNameSnapshot ||
+    pass?.packageId?.packageName ||
+    "Unknown Package",
+  snapshotCategory:
+    pass?.packageCategorySnapshot || pass?.packageId?.packageCategory || [],
   remainingCredits: pass?.remainingCredits ?? pass?.initialCredits ?? 0,
   creditsPurchased:
     pass?.initialCredits ??
@@ -166,7 +170,7 @@ const ClientManager = ({ isEmbedded = false }) => {
   const [showAddMedicalModal, setShowAddMedicalModal] = useState(false);
   const [showViewMedicalModal, setShowViewMedicalModal] = useState(false);
   const [viewingCombinedItem, setViewingCombinedItem] = useState(null);
-  
+
   // State for Editing: Handles global expiry update or single pass limit updates
   const [editingTarget, setEditingTarget] = useState(null);
 
@@ -307,37 +311,50 @@ const ClientManager = ({ isEmbedded = false }) => {
 
         const txnTime = new Date(txn.createdAt).getTime();
         const passTime = new Date(p.createdAt).getTime();
-        return Math.abs(txnTime - passTime) < 5000;
+        // ADD THIS: Safely get the explicit purchaseDate
+        const purchaseDate = p.purchaseDate
+          ? new Date(p.purchaseDate).getTime()
+          : passTime;
+
+        // FIX: Match if either the createdAt OR purchaseDate is within 5 seconds
+        return (
+          Math.abs(txnTime - passTime) < 5000 ||
+          Math.abs(txnTime - purchaseDate) < 5000
+        );
       });
 
-      matchedPasses.forEach(p => usedPassIds.add(p._id));
+      matchedPasses.forEach((p) => usedPassIds.add(p._id));
 
       combined.push({
         _id: txn._id,
         isTxn: true,
         txnData: txn,
-        passes: matchedPasses, 
+        passes: matchedPasses,
         createdAt: txn.createdAt,
       });
     });
 
     // 2. Group remaining passes
-    const remainingPasses = passes.filter(p => !usedPassIds.has(p._id));
+    const remainingPasses = passes.filter((p) => !usedPassIds.has(p._id));
     const groupedRemaining = [];
 
-    remainingPasses.forEach(pass => {
+    remainingPasses.forEach((pass) => {
       if (usedPassIds.has(pass._id)) return;
 
-      const siblings = remainingPasses.filter(p => 
-        !usedPassIds.has(p._id) &&
-        p.packageId?._id === pass.packageId?._id &&
-        Math.abs(new Date(p.createdAt).getTime() - new Date(pass.createdAt).getTime()) < 5000
+      const siblings = remainingPasses.filter(
+        (p) =>
+          !usedPassIds.has(p._id) &&
+          p.packageId?._id === pass.packageId?._id &&
+          Math.abs(
+            new Date(p.createdAt).getTime() -
+              new Date(pass.createdAt).getTime(),
+          ) < 5000,
       );
 
-      siblings.forEach(p => usedPassIds.add(p._id));
+      siblings.forEach((p) => usedPassIds.add(p._id));
 
       groupedRemaining.push({
-        _id: siblings[0]._id, 
+        _id: siblings[0]._id,
         isTxn: false,
         txnData: null,
         passes: siblings,
@@ -480,9 +497,11 @@ const ClientManager = ({ isEmbedded = false }) => {
       });
 
       if (viewingCombinedItem) {
-        setViewingCombinedItem(prev => ({
+        setViewingCombinedItem((prev) => ({
           ...prev,
-          passes: prev.passes.map(p => p._id === passId ? response.data.pass : p)
+          passes: prev.passes.map((p) =>
+            p._id === passId ? response.data.pass : p,
+          ),
         }));
       }
 
@@ -611,7 +630,7 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   const getOverallItemStatus = (item) => {
     if (item.isTxn && item.txnData.status !== "confirmed") {
-        return item.txnData.status; 
+      return item.txnData.status;
     }
 
     if (!item.passes || item.passes.length === 0) return "inactive";
@@ -620,17 +639,19 @@ const ClientManager = ({ isEmbedded = false }) => {
     let hasFrozen = false;
     let hasActive = false;
 
-    item.passes.forEach(p => {
-        const freezeEndDate = p.freeze?.endDate ? new Date(p.freeze.endDate) : null;
-        if (p.freeze?.hasBeenFrozen && freezeEndDate && today < freezeEndDate) {
-            hasFrozen = true;
-        } else if (p.isActive) {
-            hasActive = true;
-        }
+    item.passes.forEach((p) => {
+      const freezeEndDate = p.freeze?.endDate
+        ? new Date(p.freeze.endDate)
+        : null;
+      if (p.freeze?.hasBeenFrozen && freezeEndDate && today < freezeEndDate) {
+        hasFrozen = true;
+      } else if (p.isActive) {
+        hasActive = true;
+      }
     });
 
     if (hasFrozen) return "frozen";
-    if (hasActive) return "confirmed"; 
+    if (hasActive) return "confirmed";
     return "inactive";
   };
 
@@ -998,15 +1019,27 @@ const ClientManager = ({ isEmbedded = false }) => {
                           item.passes[0]?.packageId ||
                           item.txnData?.packageId ||
                           {};
-                        
-                        const snapshotName = item.passes[0]?.snapshotName || packageObj.packageName || "Unknown Package";
-                        const snapshotCategory = item.passes[0]?.snapshotCategory || packageObj.packageCategory || [];
+
+                        const snapshotName =
+                          item.passes[0]?.snapshotName ||
+                          packageObj.packageName ||
+                          "Unknown Package";
+                        const snapshotCategory =
+                          item.passes[0]?.snapshotCategory ||
+                          packageObj.packageCategory ||
+                          [];
 
                         const displayStatus = getOverallItemStatus(item);
 
                         // Summarize credits across all passes in item
-                        const totalRemaining = item.passes.reduce((sum, p) => sum + (p.remainingCredits || 0), 0);
-                        const totalPurchased = item.passes.reduce((sum, p) => sum + (p.creditsPurchased || 0), 0);
+                        const totalRemaining = item.passes.reduce(
+                          (sum, p) => sum + (p.remainingCredits || 0),
+                          0,
+                        );
+                        const totalPurchased = item.passes.reduce(
+                          (sum, p) => sum + (p.creditsPurchased || 0),
+                          0,
+                        );
 
                         return (
                           <tr
@@ -1046,15 +1079,17 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 </div>
                                 {isCombo && (
                                   <span className='px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
-                                    <Layers className="w-3 h-3"/> Combo
+                                    <Layers className='w-3 h-3' /> Combo
                                   </span>
                                 )}
                               </div>
-                              
+
                               {snapshotCategory.length > 0 && (
                                 <div className='flex gap-1 mb-2 flex-wrap'>
                                   {snapshotCategory.map((cat, i) => (
-                                    <span key={i} className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                                    <span
+                                      key={i}
+                                      className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
                                       {cat}
                                     </span>
                                   ))}
@@ -1073,7 +1108,8 @@ const ClientManager = ({ isEmbedded = false }) => {
                                       {totalRemaining} left
                                     </span>
                                     <span className='text-gray-400'>
-                                      / {totalPurchased} total {isCombo && "across combo"}
+                                      / {totalPurchased} total{" "}
+                                      {isCombo && "across combo"}
                                     </span>
                                   </div>
                                   <div className='w-full bg-slate-100 rounded-full h-1.5 overflow-hidden'>
@@ -1143,16 +1179,28 @@ const ClientManager = ({ isEmbedded = false }) => {
                     {combinedHistory.map((item, idx) => {
                       const isCombo = item.passes && item.passes.length > 1;
                       const packageObj =
-                          item.passes[0]?.packageId ||
-                          item.txnData?.packageId ||
-                          {};
-                        
-                      const snapshotName = item.passes[0]?.snapshotName || packageObj.packageName || "Unknown Package";
-                      const snapshotCategory = item.passes[0]?.snapshotCategory || packageObj.packageCategory || [];
+                        item.passes[0]?.packageId ||
+                        item.txnData?.packageId ||
+                        {};
+
+                      const snapshotName =
+                        item.passes[0]?.snapshotName ||
+                        packageObj.packageName ||
+                        "Unknown Package";
+                      const snapshotCategory =
+                        item.passes[0]?.snapshotCategory ||
+                        packageObj.packageCategory ||
+                        [];
                       const displayStatus = getOverallItemStatus(item);
 
-                      const totalRemaining = item.passes.reduce((sum, p) => sum + (p.remainingCredits || 0), 0);
-                      const totalPurchased = item.passes.reduce((sum, p) => sum + (p.creditsPurchased || 0), 0);
+                      const totalRemaining = item.passes.reduce(
+                        (sum, p) => sum + (p.remainingCredits || 0),
+                        0,
+                      );
+                      const totalPurchased = item.passes.reduce(
+                        (sum, p) => sum + (p.creditsPurchased || 0),
+                        0,
+                      );
 
                       return (
                         <div
@@ -1177,9 +1225,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                   : "Manual Assign"}
                               </div>
                             </div>
-                            <div>
-                              {renderStatusBadge(displayStatus)}
-                            </div>
+                            <div>{renderStatusBadge(displayStatus)}</div>
                           </div>
 
                           <div>
@@ -1189,15 +1235,17 @@ const ClientManager = ({ isEmbedded = false }) => {
                               </div>
                               {isCombo && (
                                 <span className='px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
-                                  <Layers className="w-3 h-3"/> Combo
+                                  <Layers className='w-3 h-3' /> Combo
                                 </span>
                               )}
                             </div>
-                            
+
                             {snapshotCategory.length > 0 && (
                               <div className='flex gap-1 mb-2 flex-wrap'>
                                 {snapshotCategory.map((cat, i) => (
-                                  <span key={i} className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                                  <span
+                                    key={i}
+                                    className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
                                     {cat}
                                   </span>
                                 ))}
@@ -1361,9 +1409,9 @@ const UnifiedDetailModal = ({
   const [showUnfreezeConfirm, setShowUnfreezeConfirm] = useState(false);
   const [freezeData, setFreezeData] = useState({ startDate: "", endDate: "" });
   const [isFreezing, setIsFreezing] = useState(false);
-  
+
   const [isSendingReminder, setIsSendingReminder] = useState(false);
-  
+
   const [shareData, setShareData] = useState(null);
   const [isSharing, setIsSharing] = useState(false);
   const [showEmailInput, setShowEmailInput] = useState(false);
@@ -1374,8 +1422,11 @@ const UnifiedDetailModal = ({
   const hasBeenFrozen = basePass?.freeze?.hasBeenFrozen || false;
 
   const today = new Date();
-  const freezeEndDate = basePass?.freeze?.endDate ? new Date(basePass.freeze.endDate) : null;
-  const isCurrentlyFrozen = hasBeenFrozen && freezeEndDate && today < freezeEndDate;
+  const freezeEndDate = basePass?.freeze?.endDate
+    ? new Date(basePass.freeze.endDate)
+    : null;
+  const isCurrentlyFrozen =
+    hasBeenFrozen && freezeEndDate && today < freezeEndDate;
 
   const isSharedToMe = basePass?.userId?._id !== client._id;
 
@@ -1390,13 +1441,18 @@ const UnifiedDetailModal = ({
   };
 
   const handleGlobalFreezeAction = async (action) => {
-    if (action === "admin_freeze" && (!freezeData.startDate || !freezeData.endDate)) {
+    if (
+      action === "admin_freeze" &&
+      (!freezeData.startDate || !freezeData.endDate)
+    ) {
       return alert("Please select start and end dates.");
     }
     setIsFreezing(true);
-    
+
     try {
-      await Promise.all(passes.map(p => onManageFreeze(p._id, action, freezeData)));
+      await Promise.all(
+        passes.map((p) => onManageFreeze(p._id, action, freezeData)),
+      );
       setShowFreezeForm(false);
       setShowUnfreezeConfirm(false);
     } catch (err) {
@@ -1409,7 +1465,9 @@ const UnifiedDetailModal = ({
   const handleGlobalReminder = async () => {
     setIsSendingReminder(true);
     try {
-      await Promise.all(passes.map(p => axiosInstance.post(`/api/passes/${p._id}/reminder`)));
+      await Promise.all(
+        passes.map((p) => axiosInstance.post(`/api/passes/${p._id}/reminder`)),
+      );
       alert("Reminder sent successfully to the user's devices!");
     } catch (error) {
       console.error(error);
@@ -1442,7 +1500,9 @@ const UnifiedDetailModal = ({
     if (!shareEmail) return alert("Please enter an email address.");
     setIsSendingEmail(true);
     try {
-      const link = shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`;
+      const link =
+        shareData?.link ||
+        `${window.location.origin}/shared-pass/${basePass.shareCode}`;
       await axiosInstance.post(`/api/passes/share/${basePass._id}/email`, {
         email: shareEmail,
         shareLink: link,
@@ -1465,19 +1525,19 @@ const UnifiedDetailModal = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         className='bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]'>
-        
         <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0'>
           <h3 className='text-lg sm:text-xl font-extrabold text-gray-900 flex items-center gap-2'>
-             {isCombo ? "Combo Package Details" : "Package & Transaction"}
-             {isCombo && <Layers className="w-5 h-5 text-emerald-600"/>}
+            {isCombo ? "Combo Package Details" : "Package & Transaction"}
+            {isCombo && <Layers className='w-5 h-5 text-emerald-600' />}
           </h3>
-          <button onClick={onClose} className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
+          <button
+            onClick={onClose}
+            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
             <X className='w-5 h-5 text-gray-500' />
           </button>
         </div>
 
         <div className='overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50 p-5 sm:p-8 space-y-6'>
-          
           <div className='text-center space-y-3 mb-4'>
             {isTxn && (
               <p className='text-[32px] sm:text-[38px] font-extrabold font-mono text-gray-900 tracking-tight leading-none'>
@@ -1497,8 +1557,9 @@ const UnifiedDetailModal = ({
           {basePass && (
             <>
               {isCombo && (
-                <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 p-4 rounded-xl text-sm font-medium leading-relaxed">
-                  This is a <strong>Combo Package</strong> containing {passes.length} passes.
+                <div className='bg-emerald-50 border border-emerald-100 text-emerald-800 p-4 rounded-xl text-sm font-medium leading-relaxed'>
+                  This is a <strong>Combo Package</strong> containing{" "}
+                  {passes.length} passes.
                 </div>
               )}
 
@@ -1517,7 +1578,7 @@ const UnifiedDetailModal = ({
                       {isSendingReminder ? "Sending..." : "Reminder"}
                     </button>
                     <button
-                      onClick={() => onEditTarget({ type: 'global', passes })}
+                      onClick={() => onEditTarget({ type: "global", passes })}
                       className='text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5'>
                       <Edit2 className='w-3 h-3' /> Edit Expiry
                     </button>
@@ -1526,92 +1587,130 @@ const UnifiedDetailModal = ({
 
                 <div className='grid grid-cols-2 gap-y-6 gap-x-4'>
                   <div>
-                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>Package</p>
+                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+                      Package
+                    </p>
                     <p className='text-sm font-bold text-gray-900 mb-1.5'>
-                      {basePass?.snapshotName || basePass.packageId?.packageName || "Unknown"}
+                      {basePass?.snapshotName ||
+                        basePass.packageId?.packageName ||
+                        "Unknown"}
                     </p>
                     <div className='flex gap-1 flex-wrap'>
-                      {(basePass?.snapshotCategory || basePass.packageId?.packageCategory || []).map((cat, i) => (
-                        <span key={i} className='px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                      {(
+                        basePass?.snapshotCategory ||
+                        basePass.packageId?.packageCategory ||
+                        []
+                      ).map((cat, i) => (
+                        <span
+                          key={i}
+                          className='px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
                           {cat}
                         </span>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>Expiry Date</p>
+                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+                      Expiry Date
+                    </p>
                     <p className='text-sm font-bold text-gray-900'>
-                      {basePass.expiryDate ? formatDate(basePass.expiryDate) : "None"}
+                      {basePass.expiryDate
+                        ? formatDate(basePass.expiryDate)
+                        : "None"}
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* 2. Sub-Passes Config (Credits & Classes) */}
-              <div className="space-y-4">
-                 {isCombo && <h4 className="text-[14px] font-extrabold text-gray-900 px-1 mt-2">Included Passes</h4>}
-                 {passes.map((pass, index) => (
-                    <div key={pass._id} className="bg-slate-50 border border-gray-200/60 p-5 rounded-xl">
-                       <div className="flex items-center justify-between mb-5">
-                          <span className="font-extrabold text-gray-700 text-sm">
-                             {isCombo ? `Pass ${index + 1}` : "Pass Limits"}
-                          </span>
-                          <button
-                            onClick={() => onEditTarget({ type: 'single', pass })}
-                            className='text-[10px] font-bold text-emerald-700 bg-emerald-100/50 px-2.5 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5'>
-                            <Edit2 className='w-3 h-3' /> Edit Limits
-                          </button>
-                       </div>
-
-                       <div className='mb-6'>
-                          <div className='flex items-center gap-2 mb-1.5 font-medium'>
-                            <span className={`text-lg font-bold ${pass.remainingCredits > 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                              {pass.remainingCredits}
-                            </span>
-                            <span className='text-gray-400 text-xs'>/ {pass.creditsPurchased} remaining</span>
-                          </div>
-                          <div className='w-full bg-slate-200 rounded-full h-2 overflow-hidden'>
-                            <div
-                              className={`h-2 rounded-full transition-all duration-500 ${pass.remainingCredits === 0 ? "bg-rose-400" : "bg-emerald-500"}`}
-                              style={{ width: `${Math.min(100, (pass.remainingCredits / Math.max(1, pass.creditsPurchased)) * 100)}%` }}>
-                            </div>
-                          </div>
-                       </div>
-
-                       <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200/60'>
-                          <div>
-                            <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>Allowed Classes</p>
-                            <div className='flex flex-wrap gap-2'>
-                              {(!pass.classType || pass.classType.length === 0) && (
-                                <span className='text-[12px] text-gray-400 font-medium italic'>No restrictions</span>
-                              )}
-                              {pass.classType?.map((t) => (
-                                <span key={t} className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
-                                  {t}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>Allowed Instructors</p>
-                            <div className='flex flex-wrap gap-2'>
-                              {(!pass.instructorType || pass.instructorType.length === 0) && (
-                                <span className='text-[12px] text-gray-400 font-medium italic'>No restrictions</span>
-                              )}
-                              {pass.instructorType?.map((t) => (
-                                <span key={t} className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
-                                  {t}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                       </div>
+              <div className='space-y-4'>
+                {isCombo && (
+                  <h4 className='text-[14px] font-extrabold text-gray-900 px-1 mt-2'>
+                    Included Passes
+                  </h4>
+                )}
+                {passes.map((pass, index) => (
+                  <div
+                    key={pass._id}
+                    className='bg-slate-50 border border-gray-200/60 p-5 rounded-xl'>
+                    <div className='flex items-center justify-between mb-5'>
+                      <span className='font-extrabold text-gray-700 text-sm'>
+                        {isCombo ? `Pass ${index + 1}` : "Pass Limits"}
+                      </span>
+                      <button
+                        onClick={() => onEditTarget({ type: "single", pass })}
+                        className='text-[10px] font-bold text-emerald-700 bg-emerald-100/50 px-2.5 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5'>
+                        <Edit2 className='w-3 h-3' /> Edit Limits
+                      </button>
                     </div>
-                 ))}
+
+                    <div className='mb-6'>
+                      <div className='flex items-center gap-2 mb-1.5 font-medium'>
+                        <span
+                          className={`text-lg font-bold ${pass.remainingCredits > 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                          {pass.remainingCredits}
+                        </span>
+                        <span className='text-gray-400 text-xs'>
+                          / {pass.creditsPurchased} remaining
+                        </span>
+                      </div>
+                      <div className='w-full bg-slate-200 rounded-full h-2 overflow-hidden'>
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ${pass.remainingCredits === 0 ? "bg-rose-400" : "bg-emerald-500"}`}
+                          style={{
+                            width: `${Math.min(100, (pass.remainingCredits / Math.max(1, pass.creditsPurchased)) * 100)}%`,
+                          }}></div>
+                      </div>
+                    </div>
+
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200/60'>
+                      <div>
+                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>
+                          Allowed Classes
+                        </p>
+                        <div className='flex flex-wrap gap-2'>
+                          {(!pass.classType || pass.classType.length === 0) && (
+                            <span className='text-[12px] text-gray-400 font-medium italic'>
+                              No restrictions
+                            </span>
+                          )}
+                          {pass.classType?.map((t) => (
+                            <span
+                              key={t}
+                              className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>
+                          Allowed Instructors
+                        </p>
+                        <div className='flex flex-wrap gap-2'>
+                          {(!pass.instructorType ||
+                            pass.instructorType.length === 0) && (
+                            <span className='text-[12px] text-gray-400 font-medium italic'>
+                              No restrictions
+                            </span>
+                          )}
+                          {pass.instructorType?.map((t) => (
+                            <span
+                              key={t}
+                              className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* 3. Global Share Configuration */}
-              <div className={`p-5 sm:p-6 rounded-xl border ${isSharedToMe ? "border-indigo-200/60 bg-indigo-50/20" : "border-gray-200/60 bg-white"}`}>
+              <div
+                className={`p-5 sm:p-6 rounded-xl border ${isSharedToMe ? "border-indigo-200/60 bg-indigo-50/20" : "border-gray-200/60 bg-white"}`}>
                 <div className='flex items-center justify-between mb-4 border-b border-gray-100 pb-4'>
                   <div className='flex items-center gap-2'>
                     <Share2 className='w-4 h-4 text-indigo-500' />
@@ -1624,14 +1723,20 @@ const UnifiedDetailModal = ({
                 {isSharedToMe ? (
                   <div className='space-y-2'>
                     <p className='text-xs text-gray-600 leading-relaxed'>
-                      This package is owned by <span className='font-bold text-gray-900'>{basePass.userId?.fullName}</span> and is being shared with you.
+                      This package is owned by{" "}
+                      <span className='font-bold text-gray-900'>
+                        {basePass.userId?.fullName}
+                      </span>{" "}
+                      and is being shared with you.
                     </p>
                   </div>
                 ) : (
                   <>
                     {!shareData && !basePass.shareCode ? (
                       <div className='flex justify-between items-center'>
-                        <p className='text-xs text-gray-500 font-medium'>Generate a secure link to share this pass.</p>
+                        <p className='text-xs text-gray-500 font-medium'>
+                          Generate a secure link to share this pass.
+                        </p>
                         <button
                           onClick={handleGenerateShare}
                           disabled={isSharing}
@@ -1645,12 +1750,18 @@ const UnifiedDetailModal = ({
                           <input
                             type='text'
                             readOnly
-                            value={shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`}
+                            value={
+                              shareData?.link ||
+                              `${window.location.origin}/shared-pass/${basePass.shareCode}`
+                            }
                             className='flex-1 bg-transparent text-xs text-gray-600 outline-none px-2 font-mono'
                           />
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText(shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`);
+                              navigator.clipboard.writeText(
+                                shareData?.link ||
+                                  `${window.location.origin}/shared-pass/${basePass.shareCode}`,
+                              );
                               alert("Link copied!");
                             }}
                             className='p-1.5 bg-white border border-gray-200 rounded-md text-gray-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors shadow-sm'
@@ -1661,7 +1772,11 @@ const UnifiedDetailModal = ({
 
                         <AnimatePresence>
                           {showEmailInput ? (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className='flex gap-2'>
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className='flex gap-2'>
                               <input
                                 type='email'
                                 placeholder="Recipient's Email"
@@ -1669,10 +1784,15 @@ const UnifiedDetailModal = ({
                                 onChange={(e) => setShareEmail(e.target.value)}
                                 className='flex-1 p-2 bg-white border border-gray-200 rounded-md text-xs font-medium outline-none focus:border-indigo-500'
                               />
-                              <button onClick={handleSendEmail} disabled={isSendingEmail} className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
+                              <button
+                                onClick={handleSendEmail}
+                                disabled={isSendingEmail}
+                                className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
                                 {isSendingEmail ? "Sending..." : "Send"}
                               </button>
-                              <button onClick={() => setShowEmailInput(false)} className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
+                              <button
+                                onClick={() => setShowEmailInput(false)}
+                                className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
                                 <X className='w-3.5 h-3.5' />
                               </button>
                             </motion.div>
@@ -1680,13 +1800,21 @@ const UnifiedDetailModal = ({
                             <div className='flex gap-2'>
                               <button
                                 onClick={() => {
-                                  const link = shareData?.link || `${window.location.origin}/shared-pass/${basePass.shareCode}`;
-                                  window.open(`https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`, "_blank");
+                                  const link =
+                                    shareData?.link ||
+                                    `${window.location.origin}/shared-pass/${basePass.shareCode}`;
+                                  window.open(
+                                    `https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`,
+                                    "_blank",
+                                  );
                                 }}
                                 className='flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
-                                <MessageCircle className='w-3.5 h-3.5' /> WhatsApp
+                                <MessageCircle className='w-3.5 h-3.5' />{" "}
+                                WhatsApp
                               </button>
-                              <button onClick={() => setShowEmailInput(true)} className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
+                              <button
+                                onClick={() => setShowEmailInput(true)}
+                                className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
                                 <Mail className='w-3.5 h-3.5' /> Email
                               </button>
                             </div>
@@ -1697,16 +1825,24 @@ const UnifiedDetailModal = ({
 
                     {basePass.sharedWith && basePass.sharedWith.length > 0 && (
                       <div className='mt-5 pt-5 border-t border-gray-100'>
-                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3'>Shared With</p>
+                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3'>
+                          Shared With
+                        </p>
                         <div className='space-y-2'>
                           {basePass.sharedWith.map((sharedUser) => (
-                            <div key={sharedUser._id} className='flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/60'>
+                            <div
+                              key={sharedUser._id}
+                              className='flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/60'>
                               <div className='w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold uppercase shrink-0'>
                                 {sharedUser.fullName?.charAt(0)}
                               </div>
                               <div className='flex flex-col overflow-hidden'>
-                                <span className='text-xs font-bold text-gray-900 truncate'>{sharedUser.fullName}</span>
-                                <span className='text-[10px] text-gray-500 truncate'>{sharedUser.email}</span>
+                                <span className='text-xs font-bold text-gray-900 truncate'>
+                                  {sharedUser.fullName}
+                                </span>
+                                <span className='text-[10px] text-gray-500 truncate'>
+                                  {sharedUser.email}
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -1721,43 +1857,76 @@ const UnifiedDetailModal = ({
               <div className='p-5 sm:p-6 border border-gray-200/60 rounded-xl bg-white'>
                 <div className='flex items-center gap-2 mb-4 border-b border-gray-100 pb-4'>
                   <Snowflake className='w-4 h-4 text-blue-500' />
-                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>Freeze Management</h4>
+                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
+                    Freeze Management
+                  </h4>
                 </div>
 
                 {freezeStatus === "requested" ? (
                   <div className='p-4 bg-amber-50 border border-amber-200 rounded-xl'>
-                    <p className='text-sm font-bold text-amber-900 mb-1'>Client Requested a Freeze</p>
+                    <p className='text-sm font-bold text-amber-900 mb-1'>
+                      Client Requested a Freeze
+                    </p>
                     <p className='text-xs text-amber-700 mb-4'>
-                      Dates: <span className='font-bold'>{formatDate(basePass.freeze?.startDate)}</span> to <span className='font-bold'>{formatDate(basePass.freeze?.endDate)}</span>
+                      Dates:{" "}
+                      <span className='font-bold'>
+                        {formatDate(basePass.freeze?.startDate)}
+                      </span>{" "}
+                      to{" "}
+                      <span className='font-bold'>
+                        {formatDate(basePass.freeze?.endDate)}
+                      </span>
                     </p>
                     <div className='flex gap-3'>
-                      <button onClick={() => handleGlobalFreezeAction("approve")} disabled={isFreezing} className='flex-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors'>
+                      <button
+                        onClick={() => handleGlobalFreezeAction("approve")}
+                        disabled={isFreezing}
+                        className='flex-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors'>
                         Approve & Extend
                       </button>
-                      <button onClick={() => handleGlobalFreezeAction("reject")} disabled={isFreezing} className='flex-1 bg-white border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-bold py-2.5 rounded-lg transition-colors'>
+                      <button
+                        onClick={() => handleGlobalFreezeAction("reject")}
+                        disabled={isFreezing}
+                        className='flex-1 bg-white border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-bold py-2.5 rounded-lg transition-colors'>
                         Reject Request
                       </button>
                     </div>
                   </div>
                 ) : isCurrentlyFrozen ? (
                   <div className='p-4 bg-blue-50 border border-blue-200 rounded-xl'>
-                    <p className='text-sm font-bold text-blue-900 mb-1'>❄️ Package is Currently Frozen</p>
+                    <p className='text-sm font-bold text-blue-900 mb-1'>
+                      ❄️ Package is Currently Frozen
+                    </p>
                     <p className='text-xs text-blue-700 mb-3'>
-                      Frozen until: <span className='font-bold'>{formatDate(basePass.freeze.endDate)}</span>
+                      Frozen until:{" "}
+                      <span className='font-bold'>
+                        {formatDate(basePass.freeze.endDate)}
+                      </span>
                     </p>
 
                     {!showUnfreezeConfirm ? (
-                      <button onClick={() => setShowUnfreezeConfirm(true)} className='w-full bg-white border border-blue-200 text-blue-800 hover:bg-blue-100 text-xs font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
+                      <button
+                        onClick={() => setShowUnfreezeConfirm(true)}
+                        className='w-full bg-white border border-blue-200 text-blue-800 hover:bg-blue-100 text-xs font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
                         Unfreeze Early
                       </button>
                     ) : (
                       <div className='mt-3 p-3 bg-white rounded-lg border border-blue-100 shadow-sm animate-in fade-in slide-in-from-top-1'>
                         <p className='text-[11px] text-gray-600 font-medium mb-3 leading-relaxed'>
-                          Are you sure you want to unfreeze this package now? The expiration date will be recalculated to reflect the actual frozen duration.
+                          Are you sure you want to unfreeze this package now?
+                          The expiration date will be recalculated to reflect
+                          the actual frozen duration.
                         </p>
                         <div className='flex gap-2'>
-                          <button onClick={() => setShowUnfreezeConfirm(false)} className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors'>Cancel</button>
-                          <button onClick={() => handleGlobalFreezeAction("unfreeze")} disabled={isFreezing} className='flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 rounded-md transition-colors'>
+                          <button
+                            onClick={() => setShowUnfreezeConfirm(false)}
+                            className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors'>
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleGlobalFreezeAction("unfreeze")}
+                            disabled={isFreezing}
+                            className='flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 rounded-md transition-colors'>
                             {isFreezing ? "Processing..." : "Confirm Unfreeze"}
                           </button>
                         </div>
@@ -1766,11 +1935,17 @@ const UnifiedDetailModal = ({
                   </div>
                 ) : hasBeenFrozen ? (
                   <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl text-center'>
-                    <p className='text-sm font-bold text-slate-700'>Freeze Allowance Used</p>
-                    <p className='text-xs text-slate-500 mt-1'>This package was already frozen once. It cannot be frozen again.</p>
+                    <p className='text-sm font-bold text-slate-700'>
+                      Freeze Allowance Used
+                    </p>
+                    <p className='text-xs text-slate-500 mt-1'>
+                      This package was already frozen once. It cannot be frozen
+                      again.
+                    </p>
                     {basePass.freeze?.startDate && (
                       <p className='text-[11px] text-slate-400 mt-2 font-mono'>
-                        {formatDate(basePass.freeze.startDate)} — {formatDate(basePass.freeze.endDate)}
+                        {formatDate(basePass.freeze.startDate)} —{" "}
+                        {formatDate(basePass.freeze.endDate)}
                       </p>
                     )}
                   </div>
@@ -1778,37 +1953,96 @@ const UnifiedDetailModal = ({
                   <div>
                     {!showFreezeForm ? (
                       <div className='flex items-center justify-between'>
-                        <p className='text-xs text-gray-500 font-medium'>Temporarily pause package and extend expiry.</p>
-                        <button onClick={() => setShowFreezeForm(true)} className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap shadow-sm'>
+                        <p className='text-xs text-gray-500 font-medium'>
+                          Temporarily pause package and extend expiry.
+                        </p>
+                        <button
+                          onClick={() => setShowFreezeForm(true)}
+                          className='text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap shadow-sm'>
                           Freeze Pass
                         </button>
                       </div>
                     ) : (
                       <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
                         <p className='text-xs text-gray-500 font-medium'>
-                          Select freeze duration. <span className='font-bold text-gray-700'>Client can only freeze once.</span>
+                          Select freeze duration.{" "}
+                          <span className='font-bold text-gray-700'>
+                            Client can only freeze once.
+                          </span>
                         </p>
 
                         <div className='grid grid-cols-2 gap-3'>
                           <div>
-                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>Start Date</label>
-                            <input type='date' value={freezeData.startDate} onChange={(e) => setFreezeData({ ...freezeData, startDate: e.target.value })} className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500' />
+                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
+                              Start Date
+                            </label>
+                            <input
+                              type='date'
+                              value={freezeData.startDate}
+                              onChange={(e) =>
+                                setFreezeData({
+                                  ...freezeData,
+                                  startDate: e.target.value,
+                                })
+                              }
+                              className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
+                            />
                           </div>
                           <div>
-                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>End Date</label>
-                            <input type='date' value={freezeData.endDate} onChange={(e) => setFreezeData({ ...freezeData, endDate: e.target.value })} className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500' />
+                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
+                              End Date
+                            </label>
+                            <input
+                              type='date'
+                              value={freezeData.endDate}
+                              onChange={(e) =>
+                                setFreezeData({
+                                  ...freezeData,
+                                  endDate: e.target.value,
+                                })
+                              }
+                              className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
+                            />
                           </div>
                         </div>
 
                         <div className='flex gap-2'>
-                          <button type='button' onClick={() => applyPreset(1)} className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>1 Day</button>
-                          <button type='button' onClick={() => applyPreset(7)} className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>1 Week</button>
-                          <button type='button' onClick={() => applyPreset(30)} className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>1 Month</button>
+                          <button
+                            type='button'
+                            onClick={() => applyPreset(1)}
+                            className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                            1 Day
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => applyPreset(7)}
+                            className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                            1 Week
+                          </button>
+                          <button
+                            type='button'
+                            onClick={() => applyPreset(30)}
+                            className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                            1 Month
+                          </button>
                         </div>
 
                         <div className='flex gap-3 pt-2'>
-                          <button onClick={() => setShowFreezeForm(false)} className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold py-2.5 rounded-lg transition-colors'>Cancel</button>
-                          <button onClick={() => handleGlobalFreezeAction("admin_freeze")} disabled={isFreezing || !freezeData.startDate || !freezeData.endDate} className='flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-[12px] font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
+                          <button
+                            onClick={() => setShowFreezeForm(false)}
+                            className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold py-2.5 rounded-lg transition-colors'>
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleGlobalFreezeAction("admin_freeze")
+                            }
+                            disabled={
+                              isFreezing ||
+                              !freezeData.startDate ||
+                              !freezeData.endDate
+                            }
+                            className='flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-[12px] font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
                             {isFreezing ? "Processing..." : "Confirm Freeze"}
                           </button>
                         </div>
@@ -1827,22 +2061,36 @@ const UnifiedDetailModal = ({
                 Payment Details
               </h4>
               <div className='flex justify-between items-center'>
-                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>Date</span>
+                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                  Date
+                </span>
                 <span className='text-[12px] sm:text-[13px] font-bold text-gray-900'>
                   {formatDateTime(txnData.createdAt)}
                 </span>
               </div>
               <div className='flex justify-between items-center'>
-                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>Payment Method</span>
+                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                  Payment Method
+                </span>
                 <span
                   className='text-[12px] sm:text-[13px] font-bold text-gray-900 truncate max-w-[130px] sm:max-w-[150px]'
-                  title={formatPaymentMethod(txnData.paymentMethod, txnData.paymentIssuer)}>
-                  {formatPaymentMethod(txnData.paymentMethod, txnData.paymentIssuer)}
+                  title={formatPaymentMethod(
+                    txnData.paymentMethod,
+                    txnData.paymentIssuer,
+                  )}>
+                  {formatPaymentMethod(
+                    txnData.paymentMethod,
+                    txnData.paymentIssuer,
+                  )}
                 </span>
               </div>
-              {txnData.proofOfPayment && txnData.proofOfPayment !== "Manual Assignment" && txnData.proofOfPayment.startsWith("http") && (
+              {txnData.proofOfPayment &&
+                txnData.proofOfPayment !== "Manual Assignment" &&
+                txnData.proofOfPayment.startsWith("http") && (
                   <div className='flex justify-between items-center pt-3 mt-1 border-t border-dashed border-gray-200'>
-                    <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>Receipt</span>
+                    <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                      Receipt
+                    </span>
                     <a
                       href={txnData.proofOfPayment}
                       target='_blank'
@@ -1851,7 +2099,7 @@ const UnifiedDetailModal = ({
                       View Proof <ExternalLink className='w-3.5 h-3.5' />
                     </a>
                   </div>
-              )}
+                )}
             </div>
           )}
         </div>
@@ -1875,34 +2123,40 @@ const UnifiedDetailModal = ({
   );
 };
 
-
 const EditPassModal = ({ target, config, onClose, onSubmit }) => {
-  const isGlobal = target.type === 'global';
+  const isGlobal = target.type === "global";
   const passesToEdit = isGlobal ? target.passes : [target.pass];
   const basePass = passesToEdit[0];
 
   const [formData, setFormData] = useState({
     expiryDate: basePass.expiryDate ? basePass.expiryDate.split("T")[0] : "",
     remainingCredits: basePass.remainingCredits || 0,
-    instructorType: Array.isArray(basePass.instructorType) ? basePass.instructorType : [],
+    instructorType: Array.isArray(basePass.instructorType)
+      ? basePass.instructorType
+      : [],
     classType: Array.isArray(basePass.classType) ? basePass.classType : [],
   });
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const availableInstructors = config?.instructorTypes?.length > 0
-    ? config.instructorTypes
-    : ["Apprentice Instructor", "Junior Instructor", "Senior Instructor"];
-  
-  const availableClasses = config?.classTypes?.length > 0
-    ? config.classTypes
-    : ["Group", "Private", "Duet"];
+  const availableInstructors =
+    config?.instructorTypes?.length > 0
+      ? config.instructorTypes
+      : ["Apprentice Instructor", "Junior Instructor", "Senior Instructor"];
+
+  const availableClasses =
+    config?.classTypes?.length > 0
+      ? config.classTypes
+      : ["Group", "Private", "Duet"];
 
   const handleToggle = (field, value) => {
     setFormData((prev) => {
       const currentArray = prev[field];
       if (currentArray.includes(value))
-        return { ...prev, [field]: currentArray.filter((item) => item !== value) };
+        return {
+          ...prev,
+          [field]: currentArray.filter((item) => item !== value),
+        };
       return { ...prev, [field]: [...currentArray, value] };
     });
   };
@@ -1913,15 +2167,19 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
     try {
       if (isGlobal) {
         // Update ONLY Expiry Date across ALL passes in the combo
-        await Promise.all(passesToEdit.map(p => 
-          axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(p._id), { expiryDate: formData.expiryDate })
-        ));
+        await Promise.all(
+          passesToEdit.map((p) =>
+            axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(p._id), {
+              expiryDate: formData.expiryDate,
+            }),
+          ),
+        );
       } else {
         // Update Specific Pass Limits
         await axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(basePass._id), {
           remainingCredits: formData.remainingCredits,
           classType: formData.classType,
-          instructorType: formData.instructorType
+          instructorType: formData.instructorType,
         });
       }
       onSubmit();
@@ -1960,14 +2218,18 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
           <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
             {isGlobal ? "Edit Package Expiry" : "Edit Pass Limits"}
           </h3>
-          <button onClick={onClose} className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
+          <button
+            onClick={onClose}
+            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
             <X className='w-5 h-5 text-gray-400' />
           </button>
         </div>
 
         <div className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-slate-50/30'>
-          <form id='edit-pass-form' onSubmit={handleSave} className='space-y-6 sm:space-y-8'>
-            
+          <form
+            id='edit-pass-form'
+            onSubmit={handleSave}
+            className='space-y-6 sm:space-y-8'>
             {isGlobal ? (
               // GLOBAL MODE: Edit only Expiry Date
               <div>
@@ -1978,12 +2240,17 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
                   <input
                     type='date'
                     value={formData.expiryDate}
-                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, expiryDate: e.target.value })
+                    }
                     className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-[14px] sm:text-[15px] font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none relative z-10'
                   />
                   <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-0 pointer-events-none group-focus-within:text-emerald-600 transition-colors' />
                 </div>
-                <p className="text-xs text-gray-500 mt-3 px-1">This will apply the new expiry date to all passes included in this package.</p>
+                <p className='text-xs text-gray-500 mt-3 px-1'>
+                  This will apply the new expiry date to all passes included in
+                  this package.
+                </p>
               </div>
             ) : (
               // SINGLE PASS MODE: Edit Limits Only
@@ -1995,13 +2262,20 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
                   <input
                     type='number'
                     value={formData.remainingCredits}
-                    onChange={(e) => setFormData({ ...formData, remainingCredits: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        remainingCredits: e.target.value,
+                      })
+                    }
                     className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-base sm:text-lg font-mono font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
                   />
                 </div>
 
                 <div>
-                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>Allowed Class Types</p>
+                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
+                    Allowed Class Types
+                  </p>
                   <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
                     {availableClasses.map((cls) => (
                       <SelectionItem
@@ -2015,7 +2289,9 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
                 </div>
 
                 <div>
-                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>Allowed Instructors</p>
+                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
+                    Allowed Instructors
+                  </p>
                   <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
                     {availableInstructors.map((inst) => (
                       <SelectionItem

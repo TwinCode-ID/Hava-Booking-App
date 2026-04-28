@@ -422,6 +422,8 @@ exports.adminReviewPayment = async (req, res) => {
         passExpiry.getDate() + (packageDetails.validityDays || 30),
       );
 
+      const originalPurchaseTime = purchase.createdAt || new Date();
+
       let passesToCreate = [];
       if (
         packageDetails.isCombo &&
@@ -431,9 +433,11 @@ exports.adminReviewPayment = async (req, res) => {
         passesToCreate = packageDetails.comboItems.map((item) => ({
           userId: purchase.userId,
           packageId: purchase.packageId,
-          packageNameSnapshot: packageDetails.packageName, // SNAPSHOT ADDED
-          packageCategorySnapshot: packageDetails.packageCategory, // SNAPSHOT ADDED
-          purchaseDate: new Date(),
+          packageNameSnapshot: packageDetails.packageName,
+          packageCategorySnapshot: packageDetails.packageCategory,
+          // FIX: Sync timestamps to the original transaction
+          purchaseDate: originalPurchaseTime,
+          createdAt: originalPurchaseTime,
           expiryDate: passExpiry,
           remainingCredits: item.credits,
           validityDuration: packageDetails.validityDays || 30,
@@ -448,9 +452,11 @@ exports.adminReviewPayment = async (req, res) => {
           {
             userId: purchase.userId,
             packageId: purchase.packageId,
-            packageNameSnapshot: packageDetails.packageName, // SNAPSHOT ADDED
-            packageCategorySnapshot: packageDetails.packageCategory, // SNAPSHOT ADDED
-            purchaseDate: new Date(),
+            packageNameSnapshot: packageDetails.packageName,
+            packageCategorySnapshot: packageDetails.packageCategory,
+            // FIX: Sync timestamps to the original transaction
+            purchaseDate: originalPurchaseTime,
+            createdAt: originalPurchaseTime,
             expiryDate: passExpiry,
             remainingCredits: packageDetails.credits,
             validityDuration: packageDetails.validityDays || 30,
