@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../context/AuthContext";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
@@ -193,7 +193,6 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
     setDownloading(true);
 
     try {
-      // 1. Setup PDF (80mm width = Standard Thermal Receipt size)
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -205,7 +204,6 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
 
       let y = 14;
 
-      // 2. Header
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(textDark);
@@ -237,7 +235,6 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
 
       y += 14;
 
-      // 3. Greeting
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.setTextColor(textDark);
@@ -253,41 +250,44 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
 
       y += 6;
 
-      // 4. Dashed Divider
       doc.setDrawColor(220, 220, 220);
       doc.setLineWidth(0.5);
       doc.setLineDash([1.5, 1.5], 0);
       doc.line(8, y, 72, y);
-      doc.setLineDash([]); // Reset dash
+      doc.setLineDash([]);
 
       y += 8;
 
-      // 5. Order Item (With Wrap support so it never overlaps the price)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(textDark);
       doc.text("1", 8, y);
 
-      const pkgName = transaction.packageId?.packageName || "Custom Package";
-      const splitPkgName = doc.splitTextToSize(pkgName, 35); // Wrap text at 35mm wide to avoid price overlap
+      const pkgName =
+        transaction.packageId?.packageName ||
+        transaction.packageNameSnapshot ||
+        "Custom Package";
+      const splitPkgName = doc.splitTextToSize(pkgName, 35);
 
       doc.text(splitPkgName, 13, y);
-      doc.text(formatCurrency(transaction.totalAmount), 72, y, {
+
+      const preDiscountAmount =
+        transaction.totalAmount + (transaction.discountAmount || 0);
+
+      doc.text(formatCurrency(preDiscountAmount), 72, y, {
         align: "right",
       });
 
-      // Move Y down based on how many lines the package name took
       y += splitPkgName.length * 4 + 1;
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
       doc.setTextColor(textGray);
-      doc.text(`1 x ${formatCurrency(transaction.totalAmount)}`, 13, y);
+      doc.text(`1 x ${formatCurrency(preDiscountAmount)}`, 13, y);
 
       y += 8;
 
-      // 6. Total Gray Box
-      doc.setFillColor(243, 244, 246); // Tailwind gray-100
+      doc.setFillColor(243, 244, 246);
       doc.roundedRect(8, y, 64, 26, 2, 2, "F");
 
       y += 8;
@@ -320,14 +320,13 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
       doc.setTextColor(textGray);
       doc.text("Status", 12, y);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(5, 150, 105); // emerald-600
+      doc.setTextColor(5, 150, 105);
       doc.text((transaction.status || "Confirmed").toUpperCase(), 70, y, {
         align: "right",
       });
 
       y += 12;
 
-      // 7. QR Code Integration
       const qrCanvas = document.getElementById("qr-canvas");
       if (qrCanvas) {
         const qrDataUrl = qrCanvas.toDataURL("image/png");
@@ -348,11 +347,9 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
 
       y += 28;
 
-      // 8. Footer
       doc.setFontSize(6);
-      doc.text("www.havastudio.id", 40, Math.min(y, 155), { align: "center" }); // Keep within bounds
+      doc.text("www.havastudio.id", 40, Math.min(y, 155), { align: "center" });
 
-      // 9. Save natively generated PDF
       doc.save(`Receipt_${transaction.transactionId}.pdf`);
     } catch (error) {
       console.error("Failed to generate PDF:", error);
@@ -362,6 +359,8 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
   };
 
   const qrUrl = `${window.location.origin}/verify/${transaction.transactionId}`;
+  const preDiscountAmount =
+    transaction.totalAmount + (transaction.discountAmount || 0);
 
   return (
     <div className='fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm'>
@@ -370,7 +369,6 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 30 }}
         className='flex flex-col items-center max-h-[95vh] overflow-y-auto w-full no-scrollbar pb-6 mt-6'>
-        {/* Clean, Modern UI Receipt Container */}
         <div className='w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-2xl relative font-sans pb-8'>
           <div className='p-8 pb-6'>
             <div className='flex justify-between items-start mb-8'>
@@ -416,29 +414,40 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
             </p>
           </div>
 
-          {/* Simple Dashed Divider */}
           <div className='w-full border-t-[2px] border-dashed border-gray-200'></div>
 
           <div className='p-8 pt-8'>
-            <div className='flex justify-between items-start mb-8'>
+            <div className='flex justify-between items-start mb-4'>
               <div className='flex gap-4 pr-4'>
                 <span className='font-bold text-lg text-gray-900'>1</span>
                 <div>
                   <p className='font-bold text-[16px] text-gray-900 leading-snug mb-1'>
-                    {transaction.packageId?.packageName || "Custom Package"}
+                    {transaction.packageId?.packageName ||
+                      transaction.packageNameSnapshot ||
+                      "Custom Package"}
                   </p>
                   <p className='text-[13px] text-gray-500 font-medium'>
-                    1 × {formatCurrency(transaction.totalAmount)}
+                    1 × {formatCurrency(preDiscountAmount)}
                   </p>
                 </div>
               </div>
               <span className='font-bold text-[16px] text-gray-900 whitespace-nowrap'>
-                {formatCurrency(transaction.totalAmount)}
+                {formatCurrency(preDiscountAmount)}
               </span>
             </div>
 
-            {/* Total Area Box */}
-            <div className='bg-[#F3F4F6] p-6 rounded-[20px] mb-8'>
+            {transaction.promoCodeApplied && (
+              <div className='flex justify-between items-center mb-6 pl-10'>
+                <span className='text-[13px] text-gray-500 font-bold'>
+                  Discount ({transaction.promoCodeApplied})
+                </span>
+                <span className='font-bold text-[15px] text-rose-500'>
+                  - {formatCurrency(transaction.discountAmount || 0)}
+                </span>
+              </div>
+            )}
+
+            <div className='bg-[#F3F4F6] p-6 rounded-[20px] mb-8 mt-2'>
               <div className='flex justify-between items-end mb-6'>
                 <span className='font-bold text-xl text-gray-800'>Total</span>
                 <span className='font-extrabold text-[26px] text-gray-900 tracking-tight leading-none'>
@@ -459,7 +468,6 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
               </div>
             </div>
 
-            {/* Verification Box & QR */}
             <div className='flex items-center justify-between gap-4 bg-white rounded-[16px] p-4 border border-gray-200'>
               <div className='flex-1 pr-2'>
                 <h3 className='font-bold text-[14px] text-gray-900 mb-1'>
@@ -471,7 +479,6 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
                 </p>
               </div>
               <div className='shrink-0'>
-                {/* Important: Using QRCodeCanvas so jsPDF can snapshot it natively */}
                 <QRCodeCanvas
                   id='qr-canvas'
                   value={qrUrl}
@@ -483,7 +490,6 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
           </div>
         </div>
 
-        {/* Buttons now placed cleanly at the bottom */}
         <div className='flex gap-3 w-full max-w-[400px] mt-6'>
           <button
             onClick={onClose}
@@ -516,7 +522,6 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className='bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden'>
-        {/* Header */}
         <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-white shrink-0'>
           <div className='flex items-center gap-4'>
             <div className='w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center'>
@@ -538,9 +543,7 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
           </button>
         </div>
 
-        {/* Scrollable Body */}
         <div className='p-6 overflow-y-auto flex-1 space-y-6 bg-white'>
-          {/* Top Info Cards */}
           <div className='grid grid-cols-2 gap-4'>
             <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-gray-100'>
               <p className='text-xs font-bold text-gray-500 uppercase tracking-wider mb-2'>
@@ -563,7 +566,6 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
             </div>
           </div>
 
-          {/* Detailed Data Grid */}
           <div className='bg-white border border-gray-200 rounded-2xl overflow-hidden'>
             <div className='px-5 py-4 bg-[#f8f9fa] border-b border-gray-200'>
               <h4 className='text-[15px] font-bold text-gray-900'>
@@ -585,10 +587,23 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
                 </span>
                 <span className='text-[15px] font-medium text-gray-900 col-span-2 flex'>
                   <span className='bg-[#f1f3f5] px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-bold'>
-                    {transaction.packageId?.packageName || "N/A"}
+                    {transaction.packageId?.packageName ||
+                      transaction.packageNameSnapshot ||
+                      "Deleted Package"}
                   </span>
                 </span>
               </div>
+              {transaction.promoCodeApplied && (
+                <div className='grid grid-cols-3 p-5 items-center'>
+                  <span className='text-[15px] font-semibold text-gray-500'>
+                    Promo Code
+                  </span>
+                  <span className='text-[15px] font-bold text-pink-600 col-span-2'>
+                    {transaction.promoCodeApplied} (-{" "}
+                    {formatCurrency(transaction.discountAmount || 0)})
+                  </span>
+                </div>
+              )}
               <div className='grid grid-cols-3 p-5 items-center'>
                 <span className='text-[15px] font-semibold text-gray-500'>
                   Payment Method
@@ -615,7 +630,6 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
             </div>
           </div>
 
-          {/* Credits & Lifecycle Data */}
           <div className='bg-white border border-gray-200 rounded-2xl overflow-hidden'>
             <div className='px-5 py-4 bg-[#f8f9fa] border-b border-gray-200'>
               <h4 className='text-[15px] font-bold text-gray-900'>
@@ -690,7 +704,9 @@ const RevenueSection = ({
       const q = searchQuery.toLowerCase();
       const match =
         (t.userId?.fullName || "").toLowerCase().includes(q) ||
-        (t.packageId?.packageName || "").toLowerCase().includes(q);
+        (t.packageId?.packageName || t.packageNameSnapshot || "")
+          .toLowerCase()
+          .includes(q);
 
       const methodStr = (t.paymentMethod || "").toLowerCase();
       const isPayAtStudio = methodStr === "pay_at_studio";
@@ -820,7 +836,9 @@ const RevenueSection = ({
                     </td>
                     <td className='px-6 py-4 text-sm'>
                       <span className='px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200 group-hover:bg-white transition-colors'>
-                        {trx.packageId?.packageName}
+                        {trx.packageId?.packageName ||
+                          trx.packageNameSnapshot ||
+                          "Deleted Package"}
                       </span>
                     </td>
                     <td className='px-6 py-4 text-sm capitalize text-gray-600'>
@@ -1137,7 +1155,9 @@ const PackageUsageSection = ({ passes, onRowClick }) => {
                   </td>
                   <td className='px-6 py-4 text-sm'>
                     <span className='px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200'>
-                      {pass.packageId?.packageName || "Custom Pass"}
+                      {pass.packageId?.packageName ||
+                        pass.packageNameSnapshot ||
+                        "Custom Pass"}
                     </span>
                   </td>
                   <td className='px-6 py-4 text-sm font-extrabold text-gray-700'>
@@ -1657,7 +1677,7 @@ const StudioReports = () => {
       const revRows = revenueStats.tableData.map((t) => [
         new Date(t.createdAt).toLocaleDateString(),
         t.userId?.fullName || "N/A",
-        t.packageId?.packageName || "N/A",
+        t.packageId?.packageName || t.packageNameSnapshot || "N/A",
         t.paymentMethod.replace(/_/g, " "),
         formatCurrency(t.totalAmount),
       ]);
@@ -1789,7 +1809,7 @@ const StudioReports = () => {
       ];
       const packRows = packageFiltered.map((p) => [
         p.userId?.fullName || "N/A",
-        p.packageId?.packageName || "Custom",
+        p.packageId?.packageName || p.packageNameSnapshot || "Custom",
         `${p.remainingCredits} / ${p.initialCredits}`,
         new Date(p.expiryDate).toLocaleDateString(),
         p.isActive ? "Active" : "Inactive",

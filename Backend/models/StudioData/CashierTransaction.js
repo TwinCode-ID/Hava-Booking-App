@@ -13,14 +13,8 @@ const CashierTransactionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    userIds: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    userIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
-    // UPDATED: Added qty to properly track cart items
     packages: [
       {
         packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Packages" },
@@ -29,12 +23,10 @@ const CashierTransactionSchema = new mongoose.Schema(
       },
     ],
 
-    // --- FINANCIAL LOGGING ---
     totalAmount: { type: Number, required: true },
     discountAmount: { type: Number, default: 0 },
     promoCodeApplied: { type: String, default: null },
 
-    // --- PAYMENT DETAILS ---
     paymentMethod: {
       type: String,
       enum: ["cash", "edc", "bank_transfer", "qris", "other"],
@@ -46,7 +38,6 @@ const CashierTransactionSchema = new mongoose.Schema(
       approvalCode: { type: String },
       bank: { type: String },
     },
-
     notes: { type: String, default: "" },
   },
   { timestamps: true },

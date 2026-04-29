@@ -30,8 +30,6 @@ import { useAuth } from "../../../context/AuthContext";
 import { INDONESIAN_BANKS } from "../../../utils/helper";
 import { getBankLogo } from "../../../utils/helpers";
 
-// --- CUSTOM COMPONENTS ---
-
 const getEffectivePrice = (pkg) => {
   return pkg.isPromo && pkg.promoPrice
     ? Number(pkg.promoPrice)
@@ -93,31 +91,22 @@ const CustomSelect = ({ value, onChange, options, placeholder }) => {
   );
 };
 
-// --- MAIN DASHBOARD ---
-
 const CashierDashboard = () => {
   const { user } = useAuth();
-
   const [users, setUsers] = useState([]);
   const [packages, setPackages] = useState([]);
   const [availablePromos, setAvailablePromos] = useState([]);
-
-  // Filter States
   const [categories, setCategories] = useState(["All"]);
   const [classTypes, setClassTypes] = useState(["All"]);
   const [instructorTypes, setInstructorTypes] = useState(["All"]);
-
   const [searchPackage, setSearchPackage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeClassType, setActiveClassType] = useState("All");
   const [activeInstructorType, setActiveInstructorType] = useState("All");
-
   const [clientOwnership, setClientOwnership] = useState({});
-
   const [cart, setCart] = useState({});
   const [selectedClients, setSelectedClients] = useState([]);
   const [promoCode, setPromoCode] = useState("");
-
   const [showClientListModal, setShowClientListModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
@@ -152,8 +141,13 @@ const CashierDashboard = () => {
 
         if (usersRes.data)
           setUsers(usersRes.data.filter((u) => u.role === "client"));
-        if (promosRes.data)
-          setAvailablePromos(promosRes.data.filter((p) => p.isActive));
+
+        if (promosRes.data) {
+          // --- FIX: Only allow Cashier to see "admin" type promos ---
+          setAvailablePromos(
+            promosRes.data.filter((p) => p.isActive && p.promoType === "admin"),
+          );
+        }
 
         if (packagesRes.data) {
           setPackages(packagesRes.data);
@@ -292,7 +286,6 @@ const CashierDashboard = () => {
     setPromoCode("");
   };
 
-  // Calculations
   const baseCartTotal = cartItems.reduce(
     (sum, item) => sum + getEffectivePrice(item) * item.qty,
     0,
@@ -303,11 +296,12 @@ const CashierDashboard = () => {
   const totalBaseQty = cartItems.reduce((acc, item) => acc + item.qty, 0);
   const totalItemsPurchased = totalBaseQty * clientMultiplier;
 
+  // --- FIX: Use .staticCode for calculating discount logic since it's an Admin promo ---
   let discount = 0;
   if (promoCode) {
-    const activePromo = availablePromos.find(
-      (p) => p.code === promoCode.toUpperCase(),
-    );
+    const upperCode = promoCode.toUpperCase().trim();
+    const activePromo = availablePromos.find((p) => p.staticCode === upperCode);
+
     if (activePromo) {
       if (activePromo.discountType === "percentage") {
         discount = subtotal * (activePromo.discountValue / 100);
@@ -370,7 +364,6 @@ const CashierDashboard = () => {
 
   return (
     <div className='flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-hidden bg-[#F8FAFC] font-sans text-slate-800 w-full'>
-      {/* LEFT MAIN AREA */}
       <div className='flex-1 flex flex-col h-full min-h-[50vh] md:min-h-0 min-w-0 border-r border-slate-200 bg-white'>
         <div className='p-6 border-b border-slate-100 shrink-0 w-full shadow-sm z-10'>
           <div className='flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4'>
@@ -394,7 +387,6 @@ const CashierDashboard = () => {
             </div>
           </div>
 
-          {/* Filters Bar */}
           <div className='flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between w-full'>
             <div className='flex gap-2 overflow-x-auto pb-1 custom-scrollbar flex-1 w-full'>
               {categories.map((cat) => (
@@ -451,22 +443,18 @@ const CashierDashboard = () => {
                   <div
                     key={pkg._id}
                     className='bg-white border border-slate-200 rounded-2xl p-5 flex flex-col h-full min-h-[12rem] shadow-sm hover:shadow-md transition-all hover:border-[#1a4d3e]/40 group w-full'>
-                    {/* Top Badges & Info Button */}
                     <div className='flex items-start justify-between mb-4'>
                       <div className='flex items-center gap-1.5'>
-                        {/* Primary Tag */}
                         <span className='flex items-center h-6 px-2.5 bg-slate-50 border border-slate-200 text-slate-600 font-extrabold text-[8px] tracking-widest uppercase rounded-md'>
                           {primaryCat}
                         </span>
 
-                        {/* 1-Time Tag */}
                         {pkg.isOneTimePurchase && (
                           <span className='flex items-center gap-1 h-6 px-2.5 bg-[#fff8eb] border border-amber-200/60 text-amber-600 font-extrabold text-[8px] tracking-widest uppercase rounded-md'>
                             <AlertTriangle className='w-3 h-3' /> 1-TIME
                           </span>
                         )}
 
-                        {/* Promo Tag */}
                         {pkg.isPromo && (
                           <span className='flex items-center gap-1 h-6 px-2.5 bg-pink-50 border border-pink-100 text-pink-600 font-extrabold text-[8px] tracking-widest uppercase rounded-md'>
                             <Tag className='w-3 h-3' /> PROMO
@@ -482,7 +470,6 @@ const CashierDashboard = () => {
                       </button>
                     </div>
 
-                    {/* Middle Title & Basic Info */}
                     <div className='flex-1 flex flex-col min-h-0 w-full mb-2'>
                       <h3 className='font-extrabold text-[15px] text-slate-900 leading-snug mb-1.5'>
                         {pkg.packageName}
@@ -496,7 +483,6 @@ const CashierDashboard = () => {
                       </p>
                     </div>
 
-                    {/* Bottom Price & Controls */}
                     <div className='flex items-center justify-between mt-auto pt-4 border-t border-slate-100 shrink-0 w-full min-h-[44px]'>
                       <div className='flex flex-col'>
                         {pkg.isPromo && (
@@ -542,7 +528,6 @@ const CashierDashboard = () => {
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR */}
       <div className='w-full md:w-[400px] lg:w-[440px] bg-white flex flex-col h-full shrink-0 z-20 shadow-[-4px_0_24px_-10px_rgba(0,0,0,0.05)] border-l border-slate-200'>
         <div className='p-6 flex justify-between items-center shrink-0 w-full border-b border-slate-100 bg-white'>
           <div>
@@ -561,7 +546,6 @@ const CashierDashboard = () => {
         </div>
 
         <div className='flex-1 overflow-y-auto px-6 py-6 space-y-8 custom-scrollbar w-full min-h-0 bg-[#F8FAFC]'>
-          {/* Section 1: Packages */}
           <div className='w-full mb-8'>
             <div className='flex items-center gap-3 mb-4'>
               <div className='w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[10px] font-bold'>
@@ -624,7 +608,6 @@ const CashierDashboard = () => {
           </div>
         </div>
 
-        {/* FIXED FOOTER: CLIENTS, PROMO, & TOTALS */}
         <div className='p-6 bg-white border-t border-slate-100 shrink-0 w-full shadow-[0_-4px_10px_rgba(0,0,0,0.02)]'>
           <div className='flex items-center gap-3 mb-4'>
             <div className='w-5 h-5 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[10px] font-bold'>
@@ -635,7 +618,6 @@ const CashierDashboard = () => {
             </h3>
           </div>
 
-          {/* Selected Clients Tags */}
           {selectedClients.length > 0 && (
             <div className='flex flex-wrap gap-2 mb-3 w-full max-h-[80px] overflow-y-auto custom-scrollbar'>
               {selectedClients.map((client) => (
@@ -653,7 +635,6 @@ const CashierDashboard = () => {
             </div>
           )}
 
-          {/* Side-by-Side Action Buttons */}
           <div className='flex flex-row gap-3 w-full mb-6'>
             <button
               onClick={() => setShowClientListModal(true)}
@@ -783,7 +764,6 @@ const CashierDashboard = () => {
   );
 };
 
-// --- PACKAGE DETAILS MODAL (Pop-up) ---
 const PackageDetailsModal = ({ pkg, onClose, cartQty, onUpdateCart }) => {
   if (!pkg) return null;
   const activePrice = getEffectivePrice(pkg);
@@ -876,7 +856,6 @@ const PackageDetailsModal = ({ pkg, onClose, cartQty, onUpdateCart }) => {
           </div>
         </div>
 
-        {/* BOTTOM PRICE & CONTROLS - FIXED HEIGHT */}
         <div className='p-6 bg-white border-t border-slate-100 flex items-center justify-between shrink-0 min-h-[96px]'>
           <div className='flex flex-col'>
             {pkg.isPromo && (
@@ -919,7 +898,6 @@ const PackageDetailsModal = ({ pkg, onClose, cartQty, onUpdateCart }) => {
   );
 };
 
-// --- CLIENT SELECTION MODAL (with Add Client Form) ---
 const ClientSelectionModal = ({
   users,
   selectedClients,
@@ -967,7 +945,7 @@ const ClientSelectionModal = ({
       const payload = {
         ...newClient,
         role: "client",
-        password: "HavaPilatesClient123!", // Default secure password, can be reset by user later
+        password: "HavaPilatesClient123!",
       };
       const res = await axiosInstance.post(
         API_PATHS.AUTH.REGISTER || "/api/auth/register",
@@ -1015,7 +993,6 @@ const ClientSelectionModal = ({
         </div>
 
         {isAdding ? (
-          // Add Client Form
           <div className='flex-1 overflow-y-auto p-6 bg-slate-50/50'>
             <form
               id='new-client-form'
@@ -1069,7 +1046,6 @@ const ClientSelectionModal = ({
             </form>
           </div>
         ) : (
-          // Client List
           <>
             <div className='p-4 border-b border-gray-100 bg-slate-50/50 shrink-0'>
               <div className='relative'>
@@ -1180,7 +1156,6 @@ const ClientSelectionModal = ({
   );
 };
 
-// --- PROMO SELECTION MODAL ---
 const PromoSelectionModal = ({
   onClose,
   onApply,
@@ -1194,19 +1169,12 @@ const PromoSelectionModal = ({
       return alert(
         `This promo requires at least ${promo.minItemsRequired} total package(s) across all clients.`,
       );
-    onApply(promo.code);
+    // --- FIX: Pass staticCode because Cashier ONLY sees admin promos ---
+    onApply(promo.staticCode);
   };
 
-  const handleManualApply = () => {
+  const handleManualApply = async () => {
     if (!manualCode.trim()) return;
-    const found = availablePromos.find(
-      (p) => p.code === manualCode.trim().toUpperCase(),
-    );
-    if (!found) return alert("Invalid promo code.");
-    if (totalItemsPurchased < found.minItemsRequired)
-      return alert(
-        `This promo requires at least ${found.minItemsRequired} total package(s).`,
-      );
     onApply(manualCode.trim().toUpperCase());
   };
 
@@ -1235,7 +1203,7 @@ const PromoSelectionModal = ({
             const isEligible = totalItemsPurchased >= promo.minItemsRequired;
             return (
               <button
-                key={promo.code}
+                key={promo._id}
                 onClick={() => handleSelect(promo)}
                 className={`w-full text-left p-4 border rounded-xl transition-all flex justify-between items-center ${isEligible ? "bg-white border-slate-200 hover:border-emerald-400 hover:shadow-md cursor-pointer group" : "bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed"}`}>
                 <div>
@@ -1243,8 +1211,9 @@ const PromoSelectionModal = ({
                     <TicketPercent
                       className={`w-4 h-4 ${isEligible ? "text-emerald-600" : "text-slate-400"}`}
                     />
+                    {/* --- FIX: Display staticCode --- */}
                     <span className='font-extrabold text-slate-800'>
-                      {promo.code}
+                      {promo.staticCode}
                     </span>
                   </div>
                   <p className='text-xs text-slate-500 font-medium'>
@@ -1285,7 +1254,6 @@ const PromoSelectionModal = ({
   );
 };
 
-// --- PAYMENT COMPLETION MODAL ---
 const PaymentModal = ({
   onClose,
   grandTotal,
@@ -1348,7 +1316,10 @@ const PaymentModal = ({
         purchasedPackages: purchasedPackages,
         paymentMethod:
           paymentMethod === "transfer" ? "bank_transfer" : paymentMethod,
+        paymentDetails: paymentDetails || {},
         totalAmount: grandTotal,
+        discountAmount: discount || 0,
+        promoCode: promoCode || null,
         notes: notesArr.join(" | "),
       };
 

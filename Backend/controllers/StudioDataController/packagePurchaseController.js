@@ -1,9 +1,9 @@
-// controllers/StudioDataController/packagePurchaseController.js
 const mongoose = require("mongoose");
 const PackagePurchase = require("../../models/StudioData/PackagePurchase");
 const UserPasses = require("../../models/UserData/User_Passes");
 const Packages = require("../../models/StudioData/Packages");
 const CashierTransaction = require("../../models/StudioData/CashierTransaction");
+const Promo = require("../../models/StudioData/Promo");
 
 // --- HELPER: CHECK EXPIRY ---
 const checkAndExpire = async (purchase) => {
@@ -25,6 +25,36 @@ const calculateTotalCredits = (pkg) => {
   return pkg.credits || 0;
 };
 
+// --- HELPER: CONSUME PROMO ---
+const consumePromoCode = async (code, studioId, userId, session) => {
+  if (!code) return;
+  const upperCode = code.toUpperCase().trim();
+
+  const promo = await Promo.findOne({
+    studioLocation: studioId,
+    $or: [{ staticCode: upperCode }, { "codes.code": upperCode }],
+  }).session(session);
+
+  if (!promo) return;
+
+  if (promo.promoType === "bulk") {
+    const voucherIndex = promo.codes.findIndex((c) => c.code === upperCode);
+    if (voucherIndex !== -1 && !promo.codes[voucherIndex].isUsed) {
+      promo.codes[voucherIndex].isUsed = true;
+      promo.codes[voucherIndex].usedAt = new Date();
+      promo.currentUsageCount += 1;
+      if (!promo.usedBy.includes(userId)) promo.usedBy.push(userId);
+      promo.markModified("codes"); // Crucial for Mongoose to save array changes
+    }
+  } else if (promo.promoType === "static" || promo.promoType === "admin") {
+    promo.currentUsageCount += 1;
+    if (!promo.usedBy.includes(userId)) promo.usedBy.push(userId);
+  }
+
+  await promo.save({ session });
+};
+
+// --- 1. CASHIER BULK PURCHASE ---
 exports.createCashierBulkPurchase = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -61,9 +91,7 @@ exports.createCashierBulkPurchase = async (req, res) => {
     for (const id of uniquePkgIds) {
       if (!pkgMap[id]) throw new Error(`Package with ID ${id} not found.`);
 
-      // --- SERVER-SIDE 1-TIME PURCHASE VALIDATION ---
-      const pkg = pkgMap[id];
-      if (pkg.isOneTimePurchase) {
+      if (pkgMap[id].isOneTimePurchase) {
         const existingPurchases = await PackagePurchase.find({
           userId: { $in: userIds },
           packageId: id,
@@ -77,13 +105,16 @@ exports.createCashierBulkPurchase = async (req, res) => {
 
         if (existingPurchases.length > 0 || existingPasses.length > 0) {
           throw new Error(
-            `One or more selected clients have already purchased the One-Time package: ${pkg.packageName}`,
+            `One or more selected clients have already purchased the One-Time package: ${pkgMap[id].packageName}`,
           );
         }
       }
     }
 
-    // Master Cashier Transaction
+    if (promoCode) {
+      await consumePromoCode(promoCode, issuingStudio, userIds[0], session);
+    }
+
     const cashierTrx = new CashierTransaction({
       transactionId: `CASH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       issuingStudio,
@@ -91,7 +122,10 @@ exports.createCashierBulkPurchase = async (req, res) => {
       userIds,
       packages: packageIds.map((id) => ({
         packageId: id,
-        priceAtPurchase: pkgMap[id].packagePrice,
+        priceAtPurchase:
+          pkgMap[id].isPromo && pkgMap[id].promoPrice
+            ? pkgMap[id].promoPrice
+            : pkgMap[id].packagePrice,
       })),
       totalAmount,
       discountAmount: discountAmount || 0,
@@ -103,26 +137,45 @@ exports.createCashierBulkPurchase = async (req, res) => {
 
     await cashierTrx.save({ session });
 
+    let cartEffectiveTotal = 0;
+    for (const uid of userIds) {
+      for (const pkgId of packageIds) {
+        const pkg = pkgMap[pkgId];
+        cartEffectiveTotal +=
+          pkg.isPromo && pkg.promoPrice ? pkg.promoPrice : pkg.packagePrice;
+      }
+    }
+
     for (const uid of userIds) {
       for (const pkgId of packageIds) {
         const pkg = pkgMap[pkgId];
         const totalCredits = calculateTotalCredits(pkg);
 
+        const effectivePrice =
+          pkg.isPromo && pkg.promoPrice ? pkg.promoPrice : pkg.packagePrice;
+        const itemDiscount =
+          cartEffectiveTotal > 0
+            ? (effectivePrice / cartEffectiveTotal) * (discountAmount || 0)
+            : 0;
+        const finalItemPrice = effectivePrice - itemDiscount;
+
         let paymentIssuerStr = `CASHIER TRX: ${cashierTrx.transactionId}`;
         if (paymentMethod === "edc" && paymentDetails?.approvalCode) {
-          paymentIssuerStr = `EDC ${paymentDetails.edcType.toUpperCase()} | AppCode: ${paymentDetails.approvalCode}`;
+          paymentIssuerStr = `EDC ${paymentDetails.edcType?.toUpperCase()} | AppCode: ${paymentDetails.approvalCode}`;
         } else if (paymentMethod === "bank_transfer" && paymentDetails?.bank) {
           paymentIssuerStr = `Transfer - ${paymentDetails.bank}`;
         }
 
-        // 1. Create Purchase Record
         const newPurchase = new PackagePurchase({
           transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
           userId: uid,
           packageId: pkg._id,
+          packageNameSnapshot: pkg.packageName,
           paymentWindowExpiry: new Date(),
           creditsPurchased: totalCredits,
-          totalAmount: pkg.packagePrice,
+          totalAmount: finalItemPrice,
+          promoCodeApplied: promoCode || null,
+          discountAmount: itemDiscount,
           paymentMethod: paymentMethod,
           paymentIssuer: paymentIssuerStr,
           issuingStudio,
@@ -130,18 +183,16 @@ exports.createCashierBulkPurchase = async (req, res) => {
         });
         await newPurchase.save({ session });
 
-        // Calculate Expiry
         const passExpiry = new Date();
         passExpiry.setDate(passExpiry.getDate() + (pkg.validityDays || 30));
 
-        // 2. Create Active Passes (Supporting Combo Logic & Snapshotting)
         let passesToCreate = [];
         if (pkg.isCombo && pkg.comboItems && pkg.comboItems.length > 0) {
           passesToCreate = pkg.comboItems.map((item) => ({
             userId: uid,
             packageId: pkg._id,
-            packageNameSnapshot: pkg.packageName, // SNAPSHOT ADDED
-            packageCategorySnapshot: pkg.packageCategory, // SNAPSHOT ADDED
+            packageNameSnapshot: pkg.packageName,
+            packageCategorySnapshot: pkg.packageCategory,
             purchaseDate: new Date(),
             expiryDate: passExpiry,
             remainingCredits: item.credits,
@@ -157,8 +208,8 @@ exports.createCashierBulkPurchase = async (req, res) => {
             {
               userId: uid,
               packageId: pkg._id,
-              packageNameSnapshot: pkg.packageName, // SNAPSHOT ADDED
-              packageCategorySnapshot: pkg.packageCategory, // SNAPSHOT ADDED
+              packageNameSnapshot: pkg.packageName,
+              packageCategorySnapshot: pkg.packageCategory,
               purchaseDate: new Date(),
               expiryDate: passExpiry,
               remainingCredits: pkg.credits,
@@ -171,7 +222,6 @@ exports.createCashierBulkPurchase = async (req, res) => {
             },
           ];
         }
-
         await UserPasses.insertMany(passesToCreate, { session });
       }
     }
@@ -190,7 +240,7 @@ exports.createCashierBulkPurchase = async (req, res) => {
   }
 };
 
-// --- 1. CREATE PURCHASE ---
+// --- 2. CREATE CLIENT PURCHASE ---
 exports.createPurchase = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -204,6 +254,8 @@ exports.createPurchase = async (req, res) => {
       issuingStudio,
       proofOfPayment,
       userId,
+      promoCodeApplied,
+      discountAmount,
     } = req.body;
 
     const finalUserId = userId || req.user._id;
@@ -211,7 +263,6 @@ exports.createPurchase = async (req, res) => {
     const packageInfo = await Packages.findById(packageId).session(session);
     if (!packageInfo) throw new Error("Package not found");
 
-    // --- SERVER-SIDE 1-TIME PURCHASE VALIDATION ---
     if (packageInfo.isOneTimePurchase) {
       const existingPurchases = await PackagePurchase.findOne({
         userId: finalUserId,
@@ -231,6 +282,15 @@ exports.createPurchase = async (req, res) => {
       }
     }
 
+    if (promoCodeApplied) {
+      await consumePromoCode(
+        promoCodeApplied,
+        issuingStudio,
+        finalUserId,
+        session,
+      );
+    }
+
     let paymentStatus;
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -248,9 +308,12 @@ exports.createPurchase = async (req, res) => {
       transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: finalUserId,
       packageId,
+      packageNameSnapshot: packageInfo.packageName,
       paymentWindowExpiry: paymentDeadline,
       creditsPurchased: totalCredits,
-      totalAmount,
+      totalAmount, // Ensure the frontend sends the discounted amount!
+      promoCodeApplied: promoCodeApplied || null,
+      discountAmount: discountAmount || 0,
       paymentMethod,
       paymentIssuer,
       proofOfPayment,
@@ -260,7 +323,6 @@ exports.createPurchase = async (req, res) => {
 
     await newPurchase.save({ session });
 
-    // --- PREPARE NOTIFICATION DATA ---
     const notificationData = await PackagePurchase.findById(newPurchase._id)
       .populate("userId", "fullName")
       .populate("packageId", "packageName")
@@ -281,7 +343,6 @@ exports.createPurchase = async (req, res) => {
       }
     };
 
-    // --- AUTO-CONFIRM LOGIC ---
     if (paymentStatus === "confirmed") {
       const passExpiry = new Date();
       passExpiry.setDate(
@@ -297,8 +358,8 @@ exports.createPurchase = async (req, res) => {
         passesToCreate = packageInfo.comboItems.map((item) => ({
           userId: finalUserId,
           packageId: packageId,
-          packageNameSnapshot: packageInfo.packageName, // SNAPSHOT ADDED
-          packageCategorySnapshot: packageInfo.packageCategory, // SNAPSHOT ADDED
+          packageNameSnapshot: packageInfo.packageName,
+          packageCategorySnapshot: packageInfo.packageCategory,
           purchaseDate: new Date(),
           expiryDate: passExpiry,
           remainingCredits: item.credits,
@@ -314,8 +375,8 @@ exports.createPurchase = async (req, res) => {
           {
             userId: finalUserId,
             packageId: packageId,
-            packageNameSnapshot: packageInfo.packageName, // SNAPSHOT ADDED
-            packageCategorySnapshot: packageInfo.packageCategory, // SNAPSHOT ADDED
+            packageNameSnapshot: packageInfo.packageName,
+            packageCategorySnapshot: packageInfo.packageCategory,
             purchaseDate: new Date(),
             expiryDate: passExpiry,
             remainingCredits: packageInfo.credits,
@@ -338,9 +399,7 @@ exports.createPurchase = async (req, res) => {
       });
     }
 
-    // --- STANDARD FLOW ---
     sendNotification();
-
     await session.commitTransaction();
     res.status(201).json({
       message: "Purchase initiated.",
@@ -349,14 +408,13 @@ exports.createPurchase = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    console.error("Purchase Error:", error);
     res.status(400).json({ error: error.message });
   } finally {
     session.endSession();
   }
 };
 
-// --- 2. UPLOAD PROOF ---
+// --- 3. UPLOAD PROOF ---
 exports.uploadProof = async (req, res) => {
   try {
     const { purchaseId } = req.params;
@@ -380,7 +438,6 @@ exports.uploadProof = async (req, res) => {
 
     await purchase.save();
 
-    // Notify Admin
     const io = req.app.get("io");
     if (io) {
       await purchase.populate("userId", "fullName");
@@ -398,7 +455,7 @@ exports.uploadProof = async (req, res) => {
   }
 };
 
-// --- 3. ADMIN REVIEW ---
+// --- 4. ADMIN REVIEW PAYMENT ---
 exports.adminReviewPayment = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -435,7 +492,6 @@ exports.adminReviewPayment = async (req, res) => {
           packageId: purchase.packageId,
           packageNameSnapshot: packageDetails.packageName,
           packageCategorySnapshot: packageDetails.packageCategory,
-          // FIX: Sync timestamps to the original transaction
           purchaseDate: originalPurchaseTime,
           createdAt: originalPurchaseTime,
           expiryDate: passExpiry,
@@ -454,7 +510,6 @@ exports.adminReviewPayment = async (req, res) => {
             packageId: purchase.packageId,
             packageNameSnapshot: packageDetails.packageName,
             packageCategorySnapshot: packageDetails.packageCategory,
-            // FIX: Sync timestamps to the original transaction
             purchaseDate: originalPurchaseTime,
             createdAt: originalPurchaseTime,
             expiryDate: passExpiry,
@@ -476,7 +531,6 @@ exports.adminReviewPayment = async (req, res) => {
       purchase.paymentIssuer = paymentIssuer;
       await purchase.save({ session });
 
-      // Notify Client
       const io = req.app.get("io");
       if (io) {
         io.to(purchase.userId.toString()).emit("purchase_notification", {
@@ -495,7 +549,6 @@ exports.adminReviewPayment = async (req, res) => {
       purchase.rejectionReason = rejectionReason || "Proof rejected.";
       await purchase.save({ session });
 
-      // Notify Client
       const io = req.app.get("io");
       if (io) {
         io.to(purchase.userId.toString()).emit("purchase_notification", {
@@ -518,6 +571,7 @@ exports.adminReviewPayment = async (req, res) => {
   }
 };
 
+// --- 5. GET MY PURCHASES ---
 exports.getMyPurchases = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -544,6 +598,7 @@ exports.getMyPurchases = async (req, res) => {
   }
 };
 
+// --- 6. GET STUDIO HISTORY ---
 exports.getStudioPurchasesHistory = async (req, res) => {
   try {
     const { studioId } = req.params;
@@ -569,12 +624,12 @@ exports.getStudioPurchasesHistory = async (req, res) => {
   }
 };
 
+// --- 7. VERIFY TRANSACTION ---
 exports.verifyTransaction = async (req, res) => {
   try {
     const { transactionId } = req.params;
 
-    // Find the purchase and populate needed fields
-    const transaction = await Package_Purchase.findOne({ transactionId })
+    const transaction = await PackagePurchase.findOne({ transactionId })
       .populate("userId", "fullName email")
       .populate("packageId", "packageName");
 
@@ -591,5 +646,41 @@ exports.verifyTransaction = async (req, res) => {
       message: "Verification error",
       error: error.message,
     });
+  }
+};
+
+// --- 8. GET ALL PURCHASES ---
+exports.getAllPurchases = async (req, res) => {
+  try {
+    const purchases = await PackagePurchase.find()
+      .populate("userId", "fullName email")
+      .populate("packageId", "packageName price");
+    res.status(200).json(purchases);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- 9. GET PURCHASE BY ID ---
+exports.getPurchaseById = async (req, res) => {
+  try {
+    const purchase = await PackagePurchase.findById(req.params.id)
+      .populate("userId", "fullName email")
+      .populate("packageId", "packageName price");
+    if (!purchase) return res.status(404).json({ message: "Not found" });
+    res.status(200).json(purchase);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- 10. DELETE PURCHASE ---
+exports.deletePurchase = async (req, res) => {
+  try {
+    const purchase = await PackagePurchase.findByIdAndDelete(req.params.id);
+    if (!purchase) return res.status(404).json({ message: "Not found" });
+    res.status(200).json({ message: "Deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
