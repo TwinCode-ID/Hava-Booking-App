@@ -97,9 +97,10 @@ exports.createBooking = async (req, res) => {
       throw new Error("This student is already booked in this class.");
 
     // --- B. GET PASS ---
-    const userPass = await UserPasses.findOne({ _id: passId, userId }).session(
-      session,
-    );
+    const userPass = await UserPasses.findOne({
+      _id: passId,
+      $or: [{ userId: req.user._id }, { sharedWith: req.user._id }],
+    }).session(session);
 
     if (!userPass) throw new Error("Pass not found.");
     if (!userPass.isActive) throw new Error("This pass is inactive.");

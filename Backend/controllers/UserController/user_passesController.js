@@ -89,7 +89,7 @@ exports.passReminder = async (req, res) => {
 
 exports.assignPassToUser = async (req, res) => {
   try {
-    const { userId, packageId, durationInDays } = req.body;
+    const { userId, packageId, durationInDays, issuingStudio } = req.body;
 
     const selectedPackage = await Package.findById(packageId);
     if (!selectedPackage) throw new Error("Package not found");
@@ -110,6 +110,8 @@ exports.assignPassToUser = async (req, res) => {
         expiryDate,
         validityDuration: durationInDays,
         firstUsageDate: null,
+        issuingStudio: issuingStudio || selectedPackage.studioLocation,
+        isActive: true,
         remainingCredits: item.credits,
         initialCredits: item.credits,
         instructorType: item.instructorType,
@@ -274,8 +276,44 @@ exports.getUserPassHistory = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate("packageId")
       .populate("userId", "fullName email avatar")
-      .populate("sharedWith", "fullName email avatar"); 
+      .populate("sharedWith", "fullName email avatar");
     res.status(200).json(history);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.detachSharedPass = async (req, res) => {
+  try {
+    const { passId } = req.params;
+    const { userIdToDetach } = req.body;
+    const requesterId = req.user._id.toString();
+
+    const pass = await UserPasses.findById(passId);
+    if (!pass) return res.status(404).json({ message: "Pass not found" });
+
+    const ownerId = pass.userId._id
+      ? pass.userId._id.toString()
+      : pass.userId.toString();
+
+    // Permission Check:
+    // 1. Requester is the owner OR 2. Requester is the shared user leaving voluntarily
+    if (requesterId !== ownerId && requesterId !== userIdToDetach) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to detach this user." });
+    }
+
+    // Filter out the user to detach
+    pass.sharedWith = pass.sharedWith.filter(
+      (id) => id.toString() !== userIdToDetach,
+    );
+
+    await pass.save();
+
+    res
+      .status(200)
+      .json({ message: "User successfully detached from pass.", pass });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -288,6 +326,16 @@ exports.managePassFreeze = async (req, res) => {
 
     const pass = await UserPasses.findById(passId);
     if (!pass) return res.status(404).json({ message: "Pass not found" });
+
+    // NEW: Block non-owners from freezing or unfreezing
+    const ownerId = pass.userId._id
+      ? pass.userId._id.toString()
+      : pass.userId.toString();
+    if (ownerId !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Only the pass owner can manage freeze requests." });
+    }
 
     if (action === "unfreeze") {
       const today = new Date();
@@ -370,6 +418,16 @@ exports.generateShareLink = async (req, res) => {
     const pass = await UserPasses.findById(req.params.passId);
     if (!pass) return res.status(404).json({ message: "Pass not found" });
 
+    // NEW: Block non-owners
+    const ownerId = pass.userId._id
+      ? pass.userId._id.toString()
+      : pass.userId.toString();
+    if (ownerId !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Only the pass owner can generate a share link." });
+    }
+
     pass.shareCode =
       Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
     pass.isShared = true;
@@ -391,6 +449,17 @@ exports.sendShareLinkViaEmail = async (req, res) => {
       .populate("userId", "fullName");
 
     if (!pass) return res.status(404).json({ message: "Pass not found" });
+
+    // NEW: Block non-owners
+    const ownerId = pass.userId._id
+      ? pass.userId._id.toString()
+      : pass.userId.toString();
+    if (ownerId !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Only the pass owner can email share links." });
+    }
+
     if (!pass.shareCode)
       return res.status(400).json({ message: "Share code not generated yet." });
 

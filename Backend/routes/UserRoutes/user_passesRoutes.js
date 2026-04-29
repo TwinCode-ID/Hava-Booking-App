@@ -13,6 +13,7 @@ const {
   getSharedPassDetails,
   acceptSharedPass,
   passReminder,
+  detachSharedPass,
 } = require("../../controllers/UserController/user_passesController");
 const {
   generatePass,
@@ -35,5 +36,7 @@ router.put("/update/:passId", protect, updateUserPass);
 router.put("/freeze/:passId", protect, managePassFreeze);
 router.post("/assign", protect, assignPassToUser);
 router.post("/deduct", protect, deductCredits);
+
+router.put("/shared/:passId/detach", protect, detachSharedPass);
 
 module.exports = router;

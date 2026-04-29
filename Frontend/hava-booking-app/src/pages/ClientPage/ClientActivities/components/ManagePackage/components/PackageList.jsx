@@ -43,6 +43,8 @@ import {
   User,
   Share2,
   Mail,
+  AlertTriangle,
+  UserMinus,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
@@ -1750,7 +1752,9 @@ function PassQRView({ pass, isExpired }) {
 }
 
 function PassShareView({ pass }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [detachLoading, setDetachLoading] = useState(false);
   const [link, setLink] = useState(
     pass.shareCode
       ? `${window.location.origin}/shared-pass/${pass.shareCode}`
@@ -1758,6 +1762,8 @@ function PassShareView({ pass }) {
   );
   const [email, setEmail] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
+
+  const isOwner = pass.userId?._id === user?._id || pass.userId === user?._id;
 
   const handleGenerateShare = async () => {
     setLoading(true);
@@ -1770,7 +1776,6 @@ function PassShareView({ pass }) {
       pass.shareCode = res.data.pass.shareCode;
       pass.isShared = res.data.pass.isShared;
     } catch (err) {
-      console.error("Share error fallback:", err);
       try {
         const fbUrl = `/api/user-passes/share/${pass._id}`;
         const res = await axiosInstance.post(fbUrl);
@@ -1779,7 +1784,9 @@ function PassShareView({ pass }) {
         pass.shareCode = res.data.pass.shareCode;
         pass.isShared = res.data.pass.isShared;
       } catch (fallbackErr) {
-        alert("Failed to generate link.");
+        alert(
+          fallbackErr.response?.data?.message || "Failed to generate link.",
+        );
       }
     } finally {
       setLoading(false);
@@ -1806,79 +1813,141 @@ function PassShareView({ pass }) {
         alert("Email sent successfully!");
         setEmail("");
       } catch (fallbackErr) {
-        alert("Failed to send email");
+        alert(fallbackErr.response?.data?.message || "Failed to send email");
       }
     } finally {
       setEmailLoading(false);
     }
   };
 
+  // --- NEW: Detach Logic ---
+  const handleDetach = async (userIdToDetach, isSelf) => {
+    const confirmMsg = isSelf
+      ? "Are you sure you want to leave this shared pass? You will immediately lose access to its credits."
+      : "Are you sure you want to remove this user? They will lose access to this pass immediately.";
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setDetachLoading(true);
+    try {
+      // Try primary route
+      try {
+        await axiosInstance.put(`/api/passes/shared/${pass._id}/detach`, {
+          userIdToDetach,
+        });
+      } catch (err) {
+        // Fallback route
+        await axiosInstance.put(`/api/user-passes/shared/${pass._id}/detach`, {
+          userIdToDetach,
+        });
+      }
+
+      alert(
+        isSelf
+          ? "You have left the shared pass."
+          : "User removed successfully.",
+      );
+      window.location.reload(); // Refresh to update the global passes list
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to remove user.");
+    } finally {
+      setDetachLoading(false);
+    }
+  };
+
   return (
     <div className='flex flex-col h-full space-y-8'>
-      <div>
-        <h4 className='text-[15px] font-bold text-gray-900 mb-2 flex items-center gap-2'>
-          <Share2 className='w-4 h-4 text-[#2D8A60]' /> Generate Share Link
-        </h4>
-        <p className='text-[14px] text-gray-500 mb-5 leading-relaxed font-medium'>
-          Create a unique link to share your remaining credits with friends or
-          family. They must have an account to accept.
-        </p>
+      {isOwner ? (
+        <>
+          <div>
+            <h4 className='text-[15px] font-bold text-gray-900 mb-2 flex items-center gap-2'>
+              <Share2 className='w-4 h-4 text-[#2D8A60]' /> Generate Share Link
+            </h4>
+            <p className='text-[14px] text-gray-500 mb-5 leading-relaxed font-medium'>
+              Create a unique link to share your remaining credits with friends
+              or family. They must have an account to accept.
+            </p>
 
-        {!link ? (
-          <button
-            onClick={handleGenerateShare}
-            disabled={loading}
-            className='w-full py-4 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] transition-colors flex justify-center items-center gap-2 shadow-sm'>
-            {loading ? (
-              <Loader2 className='w-5 h-5 animate-spin' />
+            {!link ? (
+              <button
+                onClick={handleGenerateShare}
+                disabled={loading}
+                className='w-full py-4 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] transition-colors flex justify-center items-center gap-2 shadow-sm'>
+                {loading ? (
+                  <Loader2 className='w-5 h-5 animate-spin' />
+                ) : (
+                  "Generate Sharing Link"
+                )}
+              </button>
             ) : (
-              "Generate Sharing Link"
+              <div className='flex gap-3'>
+                <input
+                  type='text'
+                  readOnly
+                  value={link}
+                  className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-mono text-gray-600 focus:outline-none shadow-sm'
+                />
+                <button
+                  onClick={handleCopy}
+                  className='px-5 py-3 bg-[#E8F5EE] text-[#1E5D40] rounded-xl font-bold text-[14px] hover:bg-[#2D8A60] hover:text-white transition-colors border border-[#2D8A60]'>
+                  Copy
+                </button>
+              </div>
+            )}
+          </div>
+
+          {link && (
+            <div className='pt-6 border-t border-gray-200'>
+              <h4 className='text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2'>
+                <Mail className='w-4 h-4 text-[#2D8A60]' /> Send via Email
+              </h4>
+              <div className='flex gap-3'>
+                <input
+                  type='email'
+                  placeholder='friend@example.com'
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-sm'
+                />
+                <button
+                  onClick={sendEmail}
+                  disabled={emailLoading || !email}
+                  className='px-6 py-3 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] transition-colors disabled:bg-gray-300 flex items-center justify-center min-w-[90px] shadow-sm'>
+                  {emailLoading ? (
+                    <Loader2 className='w-4 h-4 animate-spin' />
+                  ) : (
+                    "Send"
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className='bg-amber-50 rounded-2xl p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-8'>
+          <AlertTriangle className='w-10 h-10 text-amber-500 mb-3' />
+          <h4 className='text-lg font-bold text-amber-900 mb-2'>Shared Pass</h4>
+          <p className='text-[14px] text-amber-700 font-medium max-w-sm mb-6'>
+            You are currently using a shared pass. Only the original pass owner
+            can generate new share links or invite other members.
+          </p>
+          <button
+            onClick={() => handleDetach(user._id, true)}
+            disabled={detachLoading}
+            className='px-6 py-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm w-full'>
+            {detachLoading ? (
+              <Loader2 className='w-4 h-4 animate-spin' />
+            ) : (
+              <>
+                <UserMinus className='w-4 h-4' /> Leave Shared Pass
+              </>
             )}
           </button>
-        ) : (
-          <div className='flex gap-3'>
-            <input
-              type='text'
-              readOnly
-              value={link}
-              className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-mono text-gray-600 focus:outline-none shadow-sm'
-            />
-            <button
-              onClick={handleCopy}
-              className='px-5 py-3 bg-[#E8F5EE] text-[#1E5D40] rounded-xl font-bold text-[14px] hover:bg-[#2D8A60] hover:text-white transition-colors border border-[#2D8A60]'>
-              Copy
-            </button>
-          </div>
-        )}
-      </div>
-
-      {link && (
-        <div className='pt-6 border-t border-gray-200'>
-          <h4 className='text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2'>
-            <Mail className='w-4 h-4 text-[#2D8A60]' /> Send via Email
-          </h4>
-          <div className='flex gap-3'>
-            <input
-              type='email'
-              placeholder='friend@example.com'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-sm'
-            />
-            <button
-              onClick={sendEmail}
-              disabled={emailLoading || !email}
-              className='px-6 py-3 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] transition-colors disabled:bg-gray-300 flex items-center justify-center min-w-[90px] shadow-sm'>
-              {emailLoading ? (
-                <Loader2 className='w-4 h-4 animate-spin' />
-              ) : (
-                "Send"
-              )}
-            </button>
-          </div>
         </div>
       )}
 
+      {/* Shared With List (Visible to both owner and shared users) */}
       {pass.sharedWith && pass.sharedWith.length > 0 && (
         <div className='pt-6 border-t border-gray-200'>
           <h4 className='text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2'>
@@ -1888,18 +1957,30 @@ function PassShareView({ pass }) {
             {pass.sharedWith.map((u, i) => (
               <div
                 key={i}
-                className='flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm'>
-                <div className='w-10 h-10 rounded-full bg-[#E8F5EE] flex items-center justify-center text-[#1E5D40] font-semibold text-sm'>
-                  {u.fullName?.charAt(0) || "U"}
+                className='flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm'>
+                <div className='flex items-center gap-4'>
+                  <div className='w-10 h-10 rounded-full bg-[#E8F5EE] flex items-center justify-center text-[#1E5D40] font-semibold text-sm shrink-0'>
+                    {u.fullName?.charAt(0) || "U"}
+                  </div>
+                  <div>
+                    <p className='text-[15px] font-bold text-gray-900'>
+                      {u.fullName || "User"}
+                    </p>
+                    <p className='text-[13px] text-gray-500 font-medium line-clamp-1'>
+                      {u.email}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className='text-[15px] font-bold text-gray-900'>
-                    {u.fullName || "User"}
-                  </p>
-                  <p className='text-[13px] text-gray-500 font-medium'>
-                    {u.email}
-                  </p>
-                </div>
+
+                {/* Remove Button - Only visible to the owner */}
+                {isOwner && (
+                  <button
+                    onClick={() => handleDetach(u._id, false)}
+                    disabled={detachLoading}
+                    className='ml-3 px-3 py-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100 shrink-0'>
+                    Remove
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1910,8 +1991,14 @@ function PassShareView({ pass }) {
 }
 
 function PassFreezeView({ group }) {
+  const { user } = useAuth(); // Get current user
   const [loading, setLoading] = useState(false);
   const [customDays, setCustomDays] = useState(7);
+
+  // Check if current logged-in user is the actual owner of the pass
+  const firstPass = group.passes[0];
+  const isOwner =
+    firstPass?.userId?._id === user?._id || firstPass?.userId === user?._id;
 
   const isFrozen = group.passes.some(
     (p) =>
@@ -1982,7 +2069,16 @@ function PassFreezeView({ group }) {
         </ul>
       </div>
 
-      {isFrozen ? (
+      {!isOwner ? (
+        <div className='bg-amber-50 rounded-2xl p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-10'>
+          <AlertTriangle className='w-10 h-10 text-amber-500 mb-3' />
+          <h4 className='text-lg font-bold text-amber-900 mb-2'>Shared Pass</h4>
+          <p className='text-[14px] text-amber-700 font-medium max-w-sm'>
+            You are currently using a shared pass. Only the original pass owner
+            can freeze or unfreeze this package.
+          </p>
+        </div>
+      ) : isFrozen ? (
         <div className='bg-white border border-gray-200 rounded-3xl p-8 text-center shadow-sm'>
           <Snowflake className='w-12 h-12 text-[#155E75] mx-auto mb-4' />
           <h3 className='font-semibold text-[#155E75] text-xl mb-2'>
