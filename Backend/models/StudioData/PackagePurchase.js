@@ -13,35 +13,32 @@ const PackagePurchaseSchema = new mongoose.Schema(
       ref: "Packages",
       required: true,
     },
+
+    // NEW: Snapshot the name so it isn't lost if the package is deleted
+    packageNameSnapshot: { type: String, required: true },
+
     paymentWindowExpiry: { type: Date, required: true },
-
-    // UPDATED: Supports queuing (pending -> queued -> active -> completed/expired/frozen)
-    status: {
-      type: String,
-      default: "pending",
-    },
-
+    status: { type: String, default: "pending" },
     rejectionReason: { type: String, default: null },
 
-    // NEW: Track credits to know when the "first package is done"
     creditsPurchased: { type: Number, required: true, default: 0 },
     remainingCredits: { type: Number, required: true, default: 0 },
 
-    // NEW: Timeline and Queuing logic
-    mustActivateBy: { type: Date }, // Set when payment is approved (Approval Date + activationPeriodDays)
-    activationDate: { type: Date }, // Set when first class is attended OR when the previous queued package finishes
-    expiryDate: { type: Date }, // Set upon activation (activationDate + validityDays)
+    mustActivateBy: { type: Date },
+    activationDate: { type: Date },
+    expiryDate: { type: Date },
 
-    // NEW: Freeze logic specific to THIS purchase instance
     isFrozen: { type: Boolean, default: false },
     freezeStartDate: { type: Date, default: null },
     totalFrozenDays: { type: Number, default: 0 },
 
     totalAmount: { type: Number, required: true },
-    paymentMethod: {
-      type: String,
-      required: true,
-    },
+
+    // Promo Tracking
+    promoCodeApplied: { type: String, default: null },
+    discountAmount: { type: Number, default: 0 },
+
+    paymentMethod: { type: String, required: true },
     paymentIssuer: { type: String, default: null },
     proofOfPayment: { type: String, default: null },
     issuingStudio: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },

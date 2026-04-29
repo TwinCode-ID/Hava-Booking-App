@@ -9,13 +9,12 @@ import {
   Copy,
   Store,
   QrCode,
-  ChevronDown, // Added ChevronDown for the custom dropdown
+  ChevronDown,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../../components/LoadingSpinner";
 import uploadProof from "../../../../../../utils/uploadProof";
-// Added getBankLogo to the imports
 import { INDONESIAN_BANKS } from "../../../../../../utils/helper";
 import { getBankLogo } from "../../../../../../utils/helpers";
 
@@ -94,14 +93,16 @@ const CustomBankDropdown = ({ value, onChange }) => {
 // --- MAIN COMPONENT ---
 const PurchaseForm = ({
   pkg,
-  bankDetails = [pkg.studioLocation.bankDetails].flat() || [],
+  bankDetails = pkg?.studioLocation?.bankDetails
+    ? [pkg.studioLocation.bankDetails].flat()
+    : [],
+  appliedPromo, // ADDED PROMO PROP
   onCancel,
   userId,
   onSuccess,
   setPaymentLoading,
 }) => {
   const [paymentMethod, setPaymentMethod] = useState("manual_transfer");
-  const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -115,11 +116,10 @@ const PurchaseForm = ({
 
   const fileInputRef = useRef(null);
 
-  const formattedPrice = new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(pkg.packagePrice);
+  // --- PRICE CALCULATION ---
+  const effectivePrice =
+    pkg?.isPromo && pkg?.promoPrice ? pkg.promoPrice : pkg?.packagePrice;
+  const finalPrice = appliedPromo ? appliedPromo.newTotal : effectivePrice;
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -175,13 +175,17 @@ const PurchaseForm = ({
         finalIssuer = "";
       }
 
+      // FIXED PAYLOAD: Using the correct variables from state & adding promo data
       await axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
         packageId: pkg._id,
-        totalAmount: pkg.packagePrice,
+        totalAmount: finalPrice,
+        promoCodeApplied: appliedPromo ? appliedPromo.appliedCode : null,
+        discountAmount: appliedPromo ? appliedPromo.discountAmount : 0,
         paymentMethod: paymentMethod,
         paymentIssuer: finalIssuer,
-        issuingStudio: pkg.studioLocation,
         proofOfPayment: paymentUrl,
+        issuingStudio: pkg.studioLocation?._id || pkg.studioLocation,
+        userId: userId,
       });
 
       setSuccess(true);
@@ -294,7 +298,7 @@ const PurchaseForm = ({
         Transfer to Studio Account:
       </p>
       <div className='bg-white border-2 border-dashed border-gray-200 rounded-xl p-4 relative transition-all'>
-        {/* VIEW: Manual Transfer - NOW DYNAMICALLY MAPPED WITH LOGOS */}
+        {/* VIEW: Manual Transfer */}
         {paymentMethod === "manual_transfer" && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -369,6 +373,23 @@ const PurchaseForm = ({
         )}
       </div>
 
+      {/* Added clear transfer instructions matching the screenshot */}
+      {(paymentMethod === "manual_transfer" || paymentMethod === "QRIS") && (
+        <div className='bg-[#FFFBEB] border border-amber-200 rounded-xl p-4 mt-2'>
+          <h4 className='text-[#92400E] text-[13px] font-bold mb-1'>
+            Transfer Instructions
+          </h4>
+          <p className='text-[#92400E] text-[13px]'>
+            Please transfer the exact amount of{" "}
+            <strong>
+              {new Intl.NumberFormat("id-ID").format(finalPrice)} IDR
+            </strong>{" "}
+            to the studio's account. Upload your receipt below to complete the
+            purchase.
+          </p>
+        </div>
+      )}
+
       {/* 4. Proof Upload */}
       <AnimatePresence>
         {paymentMethod !== "pay_at_studio" && (
@@ -376,7 +397,7 @@ const PurchaseForm = ({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className='overflow-hidden'>
+            className='overflow-hidden pt-2'>
             <h3 className='text-sm font-bold text-gray-900 mb-3 flex items-center gap-2'>
               <Upload className='w-4 h-4 text-emerald-600' />
               Upload Payment Proof
@@ -429,12 +450,12 @@ const PurchaseForm = ({
       )}
 
       {/* 5. Actions */}
-      <div className='flex gap-3 pt-2'>
+      <div className='flex gap-3 pt-2 border-t border-gray-100 mt-6'>
         <button
           type='button'
           onClick={onCancel}
           disabled={loading}
-          className='flex-1 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50'>
+          className='w-1/3 py-3.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors shadow-sm disabled:opacity-50'>
           Cancel
         </button>
         <button
@@ -443,10 +464,9 @@ const PurchaseForm = ({
             loading ||
             (paymentMethod !== "pay_at_studio" && !formData.proofOfPayment)
           }
-          className='flex-1 py-3 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'>
-          {paymentMethod === "pay_at_studio"
-            ? "Confirm Booking"
-            : "Confirm Payment"}
+          className='w-2/3 py-3.5 bg-[#1D3D36] text-white font-bold rounded-xl hover:bg-[#0F2922] shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'>
+          <CreditCard className='w-5 h-5' />
+          Pay {new Intl.NumberFormat("id-ID").format(finalPrice)} IDR
         </button>
       </div>
     </form>

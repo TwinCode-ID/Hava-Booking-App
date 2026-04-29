@@ -100,6 +100,9 @@ const getSafePurchaseData = (purchase) => ({
   transactionId: purchase?.transactionId || "-",
   packageId: getSafePackageData(purchase?.packageId),
   totalAmount: purchase?.totalAmount || 0,
+  isPromo: purchase?.isPromo || false,
+  promoCodeApplied: purchase?.promoCodeApplied || null,
+  discountAmount: purchase?.discountAmount || 0,
   creditsPurchased: purchase?.creditsPurchased || 0,
   paymentMethod: purchase?.paymentMethod || "Unknown",
   paymentIssuer: purchase?.paymentIssuer || "",
@@ -171,9 +174,7 @@ const ClientManager = ({ isEmbedded = false }) => {
   const [showViewMedicalModal, setShowViewMedicalModal] = useState(false);
   const [viewingCombinedItem, setViewingCombinedItem] = useState(null);
 
-  // State for Editing: Handles global expiry update or single pass limit updates
   const [editingTarget, setEditingTarget] = useState(null);
-
   const [config, setConfig] = useState({ classTypes: [], instructorTypes: [] });
 
   const fetchData = async () => {
@@ -303,7 +304,6 @@ const ClientManager = ({ isEmbedded = false }) => {
     const combined = [];
     const usedPassIds = new Set();
 
-    // 1. Group by Transaction
     txns.forEach((txn) => {
       const matchedPasses = passes.filter((p) => {
         if (usedPassIds.has(p._id)) return false;
@@ -311,12 +311,10 @@ const ClientManager = ({ isEmbedded = false }) => {
 
         const txnTime = new Date(txn.createdAt).getTime();
         const passTime = new Date(p.createdAt).getTime();
-        // ADD THIS: Safely get the explicit purchaseDate
         const purchaseDate = p.purchaseDate
           ? new Date(p.purchaseDate).getTime()
           : passTime;
 
-        // FIX: Match if either the createdAt OR purchaseDate is within 5 seconds
         return (
           Math.abs(txnTime - passTime) < 5000 ||
           Math.abs(txnTime - purchaseDate) < 5000
@@ -334,7 +332,6 @@ const ClientManager = ({ isEmbedded = false }) => {
       });
     });
 
-    // 2. Group remaining passes
     const remainingPasses = passes.filter((p) => !usedPassIds.has(p._id));
     const groupedRemaining = [];
 
@@ -596,12 +593,31 @@ const ClientManager = ({ isEmbedded = false }) => {
           `${packageName}\n(${credits} Credits)`,
           paymentMethod,
           txn.status.toUpperCase(),
-          formatCurrency(txn.totalAmount),
+          formatCurrency(txn.totalAmount + (txn.discountAmount || 0)), // Showing pre-discount here
         ],
       ],
     });
 
-    const finalY = doc.lastAutoTable.finalY || 130;
+    let finalY = doc.lastAutoTable.finalY || 130;
+
+    if (txn.promoCodeApplied && txn.discountAmount > 0) {
+      doc.setFontSize(10);
+      doc.setTextColor(...grayText);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Discount (${txn.promoCodeApplied}):`,
+        pageWidth - 92,
+        finalY + 10,
+      );
+      doc.setTextColor(220, 38, 38);
+      doc.text(
+        `-${formatCurrency(txn.discountAmount)}`,
+        pageWidth - 24,
+        finalY + 10,
+        { align: "right" },
+      );
+      finalY += 10;
+    }
 
     doc.setFillColor(248, 250, 252);
     doc.rect(pageWidth - 100, finalY + 10, 84, 26, "F");
@@ -794,7 +810,6 @@ const ClientManager = ({ isEmbedded = false }) => {
                   ))}
                 </tbody>
               </table>
-
               <div className='block md:hidden divide-y divide-gray-50'>
                 {filteredClients.map((client) => (
                   <div
@@ -1149,6 +1164,13 @@ const ClientManager = ({ isEmbedded = false }) => {
                                       )}
                                     </span>
                                   </div>
+                                  {item.txnData.promoCodeApplied && (
+                                    <div className='mt-1 flex items-center gap-1'>
+                                      <span className='bg-pink-100 text-pink-700 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider'>
+                                        Promo: {item.txnData.promoCodeApplied}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <span className='text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
@@ -1286,14 +1308,21 @@ const ClientManager = ({ isEmbedded = false }) => {
 
                           {item.isTxn && (
                             <div className='flex items-center justify-between mt-1 pt-3 border-t border-dashed border-gray-100'>
-                              <div className='flex items-center gap-1.5 text-[11px] font-medium text-gray-500'>
-                                <CreditCard className='w-3.5 h-3.5 text-gray-400 shrink-0' />
-                                <span className='truncate max-w-[150px]'>
-                                  {formatPaymentMethod(
-                                    item.txnData.paymentMethod,
-                                    item.txnData.paymentIssuer,
-                                  )}
-                                </span>
+                              <div className='flex flex-col gap-1 text-[11px] font-medium text-gray-500'>
+                                <div className='flex items-center gap-1.5'>
+                                  <CreditCard className='w-3.5 h-3.5 text-gray-400 shrink-0' />
+                                  <span className='truncate max-w-[150px]'>
+                                    {formatPaymentMethod(
+                                      item.txnData.paymentMethod,
+                                      item.txnData.paymentIssuer,
+                                    )}
+                                  </span>
+                                </div>
+                                {item.txnData.promoCodeApplied && (
+                                  <span className='bg-pink-100 text-pink-700 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider w-fit mt-1'>
+                                    Promo: {item.txnData.promoCodeApplied}
+                                  </span>
+                                )}
                               </div>
                               <span className='font-mono font-bold text-gray-900 text-[13px]'>
                                 {formatCurrency(item.txnData.totalAmount)}
@@ -2084,6 +2113,17 @@ const UnifiedDetailModal = ({
                   )}
                 </span>
               </div>
+              {txnData.promoCodeApplied && (
+                <div className='flex justify-between items-center pt-2'>
+                  <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                    Promo
+                  </span>
+                  <span className='text-[12px] sm:text-[13px] font-bold text-pink-600'>
+                    {txnData.promoCodeApplied} (-
+                    {formatCurrency(txnData.discountAmount || 0)})
+                  </span>
+                </div>
+              )}
               {txnData.proofOfPayment &&
                 txnData.proofOfPayment !== "Manual Assignment" &&
                 txnData.proofOfPayment.startsWith("http") && (

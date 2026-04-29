@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Filter,
@@ -10,6 +11,17 @@ import {
   AlertTriangle,
   Clock,
   Eye,
+  History,
+  Ban,
+  CreditCard,
+  CalendarDays,
+  Hash,
+  UploadCloud,
+  FileText,
+  Image as ImageIcon,
+  FileIcon,
+  Loader2,
+  Printer,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
@@ -18,8 +30,43 @@ import { API_PATHS } from "../../../../../utils/apiPath";
 import ReviewModal from "./components/ReviewModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { QRCodeCanvas } from "qrcode.react";
+import uploadProof from "../../../../../utils/uploadProof";
 
 // --- Helpers ---
+const STATUS_STYLES = {
+  pending: {
+    color: "text-amber-900",
+    bg: "bg-amber-50",
+    icon: Clock,
+    label: "Payment Pending",
+  },
+  waiting_confirmation: {
+    color: "text-amber-900",
+    bg: "bg-amber-50",
+    icon: Clock,
+    label: "Pending Verification",
+  },
+  confirmed: {
+    color: "text-[#1E5D40]",
+    bg: "bg-[#E8F5EE]",
+    icon: CheckCircle2,
+    label: "Confirmed",
+  },
+  payment_rejected: {
+    color: "text-red-950",
+    bg: "bg-red-50",
+    icon: Ban,
+    label: "Rejected",
+  },
+  expired: {
+    color: "text-gray-600",
+    bg: "bg-gray-100",
+    icon: X,
+    label: "Pass Expired",
+  },
+};
+
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -45,7 +92,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // UI States
   const [searchQuery, setSearchQuery] = useState("");
   const [filterIssuer, setFilterIssuer] = useState("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -54,20 +100,16 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     direction: "desc",
   });
 
-  // Modal States
   const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [processingId, setProcessingId] = useState(null);
 
-  // PDF States
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
 
-  // --- 1. FETCH DATA ---
   const fetchPurchases = async () => {
     try {
       if (!user?.adminStudioLocation) return;
-      // console.log("🔄 Fetching Admin Purchases..."); // Debug log
       const response = await axiosInstance.get(
         API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
       );
@@ -79,30 +121,19 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     }
   };
 
-  // --- 2. LISTEN FOR GLOBAL UPDATES ---
   useEffect(() => {
-    // Initial Load
     fetchPurchases();
 
-    // Event Handler
     const handleAdminUpdate = () => {
-      console.log("⚡ [ADMIN] Socket event received. Refetching...");
       fetchPurchases();
     };
 
-    // Add Listener
     window.addEventListener("admin-data-updated", handleAdminUpdate);
-
-    // Cleanup
     return () => {
       window.removeEventListener("admin-data-updated", handleAdminUpdate);
     };
   }, [fetchPurchases]);
 
-  // ... (Rest of your component logic: Filtering, Sorting, PDF, JSX) ...
-  // This part of your code was fine, no changes needed below here.
-
-  // --- FILTERING & SORTING ---
   const filteredData = useMemo(() => {
     let data = purchases.filter((p) => {
       const matchesIssuer =
@@ -113,7 +144,9 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
 
       const query = cleanText(searchQuery);
       const userName = cleanText(p.userId?.fullName);
-      const packageName = cleanText(p.packageId?.packageName);
+      const packageName = cleanText(
+        p.packageId?.packageName || p.packageNameSnapshot,
+      );
       const trxId = cleanText(p.transactionId);
 
       const matchesSearch =
@@ -157,9 +190,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     }));
   };
 
-  // ... (Keep handlePreviewReport, handleDownloadReport, handleReview, issuerOptions) ...
-
-  // Copying your Review Logic back in to ensure it's complete
   const handleReview = async (action, extraData = {}) => {
     if (!selectedPurchase) return;
     setProcessingId(selectedPurchase._id);
@@ -174,7 +204,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
         },
       );
 
-      // Optimistic Update
       setPurchases((prev) =>
         prev.map((p) =>
           p._id === selectedPurchase._id
@@ -205,7 +234,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     ];
   }, [purchases]);
 
-  // ... (Keep handlePreviewReport and handleDownloadReport from your previous code) ...
   const handlePreviewReport = () => {
     if (filteredData.length === 0) {
       alert("No data available to export.");
@@ -231,7 +259,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
       new Date(p.createdAt).toLocaleDateString("en-GB"),
       p.transactionId,
       p.userId?.fullName || "Unknown",
-      p.packageId?.packageName || "Unknown",
+      p.packageId?.packageName || p.packageNameSnapshot || "Unknown",
       p.paymentIssuer || "-",
       formatCurrency(p.totalAmount),
       p.status,
@@ -272,7 +300,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
       new Date(p.createdAt).toLocaleDateString("en-GB"),
       p.transactionId,
       p.userId?.fullName || "Unknown",
-      p.packageId?.packageName || "Unknown",
+      p.packageId?.packageName || p.packageNameSnapshot || "Unknown",
       p.paymentIssuer || "-",
       formatCurrency(p.totalAmount),
       p.status,
@@ -295,7 +323,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
   return (
     <div
       className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 min-h-screen relative`}>
-      {/* --- HEADER --- */}
       {!isEmbedded && (
         <div className='mb-8'>
           <h1 className='text-2xl font-bold text-gray-900'>Payment Reviews</h1>
@@ -305,9 +332,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
         </div>
       )}
 
-      {/* --- TOOLBAR --- */}
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-20'>
-        {/* Left: Search */}
         <div className='relative w-full md:w-96'>
           <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
           <input
@@ -319,7 +344,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
           />
         </div>
 
-        {/* Right: Actions */}
         <div className='flex items-center justify-end gap-3 w-full md:w-auto'>
           <span className='text-sm text-gray-500 font-medium whitespace-nowrap hidden md:block mr-2'>
             Showing{" "}
@@ -366,7 +390,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
         </div>
       </div>
 
-      {/* --- TABLE --- */}
       <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
         <div className='overflow-x-auto'>
           <table className='w-full text-left border-collapse'>
@@ -433,9 +456,18 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
                       </div>
                     </td>
                     <td className='py-4 px-6'>
-                      <span className='text-sm font-medium text-gray-900'>
-                        {item.packageId?.packageName}
-                      </span>
+                      <div className='flex flex-col gap-1'>
+                        <span className='text-sm font-medium text-gray-900'>
+                          {item.packageId?.packageName ||
+                            item.packageNameSnapshot ||
+                            "Deleted Package"}
+                        </span>
+                        {item.promoCodeApplied && (
+                          <span className='w-fit bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest'>
+                            Promo: {item.promoCodeApplied}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className='py-4 px-6'>
                       <span className='text-sm font-bold text-gray-900'>
@@ -483,7 +515,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
         </div>
       </div>
 
-      {/* --- MODALS --- */}
       {showPdfPreview && pdfUrl && (
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200'>
           <div className='bg-white w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200'>
