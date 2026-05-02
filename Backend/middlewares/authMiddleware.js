@@ -11,18 +11,21 @@ const protect = async (req, res, next) => {
       req.user = await User.findById(decoded.id).select("-password");
       next();
     } else {
-      res.status(401).json({ message: "Token failed", error: error.message });
+      res.status(401).json({ message: "Not authorized, no token provided" });
     }
-  } catch (err) {
-    res.status(401).json({ message: "Token failed", error: error.message });
+  } catch (error) {
+    res
+      .status(401)
+      .json({ message: "Not authorized, token failed", error: error.message });
   }
 };
 
 const studioAdmin = async (req, res, next) => {
-  if (!req.user || req.user.role !== "studioAdmin") {
-    if (!req.user || req.user.role !== "devTeam") {
-      return res.status(403).json({ message: "Unauthorized user" });
-    }
+  if (
+    !req.user ||
+    (req.user.role !== "studioAdmin" && req.user.role !== "devTeam")
+  ) {
+    return res.status(403).json({ message: "Unauthorized user" });
   }
   next();
 };
