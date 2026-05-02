@@ -20,7 +20,7 @@
     "express": "^5.1.0",
     "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^8.3.1",
-    "firebase-admin": "^10.3.0",
+    "firebase-admin": "^13.8.0",
     "google-auth-library": "^10.6.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
@@ -32,7 +32,7 @@
     "passkit-generator": "^3.5.7",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
-    "uuid": "^13.0.0"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
