@@ -10,17 +10,13 @@ const user_passesSchema = new mongoose.Schema(
     sharedWith: [
       { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
     ],
-
     packageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Packages",
       required: true,
     },
-    
-    // NEW: Snapshot fields to prevent data loss if a package is deleted
     packageNameSnapshot: { type: String, default: "Unknown Package" },
     packageCategorySnapshot: { type: [String], default: [] },
-
     freeze: {
       hasBeenFrozen: { type: Boolean, default: false },
       startDate: { type: Date, default: null },

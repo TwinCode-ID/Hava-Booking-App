@@ -34,6 +34,7 @@ import {
   MessageCircle,
   Bell,
   Layers,
+  Hourglass,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -53,7 +54,7 @@ const getSafeClientData = (user) => ({
 
 const getSafePackageData = (pkg) => ({
   _id: pkg?._id || "unknown",
-  packageName: pkg?.packageName || "Custom / Unknown Package",
+  packageName: pkg?.packageName || "Deleted Package",
   packageCategory: pkg?.packageCategory || [],
   credits: pkg?.credits || 0,
   isStudent: pkg?.isStudent || false,
@@ -76,9 +77,9 @@ const getSafePassData = (pass) => ({
     ? pass.sharedWith.map(getSafeClientData)
     : [],
   snapshotName:
-    pass?.packageNameSnapshot ||
-    pass?.packageId?.packageName ||
-    "Unknown Package",
+    pass?.packageNameSnapshot && pass.packageNameSnapshot !== "Unknown Package"
+      ? pass.packageNameSnapshot
+      : pass?.packageId?.packageName || "Deleted Package",
   snapshotCategory:
     pass?.packageCategorySnapshot || pass?.packageId?.packageCategory || [],
   remainingCredits: pass?.remainingCredits ?? pass?.initialCredits ?? 0,
@@ -307,7 +308,6 @@ const ClientManager = ({ isEmbedded = false }) => {
     txns.forEach((txn) => {
       const matchedPasses = passes.filter((p) => {
         if (usedPassIds.has(p._id)) return false;
-        if (p.packageId?._id !== txn.packageId?._id) return false;
 
         const txnTime = new Date(txn.createdAt).getTime();
         const passTime = new Date(p.createdAt).getTime();
@@ -315,10 +315,19 @@ const ClientManager = ({ isEmbedded = false }) => {
           ? new Date(p.purchaseDate).getTime()
           : passTime;
 
-        return (
+        const isTimeMatch =
           Math.abs(txnTime - passTime) < 5000 ||
-          Math.abs(txnTime - purchaseDate) < 5000
-        );
+          Math.abs(txnTime - purchaseDate) < 5000;
+
+        const pPkgId = p.packageId?._id || p.packageId;
+        const tPkgId = txn.packageId?._id || txn.packageId;
+
+        if (pPkgId && tPkgId && pPkgId !== "unknown" && tPkgId !== "unknown") {
+          if (pPkgId === tPkgId && isTimeMatch) return true;
+          if (pPkgId !== tPkgId) return false;
+        }
+
+        return isTimeMatch;
       });
 
       matchedPasses.forEach((p) => usedPassIds.add(p._id));
@@ -338,15 +347,19 @@ const ClientManager = ({ isEmbedded = false }) => {
     remainingPasses.forEach((pass) => {
       if (usedPassIds.has(pass._id)) return;
 
-      const siblings = remainingPasses.filter(
-        (p) =>
-          !usedPassIds.has(p._id) &&
-          p.packageId?._id === pass.packageId?._id &&
-          Math.abs(
-            new Date(p.createdAt).getTime() -
-              new Date(pass.createdAt).getTime(),
-          ) < 5000,
-      );
+      const siblings = remainingPasses.filter((p) => {
+        if (usedPassIds.has(p._id)) return false;
+
+        const isTimeMatch = Math.abs(new Date(p.createdAt).getTime() - new Date(pass.createdAt).getTime()) < 5000;
+        const pId1 = p.packageId?._id || p.packageId;
+        const pId2 = pass.packageId?._id || pass.packageId;
+
+        if (pId1 && pId2 && pId1 !== "unknown" && pId2 !== "unknown") {
+          return pId1 === pId2 && isTimeMatch;
+        }
+
+        return isTimeMatch;
+      });
 
       siblings.forEach((p) => usedPassIds.add(p._id));
 
@@ -368,12 +381,12 @@ const ClientManager = ({ isEmbedded = false }) => {
         aVal = (
           a.passes[0]?.snapshotName ||
           a.txnData?.packageId?.packageName ||
-          ""
+          "Deleted Package"
         ).toLowerCase();
         bVal = (
           b.passes[0]?.snapshotName ||
           b.txnData?.packageId?.packageName ||
-          ""
+          "Deleted Package"
         ).toLowerCase();
       } else if (historySortConfig.key === "totalAmount") {
         aVal = a.isTxn ? a.txnData.totalAmount : 0;
@@ -553,7 +566,7 @@ const ClientManager = ({ isEmbedded = false }) => {
     if (client.email) doc.text(client.email, 16, 76);
     if (client.phoneNumber) doc.text(client.phoneNumber, 16, 82);
 
-    const packageName = txn.packageId?.packageName || "Custom Package";
+    const packageName = txn.packageId?.packageName || "Deleted Package";
     const credits = txn.creditsPurchased || 0;
     const paymentMethod = formatPaymentMethod(
       txn.paymentMethod,
@@ -593,7 +606,7 @@ const ClientManager = ({ isEmbedded = false }) => {
           `${packageName}\n(${credits} Credits)`,
           paymentMethod,
           txn.status.toUpperCase(),
-          formatCurrency(txn.totalAmount + (txn.discountAmount || 0)), // Showing pre-discount here
+          formatCurrency(txn.totalAmount + (txn.discountAmount || 0)),
         ],
       ],
     });
@@ -653,25 +666,40 @@ const ClientManager = ({ isEmbedded = false }) => {
 
     const today = new Date();
     let hasFrozen = false;
+    let hasFreezeRequest = false;
     let hasActive = false;
 
     item.passes.forEach((p) => {
       const freezeEndDate = p.freeze?.endDate
         ? new Date(p.freeze.endDate)
         : null;
-      if (p.freeze?.hasBeenFrozen && freezeEndDate && today < freezeEndDate) {
+        
+      if (p.freeze?.status === "requested") {
+        hasFreezeRequest = true;
+      } else if (
+        p.freeze?.status === "approved" ||
+        (p.freeze?.hasBeenFrozen && freezeEndDate && today < freezeEndDate)
+      ) {
         hasFrozen = true;
       } else if (p.isActive) {
         hasActive = true;
       }
     });
 
+    if (hasFreezeRequest) return "freeze_requested";
     if (hasFrozen) return "frozen";
     if (hasActive) return "confirmed";
     return "inactive";
   };
 
   const renderStatusBadge = (status) => {
+    if (status === "freeze_requested") {
+      return (
+        <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-indigo-50 text-indigo-700 uppercase tracking-wide border border-indigo-100'>
+          <Hourglass className='w-3 h-3' /> Freeze Requested
+        </span>
+      );
+    }
     if (status === "frozen") {
       return (
         <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-blue-50 text-blue-700 uppercase tracking-wide border border-blue-100'>
@@ -1033,18 +1061,23 @@ const ClientManager = ({ isEmbedded = false }) => {
                         const packageObj =
                           item.passes[0]?.packageId ||
                           item.txnData?.packageId ||
+                          item.passId || 
                           {};
 
-                        const snapshotName =
-                          item.passes[0]?.snapshotName ||
-                          packageObj.packageName ||
-                          "Unknown Package";
+                        let snapshotName = "Deleted Package";
+                        if (item.passes[0]?.snapshotName && item.passes[0].snapshotName !== "Unknown Package" && item.passes[0].snapshotName !== "Deleted Package") {
+                          snapshotName = item.passes[0].snapshotName;
+                        } else if (packageObj.packageName && packageObj.packageName !== "Unknown Package" && packageObj.packageName !== "Custom / Unknown Package") {
+                          snapshotName = packageObj.packageName;
+                        }
+
                         const snapshotCategory =
                           item.passes[0]?.snapshotCategory ||
                           packageObj.packageCategory ||
                           [];
 
                         const displayStatus = getOverallItemStatus(item);
+                        const hasFreezeRequest = item.passes.some((p) => p.freeze?.status === "requested");
 
                         // Summarize credits across all passes in item
                         const totalRemaining = item.passes.reduce(
@@ -1076,13 +1109,20 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 className='text-[10px] text-gray-400 font-mono truncate max-w-[100px] md:max-w-[150px]'
                                 title={
                                   item.isTxn
-                                    ? item.txnData.transactionId
+                                    ? `TRX: ${item.txnData.transactionId}`
                                     : "Manual Assign"
                                 }>
                                 {item.isTxn
-                                  ? item.txnData.transactionId
+                                  ? `TRX: ${item.txnData.transactionId}`
                                   : "Manual Assign"}
                               </div>
+                              {item.passes[0] && (
+                                <div
+                                  className='text-[10px] text-gray-400 font-mono truncate max-w-[100px] md:max-w-[150px] mt-0.5'
+                                  title={`Pass ID: ${item.passes[0]._id}`}>
+                                  Pass: {item.passes[0]._id}
+                                </div>
+                              )}
                             </td>
 
                             <td className='py-5 px-4 md:px-6 w-56'>
@@ -1180,7 +1220,9 @@ const ClientManager = ({ isEmbedded = false }) => {
                             </td>
 
                             <td className='py-5 px-4 md:px-6 whitespace-nowrap'>
-                              {renderStatusBadge(displayStatus)}
+                              <div className='flex flex-col gap-2 items-start'>
+                                {renderStatusBadge(displayStatus)}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1205,15 +1247,19 @@ const ClientManager = ({ isEmbedded = false }) => {
                         item.txnData?.packageId ||
                         {};
 
-                      const snapshotName =
-                        item.passes[0]?.snapshotName ||
-                        packageObj.packageName ||
-                        "Unknown Package";
+                      let snapshotName = "Deleted Package";
+                      if (item.passes[0]?.snapshotName && item.passes[0].snapshotName !== "Unknown Package" && item.passes[0].snapshotName !== "Deleted Package") {
+                        snapshotName = item.passes[0].snapshotName;
+                      } else if (packageObj.packageName && packageObj.packageName !== "Unknown Package" && packageObj.packageName !== "Custom / Unknown Package") {
+                        snapshotName = packageObj.packageName;
+                      }
+
                       const snapshotCategory =
                         item.passes[0]?.snapshotCategory ||
                         packageObj.packageCategory ||
                         [];
                       const displayStatus = getOverallItemStatus(item);
+                      const hasFreezeRequest = item.passes.some((p) => p.freeze?.status === "requested");
 
                       const totalRemaining = item.passes.reduce(
                         (sum, p) => sum + (p.remainingCredits || 0),
@@ -1243,11 +1289,23 @@ const ClientManager = ({ isEmbedded = false }) => {
                               </div>
                               <div className='text-[10px] text-gray-400 font-mono'>
                                 {item.isTxn
-                                  ? item.txnData.transactionId
+                                  ? `TRX: ${item.txnData.transactionId}`
                                   : "Manual Assign"}
                               </div>
+                              {item.passes[0] && (
+                                <div className='text-[10px] text-gray-400 font-mono mt-0.5'>
+                                  Pass: {item.passes[0]._id}
+                                </div>
+                              )}
                             </div>
-                            <div>{renderStatusBadge(displayStatus)}</div>
+                            <div className='flex flex-col items-end gap-1.5'>
+                              {renderStatusBadge(displayStatus)}
+                              {hasFreezeRequest && (
+                                <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[9px] font-extrabold bg-indigo-50 text-indigo-700 uppercase tracking-wide border border-indigo-100'>
+                                  <Hourglass className='w-2.5 h-2.5' /> Freeze Requested
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div>
@@ -1573,14 +1631,23 @@ const UnifiedDetailModal = ({
                 {formatCurrency(txnData.totalAmount)}
               </p>
             )}
-            <div className='flex justify-center mt-1'>
-              {renderStatusBadge(displayStatus)}
+            <div className='flex flex-col items-center justify-center mt-1 gap-2'>
+              <div className="flex gap-2">
+                 {renderStatusBadge(displayStatus)}
+              </div>
             </div>
-            {isTxn && (
-              <p className='text-[11px] sm:text-[12px] text-gray-400 font-mono mt-2 tracking-wide select-all break-all px-4'>
-                ID: {txnData.transactionId}
-              </p>
-            )}
+            <div className='flex flex-col items-center gap-0.5 mt-2'>
+              {isTxn && (
+                <p className='text-[11px] sm:text-[12px] text-gray-400 font-mono tracking-wide select-all break-all px-4'>
+                  TRX: {txnData.transactionId}
+                </p>
+              )}
+              {basePass && (
+                <p className='text-[11px] sm:text-[12px] text-gray-400 font-mono tracking-wide select-all break-all px-4'>
+                  Pass ID: {basePass._id}
+                </p>
+              )}
+            </div>
           </div>
 
           {basePass && (
@@ -1620,9 +1687,7 @@ const UnifiedDetailModal = ({
                       Package
                     </p>
                     <p className='text-sm font-bold text-gray-900 mb-1.5'>
-                      {basePass?.snapshotName ||
-                        basePass.packageId?.packageName ||
-                        "Unknown"}
+                      {basePass?.snapshotName && basePass.snapshotName !== "Unknown Package" && basePass.snapshotName !== "Deleted Package" ? basePass.snapshotName : (basePass.packageId?.packageName || "Deleted Package")}
                     </p>
                     <div className='flex gap-1 flex-wrap'>
                       {(
@@ -2574,7 +2639,7 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
                 onChange={(e) =>
                   setFormData({ ...formData, paymentIssuer: e.target.value })
                 }
-                className='w-full p-3.5 bg-white rounded-xl border border-gray-200 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-sm'
+                className='w-full p-3.5 bg-white border border-gray-200 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-sm'
               />
             </div>
           </div>
@@ -2840,171 +2905,6 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
             Confirm Assignment
           </button>
         </form>
-      </motion.div>
-    </div>
-  );
-};
-
-const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
-  const [formData, setFormData] = useState({
-    dateOfBirth: "",
-    sex: "",
-    occupation: "",
-    maritalStatus: "",
-    physicalConcern: "",
-    dailyActivity: "",
-    address: "",
-  });
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <div className='fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className='bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-white/20'>
-        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 bg-white flex justify-between items-center'>
-          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
-            Add Medical Record
-          </h3>
-          <button
-            onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-400' />
-          </button>
-        </div>
-        <form
-          onSubmit={handleSubmit}
-          className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-5 custom-scrollbar bg-slate-50/30'>
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5'>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2'>
-                Date of Birth
-              </label>
-              <input
-                type='date'
-                required
-                value={formData.dateOfBirth}
-                onChange={(e) =>
-                  setFormData({ ...formData, dateOfBirth: e.target.value })
-                }
-                className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
-              />
-            </div>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2'>
-                Sex
-              </label>
-              <select
-                required
-                value={formData.sex}
-                onChange={(e) =>
-                  setFormData({ ...formData, sex: e.target.value })
-                }
-                className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none'>
-                <option value='' disabled>
-                  Select Sex
-                </option>
-                <option value='Male'>Male</option>
-                <option value='Female'>Female</option>
-              </select>
-            </div>
-          </div>
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5'>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2'>
-                Occupation
-              </label>
-              <input
-                type='text'
-                required
-                placeholder='e.g. Graphic Designer'
-                value={formData.occupation}
-                onChange={(e) =>
-                  setFormData({ ...formData, occupation: e.target.value })
-                }
-                className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
-              />
-            </div>
-            <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2'>
-                Marital Status
-              </label>
-              <select
-                required
-                value={formData.maritalStatus}
-                onChange={(e) =>
-                  setFormData({ ...formData, maritalStatus: e.target.value })
-                }
-                className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none'>
-                <option value='' disabled>
-                  Select Status
-                </option>
-                <option value='Single'>Single</option>
-                <option value='Married'>Married</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2'>
-              Physical Concerns
-            </label>
-            <textarea
-              rows='2'
-              placeholder='e.g. Shoulder pain, stiff neck...'
-              value={formData.physicalConcern}
-              onChange={(e) =>
-                setFormData({ ...formData, physicalConcern: e.target.value })
-              }
-              className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm resize-none'
-            />
-          </div>
-          <div>
-            <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2'>
-              Daily Activity
-            </label>
-            <textarea
-              rows='2'
-              placeholder='e.g. Sedentary work, mostly sitting...'
-              value={formData.dailyActivity}
-              onChange={(e) =>
-                setFormData({ ...formData, dailyActivity: e.target.value })
-              }
-              className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm resize-none'
-            />
-          </div>
-          <div>
-            <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2'>
-              Address
-            </label>
-            <textarea
-              rows='2'
-              placeholder='Full Address'
-              value={formData.address}
-              onChange={(e) =>
-                setFormData({ ...formData, address: e.target.value })
-              }
-              className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm resize-none'
-            />
-          </div>
-        </form>
-        <div className='p-5 sm:p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row gap-3 sm:gap-4'>
-          <button
-            type='button'
-            onClick={onClose}
-            className='flex-1 py-3.5 sm:py-4 text-gray-600 font-bold hover:bg-slate-100 rounded-xl transition-colors text-[14px] sm:text-[15px] border border-transparent'>
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className='flex-1 py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-emerald-800 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
-            {isLoading ? "Saving..." : "Save Record"}
-          </button>
-        </div>
       </motion.div>
     </div>
   );

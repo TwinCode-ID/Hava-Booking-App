@@ -38,13 +38,14 @@ import {
   Snowflake,
   TriangleAlert,
   AlignLeft,
-  Layers,
   Settings2,
   User,
   Share2,
   Mail,
   AlertTriangle,
   UserMinus,
+  Hourglass,
+  XCircle
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
@@ -1462,16 +1463,23 @@ function PurchaseHistoryView({ user }) {
 function PassCard({ group, onClick }) {
   const trx = group.mainPass;
   const isExpired = !trx.isActive || new Date(trx.expiryDate) < new Date();
-  const isFrozen =
-    trx.freeze?.status === "approved" ||
-    (trx.freeze?.startDate && new Date(trx.freeze.endDate) > new Date());
+  
+  // Safe extraction of freeze statuses
+  const freezeStatus = trx.freeze?.status || "none";
+  const isPending = freezeStatus === "requested";
+  const isFrozen = freezeStatus === "approved";
 
   const progressPercent = Math.min(
     (group.totalRemaining / (group.totalInitial || 1)) * 100,
     100,
   );
 
-  const pkgName = trx.packageId?.packageName || trx.packageNameSnapshot;
+  let pkgName = "Deleted Package";
+  if (trx.packageNameSnapshot && trx.packageNameSnapshot !== "Unknown Package" && trx.packageNameSnapshot !== "Deleted Package") {
+    pkgName = trx.packageNameSnapshot;
+  } else if (trx.packageId?.packageName && trx.packageId.packageName !== "Unknown Package") {
+    pkgName = trx.packageId.packageName;
+  }
 
   const formatClasses = () => {
     let classes = [];
@@ -1495,7 +1503,7 @@ function PassCard({ group, onClick }) {
         className={`w-[10px] shrink-0 ${isExpired ? "bg-gray-400" : progressPercent < 15 ? "bg-rose-500" : "bg-[#2D8A60]"}`}></div>
       <div className='flex-1 p-5 md:p-7 flex flex-col md:flex-row justify-between items-center gap-6'>
         <div className='flex-1 w-full md:pr-6 md:border-r border-dashed border-gray-200 flex flex-col justify-center h-full'>
-          <div className='mb-2.5 flex items-center gap-2'>
+          <div className='mb-2.5 flex flex-wrap items-center gap-2'>
             <span
               className={`text-[10px] font-semibold px-2.5 py-1 rounded tracking-wider ${isExpired ? "bg-gray-100 text-gray-600" : "bg-[#E8F5EE] text-[#1E5D40]"}`}>
               {isExpired ? "PASS EXPIRED" : "ACTIVE PASS"}
@@ -1504,6 +1512,11 @@ function PassCard({ group, onClick }) {
               <span className='text-[10px] font-bold px-2 py-1 rounded tracking-wider bg-[#ECFEFF] text-[#155E75] flex items-center gap-1.5'>
                 <Snowflake size={12} /> FROZEN
               </span>
+            )}
+            {isPending && !isExpired && (
+               <span className='text-[10px] font-bold px-2 py-1 rounded tracking-wider bg-indigo-50 text-indigo-700 flex items-center gap-1.5'>
+                 <Hourglass size={12} /> REQUESTED
+               </span>
             )}
           </div>
           <h3
@@ -1594,6 +1607,13 @@ function PassDetailModal({ group, onClose }) {
   const isExpired =
     !activePass.isActive || new Date(activePass.expiryDate) < new Date();
 
+  let snapshotName = "Deleted Package";
+  if (activePass.packageNameSnapshot && activePass.packageNameSnapshot !== "Unknown Package" && activePass.packageNameSnapshot !== "Deleted Package") {
+    snapshotName = activePass.packageNameSnapshot;
+  } else if (activePass.packageId?.packageName && activePass.packageId.packageName !== "Unknown Package") {
+    snapshotName = activePass.packageId.packageName;
+  }
+
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm'>
       <motion.div
@@ -1606,8 +1626,7 @@ function PassDetailModal({ group, onClose }) {
         <div className='p-8 pb-6 border-b border-gray-100 flex justify-between items-start bg-white shrink-0'>
           <div className='space-y-1'>
             <h3 className='font-semibold text-[26px] text-[#111827] tracking-tight leading-tight'>
-              {activePass.packageId?.packageName ||
-                activePass.packageNameSnapshot}
+              {snapshotName}
             </h3>
             <p className='text-xs text-gray-500 font-mono tracking-wide'>
               Pass ID: {activePass._id}
@@ -1687,9 +1706,7 @@ function PassDetailModal({ group, onClose }) {
 
 function PassQRView({ pass, isExpired }) {
   const qrValue = pass._id || "pass-no-id";
-  const isFrozen =
-    pass.freeze?.status === "approved" ||
-    (pass.freeze?.startDate && new Date(pass.freeze.endDate) > new Date());
+  const isFrozen = pass.freeze?.status === "approved";
 
   return (
     <div className='flex flex-col items-center text-center h-full justify-center'>
@@ -1792,6 +1809,10 @@ function PassShareView({ pass }) {
   const [emailLoading, setEmailLoading] = useState(false);
 
   const isOwner = pass.userId?._id === user?._id || pass.userId === user?._id;
+  
+  // Determine if the pass is currently frozen
+  const freezeStatus = pass.freeze?.status || "none";
+  const isFrozen = freezeStatus === "approved";
 
   const handleGenerateShare = async () => {
     setLoading(true);
@@ -1848,7 +1869,6 @@ function PassShareView({ pass }) {
     }
   };
 
-  // --- NEW: Detach Logic ---
   const handleDetach = async (userIdToDetach, isSelf) => {
     const confirmMsg = isSelf
       ? "Are you sure you want to leave this shared pass? You will immediately lose access to its credits."
@@ -1858,13 +1878,11 @@ function PassShareView({ pass }) {
 
     setDetachLoading(true);
     try {
-      // Try primary route
       try {
         await axiosInstance.put(`/api/passes/shared/${pass._id}/detach`, {
           userIdToDetach,
         });
       } catch (err) {
-        // Fallback route
         await axiosInstance.put(`/api/user-passes/shared/${pass._id}/detach`, {
           userIdToDetach,
         });
@@ -1875,7 +1893,7 @@ function PassShareView({ pass }) {
           ? "You have left the shared pass."
           : "User removed successfully.",
       );
-      window.location.reload(); // Refresh to update the global passes list
+      window.location.reload(); 
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to remove user.");
@@ -1886,7 +1904,40 @@ function PassShareView({ pass }) {
 
   return (
     <div className='flex flex-col h-full space-y-8'>
-      {isOwner ? (
+      {!isOwner ? (
+        <div className='bg-amber-50 rounded-2xl p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-8'>
+          <AlertTriangle className='w-10 h-10 text-amber-500 mb-3' />
+          <h4 className='text-lg font-bold text-amber-900 mb-2'>Shared Pass</h4>
+          <p className='text-[14px] text-amber-700 font-medium max-w-sm mb-6'>
+            You are currently using a shared pass. Only the original pass owner
+            can generate new share links or invite other members.
+          </p>
+          <button
+            onClick={() => handleDetach(user._id, true)}
+            disabled={detachLoading}
+            className='px-6 py-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm w-full'>
+            {detachLoading ? (
+              <Loader2 className='w-4 h-4 animate-spin' />
+            ) : (
+              <>
+                <UserMinus className='w-4 h-4' /> Leave Shared Pass
+              </>
+            )}
+          </button>
+        </div>
+      ) : isFrozen ? (
+        <div className='bg-blue-50 border border-blue-200 rounded-3xl p-8 text-center shadow-sm'>
+          <div className='w-16 h-16 bg-blue-100/80 rounded-full flex items-center justify-center mx-auto mb-4'>
+             <Snowflake className='w-8 h-8 text-[#155E75]' />
+          </div>
+          <h3 className='font-semibold text-[#155E75] text-xl mb-2'>
+            Sharing Disabled
+          </h3>
+          <p className='text-[15px] font-medium text-cyan-800 leading-relaxed max-w-sm mx-auto'>
+            Your package is currently frozen. You cannot generate new share links or invite users until the freeze period is over.
+          </p>
+        </div>
+      ) : (
         <>
           <div>
             <h4 className='text-[15px] font-bold text-gray-900 mb-2 flex items-center gap-2'>
@@ -1952,30 +2003,8 @@ function PassShareView({ pass }) {
             </div>
           )}
         </>
-      ) : (
-        <div className='bg-amber-50 rounded-2xl p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-8'>
-          <AlertTriangle className='w-10 h-10 text-amber-500 mb-3' />
-          <h4 className='text-lg font-bold text-amber-900 mb-2'>Shared Pass</h4>
-          <p className='text-[14px] text-amber-700 font-medium max-w-sm mb-6'>
-            You are currently using a shared pass. Only the original pass owner
-            can generate new share links or invite other members.
-          </p>
-          <button
-            onClick={() => handleDetach(user._id, true)}
-            disabled={detachLoading}
-            className='px-6 py-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm w-full'>
-            {detachLoading ? (
-              <Loader2 className='w-4 h-4 animate-spin' />
-            ) : (
-              <>
-                <UserMinus className='w-4 h-4' /> Leave Shared Pass
-              </>
-            )}
-          </button>
-        </div>
       )}
 
-      {/* Shared With List (Visible to both owner and shared users) */}
       {pass.sharedWith && pass.sharedWith.length > 0 && (
         <div className='pt-6 border-t border-gray-200'>
           <h4 className='text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2'>
@@ -2000,7 +2029,6 @@ function PassShareView({ pass }) {
                   </div>
                 </div>
 
-                {/* Remove Button - Only visible to the owner */}
                 {isOwner && (
                   <button
                     onClick={() => handleDetach(u._id, false)}
@@ -2019,28 +2047,34 @@ function PassShareView({ pass }) {
 }
 
 function PassFreezeView({ group }) {
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [customDays, setCustomDays] = useState(7);
 
-  // Check if current logged-in user is the actual owner of the pass
+  const [mode, setMode] = useState(null);
+  const [customDays, setCustomDays] = useState("");
+
   const firstPass = group.passes[0];
   const isOwner =
     firstPass?.userId?._id === user?._id || firstPass?.userId === user?._id;
 
-  const isFrozen = group.passes.some(
-    (p) =>
-      p.freeze?.status === "approved" ||
-      (p.freeze?.startDate && new Date(p.freeze.endDate) > new Date()),
-  );
-  const usedAllowance = group.passes.some((p) => p.freeze?.hasBeenFrozen);
-  const activeEndDate = group.passes.find((p) => p.freeze?.endDate)?.freeze
-    ?.endDate;
+  const isPending = group.passes.some((p) => p.freeze?.status === "requested");
+  const isFrozen = group.passes.some((p) => p.freeze?.status === "approved");
+  const isRejected = group.passes.some((p) => p.freeze?.status === "rejected") && !isPending && !isFrozen;
+  const usedAllowance = group.passes.some((p) => p.freeze?.hasBeenFrozen) && !isPending && !isFrozen;
 
-  const handleFreeze = async (days) => {
+  const activeEndDate = group.passes.find((p) => p.freeze?.status === "approved")?.freeze?.endDate;
+
+  const handleFreezeRequest = async () => {
+    let days = 0;
+    if (mode === "week") days = 7;
+    else if (mode === "month") days = 30;
+    else if (mode === "custom") days = parseInt(customDays);
+
+    if (!days || days <= 0) return alert("Please select a valid duration.");
+
     if (
       !window.confirm(
-        `Are you sure you want to request a freeze for ${days} days? This will extend the expiry date for ALL sessions in this package.`,
+        `Submit freeze request for ${days} days? This will be reviewed by the studio admin.`,
       )
     )
       return;
@@ -2053,16 +2087,14 @@ function PassFreezeView({ group }) {
 
       const freezePromises = group.passes.map(async (p) => {
         try {
-          const url = `/api/passes/freeze/${p._id}`;
-          return await axiosInstance.put(url, {
-            action: "admin_freeze",
+          return await axiosInstance.put(`/api/passes/freeze/${p._id}`, {
+            action: "request",
             startDate: start,
             endDate: end,
           });
         } catch (e) {
-          const fbUrl = `/api/user-passes/freeze/${p._id}`;
-          return await axiosInstance.put(fbUrl, {
-            action: "admin_freeze",
+          return await axiosInstance.put(`/api/user-passes/freeze/${p._id}`, {
+            action: "request",
             startDate: start,
             endDate: end,
           });
@@ -2071,29 +2103,50 @@ function PassFreezeView({ group }) {
 
       await Promise.all(freezePromises);
 
-      alert("Package frozen successfully!");
+      alert("Freeze request submitted to the studio successfully!");
       window.location.reload();
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to freeze package.");
+      alert(err.response?.data?.message || "Failed to submit request.");
     } finally {
       setLoading(false);
     }
   };
 
+  const SelectionCard = ({ title, desc, value, icon: Icon }) => {
+    const isSelected = mode === value;
+    return (
+      <div
+        onClick={() => setMode(value)}
+        className={`cursor-pointer rounded-2xl p-4 border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2 text-center shadow-sm
+          ${isSelected 
+            ? "border-[#2D8A60] bg-[#E8F5EE]" 
+            : "border-gray-100 bg-white hover:border-[#2D8A60]/30 hover:bg-gray-50"
+          }`}>
+        <Icon className={`w-6 h-6 ${isSelected ? "text-[#1E5D40]" : "text-gray-400"}`} />
+        <div>
+          <p className={`font-bold text-[14px] ${isSelected ? "text-[#1D3D36]" : "text-gray-700"}`}>
+            {title}
+          </p>
+          <p className={`text-[12px] font-medium mt-0.5 ${isSelected ? "text-[#2D8A60]" : "text-gray-500"}`}>
+            {desc}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className='flex flex-col h-full space-y-8'>
+    <div className='flex flex-col h-full space-y-6'>
+      
       <div className='bg-[#ECFEFF] border border-cyan-200 rounded-2xl p-6'>
         <h4 className='text-[15px] font-bold text-cyan-900 mb-3 flex items-center gap-2'>
           <Info className='w-4 h-4 text-cyan-600' /> Freeze Policy
         </h4>
         <ul className='text-[13.5px] text-cyan-800 space-y-2 list-disc pl-4 font-medium leading-relaxed'>
-          <li>You may freeze your pass to temporarily pause its expiration.</li>
-          <li>This extends the validity date of your remaining credits.</li>
-          <li>
-            You generally only have <strong>one</strong> freeze allowance per
-            pass.
-          </li>
+          <li>You may request to freeze your pass to temporarily pause expiration.</li>
+          <li>Once approved by the studio, it extends the validity of remaining credits.</li>
+          <li>You generally only have <strong>one</strong> freeze allowance per pass.</li>
         </ul>
       </div>
 
@@ -2103,11 +2156,29 @@ function PassFreezeView({ group }) {
           <h4 className='text-lg font-bold text-amber-900 mb-2'>Shared Pass</h4>
           <p className='text-[14px] text-amber-700 font-medium max-w-sm'>
             You are currently using a shared pass. Only the original pass owner
-            can freeze or unfreeze this package.
+            can request to freeze or unfreeze this package.
           </p>
         </div>
+      ) : isPending ? (
+        <div className='bg-indigo-50 border border-indigo-200 rounded-3xl p-8 text-center shadow-sm mt-4'>
+          <div className='w-16 h-16 bg-indigo-100/80 rounded-full flex items-center justify-center mx-auto mb-4'>
+            <Hourglass className='w-8 h-8 text-indigo-600 animate-pulse' />
+          </div>
+          <h3 className='font-bold text-indigo-900 text-xl mb-2'>
+            Request Already Submitted
+          </h3>
+          <p className='text-[14px] font-medium text-indigo-700/90 mb-6 leading-relaxed max-w-sm mx-auto'>
+            Your freeze request is currently awaiting review by the studio admin.
+          </p>
+          <div className='bg-white/70 rounded-xl p-4 border border-indigo-100/50 inline-block'>
+            <p className='text-[12px] text-indigo-800 font-bold flex items-center gap-2'>
+              <Info className='w-4 h-4 text-indigo-600' /> 
+              You cannot submit another request until this one is processed.
+            </p>
+          </div>
+        </div>
       ) : isFrozen ? (
-        <div className='bg-white border border-gray-200 rounded-3xl p-8 text-center shadow-sm'>
+        <div className='bg-white border border-gray-200 rounded-3xl p-8 text-center shadow-sm mt-4'>
           <Snowflake className='w-12 h-12 text-[#155E75] mx-auto mb-4' />
           <h3 className='font-semibold text-[#155E75] text-xl mb-2'>
             Package is currently frozen
@@ -2120,59 +2191,72 @@ function PassFreezeView({ group }) {
           </p>
         </div>
       ) : usedAllowance ? (
-        <div className='bg-white border border-gray-200 rounded-3xl p-8 text-center shadow-sm'>
+        <div className='bg-white border border-gray-200 rounded-3xl p-8 text-center shadow-sm mt-4'>
           <AlertCircle className='w-10 h-10 text-gray-400 mx-auto mb-4' />
           <p className='text-[15px] font-bold text-gray-600'>
             You have already used the freeze allowance for this package.
           </p>
         </div>
       ) : (
-        <div className='space-y-8'>
+        <div className='space-y-6'>
+          {isRejected && (
+            <div className='bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3'>
+               <XCircle className='w-5 h-5 text-red-600 shrink-0 mt-0.5' />
+               <div>
+                 <p className='font-bold text-red-900 text-[14px]'>Previous Request Declined</p>
+                 <p className='text-red-700 text-[13px] mt-1'>The studio admin declined your previous freeze request. You may submit a new request below.</p>
+               </div>
+            </div>
+          )}
+
           <div>
             <h4 className='text-[15px] font-bold text-gray-900 mb-4'>
-              Quick Presets
+              Select Freeze Duration
             </h4>
-            <div className='grid grid-cols-2 gap-4'>
-              <button
-                onClick={() => handleFreeze(7)}
-                disabled={loading}
-                className='py-4 bg-white border border-gray-200 rounded-xl hover:border-[#2D8A60] hover:bg-[#E8F5EE] hover:text-[#1E5D40] transition-all font-bold text-[15px] text-gray-700 shadow-sm'>
-                1 Week
-              </button>
-              <button
-                onClick={() => handleFreeze(30)}
-                disabled={loading}
-                className='py-4 bg-white border border-gray-200 rounded-xl hover:border-[#2D8A60] hover:bg-[#E8F5EE] hover:text-[#1E5D40] transition-all font-bold text-[15px] text-gray-700 shadow-sm'>
-                1 Month
-              </button>
+            <div className='grid grid-cols-3 gap-3'>
+              <SelectionCard title="1 Week" desc="7 Days" value="week" icon={CalendarDays} />
+              <SelectionCard title="1 Month" desc="30 Days" value="month" icon={CalendarDays} />
+              <SelectionCard title="Custom" desc="Enter days" value="custom" icon={Settings2} />
             </div>
+
+            <AnimatePresence>
+              {mode === 'custom' && (
+                <motion.div 
+                   initial={{ opacity: 0, height: 0, marginTop: 0 }} 
+                   animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                   className="overflow-hidden"
+                >
+                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                    <span className="text-[14px] font-bold text-gray-700 whitespace-nowrap">Duration (Days):</span>
+                    <input
+                      type='number'
+                      min='1'
+                      max='90'
+                      placeholder="e.g., 14"
+                      value={customDays}
+                      onChange={(e) => setCustomDays(e.target.value)}
+                      className='w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[15px] font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-inner'
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className='pt-2 border-t border-gray-200'>
-            <h4 className='text-[15px] font-bold text-gray-900 mb-4 mt-2'>
-              Custom Duration (Days)
-            </h4>
-            <div className='flex gap-4'>
-              <input
-                type='number'
-                min='1'
-                max='90'
-                value={customDays}
-                onChange={(e) => setCustomDays(e.target.value)}
-                className='w-24 px-4 py-3 bg-white border border-gray-200 rounded-xl text-center text-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-sm'
-              />
-              <button
-                onClick={() => handleFreeze(parseInt(customDays))}
-                disabled={loading || !customDays}
-                className='flex-1 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] flex justify-center items-center shadow-sm transition-colors'>
+          <div className='pt-6 border-t border-gray-200'>
+             <button
+                onClick={handleFreezeRequest}
+                disabled={loading || !mode || (mode === 'custom' && !customDays)}
+                className='w-full py-4 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] flex justify-center items-center shadow-lg transition-all disabled:opacity-50 disabled:shadow-none'>
                 {loading ? (
                   <Loader2 className='w-5 h-5 animate-spin' />
                 ) : (
-                  "Request Custom Freeze"
+                  "Submit Freeze Request"
                 )}
               </button>
-            </div>
           </div>
+
         </div>
       )}
     </div>
@@ -2188,6 +2272,13 @@ function TransactionCard({ tx, onClick }) {
     month: "short",
     year: "numeric",
   });
+
+  let pkgName = "Deleted Package";
+  if (tx.packageNameSnapshot && tx.packageNameSnapshot !== "Unknown Package" && tx.packageNameSnapshot !== "Deleted Package") {
+    pkgName = tx.packageNameSnapshot;
+  } else if (tx.packageId?.packageName && tx.packageId.packageName !== "Unknown Package") {
+    pkgName = tx.packageId.packageName;
+  }
 
   return (
     <div
@@ -2205,9 +2296,7 @@ function TransactionCard({ tx, onClick }) {
       </div>
       <div className='flex-1 mb-8 space-y-3'>
         <h3 className='font-semibold text-gray-900 text-[20px] mb-2 group-hover:text-[#2D8A60] transition-colors line-clamp-2 tracking-tight'>
-          {tx.packageId?.packageName ||
-            tx.packageNameSnapshot ||
-            "Package Purchased"}
+          {pkgName}
         </h3>
         <p className='text-xs text-gray-500 font-mono tracking-wide'>
           Transaction ID: {tx.transactionId}
@@ -2259,6 +2348,13 @@ function InvoicePreviewModal({ tx, onClose }) {
     month: "long",
     year: "numeric",
   });
+
+  let pkgName = "Deleted Package";
+  if (tx.packageNameSnapshot && tx.packageNameSnapshot !== "Unknown Package" && tx.packageNameSnapshot !== "Deleted Package") {
+    pkgName = tx.packageNameSnapshot;
+  } else if (tx.packageId?.packageName && tx.packageId.packageName !== "Unknown Package") {
+    pkgName = tx.packageId.packageName;
+  }
 
   return (
     <div className='fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 print:p-0 print:bg-white print:static'>
@@ -2363,9 +2459,7 @@ function InvoicePreviewModal({ tx, onClose }) {
                 <tr className='border-b border-gray-100'>
                   <td className='py-6 px-2'>
                     <p className='font-bold text-gray-900 text-[16px]'>
-                      {tx.packageId?.packageName ||
-                        tx.packageNameSnapshot ||
-                        "Studio Package"}
+                      {pkgName}
                     </p>
                     <p className='text-[14px] text-gray-500 mt-1 max-w-md'>
                       {description}
@@ -2490,6 +2584,13 @@ function TransactionDetailModal({ tx, onClose }) {
   const isRejected =
     tx.status === "payment_rejected" || tx.status === "rejected";
 
+  let pkgName = "Deleted Package";
+  if (tx.packageNameSnapshot && tx.packageNameSnapshot !== "Unknown Package" && tx.packageNameSnapshot !== "Deleted Package") {
+    pkgName = tx.packageNameSnapshot;
+  } else if (tx.packageId?.packageName && tx.packageId.packageName !== "Unknown Package") {
+    pkgName = tx.packageId.packageName;
+  }
+
   return (
     <>
       <div className='fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 sm:p-6'>
@@ -2584,9 +2685,7 @@ function TransactionDetailModal({ tx, onClose }) {
                     Package
                   </p>
                   <h3 className='font-semibold text-gray-900 text-[26px] tracking-tight leading-tight'>
-                    {tx.packageId?.packageName ||
-                      tx.packageNameSnapshot ||
-                      "Deleted Package"}
+                    {pkgName}
                   </h3>
                   {tx.promoCodeApplied && (
                     <span className='inline-block mt-2 bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider'>
