@@ -116,7 +116,6 @@ exports.assignPassToUser = async (req, res) => {
         initialCredits: item.credits,
         instructorType: item.instructorType,
         classType: item.classType,
-        isActive: true,
       }));
     } else {
       passesToCreate = [
@@ -296,15 +295,12 @@ exports.detachSharedPass = async (req, res) => {
       ? pass.userId._id.toString()
       : pass.userId.toString();
 
-    // Permission Check:
-    // 1. Requester is the owner OR 2. Requester is the shared user leaving voluntarily
     if (requesterId !== ownerId && requesterId !== userIdToDetach) {
       return res
         .status(403)
         .json({ message: "Unauthorized to detach this user." });
     }
 
-    // Filter out the user to detach
     pass.sharedWith = pass.sharedWith.filter(
       (id) => id.toString() !== userIdToDetach,
     );
@@ -327,14 +323,18 @@ exports.managePassFreeze = async (req, res) => {
     const pass = await UserPasses.findById(passId);
     if (!pass) return res.status(404).json({ message: "Pass not found" });
 
-    // NEW: Block non-owners from freezing or unfreezing
     const ownerId = pass.userId._id
       ? pass.userId._id.toString()
       : pass.userId.toString();
-    if (ownerId !== req.user._id.toString()) {
+
+    // ALLOW either the owner of the pass OR a studio admin to manage freezes
+    const isOwner = ownerId === req.user._id.toString();
+    const isAdmin = req.user.role === "admin" || req.user.adminStudioLocation;
+
+    if (!isOwner && !isAdmin) {
       return res
         .status(403)
-        .json({ message: "Only the pass owner can manage freeze requests." });
+        .json({ message: "Unauthorized to manage freeze requests." });
     }
 
     if (action === "unfreeze") {
@@ -364,7 +364,7 @@ exports.managePassFreeze = async (req, res) => {
       }
     }
 
-    if (pass.freeze && pass.freeze.hasBeenFrozen) {
+    if (pass.freeze && pass.freeze.hasBeenFrozen && action !== "request") {
       return res.status(400).json({
         message: "This package has already used its one-time freeze allowance.",
       });
@@ -378,6 +378,33 @@ exports.managePassFreeze = async (req, res) => {
       return res
         .status(200)
         .json({ message: "Freeze request rejected.", pass });
+    }
+
+    // Handle Customer's Freeze Request
+    if (action === "request") {
+      if (pass.freeze && pass.freeze.hasBeenFrozen) {
+        return res.status(400).json({
+          message: "This package has already used its one-time freeze allowance.",
+        });
+      }
+      if (pass.freeze?.status === "requested") {
+        return res.status(400).json({ message: "Freeze already requested." });
+      }
+
+      const start = new Date(startDate || new Date());
+      const end = new Date(endDate || new Date(start.getTime() + (7 * 24 * 60 * 60 * 1000)));
+
+      pass.freeze = {
+        ...pass.freeze,
+        startDate: start,
+        endDate: end,
+        status: "requested",
+      };
+
+      await pass.save();
+      return res
+        .status(200)
+        .json({ message: "Freeze requested successfully.", pass });
     }
 
     if (action === "approve" || action === "admin_freeze") {
@@ -418,7 +445,6 @@ exports.generateShareLink = async (req, res) => {
     const pass = await UserPasses.findById(req.params.passId);
     if (!pass) return res.status(404).json({ message: "Pass not found" });
 
-    // NEW: Block non-owners
     const ownerId = pass.userId._id
       ? pass.userId._id.toString()
       : pass.userId.toString();
@@ -450,7 +476,6 @@ exports.sendShareLinkViaEmail = async (req, res) => {
 
     if (!pass) return res.status(404).json({ message: "Pass not found" });
 
-    // NEW: Block non-owners
     const ownerId = pass.userId._id
       ? pass.userId._id.toString()
       : pass.userId.toString();

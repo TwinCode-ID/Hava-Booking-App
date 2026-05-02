@@ -1,4 +1,6 @@
 require("dotenv").config();
+require("./cron/expiryReminderJob");
+
 const express = require("express");
 const http = require("http"); // 1. Import HTTP
 const { Server } = require("socket.io"); // 2. Import Socket.io
@@ -22,6 +24,7 @@ const userPassRoutes = require("./routes/UserRoutes/user_passesRoutes");
 const medicalRoutes = require("./routes/UserRoutes/medicalRoutes");
 const studioConfigRoutes = require("./routes/StudioRoutes/studioConfigRoutes");
 const chatRoutes = require("./routes/MessagingRoutes/chatRoutes");
+const promo = require("./routes/StudioRoutes/promoRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -92,7 +95,7 @@ app.get("/.well-known/apple-app-site-association", (req, res) => {
 app.use(
   cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
   }),
 );
@@ -102,6 +105,9 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
+
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 app.use(mongoSanitize());
 
@@ -149,6 +155,7 @@ app.use("/api/passes", userPassRoutes);
 app.use("/api/medical", medicalRoutes);
 app.use("/api/config", studioConfigRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/promos", promo);
 
 // Static files
 app.use(
