@@ -14,6 +14,7 @@ import {
   Info,
   Users,
   CheckCircle2,
+  HeartPulse,
   Ticket,
   ArrowUpNarrowWide,
   ArrowDownNarrowWide,
@@ -25,6 +26,8 @@ import {
   Hash,
   Search,
   Filter,
+  PhoneCall,
+  ShieldCheck,
   Ban,
   AlertCircle,
   FileText,
@@ -49,6 +52,7 @@ import {
   XCircle,
   Layers,
   Activity,
+  Save,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
@@ -56,6 +60,7 @@ import LoadingSpinner from "../../../../../../components/LoadingSpinner";
 import PurchaseForm from "./PurchaseForm";
 import { useAuth } from "../../../../../../context/AuthContext";
 import uploadProof from "../../../../../../utils/uploadProof";
+import CustomSelect from "../../../../layout/CustomSelect";
 
 // ============================================================================
 // STATUS CONFIGURATIONS
@@ -96,7 +101,7 @@ const STATUS_STYLES = {
 // ============================================================================
 // REUSABLE IN-LINE MEDICAL WARNING CARD
 // ============================================================================
-const InlineMedicalWarning = ({ onNavigate }) => {
+const InlineMedicalWarning = ({ onOpenModal }) => {
   return (
     <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm text-center relative overflow-hidden'>
       <div className='absolute -top-24 -right-24 w-48 h-48 bg-amber-100 rounded-full blur-3xl opacity-50 pointer-events-none' />
@@ -116,7 +121,7 @@ const InlineMedicalWarning = ({ onNavigate }) => {
       </p>
 
       <button
-        onClick={onNavigate}
+        onClick={onOpenModal}
         className='relative z-10 w-full py-3.5 bg-[#1D3D36] text-white font-bold rounded-xl hover:bg-[#0F2922] shadow-lg shadow-[#1D3D36]/20 transition-all active:scale-[0.98]'>
         Complete Medical Profile
       </button>
@@ -221,6 +226,7 @@ function PackageSelectorView({ user }) {
 
   // Medical Record Check State
   const [hasValidMedical, setHasValidMedical] = useState(true);
+  const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
 
   const [selectedInstructorTypes, setSelectedInstructorTypes] = useState([]);
   const [selectedStudioLocations, setSelectedStudioLocations] = useState([]);
@@ -898,11 +904,23 @@ function PackageSelectorView({ user }) {
                   ) : (
                     /* IN-LINE MEDICAL WARNING CARD */
                     <InlineMedicalWarning
-                      onNavigate={() => navigate("/client-account-settings")}
+                      onOpenModal={() => setIsMedicalModalOpen(true)}
                     />
                   )}
                 </div>
               </div>
+              <AnimatePresence>
+                {isMedicalModalOpen && (
+                  <MedicalProfileModal
+                    user={user}
+                    onClose={() => setIsMedicalModalOpen(false)}
+                    onSuccess={() => {
+                      setHasValidMedical(true);
+                      setIsMedicalModalOpen(false);
+                    }}
+                  />
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>
@@ -2696,6 +2714,445 @@ function InvoicePreviewModal({ tx, onClose }) {
           </div>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function MedicalProfileModal({ onClose, onSuccess, user }) {
+  const [loading, setLoading] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [hasRecord, setHasRecord] = useState(false);
+
+  // Lock state: If true, user cannot uncheck the box anymore
+  const [termsLocked, setTermsLocked] = useState(false);
+
+  // Modals state (Nested within this main modal)
+  const [activeModal, setActiveModal] = useState(null); // 'terms' | 'privacy'
+  const [showValidationModal, setShowValidationModal] = useState(false);
+
+  const [medical, setMedical] = useState({
+    dateOfBirth: "",
+    sex: "",
+    maritalStatus: "",
+    occupation: "",
+    address: "",
+    dailyActivity: "",
+    physicalConcern: "",
+    termsAndConditions: false,
+  });
+
+  // --- Fetch Existing Data ---
+  useEffect(() => {
+    const fetchMedical = async () => {
+      try {
+        setLoading(true);
+        const res = await axiosInstance.get(
+          API_PATHS.AUTH.MEDICAL_INFO(user._id),
+        );
+
+        if (res.data) {
+          setHasRecord(true);
+          const isTermsAccepted = res.data.termsAndConditions || false;
+
+          if (isTermsAccepted) {
+            setTermsLocked(true);
+          }
+
+          setMedical({
+            dateOfBirth: res.data.dateOfBirth
+              ? new Date(res.data.dateOfBirth).toISOString().split("T")[0]
+              : "",
+            sex: res.data.sex || "",
+            maritalStatus: res.data.maritalStatus || "",
+            occupation: res.data.occupation || "",
+            address: res.data.address || "",
+            dailyActivity: res.data.dailyActivity || "",
+            physicalConcern: res.data.physicalConcern || "",
+            termsAndConditions: isTermsAccepted,
+          });
+        }
+      } catch (err) {
+        console.log("No existing medical record found, starting fresh.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedical();
+  }, [user._id]);
+
+  // --- Handle Submit ---
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!medical.termsAndConditions) {
+      setShowValidationModal(true);
+      return;
+    }
+
+    try {
+      setSubmitLoading(true);
+      // Using POST as requested in your MedicalList logic
+      await axiosInstance.post(API_PATHS.AUTH.MEDICAL_INFO(user._id), medical);
+
+      setHasRecord(true);
+      setTermsLocked(true);
+
+      // Unlock the checkout flow and close the modal
+      onSuccess();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to save medical record. Please try again.");
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  return (
+    <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6'>
+      {/* Background Overlay */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className='absolute inset-0 bg-black/60 backdrop-blur-sm'
+      />
+
+      {/* Main Modal Container */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className='relative w-full max-w-5xl bg-[#F9FAFB] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]'>
+        {/* Header */}
+        <div className='px-6 md:px-10 py-6 border-b border-gray-200 flex justify-between items-center bg-white sticky top-0 z-10 shrink-0'>
+          <div className='flex items-center gap-4'>
+            <div className='w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100'>
+              <Activity className='w-6 h-6' />
+            </div>
+            <div>
+              <h2 className='text-2xl font-bold text-gray-900 tracking-tight'>
+                Complete Medical Profile
+              </h2>
+              <p className='text-sm text-gray-500 font-medium'>
+                Required for studio safety and checkout
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className='p-2.5 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors'>
+            <X className='w-6 h-6 text-gray-500' />
+          </button>
+        </div>
+
+        {/* Body Content */}
+        <div className='p-6 md:p-10 overflow-y-auto flex-1'>
+          {loading ? (
+            <div className='h-64 flex flex-col items-center justify-center'>
+              <LoadingSpinner size='lg' />
+              <p className='text-gray-500 font-medium mt-4'>
+                Accessing your health records...
+              </p>
+            </div>
+          ) : (
+            <form
+              id='complete-medical-form'
+              onSubmit={handleSubmit}
+              className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+              {/* --- COL 1: Personal Details --- */}
+              <div className='bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm h-full flex flex-col'>
+                <h3 className='text-lg font-bold text-gray-900 mb-6 flex items-center gap-3'>
+                  <span className='w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-extrabold'>
+                    1
+                  </span>
+                  Personal Details
+                </h3>
+                <div className='space-y-6 flex-1'>
+                  <div>
+                    <label className='block text-sm font-bold text-gray-700 mb-2'>
+                      Date of Birth
+                    </label>
+                    <input
+                      type='date'
+                      required
+                      value={medical.dateOfBirth}
+                      onChange={(e) =>
+                        setMedical({ ...medical, dateOfBirth: e.target.value })
+                      }
+                      className='w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium'
+                    />
+                  </div>
+                  <div className='grid grid-cols-2 gap-5'>
+                    <CustomSelect
+                      label='Sex'
+                      value={medical.sex}
+                      options={["Male", "Female", "Prefer not to say"]}
+                      placeholder='Gender'
+                      onChange={(val) => setMedical({ ...medical, sex: val })}
+                    />
+                    <CustomSelect
+                      label='Marital Status'
+                      value={medical.maritalStatus}
+                      options={["Single", "Married", "Divorced", "Widowed"]}
+                      placeholder='Status'
+                      onChange={(val) =>
+                        setMedical({ ...medical, maritalStatus: val })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-sm font-bold text-gray-700 mb-2'>
+                      Occupation
+                    </label>
+                    <input
+                      type='text'
+                      value={medical.occupation}
+                      onChange={(e) =>
+                        setMedical({ ...medical, occupation: e.target.value })
+                      }
+                      className='w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium'
+                      placeholder='e.g. Graphic Designer'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-sm font-bold text-gray-700 mb-2'>
+                      Address
+                    </label>
+                    <textarea
+                      value={medical.address}
+                      onChange={(e) =>
+                        setMedical({ ...medical, address: e.target.value })
+                      }
+                      rows='3'
+                      className='w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all resize-none font-medium'
+                      placeholder='Enter your full address...'
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* --- COL 2: Physical Health --- */}
+              <div className='bg-white p-6 md:p-8 rounded-3xl border border-gray-200 shadow-sm h-full flex flex-col'>
+                <h3 className='text-lg font-bold text-gray-900 mb-6 flex items-center gap-3'>
+                  <span className='w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-extrabold'>
+                    2
+                  </span>
+                  Physical Health
+                </h3>
+                <div className='space-y-6 flex-1 flex flex-col'>
+                  <div className='flex-1 flex flex-col'>
+                    <label className='block text-sm font-bold text-gray-700 mb-2'>
+                      Daily Activity
+                    </label>
+                    <textarea
+                      value={medical.dailyActivity}
+                      onChange={(e) =>
+                        setMedical({
+                          ...medical,
+                          dailyActivity: e.target.value,
+                        })
+                      }
+                      placeholder='e.g. Sedentary work, mostly sitting, gym 3x a week...'
+                      className='w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all resize-none flex-1 font-medium min-h-[120px]'
+                    />
+                  </div>
+                  <div className='flex-1 flex flex-col'>
+                    <label className='block text-sm font-bold text-gray-700 mb-2'>
+                      Physical Concerns / Injuries
+                    </label>
+                    <textarea
+                      value={medical.physicalConcern}
+                      onChange={(e) =>
+                        setMedical({
+                          ...medical,
+                          physicalConcern: e.target.value,
+                        })
+                      }
+                      placeholder='e.g. Lower back pain, recovering from knee surgery, stiff neck...'
+                      className='w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all resize-none flex-1 font-medium min-h-[120px]'
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* --- Terms & Conditions --- */}
+              <div
+                className={`lg:col-span-2 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm ${
+                  termsLocked ? "opacity-80 bg-gray-50/50" : ""
+                }`}>
+                <label
+                  className={`flex items-start gap-4 group ${
+                    termsLocked ? "cursor-default" : "cursor-pointer"
+                  }`}>
+                  <div className='relative flex items-center mt-1 shrink-0'>
+                    <input
+                      type='checkbox'
+                      disabled={termsLocked}
+                      checked={medical.termsAndConditions}
+                      onChange={(e) => {
+                        setMedical({
+                          ...medical,
+                          termsAndConditions: e.target.checked,
+                        });
+                        if (e.target.checked) setShowValidationModal(false);
+                      }}
+                      className='peer sr-only'
+                    />
+                    <div
+                      className={`
+                      w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center shadow-sm
+                      ${
+                        medical.termsAndConditions || termsLocked
+                          ? "bg-emerald-600 border-emerald-600"
+                          : "bg-white border-gray-300 group-hover:border-emerald-400"
+                      }
+                    `}>
+                      <Check
+                        strokeWidth={3}
+                        className={`w-3.5 h-3.5 text-white transition-transform duration-200 
+                          ${
+                            medical.termsAndConditions || termsLocked
+                              ? "scale-100 opacity-100"
+                              : "scale-50 opacity-0"
+                          }
+                        `}
+                      />
+                    </div>
+                  </div>
+
+                  <div className='text-[15px] text-gray-600 leading-relaxed font-medium'>
+                    <span className='font-bold text-gray-900 block mb-1.5 flex items-center gap-2'>
+                      Agreement & Liability Waiver
+                      {termsLocked && (
+                        <span className='text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md'>
+                          Accepted
+                        </span>
+                      )}
+                    </span>
+                    I confirm that the information provided above is accurate. I
+                    understand that physical exercise involves potential risks,
+                    and I agree to assume full responsibility for any injuries
+                    or damages incurred. I agree to the{" "}
+                    <button
+                      type='button'
+                      onClick={() => setActiveModal("terms")}
+                      className='text-emerald-600 font-bold hover:underline focus:outline-none relative z-10'>
+                      Terms & Conditions
+                    </button>{" "}
+                    and{" "}
+                    <button
+                      type='button'
+                      onClick={() => setActiveModal("privacy")}
+                      className='text-emerald-600 font-bold hover:underline focus:outline-none relative z-10'>
+                      Privacy Policy
+                    </button>{" "}
+                    of Hava Booking Service.
+                  </div>
+                </label>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className='px-6 md:px-10 py-6 border-t border-gray-200 bg-white sticky bottom-0 z-10 flex justify-end gap-4 shrink-0'>
+          <button
+            type='button'
+            onClick={onClose}
+            className='px-6 py-3.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors'>
+            Cancel
+          </button>
+          <button
+            type='submit'
+            form='complete-medical-form'
+            disabled={submitLoading || loading}
+            className='px-8 py-3.5 bg-emerald-700 text-white font-bold rounded-xl hover:bg-emerald-800 disabled:bg-emerald-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/10 min-w-[200px]'>
+            {submitLoading ? (
+              <>
+                <Loader2 className='w-5 h-5 animate-spin' /> Processing...
+              </>
+            ) : (
+              <>
+                <Save className='w-5 h-5' /> Save & Continue to Checkout
+              </>
+            )}
+          </button>
+        </div>
+      </motion.div>
+
+      {/* --- NESTED VALIDATION MODAL --- */}
+      <AnimatePresence>
+        {showValidationModal && (
+          <div className='absolute inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm'>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className='bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 border-t-4 border-red-500'>
+              <div className='flex flex-col items-center text-center'>
+                <div className='w-16 h-16 bg-red-50 border border-red-100 rounded-full flex items-center justify-center mb-5 text-red-600'>
+                  <AlertTriangle className='w-8 h-8' />
+                </div>
+                <h3 className='text-xl font-bold text-gray-900 mb-2'>
+                  Action Required
+                </h3>
+                <p className='text-gray-500 text-[15px] mb-8 font-medium leading-relaxed'>
+                  You must agree to the Terms & Conditions and Privacy Policy
+                  before saving your medical record.
+                </p>
+                <button
+                  onClick={() => setShowValidationModal(false)}
+                  className='w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors shadow-sm'>
+                  I Understand
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* --- NESTED TEXT MODALS (Terms / Privacy) --- */}
+      <AnimatePresence>
+        {activeModal && (
+          <div className='absolute inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm'>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className='bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]'>
+              <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-gray-50'>
+                <h3 className='text-xl font-bold text-gray-900'>
+                  {activeModal === "terms"
+                    ? "Terms & Conditions"
+                    : "Privacy Policy"}
+                </h3>
+                <button
+                  onClick={() => setActiveModal(null)}
+                  className='p-2 hover:bg-gray-200 rounded-full transition-colors'>
+                  <X className='w-5 h-5 text-gray-500' />
+                </button>
+              </div>
+              <div className='p-8 overflow-y-auto'>
+                <p className='italic text-gray-400 font-medium'>
+                  [
+                  {activeModal === "terms"
+                    ? "Terms Content"
+                    : "Privacy Policy Content"}{" "}
+                  Placeholder]
+                </p>
+              </div>
+              <div className='p-6 border-t border-gray-100 flex justify-end bg-white'>
+                <button
+                  onClick={() => setActiveModal(null)}
+                  className='px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors shadow-sm'>
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
