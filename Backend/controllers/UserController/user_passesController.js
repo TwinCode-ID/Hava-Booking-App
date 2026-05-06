@@ -326,6 +326,11 @@ exports.managePassFreeze = async (req, res) => {
     const ownerId = pass.userId._id
       ? pass.userId._id.toString()
       : pass.userId.toString();
+    const studioId = pass.issuingStudio
+      ? pass.issuingStudio._id
+        ? pass.issuingStudio._id.toString()
+        : pass.issuingStudio.toString()
+      : null;
 
     // ALLOW either the owner of the pass OR a studio admin to manage freezes
     const isOwner = ownerId === req.user._id.toString();
@@ -336,6 +341,29 @@ exports.managePassFreeze = async (req, res) => {
         .status(403)
         .json({ message: "Unauthorized to manage freeze requests." });
     }
+
+    // Initialize Socket
+    const io = req.app.get("io");
+
+    // Helper functions to send real-time notifications
+    const notifyClient = (message) => {
+      if (io && ownerId) {
+        io.to(ownerId).emit("purchase_notification", {
+          type: "PASS_FREEZE_UPDATED",
+          role: "client",
+          message,
+        });
+      }
+    };
+    const notifyAdmin = (message) => {
+      if (io && studioId) {
+        io.to(studioId).emit("purchase_notification", {
+          type: "PASS_FREEZE_UPDATED",
+          role: "admin",
+          message,
+        });
+      }
+    };
 
     if (action === "unfreeze") {
       const today = new Date();
@@ -351,8 +379,11 @@ exports.managePassFreeze = async (req, res) => {
         );
 
         pass.freeze.endDate = today;
+        pass.freeze.status = "unfrozen"; // Ensure status is explicitly reset
 
         await pass.save();
+        notifyClient("Your package has been unfrozen.");
+        notifyAdmin("Package unfrozen.");
         return res.status(200).json({
           message: "Package unfrozen and expiry date adjusted.",
           pass,
@@ -375,6 +406,8 @@ exports.managePassFreeze = async (req, res) => {
       pass.freeze.startDate = null;
       pass.freeze.endDate = null;
       await pass.save();
+      notifyClient("Your freeze request was rejected.");
+      notifyAdmin("Freeze request rejected.");
       return res
         .status(200)
         .json({ message: "Freeze request rejected.", pass });
@@ -384,7 +417,8 @@ exports.managePassFreeze = async (req, res) => {
     if (action === "request") {
       if (pass.freeze && pass.freeze.hasBeenFrozen) {
         return res.status(400).json({
-          message: "This package has already used its one-time freeze allowance.",
+          message:
+            "This package has already used its one-time freeze allowance.",
         });
       }
       if (pass.freeze?.status === "requested") {
@@ -392,7 +426,9 @@ exports.managePassFreeze = async (req, res) => {
       }
 
       const start = new Date(startDate || new Date());
-      const end = new Date(endDate || new Date(start.getTime() + (7 * 24 * 60 * 60 * 1000)));
+      const end = new Date(
+        endDate || new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000),
+      );
 
       pass.freeze = {
         ...pass.freeze,
@@ -402,6 +438,8 @@ exports.managePassFreeze = async (req, res) => {
       };
 
       await pass.save();
+      notifyAdmin("A client requested a package freeze.");
+      notifyClient("Freeze request submitted.");
       return res
         .status(200)
         .json({ message: "Freeze requested successfully.", pass });
@@ -427,6 +465,8 @@ exports.managePassFreeze = async (req, res) => {
       };
 
       await pass.save();
+      notifyClient("Your package freeze has been approved.");
+      notifyAdmin("Package frozen.");
       return res
         .status(200)
         .json({ message: "Package frozen and expiry extended.", pass });

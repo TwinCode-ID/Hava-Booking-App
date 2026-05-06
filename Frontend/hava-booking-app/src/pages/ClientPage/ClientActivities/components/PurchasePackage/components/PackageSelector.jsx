@@ -45,7 +45,8 @@ import {
   AlertTriangle,
   UserMinus,
   Hourglass,
-  XCircle
+  XCircle,
+  Layers,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
@@ -970,7 +971,7 @@ function UserPassesView({ user }) {
 
   const fetchTransactions = async () => {
     try {
-      setLoading(true);
+      if (transactions.length === 0) setLoading(true);
       const response = await axiosInstance.get(
         API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id),
       );
@@ -984,6 +985,15 @@ function UserPassesView({ user }) {
 
   useEffect(() => {
     fetchTransactions();
+
+    const handleUpdate = () => fetchTransactions();
+    window.addEventListener("pass-freeze-updated", handleUpdate);
+    window.addEventListener("credits-updated", handleUpdate);
+
+    return () => {
+      window.removeEventListener("pass-freeze-updated", handleUpdate);
+      window.removeEventListener("credits-updated", handleUpdate);
+    };
   }, [user._id]);
 
   const uniqueStudios = [
@@ -1043,6 +1053,17 @@ function UserPassesView({ user }) {
 
   const displayPasses = Array.from(groupedDataMap.values());
 
+  useEffect(() => {
+    if (selectedPassGroup && displayPasses.length > 0) {
+      const updatedGroup = displayPasses.find(
+        (g) => g.id === selectedPassGroup.id,
+      );
+      if (updatedGroup) {
+        setSelectedPassGroup(updatedGroup);
+      }
+    }
+  }, [transactions]);
+
   const toggleStudioFilter = (studioName) => {
     setSelectedStudios((prev) =>
       prev.includes(studioName)
@@ -1059,7 +1080,7 @@ function UserPassesView({ user }) {
     );
   };
 
-  if (loading)
+  if (loading && transactions.length === 0)
     return (
       <div className='h-[60vh] flex-col flex items-center justify-center gap-4'>
         <LoadingSpinner />
@@ -1275,20 +1296,31 @@ function PurchaseHistoryView({ user }) {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const fetchTransactions = async () => {
+    try {
+      if (transactions.length === 0) setLoading(true);
+      const response = await axiosInstance.get(
+        API_PATHS.PURCHASES.GET_ALL_USER(user._id),
+      );
+      setTransactions(response.data);
+    } catch (error) {
+      console.error("Failed to load transaction history", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axiosInstance.get(
-          API_PATHS.PURCHASES.GET_ALL_USER(user._id),
-        );
-        setTransactions(response.data);
-      } catch (error) {
-        console.error("Failed to load transaction history", error);
-      } finally {
-        setLoading(false);
-      }
+    fetchTransactions();
+
+    const handleUpdate = () => fetchTransactions();
+    window.addEventListener("credits-updated", handleUpdate);
+    window.addEventListener("payment-rejected", handleUpdate);
+
+    return () => {
+      window.removeEventListener("credits-updated", handleUpdate);
+      window.removeEventListener("payment-rejected", handleUpdate);
     };
-    fetchData();
   }, [user._id]);
 
   const filteredTransactions = transactions.filter((tx) => {
@@ -1313,7 +1345,7 @@ function PurchaseHistoryView({ user }) {
     );
   };
 
-  if (loading)
+  if (loading && transactions.length === 0)
     return (
       <div className='h-[60vh] flex flex-col items-center justify-center gap-4'>
         <LoadingSpinner />
@@ -1463,7 +1495,7 @@ function PurchaseHistoryView({ user }) {
 function PassCard({ group, onClick }) {
   const trx = group.mainPass;
   const isExpired = !trx.isActive || new Date(trx.expiryDate) < new Date();
-  
+
   // Safe extraction of freeze statuses
   const freezeStatus = trx.freeze?.status || "none";
   const isPending = freezeStatus === "requested";
@@ -1475,9 +1507,16 @@ function PassCard({ group, onClick }) {
   );
 
   let pkgName = "Deleted Package";
-  if (trx.packageNameSnapshot && trx.packageNameSnapshot !== "Unknown Package" && trx.packageNameSnapshot !== "Deleted Package") {
+  if (
+    trx.packageNameSnapshot &&
+    trx.packageNameSnapshot !== "Unknown Package" &&
+    trx.packageNameSnapshot !== "Deleted Package"
+  ) {
     pkgName = trx.packageNameSnapshot;
-  } else if (trx.packageId?.packageName && trx.packageId.packageName !== "Unknown Package") {
+  } else if (
+    trx.packageId?.packageName &&
+    trx.packageId.packageName !== "Unknown Package"
+  ) {
     pkgName = trx.packageId.packageName;
   }
 
@@ -1514,9 +1553,9 @@ function PassCard({ group, onClick }) {
               </span>
             )}
             {isPending && !isExpired && (
-               <span className='text-[10px] font-bold px-2 py-1 rounded tracking-wider bg-indigo-50 text-indigo-700 flex items-center gap-1.5'>
-                 <Hourglass size={12} /> REQUESTED
-               </span>
+              <span className='text-[10px] font-bold px-2 py-1 rounded tracking-wider bg-indigo-50 text-indigo-700 flex items-center gap-1.5'>
+                <Hourglass size={12} /> REQUESTED
+              </span>
             )}
           </div>
           <h3
@@ -1608,9 +1647,16 @@ function PassDetailModal({ group, onClose }) {
     !activePass.isActive || new Date(activePass.expiryDate) < new Date();
 
   let snapshotName = "Deleted Package";
-  if (activePass.packageNameSnapshot && activePass.packageNameSnapshot !== "Unknown Package" && activePass.packageNameSnapshot !== "Deleted Package") {
+  if (
+    activePass.packageNameSnapshot &&
+    activePass.packageNameSnapshot !== "Unknown Package" &&
+    activePass.packageNameSnapshot !== "Deleted Package"
+  ) {
     snapshotName = activePass.packageNameSnapshot;
-  } else if (activePass.packageId?.packageName && activePass.packageId.packageName !== "Unknown Package") {
+  } else if (
+    activePass.packageId?.packageName &&
+    activePass.packageId.packageName !== "Unknown Package"
+  ) {
     snapshotName = activePass.packageId.packageName;
   }
 
@@ -1809,8 +1855,7 @@ function PassShareView({ pass }) {
   const [emailLoading, setEmailLoading] = useState(false);
 
   const isOwner = pass.userId?._id === user?._id || pass.userId === user?._id;
-  
-  // Determine if the pass is currently frozen
+
   const freezeStatus = pass.freeze?.status || "none";
   const isFrozen = freezeStatus === "approved";
 
@@ -1893,7 +1938,7 @@ function PassShareView({ pass }) {
           ? "You have left the shared pass."
           : "User removed successfully.",
       );
-      window.location.reload(); 
+      window.location.reload();
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to remove user.");
@@ -1928,13 +1973,14 @@ function PassShareView({ pass }) {
       ) : isFrozen ? (
         <div className='bg-blue-50 border border-blue-200 rounded-3xl p-8 text-center shadow-sm'>
           <div className='w-16 h-16 bg-blue-100/80 rounded-full flex items-center justify-center mx-auto mb-4'>
-             <Snowflake className='w-8 h-8 text-[#155E75]' />
+            <Snowflake className='w-8 h-8 text-[#155E75]' />
           </div>
           <h3 className='font-semibold text-[#155E75] text-xl mb-2'>
             Sharing Disabled
           </h3>
           <p className='text-[15px] font-medium text-cyan-800 leading-relaxed max-w-sm mx-auto'>
-            Your package is currently frozen. You cannot generate new share links or invite users until the freeze period is over.
+            Your package is currently frozen. You cannot generate new share
+            links or invite users until the freeze period is over.
           </p>
         </div>
       ) : (
@@ -2049,7 +2095,6 @@ function PassShareView({ pass }) {
 function PassFreezeView({ group }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-
   const [mode, setMode] = useState(null);
   const [customDays, setCustomDays] = useState("");
 
@@ -2059,10 +2104,18 @@ function PassFreezeView({ group }) {
 
   const isPending = group.passes.some((p) => p.freeze?.status === "requested");
   const isFrozen = group.passes.some((p) => p.freeze?.status === "approved");
-  const isRejected = group.passes.some((p) => p.freeze?.status === "rejected") && !isPending && !isFrozen;
-  const usedAllowance = group.passes.some((p) => p.freeze?.hasBeenFrozen) && !isPending && !isFrozen;
+  const isRejected =
+    group.passes.some((p) => p.freeze?.status === "rejected") &&
+    !isPending &&
+    !isFrozen;
+  const usedAllowance =
+    group.passes.some((p) => p.freeze?.hasBeenFrozen) &&
+    !isPending &&
+    !isFrozen;
 
-  const activeEndDate = group.passes.find((p) => p.freeze?.status === "approved")?.freeze?.endDate;
+  const activeEndDate = group.passes.find(
+    (p) => p.freeze?.status === "approved",
+  )?.freeze?.endDate;
 
   const handleFreezeRequest = async () => {
     let days = 0;
@@ -2104,7 +2157,6 @@ function PassFreezeView({ group }) {
       await Promise.all(freezePromises);
 
       alert("Freeze request submitted to the studio successfully!");
-      window.location.reload();
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to submit request.");
@@ -2119,16 +2171,21 @@ function PassFreezeView({ group }) {
       <div
         onClick={() => setMode(value)}
         className={`cursor-pointer rounded-2xl p-4 border-2 transition-all duration-200 flex flex-col items-center justify-center gap-2 text-center shadow-sm
-          ${isSelected 
-            ? "border-[#2D8A60] bg-[#E8F5EE]" 
-            : "border-gray-100 bg-white hover:border-[#2D8A60]/30 hover:bg-gray-50"
+          ${
+            isSelected
+              ? "border-[#2D8A60] bg-[#E8F5EE]"
+              : "border-gray-100 bg-white hover:border-[#2D8A60]/30 hover:bg-gray-50"
           }`}>
-        <Icon className={`w-6 h-6 ${isSelected ? "text-[#1E5D40]" : "text-gray-400"}`} />
+        <Icon
+          className={`w-6 h-6 ${isSelected ? "text-[#1E5D40]" : "text-gray-400"}`}
+        />
         <div>
-          <p className={`font-bold text-[14px] ${isSelected ? "text-[#1D3D36]" : "text-gray-700"}`}>
+          <p
+            className={`font-bold text-[14px] ${isSelected ? "text-[#1D3D36]" : "text-gray-700"}`}>
             {title}
           </p>
-          <p className={`text-[12px] font-medium mt-0.5 ${isSelected ? "text-[#2D8A60]" : "text-gray-500"}`}>
+          <p
+            className={`text-[12px] font-medium mt-0.5 ${isSelected ? "text-[#2D8A60]" : "text-gray-500"}`}>
             {desc}
           </p>
         </div>
@@ -2138,15 +2195,22 @@ function PassFreezeView({ group }) {
 
   return (
     <div className='flex flex-col h-full space-y-6'>
-      
       <div className='bg-[#ECFEFF] border border-cyan-200 rounded-2xl p-6'>
         <h4 className='text-[15px] font-bold text-cyan-900 mb-3 flex items-center gap-2'>
           <Info className='w-4 h-4 text-cyan-600' /> Freeze Policy
         </h4>
         <ul className='text-[13.5px] text-cyan-800 space-y-2 list-disc pl-4 font-medium leading-relaxed'>
-          <li>You may request to freeze your pass to temporarily pause expiration.</li>
-          <li>Once approved by the studio, it extends the validity of remaining credits.</li>
-          <li>You generally only have <strong>one</strong> freeze allowance per pass.</li>
+          <li>
+            You may request to freeze your pass to temporarily pause expiration.
+          </li>
+          <li>
+            Once approved by the studio, it extends the validity of remaining
+            credits.
+          </li>
+          <li>
+            You generally only have <strong>one</strong> freeze allowance per
+            pass.
+          </li>
         </ul>
       </div>
 
@@ -2168,11 +2232,12 @@ function PassFreezeView({ group }) {
             Request Already Submitted
           </h3>
           <p className='text-[14px] font-medium text-indigo-700/90 mb-6 leading-relaxed max-w-sm mx-auto'>
-            Your freeze request is currently awaiting review by the studio admin.
+            Your freeze request is currently awaiting review by the studio
+            admin.
           </p>
           <div className='bg-white/70 rounded-xl p-4 border border-indigo-100/50 inline-block'>
             <p className='text-[12px] text-indigo-800 font-bold flex items-center gap-2'>
-              <Info className='w-4 h-4 text-indigo-600' /> 
+              <Info className='w-4 h-4 text-indigo-600' />
               You cannot submit another request until this one is processed.
             </p>
           </div>
@@ -2201,11 +2266,16 @@ function PassFreezeView({ group }) {
         <div className='space-y-6'>
           {isRejected && (
             <div className='bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3'>
-               <XCircle className='w-5 h-5 text-red-600 shrink-0 mt-0.5' />
-               <div>
-                 <p className='font-bold text-red-900 text-[14px]'>Previous Request Declined</p>
-                 <p className='text-red-700 text-[13px] mt-1'>The studio admin declined your previous freeze request. You may submit a new request below.</p>
-               </div>
+              <XCircle className='w-5 h-5 text-red-600 shrink-0 mt-0.5' />
+              <div>
+                <p className='font-bold text-red-900 text-[14px]'>
+                  Previous Request Declined
+                </p>
+                <p className='text-red-700 text-[13px] mt-1'>
+                  The studio admin declined your previous freeze request. You
+                  may submit a new request below.
+                </p>
+              </div>
             </div>
           )}
 
@@ -2214,26 +2284,42 @@ function PassFreezeView({ group }) {
               Select Freeze Duration
             </h4>
             <div className='grid grid-cols-3 gap-3'>
-              <SelectionCard title="1 Week" desc="7 Days" value="week" icon={CalendarDays} />
-              <SelectionCard title="1 Month" desc="30 Days" value="month" icon={CalendarDays} />
-              <SelectionCard title="Custom" desc="Enter days" value="custom" icon={Settings2} />
+              <SelectionCard
+                title='1 Week'
+                desc='7 Days'
+                value='week'
+                icon={CalendarDays}
+              />
+              <SelectionCard
+                title='1 Month'
+                desc='30 Days'
+                value='month'
+                icon={CalendarDays}
+              />
+              <SelectionCard
+                title='Custom'
+                desc='Enter days'
+                value='custom'
+                icon={Settings2}
+              />
             </div>
 
             <AnimatePresence>
-              {mode === 'custom' && (
-                <motion.div 
-                   initial={{ opacity: 0, height: 0, marginTop: 0 }} 
-                   animate={{ opacity: 1, height: "auto", marginTop: 16 }}
-                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                   className="overflow-hidden"
-                >
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-                    <span className="text-[14px] font-bold text-gray-700 whitespace-nowrap">Duration (Days):</span>
+              {mode === "custom" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  className='overflow-hidden'>
+                  <div className='bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4'>
+                    <span className='text-[14px] font-bold text-gray-700 whitespace-nowrap'>
+                      Duration (Days):
+                    </span>
                     <input
                       type='number'
                       min='1'
                       max='90'
-                      placeholder="e.g., 14"
+                      placeholder='e.g., 14'
                       value={customDays}
                       onChange={(e) => setCustomDays(e.target.value)}
                       className='w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[15px] font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-inner'
@@ -2245,18 +2331,17 @@ function PassFreezeView({ group }) {
           </div>
 
           <div className='pt-6 border-t border-gray-200'>
-             <button
-                onClick={handleFreezeRequest}
-                disabled={loading || !mode || (mode === 'custom' && !customDays)}
-                className='w-full py-4 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] flex justify-center items-center shadow-lg transition-all disabled:opacity-50 disabled:shadow-none'>
-                {loading ? (
-                  <Loader2 className='w-5 h-5 animate-spin' />
-                ) : (
-                  "Submit Freeze Request"
-                )}
-              </button>
+            <button
+              onClick={handleFreezeRequest}
+              disabled={loading || !mode || (mode === "custom" && !customDays)}
+              className='w-full py-4 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] flex justify-center items-center shadow-lg transition-all disabled:opacity-50 disabled:shadow-none'>
+              {loading ? (
+                <Loader2 className='w-5 h-5 animate-spin' />
+              ) : (
+                "Submit Freeze Request"
+              )}
+            </button>
           </div>
-
         </div>
       )}
     </div>
@@ -2274,9 +2359,16 @@ function TransactionCard({ tx, onClick }) {
   });
 
   let pkgName = "Deleted Package";
-  if (tx.packageNameSnapshot && tx.packageNameSnapshot !== "Unknown Package" && tx.packageNameSnapshot !== "Deleted Package") {
+  if (
+    tx.packageNameSnapshot &&
+    tx.packageNameSnapshot !== "Unknown Package" &&
+    tx.packageNameSnapshot !== "Deleted Package"
+  ) {
     pkgName = tx.packageNameSnapshot;
-  } else if (tx.packageId?.packageName && tx.packageId.packageName !== "Unknown Package") {
+  } else if (
+    tx.packageId?.packageName &&
+    tx.packageId.packageName !== "Unknown Package"
+  ) {
     pkgName = tx.packageId.packageName;
   }
 
@@ -2350,9 +2442,16 @@ function InvoicePreviewModal({ tx, onClose }) {
   });
 
   let pkgName = "Deleted Package";
-  if (tx.packageNameSnapshot && tx.packageNameSnapshot !== "Unknown Package" && tx.packageNameSnapshot !== "Deleted Package") {
+  if (
+    tx.packageNameSnapshot &&
+    tx.packageNameSnapshot !== "Unknown Package" &&
+    tx.packageNameSnapshot !== "Deleted Package"
+  ) {
     pkgName = tx.packageNameSnapshot;
-  } else if (tx.packageId?.packageName && tx.packageId.packageName !== "Unknown Package") {
+  } else if (
+    tx.packageId?.packageName &&
+    tx.packageId.packageName !== "Unknown Package"
+  ) {
     pkgName = tx.packageId.packageName;
   }
 
@@ -2585,9 +2684,16 @@ function TransactionDetailModal({ tx, onClose }) {
     tx.status === "payment_rejected" || tx.status === "rejected";
 
   let pkgName = "Deleted Package";
-  if (tx.packageNameSnapshot && tx.packageNameSnapshot !== "Unknown Package" && tx.packageNameSnapshot !== "Deleted Package") {
+  if (
+    tx.packageNameSnapshot &&
+    tx.packageNameSnapshot !== "Unknown Package" &&
+    tx.packageNameSnapshot !== "Deleted Package"
+  ) {
     pkgName = tx.packageNameSnapshot;
-  } else if (tx.packageId?.packageName && tx.packageId.packageName !== "Unknown Package") {
+  } else if (
+    tx.packageId?.packageName &&
+    tx.packageId.packageName !== "Unknown Package"
+  ) {
     pkgName = tx.packageId.packageName;
   }
 

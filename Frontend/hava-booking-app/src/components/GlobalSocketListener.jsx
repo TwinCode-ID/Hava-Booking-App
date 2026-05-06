@@ -33,6 +33,11 @@ const GlobalSocketListener = () => {
     socket.on("purchase_notification", (data) => {
       console.log("🔔 [GLOBAL SOCKET] Notification:", data);
 
+      // Triggered by the newly added backend socket
+      if (data.type === "PASS_FREEZE_UPDATED") {
+        window.dispatchEvent(new Event("pass-freeze-updated"));
+      }
+
       if (data.role === "client") {
         if (data.type === "PAYMENT_APPROVED") {
           window.dispatchEvent(new Event("credits-updated"));

@@ -23,7 +23,14 @@ const user_passesSchema = new mongoose.Schema(
       endDate: { type: Date, default: null },
       status: {
         type: String,
-        enum: ["none", "requested", "approved", "rejected"],
+        enum: [
+          "none",
+          "requested",
+          "approved",
+          "rejected",
+          "frozen",
+          "unfrozen",
+        ],
         default: "none",
       },
     },

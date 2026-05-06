@@ -350,7 +350,11 @@ const ClientManager = ({ isEmbedded = false }) => {
       const siblings = remainingPasses.filter((p) => {
         if (usedPassIds.has(p._id)) return false;
 
-        const isTimeMatch = Math.abs(new Date(p.createdAt).getTime() - new Date(pass.createdAt).getTime()) < 5000;
+        const isTimeMatch =
+          Math.abs(
+            new Date(p.createdAt).getTime() -
+              new Date(pass.createdAt).getTime(),
+          ) < 5000;
         const pId1 = p.packageId?._id || p.packageId;
         const pId2 = pass.packageId?._id || pass.packageId;
 
@@ -498,6 +502,7 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
   };
 
+  // ----- FIX: SCOPED RESPONSE CORRECTLY -----
   const handleManageFreeze = async (passId, action, data) => {
     try {
       const response = await axiosInstance.put(`/api/passes/freeze/${passId}`, {
@@ -673,7 +678,7 @@ const ClientManager = ({ isEmbedded = false }) => {
       const freezeEndDate = p.freeze?.endDate
         ? new Date(p.freeze.endDate)
         : null;
-        
+
       if (p.freeze?.status === "requested") {
         hasFreezeRequest = true;
       } else if (
@@ -1061,13 +1066,21 @@ const ClientManager = ({ isEmbedded = false }) => {
                         const packageObj =
                           item.passes[0]?.packageId ||
                           item.txnData?.packageId ||
-                          item.passId || 
+                          item.passId ||
                           {};
 
                         let snapshotName = "Deleted Package";
-                        if (item.passes[0]?.snapshotName && item.passes[0].snapshotName !== "Unknown Package" && item.passes[0].snapshotName !== "Deleted Package") {
+                        if (
+                          item.passes[0]?.snapshotName &&
+                          item.passes[0].snapshotName !== "Unknown Package" &&
+                          item.passes[0].snapshotName !== "Deleted Package"
+                        ) {
                           snapshotName = item.passes[0].snapshotName;
-                        } else if (packageObj.packageName && packageObj.packageName !== "Unknown Package" && packageObj.packageName !== "Custom / Unknown Package") {
+                        } else if (
+                          packageObj.packageName &&
+                          packageObj.packageName !== "Unknown Package" &&
+                          packageObj.packageName !== "Custom / Unknown Package"
+                        ) {
                           snapshotName = packageObj.packageName;
                         }
 
@@ -1077,7 +1090,9 @@ const ClientManager = ({ isEmbedded = false }) => {
                           [];
 
                         const displayStatus = getOverallItemStatus(item);
-                        const hasFreezeRequest = item.passes.some((p) => p.freeze?.status === "requested");
+                        const hasFreezeRequest = item.passes.some(
+                          (p) => p.freeze?.status === "requested",
+                        );
 
                         // Summarize credits across all passes in item
                         const totalRemaining = item.passes.reduce(
@@ -1248,9 +1263,17 @@ const ClientManager = ({ isEmbedded = false }) => {
                         {};
 
                       let snapshotName = "Deleted Package";
-                      if (item.passes[0]?.snapshotName && item.passes[0].snapshotName !== "Unknown Package" && item.passes[0].snapshotName !== "Deleted Package") {
+                      if (
+                        item.passes[0]?.snapshotName &&
+                        item.passes[0].snapshotName !== "Unknown Package" &&
+                        item.passes[0].snapshotName !== "Deleted Package"
+                      ) {
                         snapshotName = item.passes[0].snapshotName;
-                      } else if (packageObj.packageName && packageObj.packageName !== "Unknown Package" && packageObj.packageName !== "Custom / Unknown Package") {
+                      } else if (
+                        packageObj.packageName &&
+                        packageObj.packageName !== "Unknown Package" &&
+                        packageObj.packageName !== "Custom / Unknown Package"
+                      ) {
                         snapshotName = packageObj.packageName;
                       }
 
@@ -1259,7 +1282,9 @@ const ClientManager = ({ isEmbedded = false }) => {
                         packageObj.packageCategory ||
                         [];
                       const displayStatus = getOverallItemStatus(item);
-                      const hasFreezeRequest = item.passes.some((p) => p.freeze?.status === "requested");
+                      const hasFreezeRequest = item.passes.some(
+                        (p) => p.freeze?.status === "requested",
+                      );
 
                       const totalRemaining = item.passes.reduce(
                         (sum, p) => sum + (p.remainingCredits || 0),
@@ -1302,7 +1327,8 @@ const ClientManager = ({ isEmbedded = false }) => {
                               {renderStatusBadge(displayStatus)}
                               {hasFreezeRequest && (
                                 <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[9px] font-extrabold bg-indigo-50 text-indigo-700 uppercase tracking-wide border border-indigo-100'>
-                                  <Hourglass className='w-2.5 h-2.5' /> Freeze Requested
+                                  <Hourglass className='w-2.5 h-2.5' /> Freeze
+                                  Requested
                                 </span>
                               )}
                             </div>
@@ -1632,8 +1658,8 @@ const UnifiedDetailModal = ({
               </p>
             )}
             <div className='flex flex-col items-center justify-center mt-1 gap-2'>
-              <div className="flex gap-2">
-                 {renderStatusBadge(displayStatus)}
+              <div className='flex gap-2'>
+                {renderStatusBadge(displayStatus)}
               </div>
             </div>
             <div className='flex flex-col items-center gap-0.5 mt-2'>
@@ -1687,7 +1713,11 @@ const UnifiedDetailModal = ({
                       Package
                     </p>
                     <p className='text-sm font-bold text-gray-900 mb-1.5'>
-                      {basePass?.snapshotName && basePass.snapshotName !== "Unknown Package" && basePass.snapshotName !== "Deleted Package" ? basePass.snapshotName : (basePass.packageId?.packageName || "Deleted Package")}
+                      {basePass?.snapshotName &&
+                      basePass.snapshotName !== "Unknown Package" &&
+                      basePass.snapshotName !== "Deleted Package"
+                        ? basePass.snapshotName
+                        : basePass.packageId?.packageName || "Deleted Package"}
                     </p>
                     <div className='flex gap-1 flex-wrap'>
                       {(
