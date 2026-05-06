@@ -229,17 +229,75 @@ exports.updateUserPass = async (req, res) => {
   }
 };
 
+exports.updateUserPass = async (req, res) => {
+  try {
+    const { passId } = req.params;
+    const {
+      remainingCredits,
+      expiryDate,
+      instructorType,
+      classType,
+      validityDuration,
+    } = req.body;
+
+    const pass = await UserPasses.findById(passId);
+    if (!pass) return res.status(404).json({ error: "Pass not found" });
+
+    if (remainingCredits !== undefined)
+      pass.remainingCredits = Number(remainingCredits);
+    if (expiryDate) pass.expiryDate = new Date(expiryDate);
+    if (validityDuration) pass.validityDuration = Number(validityDuration);
+    if (instructorType) pass.instructorType = instructorType;
+    if (classType) pass.classType = classType;
+
+    const now = new Date();
+
+    // Check if it has credits
+    const hasCredits = pass.remainingCredits > 0;
+    // Check if it's not expired (If expiryDate is null, it hasn't been activated yet, so it's still valid)
+    const isNotExpired = !pass.expiryDate || pass.expiryDate > now;
+
+    // Automatically set isActive status
+    pass.isActive = hasCredits && isNotExpired;
+
+    await pass.save();
+    res.status(200).json({ message: "Pass updated successfully", pass });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.getMyActivePasses = async (req, res) => {
   try {
     const { userId } = req.params;
+    const now = new Date();
+
+    // 1. Auto-Clean: Proactively set isActive to false for any passes that hit 0 credits or expired
+    // This acts as a safety net in case credits were deducted manually in the database
+    await UserPasses.updateMany(
+      {
+        $or: [{ userId: userId }, { sharedWith: userId }],
+        isActive: true,
+        $or: [{ remainingCredits: { $lte: 0 } }, { expiryDate: { $lt: now } }],
+      },
+      { $set: { isActive: false } },
+    );
+
+    // 2. Fetch ONLY truly active passes with credits > 0
     const activePasses = await UserPasses.find({
       $or: [{ userId: userId }, { sharedWith: userId }],
+      remainingCredits: { $gt: 0 },
+      $or: [
+        { expiryDate: { $gte: now } },
+        { expiryDate: null }, // Include passes that haven't been activated yet
+      ],
     })
       .populate("userId", "fullName avatar email")
       .populate("sharedWith", "fullName avatar email")
       .populate("issuingStudio", "studioName")
       .populate("packageId", "packageName")
-      .sort({ isActive: -1, expiryDate: 1 });
+      .sort({ expiryDate: 1 }); // Sort by closest expiry date first
+
     res.status(200).json(activePasses);
   } catch (error) {
     res.status(500).json({ error: error.message });

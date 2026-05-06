@@ -16,10 +16,7 @@ const INSTRUCTOR_RANKS = {
 exports.getClassBookings = async (req, res) => {
   try {
     const { classId } = req.params;
-    const bookings = await ClassBooking.find({
-      classId,
-      status: "Booked",
-    })
+    const bookings = await ClassBooking.find({ classId, status: "Booked" })
       .populate("userId", "fullName email phoneNumber")
       .populate({
         path: "passId",
@@ -57,7 +54,6 @@ exports.getUserBookings = async (req, res) => {
   }
 };
 
-// --- MODIFIED: Create Booking (Just Deduct, Don't Activate) ---
 exports.createBooking = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -83,10 +79,8 @@ exports.createBooking = async (req, res) => {
     const classSession = await ClassSchedule.findById(classId).session(session);
     if (!classSession || !classSession.isActive)
       throw new Error("Class not available or inactive.");
-
-    if (classSession.currentEnrollment >= classSession.capacity) {
+    if (classSession.currentEnrollment >= classSession.capacity)
       throw new Error("Class is full.");
-    }
 
     const existingBooking = await ClassBooking.findOne({
       userId,
@@ -100,17 +94,30 @@ exports.createBooking = async (req, res) => {
     const userPass = await UserPasses.findOne({
       _id: passId,
       $or: [{ userId: req.user._id }, { sharedWith: req.user._id }],
-    }).session(session);
-
+    })
+      .session(session)
+      .populate("packageId");
     if (!userPass) throw new Error("Pass not found.");
     if (!userPass.isActive) throw new Error("This pass is inactive.");
     if (userPass.remainingCredits < 1) throw new Error("Insufficient credits.");
 
-    // --- CHANGED: EXPIRY CHECK ---
-    // If expiryDate is NULL, it means the pass hasn't started yet. We ALLOW booking.
-    // If expiryDate EXISTS, we check if it has passed.
-    if (userPass.expiryDate && new Date() > new Date(userPass.expiryDate)) {
-      throw new Error("Pass has expired.");
+    // EXPIRE LOGIC WITH ACTIVATION WINDOW
+    if (userPass.firstUsageDate && userPass.expiryDate) {
+      if (new Date() > new Date(userPass.expiryDate))
+        throw new Error("Pass has expired.");
+    } else {
+      const packageRef = userPass.packageId;
+      const actDays = packageRef?.activationPeriodDays || 30;
+      const deadlineToActivate = new Date(userPass.purchaseDate);
+      deadlineToActivate.setDate(deadlineToActivate.getDate() + actDays);
+
+      if (new Date() > deadlineToActivate) {
+        userPass.isActive = false;
+        await userPass.save({ session });
+        throw new Error(
+          `Pass expired. You did not activate it within the ${actDays}-day window.`,
+        );
+      }
     }
 
     // --- C. HIERARCHY VALIDATION ---
@@ -128,7 +135,7 @@ exports.createBooking = async (req, res) => {
       );
     }
 
-    // --- D. DEDUCT & BOOK (No Activation Here) ---
+    // --- D. DEDUCT & BOOK ---
     userPass.remainingCredits -= 1;
     await userPass.save({ session });
 
@@ -141,13 +148,17 @@ exports.createBooking = async (req, res) => {
       studioId: classSession.studioId,
       instructorId: classSession.instructorId,
     });
-
     await newBooking.save({ session });
 
     classSession.currentEnrollment += 1;
     await classSession.save({ session });
 
     await session.commitTransaction();
+
+    // WEB SOCKET GLOBAL EVENT: UPDATE SCHEDULE SO NO ONE ELSE CAN BOOK THE SPOT
+    const io = req.app.get("io");
+    if (io) io.emit("schedule_updated", { classId: classSession._id });
+
     res
       .status(201)
       .json({ message: "Booking successful!", booking: newBooking });
@@ -160,43 +171,28 @@ exports.createBooking = async (req, res) => {
   }
 };
 
-// --- MODIFIED: Check-In (ACTIVATE PASS HERE) ---
 exports.studentCheckIn = async (req, res) => {
   try {
     const { bookingId } = req.params;
     const booking = await ClassBooking.findById(bookingId);
     if (!booking) throw new Error("Booking not found");
 
-    // We are about to check them IN (Status changing from False -> True)
     if (!booking.isAttend) {
-      // 1. Fetch the pass used for this booking
       const userPass = await UserPasses.findById(booking.passId);
-
       if (userPass) {
-        // 2. CHECK: Is this the first time the pass is being used?
-        // If expiryDate is null (or firstUsageDate is null), activate it now.
         if (!userPass.firstUsageDate && userPass.validityDuration) {
           const now = new Date();
-
-          // Set First Usage
           userPass.firstUsageDate = now;
-
-          // Calculate Expiry: Now + Duration (e.g. 30 days)
           const newExpiry = new Date(now);
           newExpiry.setDate(newExpiry.getDate() + userPass.validityDuration);
-
           userPass.expiryDate = newExpiry;
-
           await userPass.save();
-          console.log(`Pass Activated via Check-in. New Expiry: ${newExpiry}`);
         }
       }
     }
 
-    // 3. Toggle Attendance Status
     booking.isAttend = !booking.isAttend;
     await booking.save();
-
     res.json({
       message: booking.isAttend
         ? "Checked In Successfully"
@@ -208,7 +204,6 @@ exports.studentCheckIn = async (req, res) => {
   }
 };
 
-// ... (Cancel Booking, Get My Booking, Get Studio Booking remain unchanged) ...
 exports.cancelBooking = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -216,9 +211,8 @@ exports.cancelBooking = async (req, res) => {
   try {
     const { bookingId } = req.body;
     const booking = await ClassBooking.findById(bookingId).session(session);
-    if (!booking || booking.status === "Cancelled") {
+    if (!booking || booking.status === "Cancelled")
       throw new Error("Booking not found or already cancelled.");
-    }
 
     const userRole = req.user.role ? req.user.role.toLowerCase() : "user";
     const isAdmin = [
@@ -262,6 +256,11 @@ exports.cancelBooking = async (req, res) => {
     }
 
     await session.commitTransaction();
+
+    // WEB SOCKET GLOBAL EVENT: UPDATE SCHEDULE SO SPOT OPENS UP
+    const io = req.app.get("io");
+    if (io) io.emit("schedule_updated", { classId: classSession?._id });
+
     res.status(200).json({ message: "Booking cancelled. Credit refunded." });
   } catch (error) {
     await session.abortTransaction();

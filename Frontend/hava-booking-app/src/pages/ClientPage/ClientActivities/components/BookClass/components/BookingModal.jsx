@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
   X,
-  Calendar,
   Clock,
   Ticket,
   ShoppingBag,
   AlertTriangle,
-  CheckCircle2,
-  ChevronDown,
   Edit2,
   AlertCircle,
 } from "lucide-react";
@@ -19,13 +16,11 @@ import MarketplaceModal from "./MarketplaceModal";
 
 const BookingModal = ({ classes, onClose, onConfirm }) => {
   const { user } = useAuth();
-
   const [loading, setLoading] = useState(false);
   const [passes, setPasses] = useState([]);
   const [fetchingPasses, setFetchingPasses] = useState(true);
   const [error, setError] = useState("");
   const [showMarketplace, setShowMarketplace] = useState(false);
-
   const [classPassMap, setClassPassMap] = useState({});
   const [editingClassId, setEditingClassId] = useState(null);
 
@@ -36,7 +31,10 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
         API_PATHS.PASSES.GET_ALL_ACTIVE_PASS(user._id),
       );
       const activePasses = res.data.filter(
-        (ps) => ps.isActive && ps.remainingCredits > 0,
+        (ps) =>
+          ps.isActive &&
+          ps.remainingCredits > 0 &&
+          new Date(ps.expiryDate) > new Date(),
       );
       setPasses(activePasses);
       autoAssignPasses(activePasses, classes);
@@ -48,7 +46,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
     }
   };
 
-  // --- THE AUTO-ASSIGNMENT ALGORITHM ---
   const autoAssignPasses = (availablePasses, cartClasses) => {
     const newMap = {};
     const virtualCredits = availablePasses.reduce((acc, p) => {
@@ -67,7 +64,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
         const matchesStudio =
           p.issuingStudio._id === (cls.studioId?._id || cls.studioId);
         const hasCredits = virtualCredits[p._id] > 0;
-
         return matchesClass && matchesInstructor && matchesStudio && hasCredits;
       });
 
@@ -92,22 +88,16 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
     return () => window.removeEventListener("credits-updated", handleUpdate);
   }, []);
 
-  // --- HELPER: Calculate how many credits a pass ACTUALLY has left right now ---
   const getAvailableCreditsForClass = (passId, targetClassId) => {
     const pass = passes.find((p) => p._id === passId);
     if (!pass) return 0;
-
     let usedCredits = 0;
     Object.entries(classPassMap).forEach(([cId, pId]) => {
-      if (pId === passId && cId !== targetClassId) {
-        usedCredits += 1;
-      }
+      if (pId === passId && cId !== targetClassId) usedCredits += 1;
     });
-
     return pass.remainingCredits - usedCredits;
   };
 
-  // --- HELPER: Get all eligible passes for a specific class dropdown ---
   const getEligiblePassesForClass = (cls) => {
     return passes.filter((p) => {
       const matchesClass = p.classType.includes(cls.classType);
@@ -124,24 +114,20 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
   };
 
   const handleBook = async () => {
-    if (Object.values(classPassMap).some((passId) => passId === null)) {
+    if (Object.values(classPassMap).some((passId) => passId === null))
       return setError("One or more classes are missing a valid pass.");
-    }
-
     setLoading(true);
     setError("");
 
     try {
       for (const cls of classes) {
         const assignedPassId = classPassMap[cls._id];
-
         try {
           await axiosInstance.post(API_PATHS.BOOKING.CREATE_BOOKING, {
             classId: cls._id,
             passId: assignedPassId,
           });
         } catch (err) {
-          console.error(`Booking failed for ${cls.className}`, err);
           throw new Error(
             `Failed to book ${cls.className}: ${err.response?.data?.error || "Unknown error"}`,
           );
@@ -165,11 +151,13 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
     (val) => val === null,
   ).length;
 
+  // Identify the exact class missing a pass so we can pre-filter the marketplace
+  const firstMissingClass = classes.find((c) => classPassMap[c._id] === null);
+
   return (
     <>
       <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200'>
         <div className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
-          {/* Header */}
           <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0'>
             <div>
               <h2 className='text-xl font-bold text-gray-900'>
@@ -209,7 +197,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                     <div
                       key={cls._id}
                       className={`rounded-2xl border transition-all ${assignedPass ? "border-gray-200" : "border-red-200 bg-red-50/30"}`}>
-                      {/* Class Info Header */}
                       <div className='p-4 border-b border-gray-100/50 bg-gray-50/50 rounded-t-2xl'>
                         <div className='flex justify-between items-start'>
                           <div>
@@ -235,9 +222,7 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                         </div>
                       </div>
 
-                      {/* Pass Assignment Section */}
                       <div className='p-4'>
-                        {/* 1. Show Assigned Pass */}
                         {!isEditing && assignedPass && (
                           <div className='flex items-center justify-between bg-emerald-50 border border-emerald-100 p-3 rounded-xl'>
                             <div className='flex items-center gap-3'>
@@ -265,7 +250,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                           </div>
                         )}
 
-                        {/* 2. Show "No Pass" Warning */}
                         {!isEditing && !assignedPass && (
                           <div className='flex items-center justify-between bg-red-50 border border-red-100 p-3 rounded-xl'>
                             <div className='flex items-center gap-3 text-red-700'>
@@ -284,7 +268,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                           </div>
                         )}
 
-                        {/* 3. Editing Mode (Dropdown List) */}
                         {isEditing && (
                           <div className='space-y-2 animate-in slide-in-from-top-2'>
                             <div className='flex items-center justify-between mb-2'>
@@ -297,14 +280,12 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                                 Cancel
                               </button>
                             </div>
-
                             {eligiblePasses.map((pass) => {
                               const availableCredits =
                                 getAvailableCreditsForClass(pass._id, cls._id);
                               const isSelectable =
                                 availableCredits > 0 ||
                                 assignedPassId === pass._id;
-
                               return (
                                 <label
                                   key={pass._id}
@@ -349,7 +330,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                                 </label>
                               );
                             })}
-
                             {eligiblePasses.length === 0 && (
                               <p className='text-sm text-gray-500 italic p-2 text-center'>
                                 You have no packages that meet the requirements
@@ -364,7 +344,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                 })}
               </div>
             )}
-
             {error && (
               <div className='mt-6 bg-red-50 border border-red-100 p-3 rounded-xl flex items-start gap-2 text-red-600 text-sm'>
                 <AlertTriangle className='w-5 h-5 shrink-0 mt-0.5' />
@@ -373,7 +352,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
             )}
           </div>
 
-          {/* Footer Actions */}
           <div className='p-6 border-t border-gray-100 bg-white shrink-0'>
             {!fetchingPasses &&
               (isCartFullyCovered ? (
@@ -409,8 +387,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
           </div>
         </div>
       </div>
-
-      {/* Marketplace Modal */}
       {showMarketplace && (
         <MarketplaceModal
           user={user}
@@ -419,14 +395,10 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
             setShowMarketplace(false);
             fetchPasses();
           }}
-          requiredInstructorType={
-            classes.find((c) => classPassMap[c._id] === null)?.instructorType
-          }
-          requiredClassType={
-            classes.find((c) => classPassMap[c._id] === null)?.classType
-          }
+          requiredInstructorType={firstMissingClass?.instructorType}
+          requiredClassType={firstMissingClass?.classType}
           requiredStudioId={
-            classes.find((c) => classPassMap[c._id] === null)?.studioId?._id
+            firstMissingClass?.studioId?._id || firstMissingClass?.studioId
           }
         />
       )}

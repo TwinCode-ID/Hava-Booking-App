@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import QRCode from "react-qr-code";
 import {
   MapPin,
@@ -20,6 +20,7 @@ import {
   History,
   CreditCard,
   ChevronRight,
+  ChevronLeft,
   UploadCloud,
   Hash,
   Search,
@@ -47,6 +48,7 @@ import {
   Hourglass,
   XCircle,
   Layers,
+  Activity,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../../utils/apiPath";
@@ -89,6 +91,37 @@ const STATUS_STYLES = {
     icon: X,
     label: "Pass Expired",
   },
+};
+
+// ============================================================================
+// REUSABLE IN-LINE MEDICAL WARNING CARD
+// ============================================================================
+const InlineMedicalWarning = ({ onNavigate }) => {
+  return (
+    <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm text-center relative overflow-hidden'>
+      <div className='absolute -top-24 -right-24 w-48 h-48 bg-amber-100 rounded-full blur-3xl opacity-50 pointer-events-none' />
+
+      <div className='relative z-10 w-20 h-20 bg-gradient-to-br from-amber-50 to-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-amber-200/50'>
+        <Activity className='w-10 h-10' />
+      </div>
+
+      <h3 className='relative z-10 text-2xl font-extrabold text-gray-900 mb-3 tracking-tight'>
+        Health & Safety First
+      </h3>
+
+      <p className='relative z-10 text-gray-500 mb-8 leading-relaxed text-[15px]'>
+        To ensure your safety during sessions, we require all members to
+        complete their <strong>Medical Profile</strong> and accept the{" "}
+        <strong>Terms & Conditions</strong> before proceeding to checkout.
+      </p>
+
+      <button
+        onClick={onNavigate}
+        className='relative z-10 w-full py-3.5 bg-[#1D3D36] text-white font-bold rounded-xl hover:bg-[#0F2922] shadow-lg shadow-[#1D3D36]/20 transition-all active:scale-[0.98]'>
+        Complete Medical Profile
+      </button>
+    </div>
+  );
 };
 
 // ============================================================================
@@ -177,6 +210,7 @@ export default function ManagePackage() {
 // VIEW 1: PACKAGE SELECTOR (Marketplace)
 // ============================================================================
 function PackageSelectorView({ user }) {
+  const navigate = useNavigate();
   const [studios, setStudios] = useState([]);
   const [packages, setPackages] = useState([]);
   const [purchasedPackageIds, setPurchasedPackageIds] = useState([]);
@@ -184,6 +218,9 @@ function PackageSelectorView({ user }) {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedPackageId = searchParams.get("packageId");
+
+  // Medical Record Check State
+  const [hasValidMedical, setHasValidMedical] = useState(true);
 
   const [selectedInstructorTypes, setSelectedInstructorTypes] = useState([]);
   const [selectedStudioLocations, setSelectedStudioLocations] = useState([]);
@@ -200,11 +237,15 @@ function PackageSelectorView({ user }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [studiosRes, packagesRes, purchasesRes] = await Promise.all([
-          axiosInstance.get(API_PATHS.STUDIOS.GET_ALL),
-          axiosInstance.get(API_PATHS.PACKAGES.GET_ALL),
-          axiosInstance.get(API_PATHS.PURCHASES.GET_ALL_USER(user._id)),
-        ]);
+        const [studiosRes, packagesRes, purchasesRes, medicalRes] =
+          await Promise.all([
+            axiosInstance.get(API_PATHS.STUDIOS.GET_ALL),
+            axiosInstance.get(API_PATHS.PACKAGES.GET_ALL),
+            axiosInstance.get(API_PATHS.PURCHASES.GET_ALL_USER(user._id)),
+            axiosInstance
+              .get(API_PATHS.AUTH.MEDICAL_INFO(user._id))
+              .catch(() => ({ data: null })),
+          ]);
 
         setStudios(studiosRes.data);
         setPackages(packagesRes.data);
@@ -217,6 +258,13 @@ function PackageSelectorView({ user }) {
           .map((tx) => tx.packageId?._id || tx.packageId);
 
         setPurchasedPackageIds(boughtIds);
+
+        // Verify medical record & T&C
+        if (medicalRes.data && medicalRes.data.termsAndConditions) {
+          setHasValidMedical(true);
+        } else {
+          setHasValidMedical(false);
+        }
       } catch (error) {
         console.error("Failed to load data", error);
       } finally {
@@ -229,7 +277,6 @@ function PackageSelectorView({ user }) {
   const uniqueInstructorTypes = [
     ...new Set(packages.flatMap((p) => p.instructorType || [])),
   ].filter(Boolean);
-
   const uniqueStudioLocation = [
     ...new Set(
       packages.map((p) => p.studioLocation?.studioName).filter(Boolean),
@@ -295,7 +342,6 @@ function PackageSelectorView({ user }) {
     if (!promoCode.trim() || !selectedPackage) return;
     setPromoLoading(true);
     setPromoMessage(null);
-
     try {
       const studioId =
         selectedPackage.studioLocation?._id || selectedPackage.studioLocation;
@@ -303,7 +349,6 @@ function PackageSelectorView({ user }) {
         code: promoCode.trim(),
         studioId: studioId,
       });
-
       const validPromo = res.data;
       let discount = 0;
       const originalPrice = parseInt(
@@ -311,7 +356,6 @@ function PackageSelectorView({ user }) {
           ? selectedPackage.promoPrice
           : selectedPackage.packagePrice,
       );
-
       if (validPromo.discountType === "percentage")
         discount = originalPrice * (validPromo.discountValue / 100);
       else if (validPromo.discountType === "fixed")
@@ -370,471 +414,505 @@ function PackageSelectorView({ user }) {
   return (
     <div className='container mx-auto px-4 md:px-6 py-12'>
       <div className='flex flex-col lg:flex-row gap-12 xl:gap-16'>
-        {/* SIDEBAR FILTERS */}
-        <aside
-          className={`lg:w-64 xl:w-72 shrink-0 space-y-10 ${showMobileFilters ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto" : "hidden lg:block"}`}>
-          <div className='flex items-center justify-between lg:hidden mb-8'>
-            <h3 className='font-bold text-xl'>Refine Marketplace</h3>
-            <button
-              onClick={() => setShowMobileFilters(false)}
-              className='p-2 bg-gray-100 rounded-full'>
-              <X className='w-5 h-5' />
-            </button>
-          </div>
-
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <MapPin className='w-4 h-4 text-[#2D8A60]' /> Studio
-            </h3>
-            <div className='space-y-2.5 mt-3'>
-              {uniqueStudioLocation.map((type) => (
-                <label
-                  key={type}
-                  className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
-                  <div
-                    className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${selectedStudioLocations.includes(type) ? "bg-[#1D3D36] border-[#1D3D36] shadow" : "border-gray-300 group-hover:border-[#2D8A60] bg-white"}`}>
-                    {selectedStudioLocations.includes(type) && (
-                      <Check className='w-3.5 h-3.5 text-white' />
-                    )}
-                  </div>
-                  <input
-                    type='checkbox'
-                    className='hidden'
-                    checked={selectedStudioLocations.includes(type)}
-                    onChange={() =>
-                      toggleFilter(
-                        selectedStudioLocations,
-                        setSelectedStudioLocations,
-                        type,
-                      )
-                    }
-                  />
-                  <span
-                    className={`text-[15px] ${selectedStudioLocations.includes(type) ? "text-gray-900 font-bold" : "text-gray-600 font-medium"}`}>
-                    {type}
-                  </span>
-                </label>
-              ))}
+        {/* SIDEBAR FILTERS (Hidden when a package is selected for checkout) */}
+        {!selectedPackage && (
+          <aside
+            className={`lg:w-64 xl:w-72 shrink-0 space-y-10 ${
+              showMobileFilters
+                ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
+                : "hidden lg:block"
+            }`}>
+            <div className='flex items-center justify-between lg:hidden mb-8'>
+              <h3 className='font-bold text-xl'>Refine Marketplace</h3>
+              <button
+                onClick={() => setShowMobileFilters(false)}
+                className='p-2 bg-gray-100 rounded-full'>
+                <X className='w-5 h-5' />
+              </button>
             </div>
-          </div>
-          <hr className='border-gray-200' />
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <Users className='w-4 h-4 text-[#2D8A60]' /> Skill Level
-            </h3>
-            <div className='space-y-2 mt-3'>
-              {uniqueInstructorTypes.map((type) => {
-                const isSelected = selectedInstructorTypes.includes(type);
-                return (
+
+            <div className='space-y-4'>
+              <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+                <MapPin className='w-4 h-4 text-[#2D8A60]' /> Studio
+              </h3>
+              <div className='space-y-2.5 mt-3'>
+                {uniqueStudioLocation.map((type) => (
                   <label
                     key={type}
                     className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
                     <div
-                      className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${isSelected ? "bg-[#1D3D36] border-[#1D3D36] shadow" : "border-gray-300 group-hover:border-[#2D8A60] bg-white"}`}>
-                      {isSelected && (
+                      className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${
+                        selectedStudioLocations.includes(type)
+                          ? "bg-[#1D3D36] border-[#1D3D36] shadow"
+                          : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
+                      }`}>
+                      {selectedStudioLocations.includes(type) && (
                         <Check className='w-3.5 h-3.5 text-white' />
                       )}
                     </div>
                     <input
                       type='checkbox'
                       className='hidden'
-                      checked={isSelected}
+                      checked={selectedStudioLocations.includes(type)}
                       onChange={() =>
                         toggleFilter(
-                          selectedInstructorTypes,
-                          setSelectedInstructorTypes,
+                          selectedStudioLocations,
+                          setSelectedStudioLocations,
                           type,
                         )
                       }
                     />
                     <span
-                      className={`text-[15px] ${isSelected ? "text-gray-900 font-bold" : "text-gray-600 font-medium"}`}>
+                      className={`text-[15px] ${
+                        selectedStudioLocations.includes(type)
+                          ? "text-gray-900 font-bold"
+                          : "text-gray-600 font-medium"
+                      }`}>
                       {type}
                     </span>
                   </label>
-                );
-              })}
-            </div>
-          </div>
-          <hr className='border-gray-200' />
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <SlidersHorizontal className='w-4 h-4 text-[#2D8A60]' /> Price
-              Rank
-            </h3>
-            <div className='flex gap-3 mt-3'>
-              <button
-                onClick={() => setSortOrder("asc")}
-                className={`flex-1 py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "asc" ? "bg-[#1D3D36] text-white border-[#1D3D36]" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"}`}>
-                <ArrowUpNarrowWide className='w-4 h-4' /> Lowest
-              </button>
-              <button
-                onClick={() => setSortOrder("desc")}
-                className={`flex-1 py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "desc" ? "bg-[#1D3D36] text-white border-[#1D3D36]" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"}`}>
-                <ArrowDownNarrowWide className='w-4 h-4' /> Highest
-              </button>
-            </div>
-          </div>
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <Tag className='w-4 h-4 text-[#2D8A60]' /> Price Range
-            </h3>
-            <div className='flex items-center gap-3 mt-3'>
-              <input
-                type='number'
-                placeholder='Min (IDR)'
-                value={priceMin}
-                onChange={(e) => setPriceMin(e.target.value)}
-                className='w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
-              />
-              <span className='text-gray-400 font-medium'>—</span>
-              <input
-                type='number'
-                placeholder='Max (IDR)'
-                value={priceMax}
-                onChange={(e) => setPriceMax(e.target.value)}
-                className='w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
-              />
-            </div>
-          </div>
-        </aside>
-
-        {/* --- MAIN GRID --- */}
-        <div className='flex-1'>
-          <div className='flex items-center justify-between mb-10 pb-4 border-b border-gray-200'>
-            <p className='text-gray-500 text-[15px] font-medium'>
-              Displaying{" "}
-              <span className='font-bold text-gray-900'>
-                {filteredPackages.length}
-              </span>{" "}
-              options from{" "}
-              <span className='font-bold text-gray-900'>
-                {selectedStudioLocations.length > 0
-                  ? selectedStudioLocations.join(", ")
-                  : "All Studios"}
-              </span>
-            </p>
-            <button
-              className='lg:hidden flex items-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm'
-              onClick={() => setShowMobileFilters(true)}>
-              <Filter className='w-4 h-4 text-[#2D8A60]' /> Filter Results
-            </button>
-          </div>
-
-          <div className='grid grid-cols-1 xl:grid-cols-2 gap-x-8 gap-y-10'>
-            {filteredPackages.length > 0 ? (
-              filteredPackages.map((pkg) => (
-                <PackageCardMinimal
-                  key={pkg._id}
-                  pkg={pkg}
-                  onPurchase={() => handleOpenPurchase(pkg._id)}
-                />
-              ))
-            ) : (
-              <div className='col-span-full py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm'>
-                <div className='w-16 h-16 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center mx-auto mb-5 text-gray-300'>
-                  <ShoppingBag className='w-8 h-8' />
-                </div>
-                <h3 className='text-xl font-bold text-gray-900'>
-                  No matching options found
-                </h3>
-                <p className='text-gray-500 mt-2 text-[15px]'>
-                  Try adjusting your filters, price range, or clearing them.
-                </p>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* --- PURCHASE MODAL (DETAILS POP-UP) --- */}
-      <AnimatePresence>
-        {selectedPackage && (
-          <div className='fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 sm:p-6'>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleClosePurchase}
-              className='absolute inset-0 bg-black/70 backdrop-blur-sm'
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 50, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 50, scale: 0.98 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className='relative bg-white w-full max-w-[640px] rounded-2xl md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
-              {paymentLoading && (
-                <div className='absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm'>
-                  <LoadingSpinner size='lg' />
-                  <p className='text-gray-600 font-bold mt-4'>
-                    Processing your payment...
-                  </p>
-                </div>
-              )}
-
-              {/* Header */}
-              <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10 shrink-0'>
-                <h2 className='text-[20px] font-semibold text-gray-900 flex items-center gap-3'>
-                  <Zap className='w-[24px] h-[24px] text-[#2D8A60]' /> Package
-                  Details & Checkout
-                </h2>
+            </div>
+            <hr className='border-gray-200' />
+            <div className='space-y-4'>
+              <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+                <Users className='w-4 h-4 text-[#2D8A60]' /> Skill Level
+              </h3>
+              <div className='space-y-2 mt-3'>
+                {uniqueInstructorTypes.map((type) => {
+                  const isSelected = selectedInstructorTypes.includes(type);
+                  return (
+                    <label
+                      key={type}
+                      className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
+                      <div
+                        className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${
+                          isSelected
+                            ? "bg-[#1D3D36] border-[#1D3D36] shadow"
+                            : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
+                        }`}>
+                        {isSelected && (
+                          <Check className='w-3.5 h-3.5 text-white' />
+                        )}
+                      </div>
+                      <input
+                        type='checkbox'
+                        className='hidden'
+                        checked={isSelected}
+                        onChange={() =>
+                          toggleFilter(
+                            selectedInstructorTypes,
+                            setSelectedInstructorTypes,
+                            type,
+                          )
+                        }
+                      />
+                      <span
+                        className={`text-[15px] ${
+                          isSelected
+                            ? "text-gray-900 font-bold"
+                            : "text-gray-600 font-medium"
+                        }`}>
+                        {type}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <hr className='border-gray-200' />
+            <div className='space-y-4'>
+              <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+                <SlidersHorizontal className='w-4 h-4 text-[#2D8A60]' /> Price
+                Rank
+              </h3>
+              <div className='flex gap-3 mt-3'>
                 <button
-                  onClick={handleClosePurchase}
-                  className='p-2 hover:bg-gray-100 rounded-full transition-colors'>
-                  <X className='w-6 h-6 text-gray-500' />
+                  onClick={() => setSortOrder("asc")}
+                  className={`flex-1 py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${
+                    sortOrder === "asc"
+                      ? "bg-[#1D3D36] text-white border-[#1D3D36]"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}>
+                  <ArrowUpNarrowWide className='w-4 h-4' /> Lowest
+                </button>
+                <button
+                  onClick={() => setSortOrder("desc")}
+                  className={`flex-1 py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${
+                    sortOrder === "desc"
+                      ? "bg-[#1D3D36] text-white border-[#1D3D36]"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}>
+                  <ArrowDownNarrowWide className='w-4 h-4' /> Highest
+                </button>
+              </div>
+            </div>
+            <div className='space-y-4'>
+              <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+                <Tag className='w-4 h-4 text-[#2D8A60]' /> Price Range
+              </h3>
+              <div className='flex items-center gap-3 mt-3'>
+                <input
+                  type='number'
+                  placeholder='Min (IDR)'
+                  value={priceMin}
+                  onChange={(e) => setPriceMin(e.target.value)}
+                  className='w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
+                />
+                <span className='text-gray-400 font-medium'>—</span>
+                <input
+                  type='number'
+                  placeholder='Max (IDR)'
+                  value={priceMax}
+                  onChange={(e) => setPriceMax(e.target.value)}
+                  className='w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
+                />
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* MAIN CONTENT AREA */}
+        <div className='flex-1'>
+          {!selectedPackage ? (
+            <>
+              {/* GRID VIEW HEADER */}
+              <div className='flex items-center justify-between mb-10 pb-4 border-b border-gray-200'>
+                <p className='text-gray-500 text-[15px] font-medium'>
+                  Displaying{" "}
+                  <span className='font-bold text-gray-900'>
+                    {filteredPackages.length}
+                  </span>{" "}
+                  options from{" "}
+                  <span className='font-bold text-gray-900'>
+                    {selectedStudioLocations.length > 0
+                      ? selectedStudioLocations.join(", ")
+                      : "All Studios"}
+                  </span>
+                </p>
+                <button
+                  className='lg:hidden flex items-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm'
+                  onClick={() => setShowMobileFilters(true)}>
+                  <Filter className='w-4 h-4 text-[#2D8A60]' /> Filter Results
                 </button>
               </div>
 
-              <div className='p-6 md:p-8 overflow-y-auto bg-[#F9FAFB] flex flex-col gap-6'>
-                {/* Package Detail Card */}
-                <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm'>
-                  {/* Badges Row */}
-                  <div className='flex flex-wrap gap-2 mb-6'>
-                    {selectedPackage.isActive && (
-                      <span className='inline-flex items-center gap-1.5 bg-[#E8F5EE] text-[#1E5D40] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
-                        Active
-                      </span>
-                    )}
-                    {selectedPackage.packageCategory?.includes("Regular") && (
-                      <span className='inline-flex items-center gap-1.5 bg-[#FFF4ED] text-[#9A3412] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
-                        Studio Regular
-                      </span>
-                    )}
-                    {selectedPackage.isOneTimePurchase && (
-                      <span className='inline-flex items-center gap-1.5 bg-[#FFFBEB] text-[#92400E] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
-                        <TriangleAlert className='w-3 h-3' /> Limit: 1
-                      </span>
-                    )}
-                    {selectedPackage.isAvailableToFreeze && (
-                      <span className='inline-flex items-center gap-1.5 bg-[#ECFEFF] text-[#155E75] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
-                        <Snowflake className='w-3 h-3' /> Freezable
-                      </span>
-                    )}
-                    {isSelectedCombo && (
-                      <span className='inline-flex items-center gap-1.5 bg-[#FAF5FF] text-[#6B21A8] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
-                        <AlignLeft className='w-3 h-3' /> Combo
-                      </span>
-                    )}
-                    {isSelectedPromo && (
-                      <span className='inline-flex items-center gap-1.5 bg-[#FDF2F8] text-[#BE185D] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
-                        <Tag className='w-3 h-3' /> Promo
-                      </span>
-                    )}
+              {/* GRID VIEW CARDS */}
+              <div className='grid grid-cols-1 xl:grid-cols-2 gap-x-8 gap-y-10'>
+                {filteredPackages.length > 0 ? (
+                  filteredPackages.map((pkg) => (
+                    <PackageCardMinimal
+                      key={pkg._id}
+                      pkg={pkg}
+                      onPurchase={() => handleOpenPurchase(pkg._id)}
+                    />
+                  ))
+                ) : (
+                  <div className='col-span-full py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm'>
+                    <div className='w-16 h-16 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center mx-auto mb-5 text-gray-300'>
+                      <ShoppingBag className='w-8 h-8' />
+                    </div>
+                    <h3 className='text-xl font-bold text-gray-900'>
+                      No matching options found
+                    </h3>
+                    <p className='text-gray-500 mt-2 text-[15px]'>
+                      Try adjusting your filters, price range, or clearing them.
+                    </p>
                   </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* SIDE-BY-SIDE CHECKOUT VIEW */
+            <div className='animate-in slide-in-from-right-8 duration-300'>
+              <div className='flex items-center gap-4 mb-8 pb-6 border-b border-gray-200'>
+                <button
+                  onClick={handleClosePurchase}
+                  className='p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm'>
+                  <ChevronLeft className='w-5 h-5 text-gray-600' />
+                </button>
+                <h2 className='text-2xl font-bold text-gray-900'>
+                  Package Details & Checkout
+                </h2>
+              </div>
 
-                  {/* Title & Price Row */}
-                  <h3
-                    className={`font-semibold text-[28px] leading-tight tracking-tight mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-[#1D3D36]"}`}>
-                    {selectedPackage.packageName}
-                  </h3>
+              <div className='flex flex-col lg:flex-row gap-8 items-start'>
+                {/* LEFT COLUMN: Details & Promo */}
+                <div className='flex-1 flex flex-col gap-6 w-full'>
+                  {/* DETAILS CARD */}
+                  <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm'>
+                    <h3 className='text-lg font-bold text-gray-900 mb-5 border-b border-gray-100 pb-3'>
+                      Package Details
+                    </h3>
 
-                  <div className='flex items-center gap-3 mb-6'>
-                    {(isSelectedPromo || appliedPromo) && (
-                      <span className='text-[18px] text-[#9CA3AF] line-through font-bold'>
-                        {originalPriceFormattedModal} IDR
+                    <div className='flex flex-wrap gap-2 mb-6'>
+                      {selectedPackage.isActive && (
+                        <span className='inline-flex items-center gap-1.5 bg-[#E8F5EE] text-[#1E5D40] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
+                          Active
+                        </span>
+                      )}
+                      {selectedPackage.packageCategory?.includes("Regular") && (
+                        <span className='inline-flex items-center gap-1.5 bg-[#FFF4ED] text-[#9A3412] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
+                          Studio Regular
+                        </span>
+                      )}
+                      {selectedPackage.isOneTimePurchase && (
+                        <span className='inline-flex items-center gap-1.5 bg-[#FFFBEB] text-[#92400E] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
+                          <TriangleAlert className='w-3 h-3' /> Limit: 1
+                        </span>
+                      )}
+                      {selectedPackage.isAvailableToFreeze && (
+                        <span className='inline-flex items-center gap-1.5 bg-[#ECFEFF] text-[#155E75] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
+                          <Snowflake className='w-3 h-3' /> Freezable
+                        </span>
+                      )}
+                      {isSelectedCombo && (
+                        <span className='inline-flex items-center gap-1.5 bg-[#FAF5FF] text-[#6B21A8] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
+                          <AlignLeft className='w-3 h-3' /> Combo
+                        </span>
+                      )}
+                      {isSelectedPromo && (
+                        <span className='inline-flex items-center gap-1.5 bg-[#FDF2F8] text-[#BE185D] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
+                          <Tag className='w-3 h-3' /> Promo
+                        </span>
+                      )}
+                    </div>
+
+                    <h3
+                      className={`font-semibold text-[28px] leading-tight tracking-tight mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-[#1D3D36]"}`}>
+                      {selectedPackage.packageName}
+                    </h3>
+
+                    <div className='flex items-center gap-3 mb-6'>
+                      {(isSelectedPromo || appliedPromo) && (
+                        <span className='text-[18px] text-[#9CA3AF] line-through font-bold'>
+                          {originalPriceFormattedModal} IDR
+                        </span>
+                      )}
+                      <span className='font-semibold text-[#1D3D36] text-[32px] tracking-tight'>
+                        {parseInt(modalDisplayPrice).toLocaleString("id-ID")}{" "}
+                        IDR
                       </span>
-                    )}
-                    <span className='font-semibold text-[#1D3D36] text-[32px] tracking-tight'>
-                      {parseInt(modalDisplayPrice).toLocaleString("id-ID")} IDR
-                    </span>
-                  </div>
+                    </div>
 
-                  {/* Formatted Description Block for Modals */}
-                  <div className='text-[#4B5563] mb-8 text-[15px]'>
-                    {(() => {
-                      const desc = selectedPackage.packageDescription || "";
-                      const descParts = desc
-                        ? desc
-                            .split(",")
-                            .map((s) => s.trim())
-                            .filter(Boolean)
-                        : [];
+                    <div className='text-[#4B5563] mb-8 text-[15px]'>
+                      {(() => {
+                        const desc = selectedPackage.packageDescription || "";
+                        const descParts = desc
+                          ? desc
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean)
+                          : [];
 
-                      if (descParts.length > 1) {
+                        if (descParts.length > 1) {
+                          return (
+                            <ul className='space-y-3'>
+                              {descParts.map((part, idx) => (
+                                <li
+                                  key={idx}
+                                  className='flex items-start gap-3'>
+                                  <CheckCircle2 className='w-[20px] h-[20px] text-[#2D8A60] shrink-0 mt-[2px]' />
+                                  <span className='leading-relaxed font-medium'>
+                                    {part}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        }
                         return (
-                          <ul className='space-y-3'>
-                            {descParts.map((part, idx) => (
-                              <li key={idx} className='flex items-start gap-3'>
-                                <CheckCircle2 className='w-[20px] h-[20px] text-[#2D8A60] shrink-0 mt-[2px]' />
-                                <span className='leading-relaxed font-medium'>
-                                  {part}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+                          <div className='flex items-start gap-3'>
+                            <CheckCircle2 className='w-[20px] h-[20px] text-[#2D8A60] shrink-0 mt-[2px]' />
+                            <span className='leading-relaxed font-medium'>
+                              {desc}
+                            </span>
+                          </div>
                         );
-                      }
-                      return (
-                        <div className='flex items-start gap-3'>
-                          <CheckCircle2 className='w-[20px] h-[20px] text-[#2D8A60] shrink-0 mt-[2px]' />
-                          <span className='leading-relaxed font-medium'>
-                            {desc}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                  </div>
+                      })()}
+                    </div>
 
-                  {/* Validity Box */}
-                  <div className='flex gap-4 mb-8 bg-[#F9FAFB] p-5 rounded-2xl border border-gray-100'>
-                    <CalendarDays className='w-[22px] h-[22px] text-gray-400 shrink-0 mt-0.5' />
+                    <div className='flex gap-4 mb-8 bg-[#F9FAFB] p-5 rounded-2xl border border-gray-100'>
+                      <CalendarDays className='w-[22px] h-[22px] text-gray-400 shrink-0 mt-0.5' />
+                      <div>
+                        <p className='text-[15px] font-bold text-gray-900'>
+                          Valid for {selectedPackage.validityDays} days from
+                          date of first class booking
+                        </p>
+                        <p className='text-[12px] text-gray-500 mt-1 font-medium'>
+                          *Must activate first class within{" "}
+                          {selectedPackage.activationPeriodDays || 30} days of
+                          purchase
+                        </p>
+                      </div>
+                    </div>
+
                     <div>
-                      <p className='text-[15px] font-bold text-gray-900'>
-                        Valid for {selectedPackage.validityDays} days from date
-                        of first class booking
-                      </p>
-                      <p className='text-[12px] text-gray-500 mt-1 font-medium'>
-                        *Must activate first class within{" "}
-                        {selectedPackage.activationPeriodDays || 30} days of
-                        purchase
-                      </p>
+                      {!isSelectedCombo ? (
+                        <div className='flex flex-col sm:flex-row gap-x-8 gap-y-4 pt-2'>
+                          <div className='flex items-center gap-3'>
+                            <Layers className='w-[20px] h-[20px] text-[#2D8A60] shrink-0' />
+                            <span className='text-[16px] font-bold text-gray-900'>
+                              {modalTotalCredits} Credits
+                            </span>
+                          </div>
+                          <div className='flex flex-wrap gap-2.5'>
+                            {selectedPackage.instructorType &&
+                              selectedPackage.instructorType.length > 0 && (
+                                <span className='flex items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
+                                  <User className='w-4 h-4 text-[#9CA3AF]' />{" "}
+                                  {selectedPackage.instructorType.join(", ")}
+                                </span>
+                              )}
+                            {selectedPackage.classType &&
+                              selectedPackage.classType.length > 0 && (
+                                <span className='flex items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
+                                  <Settings2 className='w-4 h-4 text-[#9CA3AF]' />{" "}
+                                  {selectedPackage.classType.join(", ")}
+                                </span>
+                              )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className='bg-[#F9FAFB] rounded-2xl p-6 border border-gray-100'>
+                          <p className='text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-5'>
+                            Combo Includes
+                          </p>
+                          <div className='space-y-3'>
+                            {selectedPackage.comboItems?.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className='bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-6'>
+                                <p className='font-bold text-[#111827] text-[16px] sm:w-24 shrink-0'>
+                                  {item.credits} Credits
+                                </p>
+                                <div className='flex flex-col gap-y-3 text-[14px] text-[#4B5563] flex-1'>
+                                  <div className='flex items-start gap-3 font-medium'>
+                                    <User className='w-[18px] h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                    <span className='leading-relaxed'>
+                                      {item.instructorType?.join(", ")}
+                                    </span>
+                                  </div>
+                                  <div className='flex items-start gap-3 font-medium'>
+                                    <Settings2 className='w-[18px] h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                    <span className='leading-relaxed'>
+                                      {item.classType?.join(", ")}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Details Row / Bundle Composition */}
-                  <div>
-                    {!isSelectedCombo ? (
-                      <div className='flex flex-col sm:flex-row gap-x-8 gap-y-4 pt-2'>
-                        <div className='flex items-center gap-3'>
-                          <Layers className='w-[20px] h-[20px] text-[#2D8A60] shrink-0' />
-                          <span className='text-[16px] font-bold text-gray-900'>
-                            {modalTotalCredits} Credits
-                          </span>
-                        </div>
-
-                        <div className='flex flex-wrap gap-2.5'>
-                          {selectedPackage.instructorType &&
-                            selectedPackage.instructorType.length > 0 && (
-                              <span className='flex items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
-                                <User className='w-4 h-4 text-[#9CA3AF]' />{" "}
-                                {selectedPackage.instructorType.join(", ")}
-                              </span>
+                  {/* PROMO CARD (Only shown if medical is valid, although whole left side requires it technically) */}
+                  {hasValidMedical && (
+                    <div className='bg-white p-6 rounded-3xl border border-gray-100 shadow-sm'>
+                      <h4 className='text-[13px] font-bold text-gray-900 mb-3 uppercase tracking-wider flex items-center gap-2'>
+                        <Tag className='w-4 h-4 text-[#2D8A60]' /> Promo /
+                        Voucher Code
+                      </h4>
+                      <div className='flex gap-3'>
+                        <input
+                          type='text'
+                          placeholder='ENTER CODE'
+                          value={promoCode}
+                          onChange={(e) =>
+                            setPromoCode(e.target.value.toUpperCase())
+                          }
+                          disabled={appliedPromo !== null}
+                          className='flex-1 px-4 py-3 bg-[#F9FAFB] border border-gray-200 rounded-xl text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] disabled:opacity-70 disabled:cursor-not-allowed'
+                        />
+                        {!appliedPromo ? (
+                          <button
+                            onClick={handleApplyPromo}
+                            disabled={!promoCode.trim() || promoLoading}
+                            className='px-6 py-3 bg-[#1D3D36] hover:bg-[#0F2922] text-white text-[15px] font-bold rounded-xl transition-colors disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center min-w-[100px] shadow-sm'>
+                            {promoLoading ? (
+                              <Loader2 className='w-4 h-4 animate-spin' />
+                            ) : (
+                              "Apply"
                             )}
-                          {selectedPackage.classType &&
-                            selectedPackage.classType.length > 0 && (
-                              <span className='flex items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
-                                <Settings2 className='w-4 h-4 text-[#9CA3AF]' />{" "}
-                                {selectedPackage.classType.join(", ")}
-                              </span>
-                            )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className='bg-[#F9FAFB] rounded-2xl p-6 border border-gray-100'>
-                        <p className='text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-5'>
-                          Combo Includes
-                        </p>
-                        <div className='space-y-3'>
-                          {selectedPackage.comboItems?.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className='bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-6'>
-                              <p className='font-bold text-[#111827] text-[16px] sm:w-24 shrink-0'>
-                                {item.credits} Credits
-                              </p>
-                              <div className='flex flex-col gap-y-3 text-[14px] text-[#4B5563] flex-1'>
-                                <div className='flex items-start gap-3 font-medium'>
-                                  <User className='w-[18px] h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
-                                  <span className='leading-relaxed'>
-                                    {item.instructorType?.join(", ")}
-                                  </span>
-                                </div>
-                                <div className='flex items-start gap-3 font-medium'>
-                                  <Settings2 className='w-[18px] h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
-                                  <span className='leading-relaxed'>
-                                    {item.classType?.join(", ")}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Promo Code Section */}
-                <div className='bg-white p-6 rounded-3xl border border-gray-100 shadow-sm'>
-                  <h4 className='text-[13px] font-bold text-gray-900 mb-3 uppercase tracking-wider flex items-center gap-2'>
-                    <Tag className='w-4 h-4 text-[#2D8A60]' /> Promo / Voucher
-                    Code
-                  </h4>
-                  <div className='flex gap-3'>
-                    <input
-                      type='text'
-                      placeholder='ENTER CODE'
-                      value={promoCode}
-                      onChange={(e) =>
-                        setPromoCode(e.target.value.toUpperCase())
-                      }
-                      disabled={appliedPromo !== null}
-                      className='flex-1 px-4 py-3 bg-[#F9FAFB] border border-gray-200 rounded-xl text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] disabled:opacity-70 disabled:cursor-not-allowed'
-                    />
-                    {!appliedPromo ? (
-                      <button
-                        onClick={handleApplyPromo}
-                        disabled={!promoCode.trim() || promoLoading}
-                        className='px-6 py-3 bg-[#1D3D36] hover:bg-[#0F2922] text-white text-[15px] font-bold rounded-xl transition-colors disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center min-w-[100px] shadow-sm'>
-                        {promoLoading ? (
-                          <Loader2 className='w-4 h-4 animate-spin' />
+                          </button>
                         ) : (
-                          "Apply"
+                          <button
+                            onClick={() => {
+                              setAppliedPromo(null);
+                              setPromoCode("");
+                              setPromoMessage(null);
+                            }}
+                            className='px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 text-[14px] font-bold rounded-xl transition-colors flex items-center justify-center min-w-[100px] border border-red-100'>
+                            Remove
+                          </button>
                         )}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setAppliedPromo(null);
-                          setPromoCode("");
-                          setPromoMessage(null);
-                        }}
-                        className='px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 text-[14px] font-bold rounded-xl transition-colors flex items-center justify-center min-w-[100px] border border-red-100'>
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  {promoMessage && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`mt-3 text-[13px] font-bold flex items-center gap-1.5 ${promoMessage.type === "success" ? "text-[#2D8A60]" : "text-red-500"}`}>
-                      {promoMessage.type === "success" ? (
-                        <CheckCircle2 className='w-4 h-4' />
-                      ) : (
-                        <AlertCircle className='w-4 h-4' />
+                      </div>
+                      {promoMessage && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`mt-3 text-[13px] font-bold flex items-center gap-1.5 ${
+                            promoMessage.type === "success"
+                              ? "text-[#2D8A60]"
+                              : "text-red-500"
+                          }`}>
+                          {promoMessage.type === "success" ? (
+                            <CheckCircle2 className='w-4 h-4' />
+                          ) : (
+                            <AlertCircle className='w-4 h-4' />
+                          )}
+                          {promoMessage.text}
+                        </motion.p>
                       )}
-                      {promoMessage.text}
-                    </motion.p>
+                    </div>
                   )}
                 </div>
 
-                {/* Checkout Form */}
-                <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm'>
-                  <h3 className='font-bold text-[22px] text-gray-900 mb-6'>
-                    Complete your purchase
-                  </h3>
-                  <PurchaseForm
-                    pkg={selectedPackage}
-                    appliedPromo={appliedPromo}
-                    onCancel={handleClosePurchase}
-                    onSuccess={handleClosePurchase}
-                    userId={user._id}
-                    setPaymentLoading={setPaymentLoading}
-                  />
+                {/* RIGHT COLUMN: Checkout Form OR Medical Warning */}
+                <div className='w-full lg:w-[420px] xl:w-[480px] shrink-0 sticky top-6'>
+                  {hasValidMedical ? (
+                    <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm'>
+                      <h3 className='font-bold text-[22px] text-gray-900 mb-6'>
+                        Checkout
+                      </h3>
+                      {paymentLoading && (
+                        <div className='absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-3xl'>
+                          <LoadingSpinner size='lg' />
+                          <p className='text-gray-600 font-bold mt-4'>
+                            Processing your payment...
+                          </p>
+                        </div>
+                      )}
+                      <PurchaseForm
+                        pkg={selectedPackage}
+                        appliedPromo={appliedPromo}
+                        onCancel={handleClosePurchase}
+                        onSuccess={handleClosePurchase}
+                        userId={user._id}
+                        setPaymentLoading={setPaymentLoading}
+                      />
+                    </div>
+                  ) : (
+                    /* IN-LINE MEDICAL WARNING CARD */
+                    <InlineMedicalWarning
+                      onNavigate={() => navigate("/client-account-settings")}
+                    />
+                  )}
                 </div>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 // ============================================================================
-// SLEEK, MINIMALIST PACKAGE CARD
+// SLEEK, MINIMALIST PACKAGE CARD (Grid View Component)
 // ============================================================================
 function PackageCardMinimal({ pkg, onPurchase }) {
   const isPromo = pkg.isPromo && pkg.promoPrice;
@@ -848,7 +926,6 @@ function PackageCardMinimal({ pkg, onPurchase }) {
   const totalCredits = isCombo
     ? pkg.comboItems?.reduce((acc, item) => acc + item.credits, 0) || 0
     : pkg.credits || 0;
-
   const descParts = pkg.packageDescription
     ? pkg.packageDescription
         .split(",")
