@@ -220,37 +220,6 @@ exports.updateUserPass = async (req, res) => {
     if (classType) pass.classType = classType;
 
     const now = new Date();
-    pass.isActive = pass.expiryDate > now && pass.remainingCredits > 0;
-
-    await pass.save();
-    res.status(200).json({ message: "Pass updated successfully", pass });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-exports.updateUserPass = async (req, res) => {
-  try {
-    const { passId } = req.params;
-    const {
-      remainingCredits,
-      expiryDate,
-      instructorType,
-      classType,
-      validityDuration,
-    } = req.body;
-
-    const pass = await UserPasses.findById(passId);
-    if (!pass) return res.status(404).json({ error: "Pass not found" });
-
-    if (remainingCredits !== undefined)
-      pass.remainingCredits = Number(remainingCredits);
-    if (expiryDate) pass.expiryDate = new Date(expiryDate);
-    if (validityDuration) pass.validityDuration = Number(validityDuration);
-    if (instructorType) pass.instructorType = instructorType;
-    if (classType) pass.classType = classType;
-
-    const now = new Date();
 
     // Check if it has credits
     const hasCredits = pass.remainingCredits > 0;

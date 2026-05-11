@@ -19,6 +19,8 @@ import {
   endOfMonth,
   isSameMonth,
   differenceInMinutes,
+  startOfDay,
+  endOfDay,
 } from "date-fns";
 import {
   ChevronLeft,
@@ -52,6 +54,28 @@ import { API_PATHS } from "../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { useAuth } from "../../../../../context/AuthContext";
 import CustomSelect from "../Layout/CustomSelect";
+
+// Helper function to check if a shift is fully active exactly on the requested date matching the full bounds.
+const isShiftActiveOnDate = (shift, dateObj) => {
+  if (shift.isActive === false) return false;
+  const targetMs = startOfDay(dateObj).getTime();
+  const exceptions = shift.exceptions || [];
+
+  const tempIncoming = exceptions.find((e) => e.type === "temp_incoming");
+  if (tempIncoming) {
+    const exStart = startOfDay(parseISO(tempIncoming.startDate)).getTime();
+    const exEnd = endOfDay(parseISO(tempIncoming.endDate)).getTime();
+    return targetMs >= exStart && targetMs <= exEnd;
+  } else {
+    const isPaused = exceptions.some((e) => {
+      if (e.type !== "pause" && e.type !== "reassign") return false;
+      const exStart = startOfDay(parseISO(e.startDate)).getTime();
+      const exEnd = endOfDay(parseISO(e.endDate)).getTime();
+      return targetMs >= exStart && targetMs <= exEnd;
+    });
+    return !isPaused;
+  }
+};
 
 const SchedulesList = ({ isEmbedded = false }) => {
   const { user } = useAuth();
@@ -605,7 +629,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
       );
       day = addDays(day, 1);
     }
-    rows.push(
+    push(
       <div
         className='grid grid-cols-7 gap-y-1 gap-x-0 mb-1'
         key={day.toString()}>
@@ -1320,10 +1344,12 @@ const ClassDetailsModal = ({
                         className='flex justify-between items-center p-3 border rounded-xl'>
                         <div>
                           <p className='font-bold text-sm'>
-                            {b.userId.fullName}
+                            {b.userId?.fullName || "Unknown User"}
                           </p>
                           <p className='text-xs text-gray-500'>
-                            {b.passId?.passName}
+                            {b.passId?.packageId?.packageName ||
+                              b.passId?.passName ||
+                              "Unknown Pass"}
                           </p>
                         </div>
                         <div className='flex gap-2'>
@@ -1577,7 +1603,7 @@ const CreateClassModal = ({
   const getTargetDates = () => {
     let datesToCheck = [];
     const startDate = new Date(form.startTime);
-    const startOfDay = new Date(startDate).setHours(0, 0, 0, 0);
+    const startOfDayBound = startOfDay(startDate).getTime();
 
     if (
       !form.isRecurring ||
@@ -1602,7 +1628,7 @@ const CreateClassModal = ({
             0,
           );
 
-          if (targetDate.getTime() >= startOfDay) {
+          if (targetDate.getTime() >= startOfDayBound) {
             datesToCheck.push(targetDate);
           }
         });
@@ -1656,11 +1682,36 @@ const CreateClassModal = ({
     }
 
     const datesToCheck = getTargetDates();
-    const isSingleClass = datesToCheck.length <= 1;
-
     let notWorkingDates = [];
     let timeConflicts = [];
     let overlapConflicts = [];
+
+    // Pre-calculate full day temp availability explicitly for THIS studio
+    const tempIncomingRanges = [];
+    [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ].forEach((d) => {
+      (instructor.workingHours[d] || []).forEach((s) => {
+        const loc =
+          typeof s.location === "object" ? s.location._id : s.location;
+        if (String(loc) === String(studioId)) {
+          (s.exceptions || []).forEach((ex) => {
+            if (ex.type === "temp_incoming") {
+              tempIncomingRanges.push({
+                start: startOfDay(parseISO(ex.startDate)).getTime(),
+                end: endOfDay(parseISO(ex.endDate)).getTime(),
+              });
+            }
+          });
+        }
+      });
+    });
 
     for (const dateObj of datesToCheck) {
       const dayKey = format(dateObj, "EEEE").toLowerCase();
@@ -1672,89 +1723,72 @@ const CreateClassModal = ({
         classStart.getHours() * 60 + classStart.getMinutes();
       const classEndMins = classStartMins + (parseInt(form.duration) || 0);
 
-      const instructorClasses = existingClasses.filter((cls) => {
+      // 1. Check against existing scheduled classes globally
+      const overlappingClass = existingClasses.find((cls) => {
         const clsInstructorId = cls.instructorId?._id || cls.instructorId;
         const isSelf = initialData && cls._id === initialData._id;
+        if (
+          isSelf ||
+          cls.isActive === false ||
+          clsInstructorId !== form.instructorId
+        )
+          return false;
+
+        if (isSameDay(parseISO(cls.startTime), dateObj)) {
+          const existingStart = parseISO(cls.startTime);
+          const existingEnd = addMinutes(existingStart, cls.duration);
+          return classStart < existingEnd && classEnd > existingStart;
+        }
+        return false;
+      });
+
+      if (overlappingClass) {
+        overlapConflicts.push(
+          `${format(classStart, "d MMM")} (${overlappingClass.className})`,
+        );
+        continue;
+      }
+
+      // 2. Is this date fully covered by a temp_incoming exception?
+      const targetMs = startOfDay(dateObj).getTime();
+      const isCoveredByTemp = tempIncomingRanges.some(
+        (r) => targetMs >= r.start && targetMs <= r.end,
+      );
+
+      if (isCoveredByTemp) {
+        continue; // The instructor is fully available all day for this studio
+      }
+
+      // 3. Validate against standard shifts explicitly targeting this studio
+      const studioShifts = dailyShifts.filter((shift) => {
+        const shiftLocId =
+          typeof shift.location === "object"
+            ? shift.location._id
+            : shift.location;
         return (
-          !isSelf &&
-          cls.isActive === true &&
-          clsInstructorId === form.instructorId &&
-          isSameDay(parseISO(cls.startTime), dateObj)
+          String(shiftLocId) === String(studioId) &&
+          isShiftActiveOnDate(shift, dateObj)
         );
       });
 
-      for (let existingClass of instructorClasses) {
-        const existingStart = parseISO(existingClass.startTime);
-        const existingEnd = addMinutes(existingStart, existingClass.duration);
-        if (classStart < existingEnd && classEnd > existingStart) {
-          overlapConflicts.push(
-            `${format(classStart, "d MMM")} (${existingClass.className})`,
-          );
+      if (studioShifts.length === 0) {
+        notWorkingDates.push(format(dateObj, "d MMM"));
+        continue;
+      }
+
+      let fitsInShift = false;
+      for (let shift of studioShifts) {
+        const shiftStartMins = getMinutes(shift.start);
+        const shiftEndMins = getMinutes(shift.end);
+        if (classStartMins >= shiftStartMins && classEndMins <= shiftEndMins) {
+          fitsInShift = true;
           break;
         }
       }
 
-      if (overlapConflicts.length > 0) continue;
-
-      if (!isSingleClass) {
-        const studioShifts = dailyShifts.filter((shift) => {
-          const shiftLocId =
-            typeof shift.location === "object"
-              ? shift.location._id
-              : shift.location;
-          return (
-            String(shiftLocId) === String(studioId) && shift.isActive !== false
-          );
-        });
-
-        if (studioShifts.length === 0) {
-          notWorkingDates.push(format(dateObj, "d MMM"));
-          continue;
-        }
-
-        let fitsInShift = false;
-        for (let shift of studioShifts) {
-          const shiftStartMins = getMinutes(shift.start);
-          const shiftEndMins = getMinutes(shift.end);
-          if (
-            classStartMins >= shiftStartMins &&
-            classEndMins <= shiftEndMins
-          ) {
-            fitsInShift = true;
-            break;
-          }
-        }
-
-        if (!fitsInShift) {
-          timeConflicts.push(format(classStart, "d MMM"));
-          continue;
-        }
-      } else {
-        const otherStudioShifts = dailyShifts.filter((shift) => {
-          const shiftLocId =
-            typeof shift.location === "object"
-              ? shift.location._id
-              : shift.location;
-          return (
-            String(shiftLocId) !== String(studioId) && shift.isActive !== false
-          );
-        });
-
-        let boundToOtherStudio = false;
-        for (let shift of otherStudioShifts) {
-          const shiftStartMins = getMinutes(shift.start);
-          const shiftEndMins = getMinutes(shift.end);
-          if (classStartMins < shiftEndMins && classEndMins > shiftStartMins) {
-            boundToOtherStudio = true;
-            break;
-          }
-        }
-
-        if (boundToOtherStudio) {
-          timeConflicts.push(
-            format(classStart, "d MMM") + " (Shift at another studio)",
-          );
-        }
+      if (!fitsInShift) {
+        timeConflicts.push(format(classStart, "d MMM"));
+        continue;
       }
     }
 
@@ -1767,15 +1801,15 @@ const CreateClassModal = ({
       let messages = [];
       if (notWorkingDates.length > 0)
         messages.push(
-          `Instructor missing shift for recurring series on: ${notWorkingDates.join(", ")}.`,
+          `Missing assigned active shifts for: ${notWorkingDates.join(", ")}.`,
         );
       if (timeConflicts.length > 0)
         messages.push(
-          `Time conflicts detected on: ${timeConflicts.join(", ")}.`,
+          `Time bounds conflicts detected on: ${timeConflicts.join(", ")}.`,
         );
       if (overlapConflicts.length > 0)
         messages.push(
-          `Conflict with active classes on: ${overlapConflicts.join(", ")}.`,
+          `Conflict with existing active classes on: ${overlapConflicts.join(", ")}.`,
         );
       setAvailabilityMessage(messages.join(" "));
     } else {
