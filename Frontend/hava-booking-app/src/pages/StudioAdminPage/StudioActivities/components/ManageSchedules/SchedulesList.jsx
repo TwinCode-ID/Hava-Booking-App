@@ -55,7 +55,6 @@ import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { useAuth } from "../../../../../context/AuthContext";
 import CustomSelect from "../Layout/CustomSelect";
 
-// Helper function to check if a shift is fully active exactly on the requested date matching the full bounds.
 const isShiftActiveOnDate = (shift, dateObj) => {
   if (shift.isActive === false) return false;
   const targetMs = startOfDay(dateObj).getTime();
@@ -96,6 +95,17 @@ const SchedulesList = ({ isEmbedded = false }) => {
   const [instructors, setInstructors] = useState([]);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
+
+  const [alertState, setAlertState] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "error",
+  });
+  const showAlert = (title, message, type = "error") =>
+    setAlertState({ isOpen: true, title, message, type });
+  const closeAlert = () =>
+    setAlertState((prev) => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -356,7 +366,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
       setPdfUrl(doc.output("bloburl"));
       setShowPdfPreview(true);
     } catch (error) {
-      alert("Failed to load data for print.");
+      showAlert("Print Failed", "Failed to load data for print.", "error");
     } finally {
       setIsPrinting(false);
     }
@@ -571,6 +581,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
               handleModalClose();
               fetchAllSchedules();
             }}
+            showAlert={showAlert}
           />
         )}
         {showDetailModal && selectedClass && (
@@ -583,6 +594,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
               setSelectedClass((prev) => ({ ...prev, ...updates }))
             }
             canEdit={!selectedClass.isExternal}
+            showAlert={showAlert}
           />
         )}
         {showPdfPreview && (
@@ -591,7 +603,38 @@ const SchedulesList = ({ isEmbedded = false }) => {
             onClose={() => setShowPdfPreview(false)}
           />
         )}
+        {alertState.isOpen && (
+          <GenericAlertModal {...alertState} onClose={closeAlert} />
+        )}
       </AnimatePresence>
+    </div>
+  );
+};
+
+const GenericAlertModal = ({ title, message, type, onClose }) => {
+  return (
+    <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs'>
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className='bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center border border-gray-100'>
+        <div
+          className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${type === "error" ? "bg-red-100 text-red-600" : "bg-[#dcfce7] text-[#166534]"}`}>
+          {type === "error" ? (
+            <AlertCircle className='w-6 h-6' />
+          ) : (
+            <CheckCircle2 className='w-6 h-6' />
+          )}
+        </div>
+        <h3 className='text-lg font-bold text-gray-900 mb-2'>{title}</h3>
+        <p className='text-gray-500 text-sm mb-6'>{message}</p>
+        <button
+          onClick={onClose}
+          className='w-full py-2.5 bg-[#111827] text-white font-bold rounded-xl hover:bg-gray-800 transition-all'>
+          Close
+        </button>
+      </motion.div>
     </div>
   );
 };
@@ -629,7 +672,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
       );
       day = addDays(day, 1);
     }
-    push(
+    rows.push(
       <div
         className='grid grid-cols-7 gap-y-1 gap-x-0 mb-1'
         key={day.toString()}>
@@ -913,6 +956,7 @@ const ClassDetailsModal = ({
   onRefresh,
   onUpdateLocalClass,
   canEdit = true,
+  showAlert,
 }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("details");
@@ -1023,7 +1067,11 @@ const ClassDetailsModal = ({
       fetchBookings();
       onRefresh();
     } catch (error) {
-      alert(error.response?.data?.error || "Booking failed");
+      showAlert(
+        "Action Failed",
+        error.response?.data?.error || "Booking failed",
+        "error",
+      );
     } finally {
       setBookingProcessing(false);
     }
@@ -1045,7 +1093,7 @@ const ClassDetailsModal = ({
       fetchBookings();
       onRefresh();
     } catch (error) {
-      alert("Cancel failed");
+      showAlert("Action Failed", "Cancel failed", "error");
     }
   };
 
@@ -1077,13 +1125,17 @@ const ClassDetailsModal = ({
         if (onUpdateLocalClass)
           onUpdateLocalClass({ isActive: !classData.isActive });
         onRefresh();
-        setShowRecurrenceOption(null);
-        setConfirmationData(null);
       }
     } catch (error) {
-      alert(error.response?.data?.error || "Action failed");
+      showAlert(
+        "Action Failed",
+        error.response?.data?.error || "Action failed",
+        "error",
+      );
     } finally {
       setActionLoading(false);
+      setShowRecurrenceOption(null);
+      setConfirmationData(null);
     }
   };
 
@@ -1506,6 +1558,7 @@ const CreateClassModal = ({
   existingClasses = [],
   onSuccess,
   initialData,
+  showAlert,
 }) => {
   const [loading, setLoading] = useState(false);
   const [updateMode, setUpdateMode] = useState(null);
@@ -1603,7 +1656,6 @@ const CreateClassModal = ({
   const getTargetDates = () => {
     let datesToCheck = [];
     const startDate = new Date(form.startTime);
-    const startOfDayBound = startOfDay(startDate).getTime();
 
     if (
       !form.isRecurring ||
@@ -1615,24 +1667,24 @@ const CreateClassModal = ({
       const weeksToRun = form.isAlways
         ? 52
         : parseInt(form.recurrenceCount) || 1;
-      for (let i = 0; i < weeksToRun; i++) {
-        const weekBase = startOfWeek(addWeeks(startDate, i), {
-          weekStartsOn: 0,
-        });
-        selectedRecurrenceDays.forEach((dayIndex) => {
-          const targetDate = addDays(weekBase, dayIndex);
-          targetDate.setHours(
-            startDate.getHours(),
-            startDate.getMinutes(),
-            0,
-            0,
-          );
 
-          if (targetDate.getTime() >= startOfDayBound) {
-            datesToCheck.push(targetDate);
-          }
-        });
-      }
+      selectedRecurrenceDays.forEach((dayIndex) => {
+        let currentDate = new Date(startDate);
+        currentDate.setHours(
+          startDate.getHours(),
+          startDate.getMinutes(),
+          0,
+          0,
+        );
+
+        while (currentDate.getDay() !== dayIndex) {
+          currentDate = addDays(currentDate, 1);
+        }
+
+        for (let i = 0; i < weeksToRun; i++) {
+          datesToCheck.push(addWeeks(currentDate, i));
+        }
+      });
     }
     return datesToCheck.sort((a, b) => a.getTime() - b.getTime());
   };
@@ -1686,7 +1738,6 @@ const CreateClassModal = ({
     let timeConflicts = [];
     let overlapConflicts = [];
 
-    // Pre-calculate full day temp availability explicitly for THIS studio
     const tempIncomingRanges = [];
     [
       "monday",
@@ -1723,10 +1774,20 @@ const CreateClassModal = ({
         classStart.getHours() * 60 + classStart.getMinutes();
       const classEndMins = classStartMins + (parseInt(form.duration) || 0);
 
-      // 1. Check against existing scheduled classes globally
       const overlappingClass = existingClasses.find((cls) => {
         const clsInstructorId = cls.instructorId?._id || cls.instructorId;
-        const isSelf = initialData && cls._id === initialData._id;
+
+        let isSelf = false;
+        if (initialData) {
+          if (cls._id === initialData._id) isSelf = true;
+          if (
+            initialData.recurrenceGroupId &&
+            cls.recurrenceGroupId === initialData.recurrenceGroupId
+          ) {
+            isSelf = true;
+          }
+        }
+
         if (
           isSelf ||
           cls.isActive === false ||
@@ -1749,17 +1810,15 @@ const CreateClassModal = ({
         continue;
       }
 
-      // 2. Is this date fully covered by a temp_incoming exception?
       const targetMs = startOfDay(dateObj).getTime();
       const isCoveredByTemp = tempIncomingRanges.some(
         (r) => targetMs >= r.start && targetMs <= r.end,
       );
 
       if (isCoveredByTemp) {
-        continue; // The instructor is fully available all day for this studio
+        continue;
       }
 
-      // 3. Validate against standard shifts explicitly targeting this studio
       const studioShifts = dailyShifts.filter((shift) => {
         const shiftLocId =
           typeof shift.location === "object"
@@ -1792,6 +1851,12 @@ const CreateClassModal = ({
       }
     }
 
+    const formatConflictList = (list) => {
+      if (!list || list.length === 0) return "";
+      if (list.length <= 3) return list.join(", ");
+      return `${list.slice(0, 3).join(", ")}... (+${list.length - 3} more)`;
+    };
+
     if (
       notWorkingDates.length > 0 ||
       timeConflicts.length > 0 ||
@@ -1801,15 +1866,15 @@ const CreateClassModal = ({
       let messages = [];
       if (notWorkingDates.length > 0)
         messages.push(
-          `Missing assigned active shifts for: ${notWorkingDates.join(", ")}.`,
+          `Missing active shifts: ${formatConflictList(notWorkingDates)}.`,
         );
       if (timeConflicts.length > 0)
         messages.push(
-          `Time bounds conflicts detected on: ${timeConflicts.join(", ")}.`,
+          `Time boundary conflicts: ${formatConflictList(timeConflicts)}.`,
         );
       if (overlapConflicts.length > 0)
         messages.push(
-          `Conflict with existing active classes on: ${overlapConflicts.join(", ")}.`,
+          `Existing class conflicts: ${formatConflictList(overlapConflicts)}.`,
         );
       setAvailabilityMessage(messages.join(" "));
     } else {
@@ -1851,7 +1916,11 @@ const CreateClassModal = ({
     if (!isAvailable) return;
 
     if (form.isRecurring && selectedRecurrenceDays.length === 0) {
-      alert("Please select at least one day for the recurring class.");
+      showAlert(
+        "Action Failed",
+        "Please select at least one day for the recurring class.",
+        "error",
+      );
       return;
     }
 
@@ -1901,7 +1970,11 @@ const CreateClassModal = ({
         await axiosInstance.post(API_PATHS.SCHEDULE.CREATE_SCHEDULE, payload);
       onSuccess();
     } catch (err) {
-      alert(err.response?.data?.error || "Error saving class");
+      showAlert(
+        "Action Failed",
+        err.response?.data?.error || "Error saving class",
+        "error",
+      );
     } finally {
       setLoading(false);
       setUpdateMode(null);

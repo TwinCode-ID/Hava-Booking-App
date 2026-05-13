@@ -202,10 +202,24 @@ exports.toggleInstructorShift = async (req, res) => {
         });
 
         instructor.markModified("workingHours");
-        await instructor.save();
-        return res
-          .status(200)
-          .json({ message: "Bulk exception undone successfully" });
+        await instructor.save(); // Save the shift fixes first
+
+        // [PATCHED]: Auto-reactivate the originally affected classes in the source studio
+        const affectedClassesToReactivate = await ClassSchedule.find({
+          instructorId: id,
+          studioId: sourceStudioId,
+          startTime: { $gte: new Date(startBounds), $lte: new Date(endBounds) },
+          isActive: false, // Only re-activate those that were deactivated
+        });
+
+        for (let cls of affectedClassesToReactivate) {
+          cls.isActive = true;
+          await cls.save();
+        }
+
+        return res.status(200).json({
+          message: "Bulk exception undone and classes reactivated successfully",
+        });
       }
 
       if (shiftId === "bulk_reassign") {

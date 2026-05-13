@@ -19,21 +19,21 @@ const getLocalTimeParts = (dateObj) => {
   return { day, hour, min };
 };
 
-const isShiftActiveOnDate = (shift, targetMs) => {
+const isShiftActiveOnDate = (shift, targetStartMs, targetEndMs) => {
   if (shift.isActive === false) return false;
   const exceptions = shift.exceptions || [];
   const tempIncoming = exceptions.find((e) => e.type === "temp_incoming");
 
   if (tempIncoming) {
-    const exStart = new Date(tempIncoming.startDate).setHours(0, 0, 0, 0);
-    const exEnd = new Date(tempIncoming.endDate).setHours(23, 59, 59, 999);
-    return targetMs >= exStart && targetMs <= exEnd;
+    const exStart = new Date(tempIncoming.startDate).getTime();
+    const exEnd = new Date(tempIncoming.endDate).getTime();
+    return targetStartMs >= exStart && targetEndMs <= exEnd;
   } else {
     const isPaused = exceptions.some((e) => {
       if (e.type !== "pause" && e.type !== "reassign") return false;
-      const exStart = new Date(e.startDate).setHours(0, 0, 0, 0);
-      const exEnd = new Date(e.endDate).setHours(23, 59, 59, 999);
-      return targetMs >= exStart && targetMs <= exEnd;
+      const exStart = new Date(e.startDate).getTime();
+      const exEnd = new Date(e.endDate).getTime();
+      return targetStartMs < exEnd && targetEndMs > exStart;
     });
     return !isPaused;
   }
@@ -74,17 +74,25 @@ const localCheckConflicts = async (
     const startMins = startParts.hour * 60 + startParts.min;
     const endMins = endParts.hour * 60 + endParts.min;
 
-    const targetDateMs = new Date(start).setHours(0, 0, 0, 0);
+    const startMs = new Date(start).getTime();
+    const endMs = new Date(end).getTime();
 
     const hasValidShift = shifts.some((shift) => {
-      if (!isShiftActiveOnDate(shift, targetDateMs)) return false;
-      if (String(shift.location) !== String(studioId)) return false;
+      if (!isShiftActiveOnDate(shift, startMs, endMs)) return false;
+
+      const loc =
+        typeof shift.location === "object"
+          ? shift.location._id
+          : shift.location;
+      if (String(loc) !== String(studioId)) return false;
+
       const shiftStartMins =
         parseInt(shift.start.split(":")[0]) * 60 +
         parseInt(shift.start.split(":")[1]);
       const shiftEndMins =
         parseInt(shift.end.split(":")[0]) * 60 +
         parseInt(shift.end.split(":")[1]);
+
       return startMins >= shiftStartMins && endMins <= shiftEndMins;
     });
 
@@ -251,7 +259,6 @@ exports.updateClass = async (req, res) => {
       ) {
         const classesInSeries = await ClassSchedule.find({
           recurrenceGroupId: targetClass.recurrenceGroupId,
-          startTime: { $gte: targetClass.startTime },
         }).session(session);
 
         for (let cls of classesInSeries) {
@@ -308,17 +315,68 @@ exports.updateClass = async (req, res) => {
 exports.toggleClass = async (req, res) => {
   try {
     const { id } = req.params;
-    const { toggleMode, targetDate } = req.body;
+    const { toggleMode } = req.body;
     const targetClass = await ClassSchedule.findById(id);
     if (!targetClass) throw new Error("Class not found");
+
     const willBeActive = !targetClass.isActive;
-    targetClass.isActive = willBeActive;
-    await targetClass.save();
+
+    // [PATCHED]: Run conflict check before forcing activation
+    if (willBeActive) {
+      if (toggleMode === "all" && targetClass.recurrenceGroupId) {
+        const seriesClasses = await ClassSchedule.find({
+          recurrenceGroupId: targetClass.recurrenceGroupId,
+        });
+        for (let cls of seriesClasses) {
+          const conflictMsg = await localCheckConflicts(
+            cls.instructorId,
+            cls.startTime,
+            cls.endTime,
+            cls._id,
+            cls.studioId,
+          );
+          if (conflictMsg) {
+            throw new Error(
+              `Cannot activate series. Conflict on ${new Date(cls.startTime).toDateString()}: ${conflictMsg}`,
+            );
+          }
+        }
+        await ClassSchedule.updateMany(
+          { recurrenceGroupId: targetClass.recurrenceGroupId },
+          { $set: { isActive: true } },
+        );
+      } else {
+        const conflictMsg = await localCheckConflicts(
+          targetClass.instructorId,
+          targetClass.startTime,
+          targetClass.endTime,
+          targetClass._id,
+          targetClass.studioId,
+        );
+        if (conflictMsg) throw new Error(conflictMsg);
+
+        targetClass.isActive = true;
+        await targetClass.save();
+      }
+    } else {
+      // Deactivating
+      if (toggleMode === "all" && targetClass.recurrenceGroupId) {
+        await ClassSchedule.updateMany(
+          { recurrenceGroupId: targetClass.recurrenceGroupId },
+          { $set: { isActive: false } },
+        );
+      } else {
+        targetClass.isActive = false;
+        await targetClass.save();
+      }
+    }
+
     res
       .status(200)
       .json({ message: `Class ${willBeActive ? "Activated" : "Deactivated"}` });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    // Return 400 so the frontend alert accurately captures the custom thrown error message
+    res.status(400).json({ error: error.message });
   }
 };
 
@@ -331,7 +389,6 @@ exports.deleteClass = async (req, res) => {
     if (deleteMode === "all" && targetClass.recurrenceGroupId) {
       await ClassSchedule.deleteMany({
         recurrenceGroupId: targetClass.recurrenceGroupId,
-        startTime: { $gte: targetClass.startTime },
       });
     } else {
       await ClassSchedule.deleteOne({ _id: req.params.id });

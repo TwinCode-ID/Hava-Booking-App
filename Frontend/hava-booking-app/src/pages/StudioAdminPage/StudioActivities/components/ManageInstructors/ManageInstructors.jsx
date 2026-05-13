@@ -843,9 +843,7 @@ const InstructorDashboardModal = ({
           return showAlert("Error", "Please fill all fields.", "error");
         }
 
-        // Use the atomic bulk endpoint to avoid race conditions
-        await axiosInstance.put(`${toggleUrlBase}/bulk_undo/toggle`, {
-          shiftId: "bulk_reassign",
+        await axiosInstance.put(`${toggleUrlBase}/bulk_reassign/toggle`, {
           startDate: actionConfig.startDate,
           endDate: actionConfig.endDate || actionConfig.startDate,
           sourceStudioId: myStudioId,
@@ -860,13 +858,6 @@ const InstructorDashboardModal = ({
       }
 
       await refreshData();
-      setActionSetup(null);
-      setActionConfig({
-        mode: "range",
-        startDate: "",
-        endDate: "",
-        targetStudioId: "",
-      });
     } catch (error) {
       showAlert(
         "Action Failed",
@@ -875,6 +866,13 @@ const InstructorDashboardModal = ({
       );
     } finally {
       setIsProcessing(false);
+      setActionSetup(null);
+      setActionConfig({
+        mode: "range",
+        startDate: "",
+        endDate: "",
+        targetStudioId: "",
+      });
     }
   };
 
@@ -912,7 +910,11 @@ const InstructorDashboardModal = ({
       });
       await refreshData();
     } catch (error) {
-      showAlert("Failed", error.message, "error");
+      showAlert(
+        "Action Failed",
+        error.response?.data?.error || error.message,
+        "error",
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -934,7 +936,11 @@ const InstructorDashboardModal = ({
       });
       await refreshData();
     } catch (error) {
-      showAlert("Failed", error.message, "error");
+      showAlert(
+        "Action Failed",
+        error.response?.data?.error || error.message,
+        "error",
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -1390,7 +1396,7 @@ const InstructorDashboardModal = ({
                                                   day,
                                                 })
                                               }
-                                              className='text-[13px] font-bold text-gray-700 border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors hidden'>
+                                              className='text-[13px] font-bold text-gray-700 border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors'>
                                               Turn Off
                                             </button>
                                           ) : (
@@ -1517,7 +1523,7 @@ const InstructorDashboardModal = ({
                                             onClick={() =>
                                               handleBulkUndoGlobal(
                                                 log.startDate,
-                                                log.targetStudioId,
+                                                myStudioId, // <--- Corrected to explicitly use myStudioId as source
                                               )
                                             }
                                             className={`text-[13px] font-bold px-4 py-2 rounded-lg transition-colors ${
