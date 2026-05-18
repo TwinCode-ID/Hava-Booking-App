@@ -1763,7 +1763,8 @@ function PassShareView({ pass }) {
   const [email, setEmail] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
 
-  const isOwner = pass.userId?._id === user?._id || pass.userId === user?._id;
+  const ownerId = pass.userId?._id || pass.userId;
+  const isOwner = String(ownerId) === String(user?._id);
 
   const handleGenerateShare = async () => {
     setLoading(true);
@@ -1997,8 +1998,8 @@ function PassFreezeView({ group }) {
 
   // Check if current logged-in user is the actual owner of the pass
   const firstPass = group.passes[0];
-  const isOwner =
-    firstPass?.userId?._id === user?._id || firstPass?.userId === user?._id;
+  const ownerId = firstPass?.userId?._id || firstPass?.userId;
+  const isOwner = String(ownerId) === String(user?._id);
 
   const isFrozen = group.passes.some(
     (p) =>

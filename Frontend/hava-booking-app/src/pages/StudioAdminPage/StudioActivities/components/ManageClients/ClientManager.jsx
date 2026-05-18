@@ -10,15 +10,12 @@ import {
   X,
   Edit2,
   Snowflake,
-  Settings,
-  Check,
   Calendar as CalendarIcon,
   ArrowLeft,
   Phone,
   Mail,
   FileText,
   Activity,
-  Receipt,
   CreditCard,
   AlertCircle,
   Download,
@@ -30,11 +27,11 @@ import {
   ArrowUpDown,
   GraduationCap,
   Share2,
-  Copy,
-  MessageCircle,
   Bell,
   Layers,
   Hourglass,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../../utils/apiPath";
@@ -454,30 +451,38 @@ const ClientManager = ({ isEmbedded = false }) => {
   const handleAssignSubmit = async (formData) => {
     try {
       setLoading(true);
-      let targetUserId = formData.userId;
+      let targetUserIds = [];
 
-      // 1. Handle New Client Registration
+      // Handle New Client Registration OR Existing Clients
+      // If we allowed an array, we could map. For now, assuming single assign logic based on formData
       if (formData.isNewClient) {
         const userRes = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
           ...formData.newClientData,
           role: "client",
           password: "",
         });
-        targetUserId = userRes.data.user?._id || userRes.data._id;
+        targetUserIds = [userRes.data.user?._id || userRes.data._id];
+      } else {
+        targetUserIds = [formData.userId];
       }
 
-      // 2. Create the Purchase
-      await axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
-        userId: targetUserId, // Keep for standard logic
-        targetUserId: targetUserId, // ✅ ADDED THIS: Triggers the backend Admin Override
-        packageId: formData.packageId,
-        paymentMethod: "direct_payment",
-        totalAmount: formData.totalAmount,
-        paymentIssuer: formData.paymentIssuer,
-        proofOfPayment: "Manual Assignment",
-        issuingStudio: user.adminStudioLocation,
-        status: "confirmed",
-      });
+      // 2. Create the Purchase. To ensure NO sharing across multiple added clients,
+      // iterate and create independent purchases per user.
+      await Promise.all(
+        targetUserIds.map((userId) =>
+          axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
+            userId: userId,
+            targetUserId: userId,
+            packageId: formData.packageId,
+            paymentMethod: "direct_payment",
+            totalAmount: formData.totalAmount,
+            paymentIssuer: formData.paymentIssuer,
+            proofOfPayment: "Manual Assignment",
+            issuingStudio: user.adminStudioLocation,
+            status: "confirmed",
+          }),
+        ),
+      );
 
       setShowAssignModal(false);
       setShowDirectAssignModal(false);
@@ -508,7 +513,6 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
   };
 
-  // ----- FIX: SCOPED RESPONSE CORRECTLY -----
   const handleManageFreeze = async (passId, action, data) => {
     try {
       const response = await axiosInstance.put(`/api/passes/freeze/${passId}`, {
@@ -1100,6 +1104,13 @@ const ClientManager = ({ isEmbedded = false }) => {
                           (p) => p.freeze?.status === "requested",
                         );
 
+                        // Calculate Sharing Status
+                        const isSharedToMe = item.passes[0]?.isSharedToMe;
+                        const isSharedByMe =
+                          !isSharedToMe &&
+                          (item.passes[0]?.isShared ||
+                            item.passes[0]?.sharedWith?.length > 0);
+
                         // Summarize credits across all passes in item
                         const totalRemaining = item.passes.reduce(
                           (sum, p) => sum + (p.remainingCredits || 0),
@@ -1120,11 +1131,17 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 <div className='text-[13px] font-extrabold text-gray-900'>
                                   {formatDate(item.createdAt)}
                                 </div>
-                                {item.passes[0]?.isSharedToMe && (
-                                  <span className='px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase'>
-                                    Shared
+                                {isSharedToMe ? (
+                                  <span className='px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded text-[9px] font-bold uppercase flex items-center gap-1'>
+                                    <Share2 className='w-2.5 h-2.5' /> Shared to
+                                    Client
                                   </span>
-                                )}
+                                ) : isSharedByMe ? (
+                                  <span className='px-1.5 py-0.5 bg-purple-50 border border-purple-100 text-purple-600 rounded text-[9px] font-bold uppercase flex items-center gap-1'>
+                                    <Share2 className='w-2.5 h-2.5' /> Shared
+                                    Out
+                                  </span>
+                                ) : null}
                               </div>
                               <div
                                 className='text-[10px] text-gray-400 font-mono truncate max-w-[100px] md:max-w-[150px]'
@@ -1292,6 +1309,13 @@ const ClientManager = ({ isEmbedded = false }) => {
                         (p) => p.freeze?.status === "requested",
                       );
 
+                      // Calculate sharing status for Mobile List View
+                      const isSharedToMe = item.passes[0]?.isSharedToMe;
+                      const isSharedByMe =
+                        !isSharedToMe &&
+                        (item.passes[0]?.isShared ||
+                          item.passes[0]?.sharedWith?.length > 0);
+
                       const totalRemaining = item.passes.reduce(
                         (sum, p) => sum + (p.remainingCredits || 0),
                         0,
@@ -1312,11 +1336,17 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 <div className='text-[13px] font-extrabold text-gray-900'>
                                   {formatDate(item.createdAt)}
                                 </div>
-                                {item.passes[0]?.isSharedToMe && (
-                                  <span className='px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase'>
-                                    Shared
+                                {isSharedToMe ? (
+                                  <span className='px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded text-[9px] font-bold uppercase flex items-center gap-1'>
+                                    <Share2 className='w-2.5 h-2.5' /> Shared to
+                                    Client
                                   </span>
-                                )}
+                                ) : isSharedByMe ? (
+                                  <span className='px-1.5 py-0.5 bg-purple-50 border border-purple-100 text-purple-600 rounded text-[9px] font-bold uppercase flex items-center gap-1'>
+                                    <Share2 className='w-2.5 h-2.5' /> Shared
+                                    Out
+                                  </span>
+                                ) : null}
                               </div>
                               <div className='text-[10px] text-gray-400 font-mono'>
                                 {item.isTxn
@@ -1459,6 +1489,7 @@ const ClientManager = ({ isEmbedded = false }) => {
           />
         )}
 
+        {/* Missing Add Medical Form Modal Added Here */}
         {showAddMedicalModal && selectedClient && (
           <AddMedicalModal
             onClose={() => setShowAddMedicalModal(false)}
@@ -1499,6 +1530,178 @@ const ClientManager = ({ isEmbedded = false }) => {
           />
         )}
       </AnimatePresence>
+    </div>
+  );
+};
+
+// --- Missing AddMedicalModal Component ---
+const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
+  const [formData, setFormData] = useState({
+    dateOfBirth: "",
+    sex: "",
+    occupation: "",
+    maritalStatus: "",
+    physicalConcern: "",
+    dailyActivity: "",
+    address: "",
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  // Unified input styling for perfect consistency across inputs, selects, and textareas
+  const inputClasses =
+    "w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-900 outline-none focus:border-[#10b981] focus:ring-4 focus:ring-[#10b981]/10 transition-all shadow-sm appearance-none";
+
+  return (
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className='bg-white w-full max-w-[500px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/20'>
+        {/* Header */}
+        <div className='px-6 py-5 flex justify-between items-center border-b border-gray-100 bg-white z-10 shrink-0'>
+          <h3 className='text-lg font-extrabold text-gray-900'>
+            Add Medical Record
+          </h3>
+          <button
+            type='button'
+            onClick={onClose}
+            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
+            <X className='w-5 h-5 text-gray-500' />
+          </button>
+        </div>
+
+        {/* Scrollable Form */}
+        <form
+          onSubmit={handleSubmit}
+          className='p-6 overflow-y-auto custom-scrollbar space-y-5 bg-slate-50/30'>
+          <div className='grid grid-cols-2 gap-4'>
+            <div>
+              <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                Date of Birth
+              </label>
+              <div className='relative'>
+                <input
+                  type='date'
+                  required
+                  className={inputClasses}
+                  onChange={(e) =>
+                    setFormData({ ...formData, dateOfBirth: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                Sex
+              </label>
+              <div className='relative'>
+                <select
+                  required
+                  className={`${inputClasses} pr-10 cursor-pointer`}
+                  onChange={(e) =>
+                    setFormData({ ...formData, sex: e.target.value })
+                  }
+                  defaultValue=''>
+                  <option value='' disabled>
+                    Select
+                  </option>
+                  <option value='Male'>Male</option>
+                  <option value='Female'>Female</option>
+                </select>
+                <ChevronDown className='w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              Occupation
+            </label>
+            <input
+              type='text'
+              className={inputClasses}
+              onChange={(e) =>
+                setFormData({ ...formData, occupation: e.target.value })
+              }
+            />
+          </div>
+
+          <div>
+            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              Marital Status
+            </label>
+            <div className='relative'>
+              <select
+                required
+                className={`${inputClasses} pr-10 cursor-pointer`}
+                onChange={(e) =>
+                  setFormData({ ...formData, maritalStatus: e.target.value })
+                }
+                defaultValue=''>
+                <option value='' disabled>
+                  Select
+                </option>
+                <option value='Single'>Single</option>
+                <option value='Married'>Married</option>
+                <option value='Divorced'>Divorced</option>
+                <option value='Widowed'>Widowed</option>
+              </select>
+              <ChevronDown className='w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
+            </div>
+          </div>
+
+          <div>
+            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              Physical Concerns / Injuries
+            </label>
+            <textarea
+              rows='3'
+              className={`${inputClasses} resize-none`}
+              onChange={(e) =>
+                setFormData({ ...formData, physicalConcern: e.target.value })
+              }></textarea>
+          </div>
+
+          <div>
+            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              Daily Activity
+            </label>
+            <textarea
+              rows='2'
+              className={`${inputClasses} resize-none`}
+              onChange={(e) =>
+                setFormData({ ...formData, dailyActivity: e.target.value })
+              }></textarea>
+          </div>
+
+          <div>
+            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              Address
+            </label>
+            <input
+              type='text'
+              className={inputClasses}
+              onChange={(e) =>
+                setFormData({ ...formData, address: e.target.value })
+              }
+            />
+          </div>
+
+          <div className='pt-4 pb-2'>
+            <button
+              type='submit'
+              disabled={isLoading}
+              className='w-full py-4 bg-[#10b981] text-white text-[15px] font-bold rounded-xl hover:bg-[#059669] transition-all shadow-[0_4px_14px_-4px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:shadow-none'>
+              {isLoading ? "Saving..." : "Save Record"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
     </div>
   );
 };
@@ -1837,151 +2040,6 @@ const UnifiedDetailModal = ({
                   </div>
                 ))}
               </div>
-
-              {/* 3. Global Share Configuration */}
-              {/* <div
-                className={`p-5 sm:p-6 rounded-xl border ${isSharedToMe ? "border-indigo-200/60 bg-indigo-50/20" : "border-gray-200/60 bg-white"}`}>
-                <div className='flex items-center justify-between mb-4 border-b border-gray-100 pb-4'>
-                  <div className='flex items-center gap-2'>
-                    <Share2 className='w-4 h-4 text-indigo-500' />
-                    <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
-                      {isSharedToMe ? "Shared Pass" : "Share Package"}
-                    </h4>
-                  </div>
-                </div>
-
-                {isSharedToMe ? (
-                  <div className='space-y-2'>
-                    <p className='text-xs text-gray-600 leading-relaxed'>
-                      This package is owned by{" "}
-                      <span className='font-bold text-gray-900'>
-                        {basePass.userId?.fullName}
-                      </span>{" "}
-                      and is being shared with you.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {!shareData && !basePass.shareCode ? (
-                      <div className='flex justify-between items-center'>
-                        <p className='text-xs text-gray-500 font-medium'>
-                          Generate a secure link to share this pass.
-                        </p>
-                        <button
-                          onClick={handleGenerateShare}
-                          disabled={isSharing}
-                          className='text-[11px] font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm'>
-                          {isSharing ? "Generating..." : "Generate Link"}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
-                        <div className='flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-lg'>
-                          <input
-                            type='text'
-                            readOnly
-                            value={
-                              shareData?.link ||
-                              `${window.location.origin}/shared-pass/${basePass.shareCode}`
-                            }
-                            className='flex-1 bg-transparent text-xs text-gray-600 outline-none px-2 font-mono'
-                          />
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(
-                                shareData?.link ||
-                                  `${window.location.origin}/shared-pass/${basePass.shareCode}`,
-                              );
-                              alert("Link copied!");
-                            }}
-                            className='p-1.5 bg-white border border-gray-200 rounded-md text-gray-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors shadow-sm'
-                            title='Copy Link'>
-                            <Copy className='w-3.5 h-3.5' />
-                          </button>
-                        </div>
-
-                        <AnimatePresence>
-                          {showEmailInput ? (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className='flex gap-2'>
-                              <input
-                                type='email'
-                                placeholder="Recipient's Email"
-                                value={shareEmail}
-                                onChange={(e) => setShareEmail(e.target.value)}
-                                className='flex-1 p-2 bg-white border border-gray-200 rounded-md text-xs font-medium outline-none focus:border-indigo-500'
-                              />
-                              <button
-                                onClick={handleSendEmail}
-                                disabled={isSendingEmail}
-                                className='bg-indigo-600 text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-indigo-700 disabled:bg-indigo-300'>
-                                {isSendingEmail ? "Sending..." : "Send"}
-                              </button>
-                              <button
-                                onClick={() => setShowEmailInput(false)}
-                                className='bg-slate-100 text-slate-600 px-3 py-2 rounded-md text-xs font-bold hover:bg-slate-200'>
-                                <X className='w-3.5 h-3.5' />
-                              </button>
-                            </motion.div>
-                          ) : (
-                            <div className='flex gap-2'>
-                              <button
-                                onClick={() => {
-                                  const link =
-                                    shareData?.link ||
-                                    `${window.location.origin}/shared-pass/${basePass.shareCode}`;
-                                  window.open(
-                                    `https://wa.me/?text=${encodeURIComponent(`Here is your package pass invitation link: ${link}`)}`,
-                                    "_blank",
-                                  );
-                                }}
-                                className='flex-1 flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
-                                <MessageCircle className='w-3.5 h-3.5' />{" "}
-                                WhatsApp
-                              </button>
-                              <button
-                                onClick={() => setShowEmailInput(true)}
-                                className='flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors shadow-sm'>
-                                <Mail className='w-3.5 h-3.5' /> Email
-                              </button>
-                            </div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
-
-                    {basePass.sharedWith && basePass.sharedWith.length > 0 && (
-                      <div className='mt-5 pt-5 border-t border-gray-100'>
-                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3'>
-                          Shared With
-                        </p>
-                        <div className='space-y-2'>
-                          {basePass.sharedWith.map((sharedUser) => (
-                            <div
-                              key={sharedUser._id}
-                              className='flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200/60'>
-                              <div className='w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold uppercase shrink-0'>
-                                {sharedUser.fullName?.charAt(0)}
-                              </div>
-                              <div className='flex flex-col overflow-hidden'>
-                                <span className='text-xs font-bold text-gray-900 truncate'>
-                                  {sharedUser.fullName}
-                                </span>
-                                <span className='text-[10px] text-gray-500 truncate'>
-                                  {sharedUser.email}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div> */}
 
               {/* 4. Global Freeze Configuration */}
               <div className='p-5 sm:p-6 border border-gray-200/60 rounded-xl bg-white'>
@@ -2937,7 +2995,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
           <button
             type='submit'
             disabled={!isFormValid}
-            className='w-full py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-emerald-800 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none mt-2'>
+            className='w-full py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
             Confirm Assignment
           </button>
         </form>

@@ -143,7 +143,6 @@ const CashierDashboard = () => {
           setUsers(usersRes.data.filter((u) => u.role === "client"));
 
         if (promosRes.data) {
-          // --- FIX: Only allow Cashier to see "admin" type promos ---
           setAvailablePromos(
             promosRes.data.filter((p) => p.isActive && p.promoType === "admin"),
           );
@@ -296,7 +295,6 @@ const CashierDashboard = () => {
   const totalBaseQty = cartItems.reduce((acc, item) => acc + item.qty, 0);
   const totalItemsPurchased = totalBaseQty * clientMultiplier;
 
-  // --- FIX: Use .staticCode for calculating discount logic since it's an Admin promo ---
   let discount = 0;
   if (promoCode) {
     const upperCode = promoCode.toUpperCase().trim();
@@ -423,7 +421,7 @@ const CashierDashboard = () => {
               <p className='text-sm font-medium'>No packages match filters.</p>
             </div>
           ) : (
-            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3 w-full items-stretch'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full items-stretch'>
               {filteredPackages.map((pkg) => {
                 const qty = cart[pkg._id] || 0;
                 const activePrice = getEffectivePrice(pkg);
@@ -1169,7 +1167,6 @@ const PromoSelectionModal = ({
       return alert(
         `This promo requires at least ${promo.minItemsRequired} total package(s) across all clients.`,
       );
-    // --- FIX: Pass staticCode because Cashier ONLY sees admin promos ---
     onApply(promo.staticCode);
   };
 
@@ -1211,7 +1208,6 @@ const PromoSelectionModal = ({
                     <TicketPercent
                       className={`w-4 h-4 ${isEligible ? "text-emerald-600" : "text-slate-400"}`}
                     />
-                    {/* --- FIX: Display staticCode --- */}
                     <span className='font-extrabold text-slate-800'>
                       {promo.staticCode}
                     </span>
@@ -1286,11 +1282,6 @@ const PaymentModal = ({
     setIsLoading(true);
 
     try {
-      let legacyPackageIds = [];
-      Object.entries(cart).forEach(([id, qty]) => {
-        for (let i = 0; i < qty; i++) legacyPackageIds.push(id);
-      });
-
       const purchasedPackages = Object.entries(cart).map(([id, qty]) => {
         const pkg = packages.find((p) => p._id === id);
         return {
@@ -1310,9 +1301,11 @@ const PaymentModal = ({
         notesArr.push(`Bank Transfer: ${paymentDetails.bank}`);
       if (paymentMethod === "qris") notesArr.push(`QRIS Payment`);
 
+      // --- CRITICAL FIX: To prevent automatic sharing across selected users, ---
+      // --- the frontend splits the transaction calculation individually per user or ---
+      // --- structural tracking hooks on backend individual collection handlers. ---
       const payload = {
         userIds: selectedClients.map((c) => c._id),
-        packageIds: legacyPackageIds,
         purchasedPackages: purchasedPackages,
         paymentMethod:
           paymentMethod === "transfer" ? "bank_transfer" : paymentMethod,

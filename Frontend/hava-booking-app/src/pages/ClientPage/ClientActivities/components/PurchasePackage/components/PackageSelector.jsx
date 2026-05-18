@@ -14,7 +14,7 @@ import {
   Info,
   Users,
   CheckCircle2,
-  HeartPulse,
+  Activity,
   Ticket,
   ArrowUpNarrowWide,
   ArrowDownNarrowWide,
@@ -26,8 +26,6 @@ import {
   Hash,
   Search,
   Filter,
-  PhoneCall,
-  ShieldCheck,
   Ban,
   AlertCircle,
   FileText,
@@ -37,8 +35,6 @@ import {
   Printer,
   WalletCards,
   QrCode,
-  Copy,
-  Zap,
   Snowflake,
   TriangleAlert,
   AlignLeft,
@@ -51,7 +47,6 @@ import {
   Hourglass,
   XCircle,
   Layers,
-  Activity,
   Save,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
@@ -420,7 +415,7 @@ function PackageSelectorView({ user }) {
   return (
     <div className='container mx-auto px-4 md:px-6 py-12'>
       <div className='flex flex-col lg:flex-row gap-12 xl:gap-16'>
-        {/* SIDEBAR FILTERS (Hidden when a package is selected for checkout) */}
+        {/* SIDEBAR FILTERS */}
         {!selectedPackage && (
           <aside
             className={`lg:w-64 xl:w-72 shrink-0 space-y-10 ${
@@ -815,7 +810,7 @@ function PackageSelectorView({ user }) {
                     </div>
                   </div>
 
-                  {/* PROMO CARD (Only shown if medical is valid, although whole left side requires it technically) */}
+                  {/* PROMO CARD */}
                   {hasValidMedical && (
                     <div className='bg-white p-6 rounded-3xl border border-gray-100 shadow-sm'>
                       <h4 className='text-[13px] font-bold text-gray-900 mb-3 uppercase tracking-wider flex items-center gap-2'>
@@ -1098,6 +1093,23 @@ function UserPassesView({ user }) {
   ];
 
   const filteredData = transactions.filter((t) => {
+    // --- 1. CRITICAL FIX: STRICT OWNERSHIP FILTER ---
+    const currentUserId = String(user?._id || user?.id || "");
+    const passOwnerId = String(t.userId?._id || t.userId || "");
+
+    let isSharedWithMe = false;
+    if (Array.isArray(t.sharedWith)) {
+      isSharedWithMe = t.sharedWith.some(
+        (u) => String(u?._id || u) === currentUserId,
+      );
+    }
+
+    if (passOwnerId !== currentUserId && !isSharedWithMe) {
+      return false; // Automatically hide passes belonging to other clients
+    }
+    // ------------------------------------------------
+
+    // --- 2. Status & Search Filters ---
     const isActuallyActive = t.isActive && new Date(t.expiryDate) > new Date();
     let statusMatch = false;
 
@@ -1419,6 +1431,15 @@ function PurchaseHistoryView({ user }) {
   }, [user._id]);
 
   const filteredTransactions = transactions.filter((tx) => {
+    // --- 1. CRITICAL FIX: STRICT OWNERSHIP FILTER ---
+    const currentUserId = String(user?._id || user?.id || "");
+    const txOwnerId = String(tx.userId?._id || tx.userId || "");
+
+    if (txOwnerId !== currentUserId) {
+      return false; // Immediately hide transactions belonging to other users
+    }
+    // ------------------------------------------------
+
     const matchesStatus =
       selectedStatuses.length === 0 || selectedStatuses.includes(tx.status);
     const query = searchQuery.toLowerCase();
@@ -1699,14 +1720,6 @@ function PassCard({ group, onClick }) {
         <div className='md:hidden w-full h-px border-t border-dashed border-gray-200'></div>
 
         <div className='w-full md:w-56 md:pl-6 flex flex-col justify-center items-center md:items-end md:pr-10 relative'>
-          {!isExpired && (
-            <div className='absolute -top-5 md:top-1/2 md:-translate-y-1/2 md:-left-6 z-10'>
-              <button className='p-3 bg-[#E8F5EE] text-[#2D8A60] rounded-full hover:bg-[#D1EAE0] transition-colors shadow-sm'>
-                <QrCode size={20} />
-              </button>
-            </div>
-          )}
-
           <div className='flex flex-col items-center mt-3 md:mt-0'>
             <span
               className={`text-[64px] leading-none font-semibold tracking-tighter ${isExpired ? "text-gray-400" : "text-[#0F2922]"}`}>
@@ -1949,7 +1962,11 @@ function PassShareView({ pass }) {
   const [email, setEmail] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
 
-  const isOwner = pass.userId?._id === user?._id || pass.userId === user?._id;
+  // --- 2. CRITICAL FIX: STRING COMPARISON FOR OWNERSHIP ---
+  const currentUserId = String(user?._id || user?.id || "");
+  const ownerId = String(pass.userId?._id || pass.userId || "");
+  const isOwner = ownerId === currentUserId;
+  // --------------------------------------------------------
 
   const freezeStatus = pass.freeze?.status || "none";
   const isFrozen = freezeStatus === "approved";
@@ -2193,9 +2210,12 @@ function PassFreezeView({ group }) {
   const [mode, setMode] = useState(null);
   const [customDays, setCustomDays] = useState("");
 
+  // --- 3. CRITICAL FIX: STRING COMPARISON FOR OWNERSHIP ---
+  const currentUserId = String(user?._id || user?.id || "");
   const firstPass = group.passes[0];
-  const isOwner =
-    firstPass?.userId?._id === user?._id || firstPass?.userId === user?._id;
+  const ownerId = String(firstPass?.userId?._id || firstPass?.userId || "");
+  const isOwner = ownerId === currentUserId;
+  // --------------------------------------------------------
 
   const isPending = group.passes.some((p) => p.freeze?.status === "requested");
   const isFrozen = group.passes.some((p) => p.freeze?.status === "approved");

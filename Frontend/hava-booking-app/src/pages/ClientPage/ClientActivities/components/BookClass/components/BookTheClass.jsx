@@ -46,6 +46,9 @@ const BookTheClass = () => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // NEW: State to store classes the user has already booked
+  const [bookedClassIds, setBookedClassIds] = useState(new Set());
+
   // Medical Record Status
   const [hasValidMedical, setHasValidMedical] = useState(false);
   const [showMedicalWarning, setShowMedicalWarning] = useState(false);
@@ -60,13 +63,20 @@ const BookTheClass = () => {
   const fetchData = async () => {
     try {
       if (classes.length === 0) setLoading(true);
-      const [studiosRes, classesRes, medicalRes] = await Promise.all([
-        axiosInstance.get(API_PATHS.STUDIOS.GET_ALL),
-        axiosInstance.get(API_PATHS.SCHEDULE.GET_ALL),
-        axiosInstance
-          .get(API_PATHS.AUTH.MEDICAL_INFO(user._id))
-          .catch(() => ({ data: null })),
-      ]);
+
+      // Attempt to fetch user's bookings to hide already-booked classes
+      const myBookingsUrl = API_PATHS.BOOKING?.GET_MY_BOOKINGS;
+
+      const [studiosRes, classesRes, medicalRes, bookingsRes] =
+        await Promise.all([
+          axiosInstance.get(API_PATHS.STUDIOS.GET_ALL),
+          axiosInstance.get(API_PATHS.SCHEDULE.GET_ALL),
+          axiosInstance
+            .get(API_PATHS.AUTH.MEDICAL_INFO(user._id))
+            .catch(() => ({ data: null })),
+          axiosInstance.get(myBookingsUrl).catch(() => ({ data: [] })),
+        ]);
+
       setStudios(studiosRes.data);
       setClasses(classesRes.data);
 
@@ -74,6 +84,14 @@ const BookTheClass = () => {
         setHasValidMedical(true);
       } else {
         setHasValidMedical(false);
+      }
+
+      // Extract booked class IDs into a Set for fast filtering
+      if (bookingsRes.data) {
+        const bIds = new Set(
+          bookingsRes.data.map((b) => b.classId?._id || b.classId),
+        );
+        setBookedClassIds(bIds);
       }
     } catch (error) {
       console.error("Failed to fetch data", error);
@@ -109,23 +127,25 @@ const BookTheClass = () => {
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
   const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 
-  // Filter classes by Date AND Studio for the main left section
+  // Filter classes by Date AND Studio AND ensure it's not already booked
   const dailyClasses = classes.filter((c) => {
     const isStudioMatch =
       selectedStudio === "ALL" ||
       (selectedStudio && c.studioId?._id === selectedStudio._id);
     const isDateMatch = isSameDay(new Date(c.startTime), selectedDate);
-    return isStudioMatch && isDateMatch && c.isActive;
+    const isNotBooked = !bookedClassIds.has(c._id);
+    return isStudioMatch && isDateMatch && c.isActive && isNotBooked;
   });
 
-  // NEW: Filter ALL upcoming classes for the selected studio (ignoring the calendar date)
+  // Filter ALL upcoming classes AND ensure it's not already booked
   const allUpcomingClasses = classes
     .filter((c) => {
       const isStudioMatch =
         selectedStudio === "ALL" ||
         (selectedStudio && c.studioId?._id === selectedStudio._id);
       const isFuture = new Date(c.startTime) >= new Date(); // Only show future classes
-      return isStudioMatch && isFuture && c.isActive;
+      const isNotBooked = !bookedClassIds.has(c._id);
+      return isStudioMatch && isFuture && c.isActive && isNotBooked;
     })
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
@@ -192,7 +212,6 @@ const BookTheClass = () => {
               {/* INDIVIDUAL STUDIOS */}
               {studios.map((studio) => {
                 const firstImage = studio.studioPictures?.[0]?.[0] || null;
-                const facilityList = studio.facilities?.[0] || [];
                 return (
                   <div
                     key={studio._id}

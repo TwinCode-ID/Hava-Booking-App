@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Edit2,
   AlertCircle,
+  Share2, // Added for the Shared badge
 } from "lucide-react";
 import { format } from "date-fns";
 import axiosInstance from "../../../../../../utils/axiosInstance";
@@ -114,7 +115,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
   };
 
   const handleBook = async () => {
-    // UPDATED FIX: Check if any assigned pass is falsy (null or undefined)
     if (Object.values(classPassMap).some((passId) => !passId)) {
       return setError("Please select a valid pass for all classes.");
     }
@@ -129,7 +129,7 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
           await axiosInstance.post(API_PATHS.BOOKING.CREATE_BOOKING, {
             classId: cls._id,
             passId: assignedPassId,
-            targetUserId: user._id, // Ensure this maps to the backend correctly
+            targetUserId: user._id,
           });
         } catch (err) {
           throw new Error(
@@ -156,6 +156,14 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
   ).length;
 
   const firstMissingClass = classes.find((c) => classPassMap[c._id] === null);
+
+  // Helper to check if a pass belongs to someone else
+  const checkIsShared = (passUserId) => {
+    if (!passUserId) return false;
+    const ownerId =
+      typeof passUserId === "object" ? passUserId._id : passUserId;
+    return ownerId !== user._id;
+  };
 
   return (
     <>
@@ -195,6 +203,8 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                   );
                   const isEditing = editingClassId === cls._id;
                   const eligiblePasses = getEligiblePassesForClass(cls);
+                  const isAssignedShared =
+                    assignedPass && checkIsShared(assignedPass.userId);
 
                   return (
                     <div
@@ -233,9 +243,16 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                                 <Ticket className='w-4 h-4' />
                               </div>
                               <div>
-                                <p className='text-sm font-bold text-emerald-900'>
-                                  {assignedPass.packageId?.packageName}
-                                </p>
+                                <div className='flex items-center gap-2'>
+                                  <p className='text-sm font-bold text-emerald-900'>
+                                    {assignedPass.packageId?.packageName}
+                                  </p>
+                                  {isAssignedShared && (
+                                    <span className='px-1.5 py-0.5 bg-indigo-100 text-indigo-700 border border-indigo-200 text-[9px] font-bold uppercase rounded flex items-center gap-1'>
+                                      <Share2 className='w-2.5 h-2.5' /> Shared
+                                    </span>
+                                  )}
+                                </div>
                                 <p className='text-xs text-emerald-700 mt-0.5'>
                                   Exp:{" "}
                                   {format(
@@ -289,6 +306,8 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                               const isSelectable =
                                 availableCredits > 0 ||
                                 assignedPassId === pass._id;
+                              const isPassShared = checkIsShared(pass.userId);
+
                               return (
                                 <label
                                   key={pass._id}
@@ -309,9 +328,17 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                                       disabled={!isSelectable}
                                     />
                                     <div>
-                                      <p className='text-sm font-bold text-gray-900'>
-                                        {pass.packageId?.packageName}
-                                      </p>
+                                      <div className='flex items-center gap-2'>
+                                        <p className='text-sm font-bold text-gray-900'>
+                                          {pass.packageId?.packageName}
+                                        </p>
+                                        {isPassShared && (
+                                          <span className='px-1.5 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-bold uppercase rounded flex items-center gap-1'>
+                                            <Share2 className='w-2.5 h-2.5' />{" "}
+                                            Shared
+                                          </span>
+                                        )}
+                                      </div>
                                       <p className='text-xs text-gray-500'>
                                         Exp:{" "}
                                         {format(

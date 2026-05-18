@@ -62,7 +62,7 @@ exports.createCashierBulkPurchase = async (req, res) => {
   try {
     const {
       userIds,
-      packageIds,
+      purchasedPackages, // Uses the new specific payload from the frontend
       paymentMethod,
       paymentDetails,
       totalAmount,
@@ -74,58 +74,26 @@ exports.createCashierBulkPurchase = async (req, res) => {
     const issuingStudio = req.user.adminStudioLocation;
     const cashierId = req.user._id;
 
-    if (!userIds || !userIds.length || !packageIds || !packageIds.length) {
-      throw new Error("Users and Packages must be selected.");
-    }
+    if (!userIds || userIds.length === 0)
+      throw new Error("Please select at least one client.");
+    if (!purchasedPackages || purchasedPackages.length === 0)
+      throw new Error("Cart is empty.");
 
-    const uniquePkgIds = [...new Set(packageIds)];
-    const packagesInfo = await Packages.find({
-      _id: { $in: uniquePkgIds },
-    }).session(session);
-
-    const pkgMap = {};
-    packagesInfo.forEach((p) => {
-      pkgMap[p._id.toString()] = p;
-    });
-
-    for (const id of uniquePkgIds) {
-      if (!pkgMap[id]) throw new Error(`Package with ID ${id} not found.`);
-
-      if (pkgMap[id].isOneTimePurchase) {
-        const existingPurchases = await PackagePurchase.find({
-          userId: { $in: userIds },
-          packageId: id,
-          status: { $nin: ["payment_rejected", "expired"] },
-        }).session(session);
-
-        const existingPasses = await UserPasses.find({
-          userId: { $in: userIds },
-          packageId: id,
-        }).session(session);
-
-        if (existingPurchases.length > 0 || existingPasses.length > 0) {
-          throw new Error(
-            `One or more selected clients have already purchased the One-Time package: ${pkgMap[id].packageName}`,
-          );
-        }
-      }
-    }
-
+    // 1. Consume Promo if exists
     if (promoCode) {
       await consumePromoCode(promoCode, issuingStudio, userIds[0], session);
     }
 
+    // 2. Create the Master Cashier Transaction (The Receipt)
     const cashierTrx = new CashierTransaction({
       transactionId: `CASH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       issuingStudio,
       cashierId,
       userIds,
-      packages: packageIds.map((id) => ({
-        packageId: id,
-        priceAtPurchase:
-          pkgMap[id].isPromo && pkgMap[id].promoPrice
-            ? pkgMap[id].promoPrice
-            : pkgMap[id].packagePrice,
+      packages: purchasedPackages.map((p) => ({
+        packageId: p.packageId,
+        priceAtPurchase: p.priceAtPurchase,
+        qty: p.qty,
       })),
       totalAmount,
       discountAmount: discountAmount || 0,
@@ -134,106 +102,104 @@ exports.createCashierBulkPurchase = async (req, res) => {
       paymentDetails: paymentDetails || {},
       notes,
     });
-
     await cashierTrx.save({ session });
 
-    let cartEffectiveTotal = 0;
+    // 3. Create INDIVIDUAL isolated passes for EACH user
     for (const uid of userIds) {
-      for (const pkgId of packageIds) {
-        const pkg = pkgMap[pkgId];
-        cartEffectiveTotal +=
-          pkg.isPromo && pkg.promoPrice ? pkg.promoPrice : pkg.packagePrice;
-      }
-    }
+      for (const item of purchasedPackages) {
+        // Fetch the package
+        const pkg = await Packages.findById(item.packageId).session(session);
+        if (!pkg) throw new Error(`Package not found.`);
 
-    for (const uid of userIds) {
-      for (const pkgId of packageIds) {
-        const pkg = pkgMap[pkgId];
-        const totalCredits = calculateTotalCredits(pkg);
-
-        const effectivePrice =
-          pkg.isPromo && pkg.promoPrice ? pkg.promoPrice : pkg.packagePrice;
-        const itemDiscount =
-          cartEffectiveTotal > 0
-            ? (effectivePrice / cartEffectiveTotal) * (discountAmount || 0)
-            : 0;
-        const finalItemPrice = effectivePrice - itemDiscount;
-
-        let paymentIssuerStr = `CASHIER TRX: ${cashierTrx.transactionId}`;
-        if (paymentMethod === "edc" && paymentDetails?.approvalCode) {
-          paymentIssuerStr = `EDC ${paymentDetails.edcType?.toUpperCase()} | AppCode: ${paymentDetails.approvalCode}`;
-        } else if (paymentMethod === "bank_transfer" && paymentDetails?.bank) {
-          paymentIssuerStr = `Transfer - ${paymentDetails.bank}`;
+        // Protect One-Time Purchases
+        if (pkg.isOneTimePurchase) {
+          const existingPass = await UserPasses.findOne({
+            userId: uid,
+            packageId: pkg._id,
+          }).session(session);
+          if (existingPass)
+            throw new Error(
+              `One of the users already owns the 1-Time package: ${pkg.packageName}`,
+            );
         }
 
+        // Create the individual Order History record for the client
         const newPurchase = new PackagePurchase({
           transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-          userId: uid,
+          userId: uid, // STRICTLY ASSIGNED TO THIS SPECIFIC USER
           packageId: pkg._id,
           packageNameSnapshot: pkg.packageName,
           paymentWindowExpiry: new Date(),
-          creditsPurchased: totalCredits,
-          totalAmount: finalItemPrice,
+          creditsPurchased: calculateTotalCredits(pkg) * item.qty,
+          totalAmount: item.priceAtPurchase * item.qty,
           promoCodeApplied: promoCode || null,
-          discountAmount: itemDiscount,
+          discountAmount: 0,
           paymentMethod: paymentMethod,
-          paymentIssuer: paymentIssuerStr,
+          paymentIssuer: `CASHIER TRX: ${cashierTrx.transactionId}`,
           issuingStudio,
           status: "confirmed",
         });
         await newPurchase.save({ session });
 
-        const passExpiry = new Date();
-        passExpiry.setDate(passExpiry.getDate() + (pkg.validityDays || 30));
+        // Loop by quantity (if they bought 2 of the same package) and insert passes
+        for (let q = 0; q < item.qty; q++) {
+          const passExpiry = new Date();
+          passExpiry.setDate(passExpiry.getDate() + (pkg.validityDays || 30));
 
-        let passesToCreate = [];
-        if (pkg.isCombo && pkg.comboItems && pkg.comboItems.length > 0) {
-          passesToCreate = pkg.comboItems.map((item) => ({
-            userId: uid,
-            packageId: pkg._id,
-            packageNameSnapshot: pkg.packageName,
-            packageCategorySnapshot: pkg.packageCategory,
-            purchaseDate: new Date(),
-            expiryDate: passExpiry,
-            remainingCredits: item.credits,
-            validityDuration: pkg.validityDays || 30,
-            initialCredits: item.credits,
-            issuingStudio,
-            isActive: true,
-            classType: item.classType,
-            instructorType: item.instructorType,
-          }));
-        } else {
-          passesToCreate = [
-            {
-              userId: uid,
+          let passesToCreate = [];
+          if (pkg.isCombo && pkg.comboItems && pkg.comboItems.length > 0) {
+            passesToCreate = pkg.comboItems.map((combo) => ({
+              userId: uid, // STRICTLY ASSIGNED TO THIS SPECIFIC USER
               packageId: pkg._id,
               packageNameSnapshot: pkg.packageName,
               packageCategorySnapshot: pkg.packageCategory,
               purchaseDate: new Date(),
               expiryDate: passExpiry,
-              remainingCredits: pkg.credits,
+              remainingCredits: combo.credits,
               validityDuration: pkg.validityDays || 30,
-              initialCredits: pkg.credits,
+              initialCredits: combo.credits,
               issuingStudio,
               isActive: true,
-              classType: pkg.classType,
-              instructorType: pkg.instructorType,
-            },
-          ];
+              classType: combo.classType,
+              instructorType: combo.instructorType,
+              sharedWith: [], // FORCE EMPTY (NO SHARING)
+              isShared: false, // FORCE FALSE
+            }));
+          } else {
+            passesToCreate = [
+              {
+                userId: uid, // STRICTLY ASSIGNED TO THIS SPECIFIC USER
+                packageId: pkg._id,
+                packageNameSnapshot: pkg.packageName,
+                packageCategorySnapshot: pkg.packageCategory,
+                purchaseDate: new Date(),
+                expiryDate: passExpiry,
+                remainingCredits: pkg.credits,
+                validityDuration: pkg.validityDays || 30,
+                initialCredits: pkg.credits,
+                issuingStudio,
+                isActive: true,
+                classType: pkg.classType,
+                instructorType: pkg.instructorType,
+                sharedWith: [], // FORCE EMPTY (NO SHARING)
+                isShared: false, // FORCE FALSE
+              },
+            ];
+          }
+
+          // Insert perfectly isolated passes
+          await UserPasses.insertMany(passesToCreate, { session });
         }
-        await UserPasses.insertMany(passesToCreate, { session });
       }
     }
 
     await session.commitTransaction();
     res.status(200).json({
-      message: "Bulk transaction saved & passes assigned.",
+      message: "Individual passes successfully assigned. No sharing.",
       transaction: cashierTrx,
     });
   } catch (error) {
     await session.abortTransaction();
-    console.error("Cashier Bulk Error:", error);
     res.status(400).json({ error: error.message });
   } finally {
     session.endSession();

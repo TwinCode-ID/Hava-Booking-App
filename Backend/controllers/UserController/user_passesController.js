@@ -241,31 +241,37 @@ exports.getMyActivePasses = async (req, res) => {
     const { userId } = req.params;
     const now = new Date();
 
-    // 1. Auto-Clean: Proactively set isActive to false for any passes that hit 0 credits or expired
-    // This acts as a safety net in case credits were deducted manually in the database
+    // 1. Auto-Clean expired passes
+    // (We also need to fix the duplicate $or here!)
     await UserPasses.updateMany(
       {
-        $or: [{ userId: userId }, { sharedWith: userId }],
+        $and: [
+          { $or: [{ userId: userId }, { sharedWith: userId }] },
+          {
+            $or: [
+              { remainingCredits: { $lte: 0 } },
+              { expiryDate: { $lt: now } },
+            ],
+          },
+        ],
         isActive: true,
-        $or: [{ remainingCredits: { $lte: 0 } }, { expiryDate: { $lt: now } }],
       },
       { $set: { isActive: false } },
     );
 
-    // 2. Fetch ONLY truly active passes with credits > 0
+    // 2. STRICT FETCH: Safely combine multiple $or conditions
     const activePasses = await UserPasses.find({
-      $or: [{ userId: userId }, { sharedWith: userId }],
-      remainingCredits: { $gt: 0 },
-      $or: [
-        { expiryDate: { $gte: now } },
-        { expiryDate: null }, // Include passes that haven't been activated yet
+      $and: [
+        { $or: [{ userId: userId }, { sharedWith: userId }] }, // Ownership check
+        { $or: [{ expiryDate: { $gte: now } }, { expiryDate: null }] }, // Expiry check
       ],
+      remainingCredits: { $gt: 0 },
     })
       .populate("userId", "fullName avatar email")
       .populate("sharedWith", "fullName avatar email")
       .populate("issuingStudio", "studioName")
       .populate("packageId", "packageName")
-      .sort({ expiryDate: 1 }); // Sort by closest expiry date first
+      .sort({ expiryDate: 1 });
 
     res.status(200).json(activePasses);
   } catch (error) {

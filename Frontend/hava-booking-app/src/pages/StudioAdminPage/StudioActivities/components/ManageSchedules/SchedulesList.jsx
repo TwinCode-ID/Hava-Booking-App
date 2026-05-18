@@ -1000,6 +1000,15 @@ const ClassDetailsModal = ({
     }
   };
 
+  // NEW: Filter out users who have already booked this class
+  const availableUsers = useMemo(() => {
+    if (!bookings) return users;
+    const bookedUserIds = new Set(
+      bookings.map((b) => b.userId?._id || b.userId),
+    );
+    return users.filter((u) => !bookedUserIds.has(u._id));
+  }, [users, bookings]);
+
   const handleUserSelect = async (userId) => {
     if (!userId) {
       setSelectedUser(null);
@@ -1293,7 +1302,7 @@ const ClassDetailsModal = ({
                       </div>
                       <CustomSelect
                         label='Student'
-                        options={users}
+                        options={availableUsers} // <-- FIX: Uses filtered users list
                         getLabel={(u) => u.fullName}
                         getValue={(u) => u._id}
                         onChange={handleUserSelect}
