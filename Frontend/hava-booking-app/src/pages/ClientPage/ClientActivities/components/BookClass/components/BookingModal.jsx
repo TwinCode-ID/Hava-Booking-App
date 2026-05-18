@@ -114,8 +114,11 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
   };
 
   const handleBook = async () => {
-    if (Object.values(classPassMap).some((passId) => passId === null))
-      return setError("One or more classes are missing a valid pass.");
+    // UPDATED FIX: Check if any assigned pass is falsy (null or undefined)
+    if (Object.values(classPassMap).some((passId) => !passId)) {
+      return setError("Please select a valid pass for all classes.");
+    }
+
     setLoading(true);
     setError("");
 
@@ -126,6 +129,7 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
           await axiosInstance.post(API_PATHS.BOOKING.CREATE_BOOKING, {
             classId: cls._id,
             passId: assignedPassId,
+            targetUserId: user._id, // Ensure this maps to the backend correctly
           });
         } catch (err) {
           throw new Error(
@@ -151,7 +155,6 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
     (val) => val === null,
   ).length;
 
-  // Identify the exact class missing a pass so we can pre-filter the marketplace
   const firstMissingClass = classes.find((c) => classPassMap[c._id] === null);
 
   return (

@@ -90,14 +90,26 @@ exports.createBooking = async (req, res) => {
     if (existingBooking)
       throw new Error("This student is already booked in this class.");
 
-    // --- B. GET PASS ---
-    const userPass = await UserPasses.findOne({
-      _id: passId,
-      $or: [{ userId: req.user._id }, { sharedWith: req.user._id }],
-    })
+    // --- B. GET PASS (UPDATED FIX) ---
+    const userPass = await UserPasses.findById(passId)
       .session(session)
       .populate("packageId");
-    if (!userPass) throw new Error("Pass not found.");
+
+    if (!userPass) {
+      throw new Error(
+        `Pass not found in database. Pass ID sent: ${passId || "none"}`,
+      );
+    }
+
+    const isOwner = userPass.userId?.toString() === userId.toString();
+    const isShared = userPass.sharedWith?.some(
+      (id) => id.toString() === userId.toString(),
+    );
+
+    if (!isOwner && !isShared) {
+      throw new Error("You do not have permission to use this pass.");
+    }
+
     if (!userPass.isActive) throw new Error("This pass is inactive.");
     if (userPass.remainingCredits < 1) throw new Error("Insufficient credits.");
 

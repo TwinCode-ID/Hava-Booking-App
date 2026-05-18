@@ -97,7 +97,7 @@ const SleekSelect = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.15 }}
-            className='absolute z-[100] w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto'>
+            className='absolute z-[100] w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar'>
             {options.map((opt, idx) => {
               const optValue = typeof opt === "string" ? opt : opt.value;
               const optLabel = typeof opt === "string" ? opt : opt.label;
@@ -531,11 +531,11 @@ const ManageInstructors = ({ isEmbedded = false }) => {
             </span>{" "}
             instructors
           </div>
-          <button
+          {/* <button
             onClick={() => setIsCreateFormOpen(true)}
             className='flex items-center gap-2 bg-[#045D43] text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-[#034d36] transition-colors shadow-md'>
             <Plus className='w-4 h-4' /> Add Instructor
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -1009,6 +1009,20 @@ const InstructorDashboardModal = ({
     return Array.from(map.values());
   }, [instructor, myStudioId, studios]);
 
+  // Deduplicate assigned studios to prevent the UI issue shown in Picture 3
+  const uniqueAssignedStudios = useMemo(() => {
+    const unique = [];
+    const map = new Map();
+    for (const item of instructor.assignedStudiosId || []) {
+      const idStr = typeof item === "object" ? item._id : item;
+      if (!map.has(idStr)) {
+        map.set(idStr, true);
+        unique.push(item);
+      }
+    }
+    return unique;
+  }, [instructor.assignedStudiosId]);
+
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8 bg-black/40 backdrop-blur-sm'>
       {/* ACTION POPUPS OVERLAY */}
@@ -1239,7 +1253,7 @@ const InstructorDashboardModal = ({
                       Locations
                     </p>
                     <p className='font-bold text-gray-900'>
-                      {instructor.assignedStudiosId.length} Studios
+                      {uniqueAssignedStudios.length} Studios
                     </p>
                   </div>
                 </div>
@@ -1523,7 +1537,7 @@ const InstructorDashboardModal = ({
                                             onClick={() =>
                                               handleBulkUndoGlobal(
                                                 log.startDate,
-                                                myStudioId, // <--- Corrected to explicitly use myStudioId as source
+                                                myStudioId, // Explicitly use myStudioId as source
                                               )
                                             }
                                             className={`text-[13px] font-bold px-4 py-2 rounded-lg transition-colors ${
@@ -1609,7 +1623,7 @@ const InstructorDashboardModal = ({
                                           </div>
                                         </div>
                                         <div className='flex items-center gap-3'>
-                                          {/* We trigger bulk_undo but explicitly target the original studio to unlink it */}
+                                          {/* Trigger bulk_undo specifically targeting the original studio to unlink */}
                                           <button
                                             onClick={() => {
                                               axiosInstance
@@ -1776,15 +1790,22 @@ const InstructorDashboardModal = ({
                       Assigned Locations
                     </h3>
                     <div className='space-y-4'>
-                      {instructor.assignedStudiosId.length > 0 ? (
-                        instructor.assignedStudiosId.map((studio) => (
-                          <div
-                            key={studio._id}
-                            className='flex items-center gap-3 text-[14px] font-medium text-gray-900 bg-white p-4 border border-gray-200 rounded-xl shadow-sm'>
-                            <MapPin className='w-4 h-4 text-gray-400 shrink-0' />
-                            {studio.studioName.replace("BASI Pilates ", "")}
-                          </div>
-                        ))
+                      {uniqueAssignedStudios.length > 0 ? (
+                        uniqueAssignedStudios.map((studio, idx) => {
+                          const sName = studio.studioName
+                            ? studio.studioName.replace("BASI Pilates ", "")
+                            : "Unknown Location";
+                          const sId =
+                            typeof studio === "object" ? studio._id : idx;
+                          return (
+                            <div
+                              key={sId}
+                              className='flex items-center gap-3 text-[14px] font-medium text-gray-900 bg-white p-4 border border-gray-200 rounded-xl shadow-sm'>
+                              <MapPin className='w-4 h-4 text-gray-400 shrink-0' />
+                              {sName}
+                            </div>
+                          );
+                        })
                       ) : (
                         <span className='text-[14px] text-gray-400'>
                           No studios assigned

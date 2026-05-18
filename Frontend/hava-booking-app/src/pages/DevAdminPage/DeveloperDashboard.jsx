@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -13,8 +13,6 @@ import {
   Database,
   Globe,
   Cpu,
-  Mail,
-  Phone,
   MapPin,
   Search,
   CheckCircle2,
@@ -22,10 +20,84 @@ import {
   LayoutGrid,
   ShieldCheck,
   User as UserIcon,
+  GraduationCap,
+  ChevronDown,
 } from "lucide-react";
 import { BASE_URL, API_PATHS } from "../../utils/apiPath";
 import { useAuth } from "../../context/AuthContext";
 import LoadingSpinner from "../../components/LoadingSpinner";
+
+// --- CUSTOM SLEEK SELECT COMPONENT ---
+const SleekSelect = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  className = "",
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target))
+        setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(
+    (opt) => (typeof opt === "string" ? opt : opt.value) === value,
+  );
+  const displayLabel = selectedOption
+    ? typeof selectedOption === "string"
+      ? selectedOption
+      : selectedOption.label
+    : placeholder;
+
+  return (
+    <div className={`relative ${className}`} ref={dropdownRef}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className='flex items-center justify-between w-full p-4 border border-slate-200 rounded-xl bg-white cursor-pointer hover:border-slate-300 transition-colors shadow-sm'>
+        <span
+          className={`text-[14px] truncate ${!value ? "text-slate-400" : "text-slate-900 font-medium"}`}>
+          {displayLabel}
+        </span>
+        <ChevronDown
+          className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </div>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.15 }}
+            className='absolute z-[100] w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar'>
+            {options.map((opt, idx) => {
+              const optValue = typeof opt === "string" ? opt : opt.value;
+              const optLabel = typeof opt === "string" ? opt : opt.label;
+              return (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    onChange(optValue);
+                    setIsOpen(false);
+                  }}
+                  className={`px-4 py-3 text-[14px] cursor-pointer hover:bg-slate-50 transition-colors ${value === optValue ? "bg-slate-50 font-bold text-slate-900" : "text-slate-700"}`}>
+                  {optLabel}
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const DevelopmentDashboard = () => {
   const { user: currentUser } = useAuth();
@@ -35,14 +107,19 @@ const DevelopmentDashboard = () => {
   // Data States
   const [usersList, setUsersList] = useState([]);
   const [studiosList, setStudiosList] = useState([]);
+  const [instructorsList, setInstructorsList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal States
   const [isCreateStudioOpen, setIsCreateStudioOpen] = useState(false);
   const [editingStudio, setEditingStudio] = useState(null);
+
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [viewingUser, setViewingUser] = useState(null);
+
+  const [isCreateInstructorOpen, setIsCreateInstructorOpen] = useState(false);
+  const [editingInstructor, setEditingInstructor] = useState(null);
 
   const getAuthHeaders = () => ({
     "Content-Type": "application/json",
@@ -62,6 +139,18 @@ const DevelopmentDashboard = () => {
       const studiosRes = await fetch(`${BASE_URL}${API_PATHS.STUDIOS.GET_ALL}`);
       const studiosData = await studiosRes.json();
       if (studiosRes.ok) setStudiosList(studiosData.data || studiosData);
+
+      const instructorsRes = await fetch(`${BASE_URL}/api/instructor`, {
+        headers: getAuthHeaders(),
+      });
+      if (instructorsRes.ok) {
+        const instructorsData = await instructorsRes.json();
+        setInstructorsList(instructorsData.data || instructorsData);
+      } else {
+        console.error(
+          `Instructors sync failed with status: ${instructorsRes.status}`,
+        );
+      }
     } catch (error) {
       console.error("Sync Error:", error);
     } finally {
@@ -77,6 +166,12 @@ const DevelopmentDashboard = () => {
     (u) =>
       (u.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.email || "").toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  const filteredInstructors = instructorsList.filter(
+    (i) =>
+      (i.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.instructorType || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const handleDeleteUser = async (userId) => {
@@ -111,6 +206,22 @@ const DevelopmentDashboard = () => {
     }
   };
 
+  const handleDeleteInstructor = async (instructorId) => {
+    if (!window.confirm("Permanently delete this instructor?")) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/instructor/${instructorId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      if (res.ok)
+        setInstructorsList(
+          instructorsList.filter((i) => i._id !== instructorId),
+        );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className='min-h-screen bg-[#F8FAFC] text-slate-900 p-4 md:p-8 lg:p-10 font-sans w-full max-w-[100vw] overflow-x-hidden custom-scrollbar'>
       <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8'>
@@ -124,7 +235,8 @@ const DevelopmentDashboard = () => {
               Dev Team Access
             </span>
             <span className='text-xs font-medium text-slate-500'>
-              Managing {usersList.length} users & {studiosList.length} studios
+              Managing {usersList.length} users, {studiosList.length} studios &{" "}
+              {instructorsList.length} instructors
             </span>
           </div>
         </div>
@@ -158,12 +270,18 @@ const DevelopmentDashboard = () => {
           label='Users'
           icon={<Users />}
         />
+        <TabButton
+          active={activeTab === "instructors"}
+          onClick={() => setActiveTab("instructors")}
+          label='Instructors'
+          icon={<GraduationCap />}
+        />
       </div>
 
       <div className='w-full'>
         {activeTab === "overview" && (
           <div className='space-y-8 animate-in fade-in duration-500'>
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-5'>
+            <div className='grid grid-cols-1 md:grid-cols-4 gap-5'>
               <StatCard
                 icon={<Users />}
                 title='Total Users'
@@ -177,10 +295,16 @@ const DevelopmentDashboard = () => {
                 color='emerald'
               />
               <StatCard
+                icon={<GraduationCap />}
+                title='Instructors'
+                value={instructorsList.length}
+                color='indigo'
+              />
+              <StatCard
                 icon={<Database />}
                 title='System Status'
                 value='Stable'
-                color='indigo'
+                color='emerald'
               />
             </div>
             <SystemMetricsTab getAuthHeaders={getAuthHeaders} />
@@ -319,6 +443,126 @@ const DevelopmentDashboard = () => {
             </div>
           </div>
         )}
+
+        {activeTab === "instructors" && (
+          <div className='animate-in fade-in duration-500 flex flex-col gap-6'>
+            <div className='flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4'>
+              <div className='relative w-full sm:w-96'>
+                <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4' />
+                <input
+                  type='text'
+                  placeholder='Search instructors...'
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className='w-full pl-11 pr-4 py-3 bg-white border border-slate-200/80 rounded-[14px] text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm font-medium'
+                />
+              </div>
+              <button
+                onClick={() => setIsCreateInstructorOpen(true)}
+                className='px-5 py-3 bg-[#1a4d3e] text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all active:scale-[0.98]'>
+                <Plus className='w-4 h-4' /> New Instructor
+              </button>
+            </div>
+
+            <div className='bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden w-full'>
+              <div className='overflow-x-auto w-full custom-scrollbar'>
+                <table className='w-full text-left border-collapse min-w-max'>
+                  <thead className='bg-slate-50/50 border-b border-slate-100'>
+                    <tr>
+                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                        Instructor Profile
+                      </th>
+                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                        Type
+                      </th>
+                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                        Status
+                      </th>
+                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right'>
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className='divide-y divide-slate-50'>
+                    {filteredInstructors.map((instructor) => (
+                      <tr
+                        key={instructor._id}
+                        className='hover:bg-slate-50/80 transition-colors group'>
+                        <td className='py-4 px-6'>
+                          <div className='flex items-center gap-4'>
+                            {instructor.avatar ? (
+                              <img
+                                src={instructor.avatar}
+                                alt='Avatar'
+                                className='w-10 h-10 shrink-0 rounded-xl object-cover shadow-sm border border-slate-300/30'
+                              />
+                            ) : (
+                              <div className='w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-slate-100 to-slate-200 text-slate-700 flex items-center justify-center font-extrabold text-sm uppercase shadow-sm border border-slate-300/30'>
+                                {instructor.fullName.charAt(0)}
+                              </div>
+                            )}
+                            <div className='flex flex-col min-w-0'>
+                              <p className='font-bold text-slate-900 text-[14px] mb-0.5 truncate'>
+                                {instructor.fullName}
+                              </p>
+                              <p className='text-slate-400 text-xs font-medium truncate max-w-[200px]'>
+                                {instructor.bio || "No bio provided."}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className='py-4 px-6'>
+                          <span className='inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border bg-indigo-50 text-indigo-700 border-indigo-100 w-fit'>
+                            {instructor.instructorType || "Instructor"}
+                          </span>
+                        </td>
+                        <td className='py-4 px-6'>
+                          {instructor.isActive ? (
+                            <span className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-100'>
+                              <CheckCircle2 className='w-3 h-3' /> Active
+                            </span>
+                          ) : (
+                            <span className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-rose-50 text-rose-700 border border-rose-100'>
+                              <AlertCircle className='w-3 h-3' /> Inactive
+                            </span>
+                          )}
+                        </td>
+                        <td className='py-4 px-6 text-right'>
+                          <div className='flex justify-end gap-2'>
+                            <ActionButton
+                              icon={<Edit />}
+                              onClick={() => setEditingInstructor(instructor)}
+                              hoverColor='hover:text-emerald-600 hover:bg-emerald-50'
+                            />
+                            <ActionButton
+                              icon={<Trash2 />}
+                              onClick={() =>
+                                handleDeleteInstructor(instructor._id)
+                              }
+                              hoverColor='hover:text-rose-600 hover:bg-rose-50'
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredInstructors.length === 0 && (
+                      <tr>
+                        <td colSpan='4' className='py-16 text-center'>
+                          <div className='flex flex-col items-center justify-center'>
+                            <GraduationCap className='w-10 h-10 text-slate-200 mb-3' />
+                            <p className='text-sm font-medium text-slate-500'>
+                              No instructors found.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODALS */}
@@ -349,6 +593,22 @@ const DevelopmentDashboard = () => {
             onSuccess={() => {
               setIsCreateUserOpen(false);
               setEditingUser(null);
+              fetchData();
+            }}
+            getAuthHeaders={getAuthHeaders}
+          />
+        )}
+        {(isCreateInstructorOpen || editingInstructor) && (
+          <InstructorModal
+            instructor={editingInstructor}
+            studiosList={studiosList}
+            onClose={() => {
+              setIsCreateInstructorOpen(false);
+              setEditingInstructor(null);
+            }}
+            onSuccess={() => {
+              setIsCreateInstructorOpen(false);
+              setEditingInstructor(null);
               fetchData();
             }}
             getAuthHeaders={getAuthHeaders}
@@ -888,7 +1148,6 @@ const UserModal = ({
 }) => {
   const isEdit = !!userToEdit;
 
-  // Make sure we pull out just the ID if it happens to be populated
   const initialStudioLocation =
     typeof userToEdit?.adminStudioLocation === "object"
       ? userToEdit?.adminStudioLocation?._id
@@ -919,10 +1178,9 @@ const UserModal = ({
     const payload = {
       fullName: formData.fullName,
       role: formData.role,
-      isStudent: false, // Fallback to prevent backend issues
+      isStudent: false,
       ...(formData.password && { password: formData.password }),
       ...(!isEdit && { email: formData.email }),
-      // FIX: Force null if it's an empty string or not a studio admin to prevent MongoDB CastError
       adminStudioLocation:
         formData.role === "studioAdmin" && formData.adminStudioLocation
           ? formData.adminStudioLocation
@@ -938,9 +1196,6 @@ const UserModal = ({
 
       if (res.ok) {
         const resData = await res.json();
-
-        // FIX: If creating a NEW Studio Admin, forcefully apply the studio location via PUT
-        // since standard Register routes often ignore adminStudioLocation fields.
         if (
           !isEdit &&
           formData.role === "studioAdmin" &&
@@ -962,7 +1217,6 @@ const UserModal = ({
             );
           }
         }
-
         onSuccess();
       } else {
         const errData = await res.json();
@@ -1105,6 +1359,250 @@ const UserModal = ({
             disabled={loading}
             className='flex-1 py-4 bg-[#1a4d3e] text-white font-bold rounded-[16px] shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
             {loading ? "Saving..." : "Save User"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const InstructorModal = ({
+  instructor,
+  studiosList,
+  onClose,
+  onSuccess,
+  getAuthHeaders,
+}) => {
+  const isEdit = !!instructor;
+  const [loading, setLoading] = useState(false);
+
+  const [formData, setFormData] = useState({
+    fullName: instructor?.fullName || "",
+    bio: instructor?.bio || "Apprentice Instructor",
+    avatar: instructor?.avatar || "",
+    instructorType: instructor?.instructorType || "Apprentice Instructor",
+    isActive: instructor?.isActive !== undefined ? instructor.isActive : true,
+    assignedStudiosId:
+      instructor?.assignedStudiosId?.map((s) =>
+        typeof s === "object" ? s._id : s,
+      ) || [],
+  });
+
+  const INSTRUCTOR_TYPES = [
+    { value: "Apprentice Instructor", label: "Apprentice Instructor" },
+    { value: "Junior Instructor", label: "Junior Instructor" },
+    { value: "Senior Instructor", label: "Senior Instructor" },
+    { value: "Master Instructor", label: "Master Instructor" },
+    { value: "Principal Instructor", label: "Principal Instructor" },
+  ];
+
+  // Deduplicate studios to prevent duplicate entries in UI
+  const uniqueStudios = Array.from(
+    new Map(studiosList.map((s) => [s._id, s])).values(),
+  );
+
+  const handleStudioToggle = (studioId) => {
+    setFormData((prev) => {
+      const current = prev.assignedStudiosId;
+      if (current.includes(studioId)) {
+        return {
+          ...prev,
+          assignedStudiosId: current.filter((id) => id !== studioId),
+        };
+      } else {
+        return { ...prev, assignedStudiosId: [...current, studioId] };
+      }
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const url = isEdit
+      ? `${BASE_URL}/api/instructor/${instructor._id}/update-profile`
+      : `${BASE_URL}/api/instructor/create-instructor`;
+
+    try {
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        onSuccess();
+      } else {
+        const errData = await res.json();
+        alert(
+          `Failed to save instructor: ${errData.message || errData.error || "Unknown server error"}`,
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert("A network error occurred while trying to save the instructor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className='fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className='bg-white rounded-[24px] w-full max-w-xl border border-white/20 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden'>
+        <div className='px-8 py-6 border-b border-slate-100 bg-white shrink-0 flex justify-between items-center'>
+          <h2 className='text-xl font-extrabold text-slate-900'>
+            {isEdit ? "Edit Instructor" : "New Instructor"}
+          </h2>
+          <button
+            onClick={onClose}
+            className='p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors'>
+            <X className='w-5 h-5' />
+          </button>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className='flex-1 overflow-y-auto p-8 bg-white custom-scrollbar space-y-6'>
+          <div className='space-y-2'>
+            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+              Full Name
+            </label>
+            <input
+              required
+              value={formData.fullName}
+              onChange={(e) =>
+                setFormData({ ...formData, fullName: e.target.value })
+              }
+              className='w-full p-4 bg-white border border-slate-200 rounded-xl font-medium text-[14px] text-slate-900 outline-none focus:border-[#045D43] transition-all shadow-sm'
+            />
+          </div>
+
+          <div className='space-y-2'>
+            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+              Avatar URL
+            </label>
+            <input
+              value={formData.avatar}
+              onChange={(e) =>
+                setFormData({ ...formData, avatar: e.target.value })
+              }
+              className='w-full p-4 bg-white border border-slate-200 rounded-xl font-medium text-[14px] text-slate-900 outline-none focus:border-[#045D43] transition-all shadow-sm'
+            />
+          </div>
+
+          <div className='space-y-2'>
+            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+              Bio
+            </label>
+            <textarea
+              rows='3'
+              value={formData.bio}
+              onChange={(e) =>
+                setFormData({ ...formData, bio: e.target.value })
+              }
+              className='w-full p-4 bg-white border border-slate-200 rounded-xl font-medium text-[14px] text-slate-900 outline-none focus:border-[#045D43] transition-all shadow-sm resize-none'
+            />
+          </div>
+
+          <div className='space-y-2'>
+            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+              Instructor Type
+            </label>
+            <SleekSelect
+              value={formData.instructorType}
+              options={INSTRUCTOR_TYPES}
+              onChange={(val) =>
+                setFormData({ ...formData, instructorType: val })
+              }
+            />
+          </div>
+
+          <div className='space-y-3 pt-2'>
+            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+              Assigned Studios
+            </label>
+            <div className='flex flex-col gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar'>
+              {uniqueStudios.map((studio) => {
+                const isChecked = formData.assignedStudiosId.includes(
+                  studio._id,
+                );
+                return (
+                  <label
+                    key={studio._id}
+                    className={`flex items-center gap-3 p-3.5 border rounded-xl hover:bg-slate-50 cursor-pointer transition-all bg-white ${isChecked ? "border-[#045D43]/30" : "border-slate-200"}`}>
+                    <div
+                      className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${isChecked ? "bg-[#045D43] border-[#045D43]" : "border-slate-300"}`}>
+                      {isChecked && (
+                        <svg
+                          className='w-3 h-3 text-white'
+                          fill='none'
+                          viewBox='0 0 24 24'
+                          stroke='currentColor'>
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={3}
+                            d='M5 13l4 4L19 7'
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <span className='text-[14px] font-bold text-slate-700'>
+                      {studio.studioName}
+                    </span>
+                  </label>
+                );
+              })}
+              {uniqueStudios.length === 0 && (
+                <span className='text-[14px] text-slate-400 pl-1'>
+                  No studios available.
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className='pt-2'>
+            <label className='flex items-center gap-3 cursor-pointer w-fit'>
+              <div
+                className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${formData.isActive ? "bg-[#045D43] border-[#045D43]" : "border-slate-300"}`}>
+                {formData.isActive && (
+                  <svg
+                    className='w-3 h-3 text-white'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    stroke='currentColor'>
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={3}
+                      d='M5 13l4 4L19 7'
+                    />
+                  </svg>
+                )}
+              </div>
+              <span className='text-[14px] font-bold text-slate-700'>
+                Profile is Active
+              </span>
+            </label>
+          </div>
+        </form>
+
+        <div className='p-6 border-t border-slate-100 bg-white shrink-0 flex gap-4'>
+          <button
+            type='button'
+            onClick={onClose}
+            className='flex-1 py-4 text-slate-600 font-bold bg-slate-50 hover:bg-slate-100 rounded-[14px] transition-colors text-[14px]'>
+            Cancel
+          </button>
+          <button
+            type='submit'
+            onClick={handleSubmit}
+            disabled={loading}
+            className='flex-1 py-4 bg-[#1a4d3e] text-white font-bold rounded-[14px] shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
+            {loading ? "Saving..." : "Save Instructor"}
           </button>
         </div>
       </motion.div>

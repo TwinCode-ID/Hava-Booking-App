@@ -455,6 +455,8 @@ const ClientManager = ({ isEmbedded = false }) => {
     try {
       setLoading(true);
       let targetUserId = formData.userId;
+
+      // 1. Handle New Client Registration
       if (formData.isNewClient) {
         const userRes = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
           ...formData.newClientData,
@@ -463,8 +465,11 @@ const ClientManager = ({ isEmbedded = false }) => {
         });
         targetUserId = userRes.data.user?._id || userRes.data._id;
       }
+
+      // 2. Create the Purchase
       await axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
-        userId: targetUserId,
+        userId: targetUserId, // Keep for standard logic
+        targetUserId: targetUserId, // ✅ ADDED THIS: Triggers the backend Admin Override
         packageId: formData.packageId,
         paymentMethod: "direct_payment",
         totalAmount: formData.totalAmount,
@@ -473,6 +478,7 @@ const ClientManager = ({ isEmbedded = false }) => {
         issuingStudio: user.adminStudioLocation,
         status: "confirmed",
       });
+
       setShowAssignModal(false);
       setShowDirectAssignModal(false);
       fetchData();
@@ -1833,7 +1839,7 @@ const UnifiedDetailModal = ({
               </div>
 
               {/* 3. Global Share Configuration */}
-              <div
+              {/* <div
                 className={`p-5 sm:p-6 rounded-xl border ${isSharedToMe ? "border-indigo-200/60 bg-indigo-50/20" : "border-gray-200/60 bg-white"}`}>
                 <div className='flex items-center justify-between mb-4 border-b border-gray-100 pb-4'>
                   <div className='flex items-center gap-2'>
@@ -1975,7 +1981,7 @@ const UnifiedDetailModal = ({
                     )}
                   </>
                 )}
-              </div>
+              </div> */}
 
               {/* 4. Global Freeze Configuration */}
               <div className='p-5 sm:p-6 border border-gray-200/60 rounded-xl bg-white'>

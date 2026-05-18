@@ -39,7 +39,7 @@ const App = () => {
           <Route path='/' element={<LandingPage />} />
           <Route path='/login' element={<Login />} />
           <Route path='/signup' element={<SignUp />} />
-          <Route path='/book-now' element={<BookNow />} />
+          <Route path='/book-now' element={<Login />} />
           <Route path='/studio-location' element={<StudioLocation />} />
           <Route path='/studio-details' element={<StudioDetails />} />
           {/*Protected Routes */}
