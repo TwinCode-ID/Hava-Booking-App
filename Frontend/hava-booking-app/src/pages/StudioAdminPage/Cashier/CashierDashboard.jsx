@@ -96,7 +96,8 @@ const CashierDashboard = () => {
   const [users, setUsers] = useState([]);
   const [packages, setPackages] = useState([]);
   const [availablePromos, setAvailablePromos] = useState([]);
-  const [categories, setCategories] = useState(["All"]);
+  // Pre-fill categories so the buttons always exist exactly like the UI design
+  const [categories, setCategories] = useState(["All", "Regular", "Student"]);
   const [classTypes, setClassTypes] = useState(["All"]);
   const [instructorTypes, setInstructorTypes] = useState(["All"]);
   const [searchPackage, setSearchPackage] = useState("");
@@ -151,15 +152,14 @@ const CashierDashboard = () => {
         if (packagesRes.data) {
           setPackages(packagesRes.data);
 
-          const uniqueCategories = new Set(["All"]);
+          // Force these baseline categories so the UI buttons always show
+          const uniqueCategories = new Set(["All", "Regular", "Student"]);
           const uniqueClassTypes = new Set(["All"]);
           const uniqueInstructorTypes = new Set(["All"]);
 
           packagesRes.data.forEach((pkg) => {
             if (pkg.packageCategory && pkg.packageCategory.length > 0) {
               pkg.packageCategory.forEach((type) => uniqueCategories.add(type));
-            } else {
-              uniqueCategories.add("Regular");
             }
 
             if (pkg.isCombo) {
@@ -225,20 +225,35 @@ const CashierDashboard = () => {
   const updateCart = (pkgId, delta) => {
     const pkg = packages.find((p) => p._id === pkgId);
 
-    if (delta > 0 && pkg?.isOneTimePurchase) {
-      if (cart[pkgId] >= 1)
-        return alert(
-          "This package is a one-time purchase and is limited to 1 per transaction.",
+    if (delta > 0) {
+      // 1. STUDENT VALIDATION
+      if (pkg?.isStudentPackage) {
+        const nonStudentClient = selectedClients.find(
+          (client) => !client.isStudent,
         );
+        if (nonStudentClient) {
+          return alert(
+            `Cannot add. Client ${nonStudentClient.fullName} is currently selected but is not verified as a student.`,
+          );
+        }
+      }
 
-      const alreadyOwnedClient = selectedClients.find((client) => {
-        return clientOwnership[String(client._id)]?.has(String(pkgId));
-      });
+      // 2. ONE-TIME PURCHASE VALIDATION
+      if (pkg?.isOneTimePurchase) {
+        if (cart[pkgId] >= 1)
+          return alert(
+            "This package is a one-time purchase and is limited to 1 per transaction.",
+          );
 
-      if (alreadyOwnedClient)
-        return alert(
-          `Cannot add. Client ${alreadyOwnedClient.fullName} has already purchased this one-time package in the past.`,
-        );
+        const alreadyOwnedClient = selectedClients.find((client) => {
+          return clientOwnership[String(client._id)]?.has(String(pkgId));
+        });
+
+        if (alreadyOwnedClient)
+          return alert(
+            `Cannot add. Client ${alreadyOwnedClient.fullName} has already purchased this one-time package in the past.`,
+          );
+      }
     }
 
     setCart((prev) => {
@@ -255,9 +270,19 @@ const CashierDashboard = () => {
 
   const handleToggleClient = (userObj) => {
     const isSelected = selectedClients.some((c) => c._id === userObj._id);
+
     if (isSelected) {
       setSelectedClients(selectedClients.filter((c) => c._id !== userObj._id));
     } else {
+      // 1. STUDENT PACKAGE CONFLICT
+      const studentPackage = cartItems.find((item) => item.isStudentPackage);
+      if (studentPackage && !userObj.isStudent) {
+        return alert(
+          `Cannot select ${userObj.fullName}. The cart contains a Student Package (${studentPackage.packageName}), but this client is not verified as a student.`,
+        );
+      }
+
+      // 2. ONE-TIME PACKAGE CONFLICT
       const userStrId = String(userObj._id);
       const conflictingPackage = cartItems.find((item) => {
         return (
@@ -333,7 +358,15 @@ const CashierDashboard = () => {
 
   const filteredPackages = packages.filter((p) => {
     const pCats = p.packageCategory?.length ? p.packageCategory : ["Regular"];
-    const matchCat = activeCategory === "All" || pCats.includes(activeCategory);
+
+    // Fix: If activeCategory is 'Student', also check if isStudentPackage flag is true
+    let matchCat = activeCategory === "All" || pCats.includes(activeCategory);
+    if (activeCategory === "Student") {
+      matchCat = pCats.includes("Student") || p.isStudentPackage === true;
+    } else if (activeCategory === "Regular") {
+      // Ensure that if 'Regular' is selected, we don't leak student-only packages
+      matchCat = pCats.includes("Regular") && !p.isStudentPackage;
+    }
 
     let pClassTypes = [];
     let pInstTypes = [];
@@ -913,6 +946,7 @@ const ClientSelectionModal = ({
     fullName: "",
     email: "",
     phoneNumber: "",
+    isStudent: false, // NEW: Added student flag for new client registration
   });
 
   const filteredUsers = useMemo(() => {
@@ -953,7 +987,12 @@ const ClientSelectionModal = ({
       const createdUser = res.data.user || res.data;
       onClientCreated(createdUser);
       setIsAdding(false);
-      setNewClient({ fullName: "", email: "", phoneNumber: "" });
+      setNewClient({
+        fullName: "",
+        email: "",
+        phoneNumber: "",
+        isStudent: false,
+      });
     } catch (err) {
       alert(
         `Error creating client: ${err.response?.data?.message || err.response?.data?.error || err.message}`,
@@ -1040,6 +1079,25 @@ const ClientSelectionModal = ({
                   className='w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm'
                   placeholder='08123456789'
                 />
+
+                {/* NEW: Student Status Toggle for New Client */}
+                <label className='relative inline-flex items-center cursor-pointer mt-4'>
+                  <input
+                    type='checkbox'
+                    className='sr-only peer'
+                    checked={newClient.isStudent}
+                    onChange={(e) =>
+                      setNewClient({
+                        ...newClient,
+                        isStudent: e.target.checked,
+                      })
+                    }
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#1a4d3e]"></div>
+                  <span className='ml-3 text-xs font-bold text-slate-600'>
+                    Verify as Student
+                  </span>
+                </label>
               </div>
             </form>
           </div>
@@ -1065,8 +1123,19 @@ const ClientSelectionModal = ({
                     const isSelected = selectedClients.some(
                       (c) => c._id === user._id,
                     );
+
+                    // NEW: Validation checks
                     const conflictPackage = getConflictingPackage(user);
-                    const isDisabled = !!conflictPackage && !isSelected;
+                    const studentPkgInCart = cartItems.find(
+                      (item) => item.isStudentPackage,
+                    );
+                    const isStudentConflict =
+                      studentPkgInCart && !user.isStudent;
+
+                    // Disable if there's ANY conflict and they aren't already selected
+                    const isDisabled =
+                      (!isSelected && !!conflictPackage) ||
+                      (!isSelected && isStudentConflict);
 
                     return (
                       <div
@@ -1085,17 +1154,33 @@ const ClientSelectionModal = ({
                             {user.fullName.charAt(0)}
                           </div>
                           <div>
-                            <p
-                              className={`font-bold text-sm ${isSelected ? "text-emerald-900" : "text-slate-800"}`}>
-                              {user.fullName}
-                            </p>
+                            <div className='flex items-center gap-2'>
+                              <p
+                                className={`font-bold text-sm ${isSelected ? "text-emerald-900" : "text-slate-800"}`}>
+                                {user.fullName}
+                              </p>
+                              {/* NEW: Show Student Badge */}
+                              {user.isStudent && (
+                                <span className='px-1.5 py-0.5 bg-blue-100 text-blue-800 border border-blue-200 text-[9px] font-bold rounded uppercase tracking-wider'>
+                                  Student
+                                </span>
+                              )}
+                            </div>
                             <p className='text-xs text-slate-500 font-medium'>
                               {user.phoneNumber || user.email}
                             </p>
-                            {isDisabled && (
+
+                            {/* NEW: Warning Messages */}
+                            {isDisabled && !!conflictPackage && (
                               <p className='text-[10px] text-amber-600 font-bold flex items-center gap-1 mt-1'>
                                 <Lock className='w-3 h-3' /> Owns 1-Time Pkg:{" "}
                                 {conflictPackage.packageName}
+                              </p>
+                            )}
+                            {isDisabled && isStudentConflict && (
+                              <p className='text-[10px] text-amber-600 font-bold flex items-center gap-1 mt-1'>
+                                <Lock className='w-3 h-3' /> Requires Student
+                                Status
                               </p>
                             )}
                           </div>
@@ -1301,9 +1386,6 @@ const PaymentModal = ({
         notesArr.push(`Bank Transfer: ${paymentDetails.bank}`);
       if (paymentMethod === "qris") notesArr.push(`QRIS Payment`);
 
-      // --- CRITICAL FIX: To prevent automatic sharing across selected users, ---
-      // --- the frontend splits the transaction calculation individually per user or ---
-      // --- structural tracking hooks on backend individual collection handlers. ---
       const payload = {
         userIds: selectedClients.map((c) => c._id),
         purchasedPackages: purchasedPackages,

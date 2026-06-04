@@ -17,6 +17,7 @@ exports.createPackage = async (req, res) => {
       packageCategory,
       isPromo,
       promoPrice,
+      isStudentPackage,
       isOneTimePurchase,
       isAvailableToFreeze,
       enableExpiryReminder,
@@ -37,6 +38,7 @@ exports.createPackage = async (req, res) => {
       activationPeriodDays: activationPeriodDays || 30,
       validityDays,
       packageCategory: packageCategory || ["Regular"],
+      isStudentPackage: isStudentPackage || false,
       isOneTimePurchase: isOneTimePurchase || false,
       isAvailableToFreeze: isAvailableToFreeze || false,
       isPromo: isPromo || false,
@@ -116,6 +118,7 @@ exports.updatePackage = async (req, res) => {
       packageCategory,
       isPromo,
       promoPrice,
+      isStudentPackage,
       isOneTimePurchase,
       isAvailableToFreeze,
       enableExpiryReminder,
@@ -131,13 +134,18 @@ exports.updatePackage = async (req, res) => {
       packageDescription || existingPackage.packageDescription;
     existingPackage.packagePrice = packagePrice || existingPackage.packagePrice;
     existingPackage.currency = currency || existingPackage.currency;
-    existingPackage.activationPeriodDays = activationPeriodDays || existingPackage.activationPeriodDays;
+    existingPackage.activationPeriodDays =
+      activationPeriodDays || existingPackage.activationPeriodDays;
     existingPackage.validityDays = validityDays || existingPackage.validityDays;
     existingPackage.isActive =
       isActive !== undefined ? isActive : existingPackage.isActive;
 
     existingPackage.packageCategory =
       packageCategory || existingPackage.packageCategory;
+    existingPackage.isStudentPackage =
+      isStudentPackage !== undefined
+        ? isStudentPackage
+        : existingPackage.isStudentPackage;
     existingPackage.isOneTimePurchase =
       isOneTimePurchase !== undefined
         ? isOneTimePurchase

@@ -21,6 +21,7 @@ import {
   ListPlus,
   Tag,
   Snowflake,
+  User,
 } from "lucide-react";
 import axiosInstance from "../../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../../context/AuthContext";
@@ -318,6 +319,12 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
         </div>
       ))}
 
+      {pkg.isStudentPackage && (
+        <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-red-100 text-red-800 flex items-center gap-1'>
+          STUDENT
+        </div>
+      )}
+
       {pkg.isOneTimePurchase && (
         <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-amber-100 text-amber-800 flex items-center gap-1'>
           <AlertTriangle className='w-3 h-3' /> ONE-TIME
@@ -326,19 +333,19 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
 
       {pkg.isAvailableToFreeze && (
         <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-cyan-100 text-cyan-800 flex items-center gap-1'>
-          <Snowflake className='w-3 h-3' /> FREEZABLE
+          FREEZABLE
         </div>
       )}
 
       {pkg.isCombo && (
         <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-purple-100 text-purple-800 flex items-center gap-1'>
-          <ListPlus className='w-3 h-3' /> COMBO
+          COMBO
         </div>
       )}
 
       {pkg.isPromo && (
         <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-pink-100 text-pink-800 flex items-center gap-1'>
-          <Tag className='w-3 h-3' /> PROMO
+          PROMO
         </div>
       )}
     </div>
@@ -367,7 +374,7 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
 
       <div className='flex flex-col gap-1 mb-4'>
         <div className='flex items-center gap-2 text-sm text-gray-600 font-medium'>
-          <Calendar className='w-4 h-4 text-gray-400' /> 
+          <Calendar className='w-4 h-4 text-gray-400' />
           Active for {pkg.validityDays} days after first use
         </div>
         <div className='flex items-center gap-2 text-[11px] text-gray-500 font-medium ml-6'>
@@ -464,6 +471,7 @@ const PackageFormModal = ({
       ? initialData.packageCategory
       : ["Regular"],
 
+    isStudentPackage: initialData?.isStudentPackage || false,
     isOneTimePurchase: initialData?.isOneTimePurchase || false,
     isAvailableToFreeze: initialData?.isAvailableToFreeze || false,
 
@@ -599,7 +607,6 @@ const PackageFormModal = ({
                   placeholder='Select Categories...'
                 />
               </div>
-
               <div className='md:col-span-2'>
                 <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
                   Package Name
@@ -646,7 +653,6 @@ const PackageFormModal = ({
                 />
               </div>
               <div></div> {/* Empty div to keep the grid clean */}
-              
               <div>
                 <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
                   Must Activate Within (Days)
@@ -676,6 +682,31 @@ const PackageFormModal = ({
             </div>
 
             <hr className='border-gray-100' />
+
+            <div className='flex items-center justify-between bg-red-50 p-4 rounded-md border border-red-100'>
+              <div>
+                <h4 className='font-bold text-red-900 text-sm'>
+                  Student Package
+                </h4>
+                <p className='text-xs text-red-700 mt-0.5'>
+                  Only allow students to purchase this package.
+                </p>
+              </div>
+              <label className='relative inline-flex items-center cursor-pointer'>
+                <input
+                  type='checkbox'
+                  className='sr-only peer'
+                  checked={formData.isStudentPackage}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      isStudentPackage: e.target.checked,
+                    })
+                  }
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+              </label>
+            </div>
 
             <div className='flex items-center justify-between bg-amber-50 p-4 rounded-md border border-amber-100'>
               <div>

@@ -6,12 +6,12 @@ const packagesSchema = new mongoose.Schema(
     packageDescription: { type: String, required: true },
     packagePrice: { type: Number, required: true },
     currency: { type: String, default: "IDR" },
-    
+
     // NEW: Days client has to start using the package before it becomes invalid
     activationPeriodDays: { type: Number, required: true, default: 30 },
     // EXISTING: Days package remains valid AFTER the first use
     validityDays: { type: Number, required: true },
-    
+
     isActive: { type: Boolean, default: true },
     studioLocation: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
 
@@ -24,6 +24,7 @@ const packagesSchema = new mongoose.Schema(
     enableExpiryReminder: { type: Boolean, default: false },
     reminderDaysBefore: { type: Number, default: 7 },
 
+    isStudentPackage: { type: Boolean, default: false },
     isOneTimePurchase: { type: Boolean, default: false },
     isAvailableToFreeze: { type: Boolean, default: false },
 

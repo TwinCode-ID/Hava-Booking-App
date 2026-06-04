@@ -22,12 +22,13 @@ exports.updateProfile = async (req, res) => {
     user.phoneNumber = phoneNumber || user.phoneNumber;
     user.avatar = avatar || user.avatar;
 
-    if (user.role === "client") {
-      user.preferredStudioId = preferredStudioId || user.preferredStudioId;
+    // FIX: Allow both clients and studioAdmins to change student registration status
+    if (isStudent !== undefined) {
+      user.isStudent = isStudent;
     }
 
-    if (user.role === "studioAdmin") {
-      user.isStudent = isStudent || user.isStudent;
+    if (user.role === "client") {
+      user.preferredStudioId = preferredStudioId || user.preferredStudioId;
     }
 
     if (user.role === "devTeam") {
@@ -48,7 +49,49 @@ exports.updateProfile = async (req, res) => {
       role: user.role,
       adminStudioLocation: user.adminStudioLocation || "",
       avatar: user.avatar || "",
+      isStudent: user.isStudent, // added to response snapshot payload
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.updateProfileDeveloper = async (req, res) => {
+  try {
+    const {
+      fullName,
+      phoneNumber,
+      preferredStudioId,
+      adminStudioLocation,
+      avatar,
+      isStudent,
+      role,
+    } = req.body;
+    const user = await User.findById(req.params.id || req.user._id);
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    user.fullName = fullName || user.fullName;
+    user.phoneNumber = phoneNumber || user.phoneNumber;
+    user.avatar = avatar || user.avatar;
+
+    // FIX: Allow updating student registration status for clients as well
+    if (isStudent !== undefined) {
+      user.isStudent = isStudent;
+    }
+
+    // DevTeam specific overrides
+    if (req.user.role === "devTeam") {
+      user.role = role || user.role;
+      user.adminStudioLocation =
+        adminStudioLocation || user.adminStudioLocation;
+    }
+
+    if (user.role === "client") {
+      user.preferredStudioId = preferredStudioId || user.preferredStudioId;
+    }
+
+    await user.save();
+    res.status(200).json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -181,45 +224,5 @@ exports.saveFcmToken = async (req, res) => {
     res.status(200).json({ message: "FCM Token saved successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
-  }
-};
-
-exports.updateProfileDeveloper = async (req, res) => {
-  try {
-    const {
-      fullName,
-      phoneNumber,
-      preferredStudioId,
-      adminStudioLocation,
-      avatar,
-      isStudent,
-      role,
-    } = req.body;
-    const user = await User.findById(req.params.id || req.user._id); // Support both self and admin edit
-    if (!user) return res.status(400).json({ message: "User not found" });
-
-    user.fullName = fullName || user.fullName;
-    user.phoneNumber = phoneNumber || user.phoneNumber;
-    user.avatar = avatar || user.avatar;
-
-    // DevTeam specific overrides
-    if (req.user.role === "devTeam") {
-      user.role = role || user.role;
-      user.adminStudioLocation =
-        adminStudioLocation || user.adminStudioLocation;
-    }
-
-    if (user.role === "studioAdmin") {
-      user.isStudent = isStudent || user.isStudent;
-    }
-
-    if (user.role === "client") {
-      user.preferredStudioId = preferredStudioId || user.preferredStudioId;
-    }
-
-    await user.save();
-    res.status(200).json(user);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
   }
 };
