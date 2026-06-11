@@ -307,7 +307,7 @@ exports.getUserPassHistory = async (req, res) => {
     const history = await UserPasses.find({ issuingStudio: studioId })
       .sort({ createdAt: -1 })
       .populate("packageId")
-      .populate("userId", "fullName email avatar")
+      .populate("userId", "fullName email avatar isStudent")
       .populate("sharedWith", "fullName email avatar");
     res.status(200).json(history);
   } catch (error) {
