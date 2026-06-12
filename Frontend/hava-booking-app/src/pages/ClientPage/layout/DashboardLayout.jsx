@@ -34,10 +34,19 @@ const DashboardLayout = () => {
     <div className='flex h-screen w-screen bg-gray-50 font-sans overflow-hidden'>
       {/* --- MOBILE HEADER --- */}
       <div className='md:hidden fixed top-0 left-0 right-0 h-16 bg-emerald-900 z-50 flex items-center justify-between px-4 text-white shadow-md'>
-        <div className='font-bold text-lg'>User Panel</div>
         <button onClick={() => setIsMobileOpen(!isMobileOpen)}>
-          {isMobileOpen ? <X /> : <Menu />}
+          {!isMobileOpen && <Menu />}
         </button>
+        <div className='font-bold text-lg'>
+          {isMobileOpen ? (
+            <button onClick={() => setIsMobileOpen(!isMobileOpen)}>
+              {" "}
+              <X />
+            </button>
+          ) : (
+            "User Panel"
+          )}
+        </div>
       </div>
 
       {/* --- SIDEBAR --- */}

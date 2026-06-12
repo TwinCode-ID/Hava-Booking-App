@@ -98,20 +98,20 @@ export default function ManagePackage() {
 
   return (
     <div className='min-h-screen bg-[#F9FAFB] font-sans text-gray-900 flex flex-col'>
-      <div className='bg-white border-b border-gray-200 pt-8 sticky top-0 z-40 shadow-sm'>
+      <div className='bg-white border-b border-gray-200 pt-6 md:pt-8 sticky top-0 z-40 shadow-sm'>
         <div className='container mx-auto px-4 md:px-6'>
-          <div className='flex items-center gap-10 overflow-x-auto no-scrollbar'>
+          <div className='flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar'>
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className='relative pb-4 group flex items-center gap-2.5 font-bold text-[15px] transition-colors whitespace-nowrap'>
+                className='relative pb-3 md:pb-4 group flex items-center gap-2 md:gap-2.5 font-bold text-sm md:text-[15px] transition-colors whitespace-nowrap'>
                 <span
                   className={`${
                     activeTab === tab.id ? "text-[#1D3D36]" : "text-gray-400"
-                  } group-hover:text-[#2D8A60] transition-colors duration-300 flex items-center gap-2.5`}>
+                  } group-hover:text-[#2D8A60] transition-colors duration-300 flex items-center gap-2 md:gap-2.5`}>
                   <tab.icon
-                    className={`w-[18px] h-[18px] ${activeTab === tab.id ? "stroke-[2.5px]" : "stroke-2"}`}
+                    className={`w-4 h-4 md:w-[18px] md:h-[18px] ${activeTab === tab.id ? "stroke-[2.5px]" : "stroke-2"}`}
                   />
                   {tab.label}
                 </span>
@@ -163,6 +163,9 @@ export default function ManagePackage() {
   );
 }
 
+// ============================================================================
+// VIEW 1: MARKETPLACE (PackageSelectorView)
+// ============================================================================
 function PackageSelectorView({ user }) {
   const [studios, setStudios] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -321,6 +324,124 @@ function PackageSelectorView({ user }) {
     }
   };
 
+  // Shared Filter Render Function
+  const renderFilters = () => (
+    <div className='space-y-8'>
+      <div className='space-y-4'>
+        <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+          <MapPin className='w-4 h-4 text-[#2D8A60]' /> Studio
+        </h3>
+        <div className='space-y-3 mt-3'>
+          {uniqueStudioLocation.map((type) => (
+            <label
+              key={type}
+              className='flex items-center gap-3.5 cursor-pointer group py-1'>
+              <div
+                className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${selectedStudioLocations.includes(type) ? "bg-[#1D3D36] border-[#1D3D36] shadow" : "border-gray-300 group-hover:border-[#2D8A60] bg-white"}`}>
+                {selectedStudioLocations.includes(type) && (
+                  <Check className='w-3.5 h-3.5 text-white' />
+                )}
+              </div>
+              <input
+                type='checkbox'
+                className='hidden'
+                checked={selectedStudioLocations.includes(type)}
+                onChange={() =>
+                  toggleFilter(
+                    selectedStudioLocations,
+                    setSelectedStudioLocations,
+                    type,
+                  )
+                }
+              />
+              <span
+                className={`text-[15px] ${selectedStudioLocations.includes(type) ? "text-gray-900 font-bold" : "text-gray-600 font-medium"}`}>
+                {type}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <hr className='border-gray-200' />
+      <div className='space-y-4'>
+        <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+          <Users className='w-4 h-4 text-[#2D8A60]' /> Skill Level
+        </h3>
+        <div className='space-y-3 mt-3'>
+          {uniqueInstructorTypes.map((type) => {
+            const isSelected = selectedInstructorTypes.includes(type);
+            return (
+              <label
+                key={type}
+                className='flex items-center gap-3.5 cursor-pointer group py-1'>
+                <div
+                  className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${isSelected ? "bg-[#1D3D36] border-[#1D3D36] shadow" : "border-gray-300 group-hover:border-[#2D8A60] bg-white"}`}>
+                  {isSelected && <Check className='w-3.5 h-3.5 text-white' />}
+                </div>
+                <input
+                  type='checkbox'
+                  className='hidden'
+                  checked={isSelected}
+                  onChange={() =>
+                    toggleFilter(
+                      selectedInstructorTypes,
+                      setSelectedInstructorTypes,
+                      type,
+                    )
+                  }
+                />
+                <span
+                  className={`text-[15px] ${isSelected ? "text-gray-900 font-bold" : "text-gray-600 font-medium"}`}>
+                  {type}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+      <hr className='border-gray-200' />
+      <div className='space-y-4'>
+        <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+          <SlidersHorizontal className='w-4 h-4 text-[#2D8A60]' /> Price Rank
+        </h3>
+        <div className='flex gap-3 mt-3'>
+          <button
+            onClick={() => setSortOrder("asc")}
+            className={`flex-1 py-3 md:py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "asc" ? "bg-[#1D3D36] text-white border-[#1D3D36]" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"}`}>
+            <ArrowUpNarrowWide className='w-4 h-4' /> Lowest
+          </button>
+          <button
+            onClick={() => setSortOrder("desc")}
+            className={`flex-1 py-3 md:py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "desc" ? "bg-[#1D3D36] text-white border-[#1D3D36]" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"}`}>
+            <ArrowDownNarrowWide className='w-4 h-4' /> Highest
+          </button>
+        </div>
+      </div>
+      <div className='space-y-4 pb-4 md:pb-0'>
+        <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+          <Tag className='w-4 h-4 text-[#2D8A60]' /> Price Range
+        </h3>
+        <div className='flex items-center gap-3 mt-3'>
+          <input
+            type='number'
+            placeholder='Min (IDR)'
+            value={priceMin}
+            onChange={(e) => setPriceMin(e.target.value)}
+            className='w-full px-4 py-3 md:py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
+          />
+          <span className='text-gray-400 font-medium'>—</span>
+          <input
+            type='number'
+            placeholder='Max (IDR)'
+            value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value)}
+            className='w-full px-4 py-3 md:py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading)
     return (
       <div className='h-[60vh] flex flex-col items-center justify-center gap-4'>
@@ -350,139 +471,17 @@ function PackageSelectorView({ user }) {
     : selectedPackage?.credits || 0;
 
   return (
-    <div className='container mx-auto px-4 md:px-6 py-12'>
-      <div className='flex flex-col lg:flex-row gap-12 xl:gap-16'>
-        <aside
-          className={`lg:w-64 xl:w-72 shrink-0 space-y-10 ${showMobileFilters ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto" : "hidden lg:block"}`}>
-          <div className='flex items-center justify-between lg:hidden mb-8'>
-            <h3 className='font-bold text-xl'>Refine Marketplace</h3>
-            <button
-              onClick={() => setShowMobileFilters(false)}
-              className='p-2 bg-gray-100 rounded-full'>
-              <X className='w-5 h-5' />
-            </button>
-          </div>
-
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <MapPin className='w-4 h-4 text-[#2D8A60]' /> Studio
-            </h3>
-            <div className='space-y-2.5 mt-3'>
-              {uniqueStudioLocation.map((type) => (
-                <label
-                  key={type}
-                  className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
-                  <div
-                    className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${selectedStudioLocations.includes(type) ? "bg-[#1D3D36] border-[#1D3D36] shadow" : "border-gray-300 group-hover:border-[#2D8A60] bg-white"}`}>
-                    {selectedStudioLocations.includes(type) && (
-                      <Check className='w-3.5 h-3.5 text-white' />
-                    )}
-                  </div>
-                  <input
-                    type='checkbox'
-                    className='hidden'
-                    checked={selectedStudioLocations.includes(type)}
-                    onChange={() =>
-                      toggleFilter(
-                        selectedStudioLocations,
-                        setSelectedStudioLocations,
-                        type,
-                      )
-                    }
-                  />
-                  <span
-                    className={`text-[15px] ${selectedStudioLocations.includes(type) ? "text-gray-900 font-bold" : "text-gray-600 font-medium"}`}>
-                    {type}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <hr className='border-gray-200' />
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <Users className='w-4 h-4 text-[#2D8A60]' /> Skill Level
-            </h3>
-            <div className='space-y-2 mt-3'>
-              {uniqueInstructorTypes.map((type) => {
-                const isSelected = selectedInstructorTypes.includes(type);
-                return (
-                  <label
-                    key={type}
-                    className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
-                    <div
-                      className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${isSelected ? "bg-[#1D3D36] border-[#1D3D36] shadow" : "border-gray-300 group-hover:border-[#2D8A60] bg-white"}`}>
-                      {isSelected && (
-                        <Check className='w-3.5 h-3.5 text-white' />
-                      )}
-                    </div>
-                    <input
-                      type='checkbox'
-                      className='hidden'
-                      checked={isSelected}
-                      onChange={() =>
-                        toggleFilter(
-                          selectedInstructorTypes,
-                          setSelectedInstructorTypes,
-                          type,
-                        )
-                      }
-                    />
-                    <span
-                      className={`text-[15px] ${isSelected ? "text-gray-900 font-bold" : "text-gray-600 font-medium"}`}>
-                      {type}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-          <hr className='border-gray-200' />
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <SlidersHorizontal className='w-4 h-4 text-[#2D8A60]' /> Price
-              Rank
-            </h3>
-            <div className='flex gap-3 mt-3'>
-              <button
-                onClick={() => setSortOrder("asc")}
-                className={`flex-1 py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "asc" ? "bg-[#1D3D36] text-white border-[#1D3D36]" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"}`}>
-                <ArrowUpNarrowWide className='w-4 h-4' /> Lowest
-              </button>
-              <button
-                onClick={() => setSortOrder("desc")}
-                className={`flex-1 py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "desc" ? "bg-[#1D3D36] text-white border-[#1D3D36]" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"}`}>
-                <ArrowDownNarrowWide className='w-4 h-4' /> Highest
-              </button>
-            </div>
-          </div>
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <Tag className='w-4 h-4 text-[#2D8A60]' /> Price Range
-            </h3>
-            <div className='flex items-center gap-3 mt-3'>
-              <input
-                type='number'
-                placeholder='Min (IDR)'
-                value={priceMin}
-                onChange={(e) => setPriceMin(e.target.value)}
-                className='w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
-              />
-              <span className='text-gray-400 font-medium'>—</span>
-              <input
-                type='number'
-                placeholder='Max (IDR)'
-                value={priceMax}
-                onChange={(e) => setPriceMax(e.target.value)}
-                className='w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60]'
-              />
-            </div>
-          </div>
+    <div className='container mx-auto px-4 md:px-6 py-8 md:py-12'>
+      <div className='flex flex-col lg:flex-row gap-8 xl:gap-12'>
+        {/* Desktop Sidebar */}
+        <aside className='hidden lg:block lg:w-64 xl:w-72 shrink-0 sticky top-28 h-fit bg-white p-6 rounded-3xl border border-gray-100 shadow-sm'>
+          <h3 className='font-bold text-lg mb-6'>Filters</h3>
+          {renderFilters()}
         </aside>
 
-        <div className='flex-1'>
-          <div className='flex items-center justify-between mb-10 pb-4 border-b border-gray-200'>
-            <p className='text-gray-500 text-[15px] font-medium'>
+        <div className='flex-1 min-w-0'>
+          <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-10 pb-4 border-b border-gray-200'>
+            <p className='text-gray-500 text-sm md:text-[15px] font-medium'>
               Displaying{" "}
               <span className='font-bold text-gray-900'>
                 {filteredPackages.length}
@@ -495,13 +494,13 @@ function PackageSelectorView({ user }) {
               </span>
             </p>
             <button
-              className='lg:hidden flex items-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm'
+              className='lg:hidden flex items-center justify-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors shadow-sm active:scale-95'
               onClick={() => setShowMobileFilters(true)}>
               <Filter className='w-4 h-4 text-[#2D8A60]' /> Filter Results
             </button>
           </div>
 
-          <div className='grid grid-cols-1 xl:grid-cols-2 gap-x-8 gap-y-10'>
+          <div className='grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-8'>
             {filteredPackages.length > 0 ? (
               filteredPackages.map((pkg) => (
                 <PackageCardMinimal
@@ -511,14 +510,14 @@ function PackageSelectorView({ user }) {
                 />
               ))
             ) : (
-              <div className='col-span-full py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm'>
+              <div className='col-span-full py-20 md:py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm px-4'>
                 <div className='w-16 h-16 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center mx-auto mb-5 text-gray-300'>
                   <ShoppingBag className='w-8 h-8' />
                 </div>
-                <h3 className='text-xl font-bold text-gray-900'>
+                <h3 className='text-lg md:text-xl font-bold text-gray-900'>
                   No matching options found
                 </h3>
-                <p className='text-gray-500 mt-2 text-[15px]'>
+                <p className='text-gray-500 mt-2 text-sm md:text-[15px]'>
                   Try adjusting your filters, price range, or clearing them.
                 </p>
               </div>
@@ -527,22 +526,67 @@ function PackageSelectorView({ user }) {
         </div>
       </div>
 
+      {/* Mobile Filters Bottom Sheet */}
+      <AnimatePresence>
+        {showMobileFilters && (
+          <div className='fixed inset-0 z-[60] flex items-end justify-center lg:hidden p-0 bg-black/60 backdrop-blur-sm'>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileFilters(false)}
+              className='absolute inset-0'
+            />
+            <motion.div
+              initial={{ opacity: 0, y: "100%" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className='relative bg-white w-full max-h-[90vh] rounded-t-[2rem] shadow-2xl flex flex-col pb-safe overflow-hidden'>
+              <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 shrink-0' />
+
+              <div className='flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0'>
+                <h3 className='font-bold text-lg'>Refine Marketplace</h3>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className='p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors'>
+                  <X className='w-5 h-5 text-gray-500' />
+                </button>
+              </div>
+              <div className='p-6 overflow-y-auto flex-1 custom-scrollbar overscroll-contain'>
+                {renderFilters()}
+              </div>
+              <div className='p-4 border-t border-gray-100 bg-white shrink-0'>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className='w-full py-4 bg-[#1D3D36] text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
+                  Apply Filters
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Package Purchase Modal */}
       <AnimatePresence>
         {selectedPackage && (
-          <div className='fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 sm:p-6'>
+          <div className='fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-6 bg-black/70 backdrop-blur-sm'>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleClosePurchase}
-              className='absolute inset-0 bg-black/70 backdrop-blur-sm'
+              className='absolute inset-0'
             />
             <motion.div
-              initial={{ opacity: 0, y: 50, scale: 0.98 }}
+              initial={{ opacity: 0, y: 100, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 50, scale: 0.98 }}
+              exit={{ opacity: 0, y: 100, scale: 0.98 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className='relative bg-white w-full max-w-[640px] rounded-2xl md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
+              className='relative bg-white w-full max-w-[640px] rounded-t-[2rem] md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] pb-safe md:pb-0'>
+              <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
+
               {paymentLoading && (
                 <div className='absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm'>
                   <LoadingSpinner size='lg' />
@@ -552,21 +596,21 @@ function PackageSelectorView({ user }) {
                 </div>
               )}
 
-              <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10 shrink-0'>
-                <h2 className='text-[20px] font-semibold text-gray-900 flex items-center gap-3'>
-                  <Zap className='w-[24px] h-[24px] text-[#2D8A60]' /> Package
-                  Details & Checkout
+              <div className='flex justify-between items-center px-6 md:px-8 py-4 md:py-6 border-b border-gray-100 bg-white z-10 shrink-0'>
+                <h2 className='text-lg md:text-[20px] font-semibold text-gray-900 flex items-center gap-2 md:gap-3'>
+                  <Zap className='w-5 h-5 md:w-[24px] md:h-[24px] text-[#2D8A60]' />{" "}
+                  Package Details & Checkout
                 </h2>
                 <button
                   onClick={handleClosePurchase}
-                  className='p-2 hover:bg-gray-100 rounded-full transition-colors'>
-                  <X className='w-6 h-6 text-gray-500' />
+                  className='p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0'>
+                  <X className='w-5 h-5 md:w-6 md:h-6 text-gray-500' />
                 </button>
               </div>
 
-              <div className='p-6 md:p-8 overflow-y-auto bg-[#F9FAFB] flex flex-col gap-6'>
-                <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm'>
-                  <div className='flex flex-wrap gap-2 mb-6'>
+              <div className='p-4 md:p-8 overflow-y-auto bg-[#F9FAFB] flex flex-col gap-4 md:gap-6 custom-scrollbar overscroll-contain'>
+                <div className='bg-white p-5 md:p-8 border border-gray-100 rounded-2xl md:rounded-3xl shadow-sm'>
+                  <div className='flex flex-wrap gap-2 mb-4 md:mb-6'>
                     {selectedPackage.isActive && (
                       <span className='inline-flex items-center gap-1.5 bg-[#E8F5EE] text-[#1E5D40] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
                         Active
@@ -600,22 +644,22 @@ function PackageSelectorView({ user }) {
                   </div>
 
                   <h3
-                    className={`font-semibold text-[28px] leading-tight tracking-tight mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-[#1D3D36]"}`}>
+                    className={`font-semibold text-2xl md:text-[28px] leading-tight tracking-tight mb-2 md:mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-[#1D3D36]"}`}>
                     {selectedPackage.packageName}
                   </h3>
 
-                  <div className='flex items-center gap-3 mb-6'>
+                  <div className='flex items-center flex-wrap gap-2 md:gap-3 mb-5 md:mb-6'>
                     {(isSelectedPromo || appliedPromo) && (
-                      <span className='text-[18px] text-[#9CA3AF] line-through font-bold'>
+                      <span className='text-base md:text-[18px] text-[#9CA3AF] line-through font-bold'>
                         {originalPriceFormattedModal} IDR
                       </span>
                     )}
-                    <span className='font-semibold text-[#1D3D36] text-[32px] tracking-tight'>
+                    <span className='font-semibold text-[#1D3D36] text-3xl md:text-[32px] tracking-tight'>
                       {parseInt(modalDisplayPrice).toLocaleString("id-ID")} IDR
                     </span>
                   </div>
 
-                  <div className='text-[#4B5563] mb-8 text-[15px]'>
+                  <div className='text-[#4B5563] mb-6 md:mb-8 text-sm md:text-[15px]'>
                     {(() => {
                       const desc = selectedPackage.packageDescription || "";
                       const descParts = desc
@@ -630,7 +674,7 @@ function PackageSelectorView({ user }) {
                           <ul className='space-y-3'>
                             {descParts.map((part, idx) => (
                               <li key={idx} className='flex items-start gap-3'>
-                                <CheckCircle2 className='w-[20px] h-[20px] text-[#2D8A60] shrink-0 mt-[2px]' />
+                                <CheckCircle2 className='w-5 h-5 text-[#2D8A60] shrink-0 mt-[2px]' />
                                 <span className='leading-relaxed font-medium'>
                                   {part}
                                 </span>
@@ -641,7 +685,7 @@ function PackageSelectorView({ user }) {
                       }
                       return (
                         <div className='flex items-start gap-3'>
-                          <CheckCircle2 className='w-[20px] h-[20px] text-[#2D8A60] shrink-0 mt-[2px]' />
+                          <CheckCircle2 className='w-5 h-5 text-[#2D8A60] shrink-0 mt-[2px]' />
                           <span className='leading-relaxed font-medium'>
                             {desc}
                           </span>
@@ -650,14 +694,14 @@ function PackageSelectorView({ user }) {
                     })()}
                   </div>
 
-                  <div className='flex gap-4 mb-8 bg-[#F9FAFB] p-5 rounded-2xl border border-gray-100'>
-                    <CalendarDays className='w-[22px] h-[22px] text-gray-400 shrink-0 mt-0.5' />
+                  <div className='flex gap-3 md:gap-4 mb-6 md:mb-8 bg-[#F9FAFB] p-4 md:p-5 rounded-2xl border border-gray-100'>
+                    <CalendarDays className='w-5 h-5 md:w-[22px] md:h-[22px] text-gray-400 shrink-0 mt-0.5' />
                     <div>
-                      <p className='text-[15px] font-bold text-gray-900'>
+                      <p className='text-sm md:text-[15px] font-bold text-gray-900'>
                         Valid for {selectedPackage.validityDays} days from date
                         of first class booking
                       </p>
-                      <p className='text-[12px] text-gray-500 mt-1 font-medium'>
+                      <p className='text-[11px] md:text-[12px] text-gray-500 mt-1 font-medium'>
                         *Must activate first class within{" "}
                         {selectedPackage.activationPeriodDays || 30} days of
                         purchase
@@ -670,50 +714,50 @@ function PackageSelectorView({ user }) {
                       <div className='flex flex-col sm:flex-row gap-x-8 gap-y-4 pt-2'>
                         <div className='flex items-center gap-3'>
                           <Layers className='w-[20px] h-[20px] text-[#2D8A60] shrink-0' />
-                          <span className='text-[16px] font-bold text-gray-900'>
+                          <span className='text-[15px] md:text-[16px] font-bold text-gray-900'>
                             {modalTotalCredits} Credits
                           </span>
                         </div>
 
-                        <div className='flex flex-wrap gap-2.5'>
+                        <div className='flex flex-col md:flex-row flex-wrap gap-2.5'>
                           {selectedPackage.instructorType &&
                             selectedPackage.instructorType.length > 0 && (
-                              <span className='flex items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
-                                <User className='w-4 h-4 text-[#9CA3AF]' />{" "}
+                              <span className='flex items-start md:items-center gap-1.5 text-[#374151] text-xs md:text-[13px] font-semibold tracking-wide rounded-md'>
+                                <User className='w-4 h-4 text-[#9CA3AF] shrink-0 mt-0.5 md:mt-0' />{" "}
                                 {selectedPackage.instructorType.join(", ")}
                               </span>
                             )}
                           {selectedPackage.classType &&
                             selectedPackage.classType.length > 0 && (
-                              <span className='flex items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
-                                <Settings2 className='w-4 h-4 text-[#9CA3AF]' />{" "}
+                              <span className='flex items-start md:items-center gap-1.5 text-[#374151] text-xs md:text-[13px] font-semibold tracking-wide rounded-md'>
+                                <Settings2 className='w-4 h-4 text-[#9CA3AF] shrink-0 mt-0.5 md:mt-0' />{" "}
                                 {selectedPackage.classType.join(", ")}
                               </span>
                             )}
                         </div>
                       </div>
                     ) : (
-                      <div className='bg-[#F9FAFB] rounded-2xl p-6 border border-gray-100'>
-                        <p className='text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-5'>
+                      <div className='bg-[#F9FAFB] rounded-2xl p-4 md:p-6 border border-gray-100'>
+                        <p className='text-[10px] md:text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-4 md:mb-5'>
                           Combo Includes
                         </p>
                         <div className='space-y-3'>
                           {selectedPackage.comboItems?.map((item, idx) => (
                             <div
                               key={idx}
-                              className='bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-6'>
-                              <p className='font-bold text-[#111827] text-[16px] sm:w-24 shrink-0'>
+                              className='bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 md:gap-6'>
+                              <p className='font-bold text-[#111827] text-[15px] md:text-[16px] sm:w-24 shrink-0'>
                                 {item.credits} Credits
                               </p>
-                              <div className='flex flex-col gap-y-3 text-[14px] text-[#4B5563] flex-1'>
+                              <div className='flex flex-col gap-y-2.5 md:gap-y-3 text-[13px] md:text-[14px] text-[#4B5563] flex-1'>
                                 <div className='flex items-start gap-3 font-medium'>
-                                  <User className='w-[18px] h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                  <User className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
                                   <span className='leading-relaxed'>
                                     {item.instructorType?.join(", ")}
                                   </span>
                                 </div>
                                 <div className='flex items-start gap-3 font-medium'>
-                                  <Settings2 className='w-[18px] h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                  <Settings2 className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
                                   <span className='leading-relaxed'>
                                     {item.classType?.join(", ")}
                                   </span>
@@ -727,12 +771,12 @@ function PackageSelectorView({ user }) {
                   </div>
                 </div>
 
-                <div className='bg-white p-6 rounded-3xl border border-gray-100 shadow-sm'>
-                  <h4 className='text-[13px] font-bold text-gray-900 mb-3 uppercase tracking-wider flex items-center gap-2'>
+                <div className='bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm'>
+                  <h4 className='text-xs md:text-[13px] font-bold text-gray-900 mb-3 uppercase tracking-wider flex items-center gap-2'>
                     <Tag className='w-4 h-4 text-[#2D8A60]' /> Promo / Voucher
                     Code
                   </h4>
-                  <div className='flex gap-3'>
+                  <div className='flex flex-col sm:flex-row gap-3'>
                     <input
                       type='text'
                       placeholder='ENTER CODE'
@@ -741,13 +785,13 @@ function PackageSelectorView({ user }) {
                         setPromoCode(e.target.value.toUpperCase())
                       }
                       disabled={appliedPromo !== null}
-                      className='flex-1 px-4 py-3 bg-[#F9FAFB] border border-gray-200 rounded-xl text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] disabled:opacity-70 disabled:cursor-not-allowed'
+                      className='flex-1 px-4 py-3.5 md:py-3 bg-[#F9FAFB] border border-gray-200 rounded-xl text-sm md:text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] disabled:opacity-70 disabled:cursor-not-allowed'
                     />
                     {!appliedPromo ? (
                       <button
                         onClick={handleApplyPromo}
                         disabled={!promoCode.trim() || promoLoading}
-                        className='px-6 py-3 bg-[#1D3D36] hover:bg-[#0F2922] text-white text-[15px] font-bold rounded-xl transition-colors disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center min-w-[100px] shadow-sm'>
+                        className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-[#1D3D36] hover:bg-[#0F2922] text-white text-[14px] md:text-[15px] font-bold rounded-xl transition-colors disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center min-w-[100px] shadow-sm'>
                         {promoLoading ? (
                           <Loader2 className='w-4 h-4 animate-spin' />
                         ) : (
@@ -761,7 +805,7 @@ function PackageSelectorView({ user }) {
                           setPromoCode("");
                           setPromoMessage(null);
                         }}
-                        className='px-6 py-3 bg-red-50 hover:bg-red-100 text-red-600 text-[14px] font-bold rounded-xl transition-colors flex items-center justify-center min-w-[100px] border border-red-100'>
+                        className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-red-50 hover:bg-red-100 text-red-600 text-[14px] font-bold rounded-xl transition-colors flex items-center justify-center min-w-[100px] border border-red-100'>
                         Remove
                       </button>
                     )}
@@ -770,27 +814,21 @@ function PackageSelectorView({ user }) {
                     <motion.p
                       initial={{ opacity: 0, y: -5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className={`mt-3 text-[13px] font-bold flex items-center gap-1.5 ${promoMessage.type === "success" ? "text-[#2D8A60]" : "text-red-500"}`}>
+                      className={`mt-3 text-[12px] md:text-[13px] font-bold flex items-center gap-1.5 ${promoMessage.type === "success" ? "text-[#2D8A60]" : "text-red-500"}`}>
                       {promoMessage.type === "success" ? (
-                        <CheckCircle2 className='w-4 h-4' />
+                        <CheckCircle2 className='w-4 h-4 shrink-0' />
                       ) : (
-                        <AlertCircle className='w-4 h-4' />
+                        <AlertCircle className='w-4 h-4 shrink-0' />
                       )}
                       {promoMessage.text}
                     </motion.p>
                   )}
                 </div>
 
-                <div className='bg-white p-6 md:p-8 border border-gray-100 rounded-3xl shadow-sm'>
-                  <h3 className='font-bold text-[22px] text-gray-900 mb-6'>
+                <div className='bg-white p-5 md:p-8 border border-gray-100 rounded-2xl md:rounded-3xl shadow-sm'>
+                  <h3 className='font-bold text-xl md:text-[22px] text-gray-900 mb-5 md:mb-6'>
                     Complete your purchase
                   </h3>
-
-                  {/* IMPORTANT FOR PURCHASEFORM:
-                      Ensure your PurchaseForm is receiving and sending `appliedPromo` down 
-                      to the `totalAmount`, `discountAmount`, and `promoCodeApplied` fields 
-                      in the API POST request body!
-                  */}
                   <PurchaseForm
                     pkg={selectedPackage}
                     appliedPromo={appliedPromo}
@@ -832,16 +870,16 @@ function PackageCardMinimal({ pkg, onPurchase }) {
   return (
     <div
       onClick={onPurchase}
-      className={`group bg-white rounded-[24px] p-7 md:p-8 transition-all duration-300 hover:shadow-xl cursor-pointer flex flex-col h-full border relative overflow-hidden ${
+      className={`group bg-white rounded-2xl md:rounded-[24px] p-5 md:p-8 transition-all duration-300 hover:shadow-xl cursor-pointer flex flex-col h-full border relative overflow-hidden active:scale-[0.98] md:active:scale-100 ${
         isCombo ? "border-[#2D8A60] shadow-sm" : "border-gray-200"
       }`}>
       {isCombo && (
-        <div className='absolute top-0 left-0 w-2.5 h-full bg-[#2D8A60]' />
+        <div className='absolute top-0 left-0 w-1.5 md:w-2.5 h-full bg-[#2D8A60]' />
       )}
 
-      <div className={`flex-1 mb-6 ${isCombo ? "ml-3" : ""}`}>
+      <div className={`flex-1 mb-5 md:mb-6 ${isCombo ? "ml-2 md:ml-3" : ""}`}>
         <h3
-          className={`text-[24px] font-semibold mb-3 tracking-tight transition-colors ${
+          className={`text-lg md:text-[24px] font-semibold mb-2 md:mb-3 tracking-tight transition-colors line-clamp-2 ${
             isCombo
               ? "text-[#2D8A60]"
               : "text-[#111827] group-hover:text-[#2D8A60]"
@@ -849,78 +887,78 @@ function PackageCardMinimal({ pkg, onPurchase }) {
           {pkg.packageName}
         </h3>
 
-        <div className='text-[#6B7280] text-[15px] font-medium mb-8 min-h-[44px]'>
+        <div className='text-[#6B7280] text-sm md:text-[15px] font-medium mb-6 md:mb-8 min-h-[44px]'>
           {descParts.length > 1 ? (
-            <ul className='space-y-2'>
+            <ul className='space-y-1.5 md:space-y-2'>
               {descParts.slice(0, 3).map((part, idx) => (
                 <li key={idx} className='flex items-start gap-2.5'>
-                  <div className='w-1.5 h-1.5 rounded-full bg-[#6B7280] mt-2 shrink-0' />
+                  <div className='w-1.5 h-1.5 rounded-full bg-[#6B7280] mt-1.5 md:mt-2 shrink-0' />
                   <span className='line-clamp-1'>{part}</span>
                 </li>
               ))}
               {descParts.length > 3 && (
-                <li className='text-[12px] text-[#2D8A60] font-bold pl-4'>
+                <li className='text-[11px] md:text-[12px] text-[#2D8A60] font-bold pl-4'>
                   + {descParts.length - 3} more items
                 </li>
               )}
             </ul>
           ) : (
-            <p className='line-clamp-2 leading-relaxed'>
+            <p className='line-clamp-2 md:line-clamp-3 leading-relaxed'>
               {pkg.packageDescription}
             </p>
           )}
         </div>
 
-        <div className='space-y-4 mb-8'>
-          <div className='flex items-center gap-3 text-[#374151] text-[15px] font-bold'>
-            <CalendarDays className='w-5 h-5 text-gray-400' />
+        <div className='space-y-3 md:space-y-4 mb-6 md:mb-8'>
+          <div className='flex items-center gap-2.5 md:gap-3 text-[#374151] text-sm md:text-[15px] font-bold'>
+            <CalendarDays className='w-[18px] h-[18px] md:w-5 md:h-5 text-gray-400 shrink-0' />
             <span>{totalCredits} Sessions</span>
           </div>
-          <div className='flex items-center gap-3 text-[#374151] text-[15px] font-bold'>
-            <Clock className='w-5 h-5 text-gray-400' />
+          <div className='flex items-center gap-2.5 md:gap-3 text-[#374151] text-sm md:text-[15px] font-bold'>
+            <Clock className='w-[18px] h-[18px] md:w-5 md:h-5 text-gray-400 shrink-0' />
             <span>{pkg.validityDays} Days</span>
           </div>
         </div>
 
         {!isCombo && pkg.instructorType && pkg.instructorType.length > 0 && (
           <div className='flex flex-wrap gap-2'>
-            <span className='bg-[#E8F5EE] text-[#1E5D40] text-[10px] font-semibold uppercase tracking-wider px-3.5 py-1.5 rounded-md'>
+            <span className='bg-[#E8F5EE] text-[#1E5D40] text-[9px] md:text-[10px] font-semibold uppercase tracking-wider px-2.5 md:px-3.5 py-1 md:py-1.5 rounded-md'>
               {pkg.instructorType.join(", ")}
             </span>
           </div>
         )}
       </div>
 
-      <div className={`mt-auto ${isCombo ? "ml-3" : ""}`}>
-        <hr className='border-gray-100 mb-6' />
+      <div className={`mt-auto ${isCombo ? "ml-2 md:ml-3" : ""}`}>
+        <hr className='border-gray-100 mb-5 md:mb-6' />
         <div className='flex items-end justify-between'>
           <div>
-            <p className='text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1.5'>
+            <p className='text-[10px] md:text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-1 md:mb-1.5'>
               Total
             </p>
             {isPromo ? (
-              <div className='flex items-center gap-2.5'>
-                <span className='text-[#9CA3AF] line-through text-[16px] font-bold'>
+              <div className='flex items-center flex-wrap gap-1.5 md:gap-2.5'>
+                <span className='text-[#9CA3AF] line-through text-[14px] md:text-[16px] font-bold'>
                   IDR {originalPriceFormatted}
                 </span>
-                <span className='text-[#1D3D36] font-semibold text-[26px] tracking-tight'>
+                <span className='text-[#1D3D36] font-semibold text-xl md:text-[26px] tracking-tight'>
                   IDR {priceFormatted}
                 </span>
               </div>
             ) : (
-              <p className='text-[#1D3D36] font-semibold text-[26px] tracking-tight'>
+              <p className='text-[#1D3D36] font-semibold text-xl md:text-[26px] tracking-tight'>
                 IDR {priceFormatted}
               </p>
             )}
           </div>
 
           <button
-            className={`w-[52px] h-[52px] rounded-full flex items-center justify-center transition-all shadow-sm group-hover:shadow-md ${
+            className={`w-10 h-10 md:w-[52px] md:h-[52px] rounded-full flex items-center justify-center transition-all shadow-sm group-hover:shadow-md shrink-0 ml-2 ${
               isCombo
-                ? "bg-[#2D8A60] text-white hover:bg-[#1E5D40]"
-                : "bg-[#111827] text-white group-hover:bg-[#2D8A60]"
+                ? "bg-[#2D8A60] text-white md:hover:bg-[#1E5D40]"
+                : "bg-[#111827] text-white md:group-hover:bg-[#2D8A60]"
             }`}>
-            <ShoppingBag className='w-[22px] h-[22px]' />
+            <ShoppingBag className='w-4 h-4 md:w-[22px] md:h-[22px]' />
           </button>
         </div>
       </div>
@@ -1033,6 +1071,115 @@ function UserPassesView({ user }) {
     );
   };
 
+  const renderFilters = () => (
+    <div className='space-y-8'>
+      <div className='space-y-4'>
+        <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+          <MapPin className='w-4 h-4 text-[#2D8A60]' /> Studio
+        </h3>
+        <div className='space-y-3 mt-3'>
+          {uniqueStudios.length > 0 ? (
+            uniqueStudios.map((studio) => (
+              <label
+                key={studio}
+                className='flex items-center gap-3.5 cursor-pointer group py-1'>
+                <div
+                  className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
+                    selectedStudios.includes(studio)
+                      ? "bg-[#1D3D36] border-[#1D3D36] shadow"
+                      : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
+                  }`}>
+                  {selectedStudios.includes(studio) && (
+                    <Check className='w-3.5 h-3.5 text-white' />
+                  )}
+                </div>
+                <input
+                  type='checkbox'
+                  className='hidden'
+                  checked={selectedStudios.includes(studio)}
+                  onChange={() => toggleStudioFilter(studio)}
+                />
+                <span
+                  className={`text-[15px] ${
+                    selectedStudios.includes(studio)
+                      ? "text-gray-900 font-bold"
+                      : "text-gray-600 font-medium"
+                  }`}>
+                  {studio}
+                </span>
+              </label>
+            ))
+          ) : (
+            <p className='text-sm text-gray-400 italic px-1'>
+              No locations available
+            </p>
+          )}
+        </div>
+      </div>
+      <hr className='border-gray-200' />
+      <div className='space-y-4 pb-4 md:pb-0'>
+        <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+          <Ticket className='w-4 h-4 text-[#2D8A60]' /> Status
+        </h3>
+        <div className='space-y-3 mt-3'>
+          <label className='flex items-center gap-3.5 cursor-pointer group py-1'>
+            <div
+              className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
+                selectedStatusFilters.includes("active")
+                  ? "bg-[#1D3D36] border-[#1D3D36] shadow"
+                  : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
+              }`}>
+              {selectedStatusFilters.includes("active") && (
+                <Check className='w-3.5 h-3.5 text-white' />
+              )}
+            </div>
+            <input
+              type='checkbox'
+              className='hidden'
+              checked={selectedStatusFilters.includes("active")}
+              onChange={() => toggleStatusFilter("active")}
+            />
+            <span
+              className={`text-[15px] ${
+                selectedStatusFilters.includes("active")
+                  ? "text-gray-900 font-bold"
+                  : "text-gray-600 font-medium"
+              }`}>
+              Active Passes
+            </span>
+          </label>
+
+          <label className='flex items-center gap-3.5 cursor-pointer group py-1'>
+            <div
+              className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
+                selectedStatusFilters.includes("history")
+                  ? "bg-[#1D3D36] border-[#1D3D36] shadow"
+                  : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
+              }`}>
+              {selectedStatusFilters.includes("history") && (
+                <Check className='w-3.5 h-3.5 text-white' />
+              )}
+            </div>
+            <input
+              type='checkbox'
+              className='hidden'
+              checked={selectedStatusFilters.includes("history")}
+              onChange={() => toggleStatusFilter("history")}
+            />
+            <span
+              className={`text-[15px] ${
+                selectedStatusFilters.includes("history")
+                  ? "text-gray-900 font-bold"
+                  : "text-gray-600 font-medium"
+              }`}>
+              Pass History / Expired
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading)
     return (
       <div className='h-[60vh] flex-col flex items-center justify-center gap-4'>
@@ -1044,160 +1191,44 @@ function UserPassesView({ user }) {
     );
 
   return (
-    <div className='container mx-auto px-4 md:px-6 py-12'>
-      <div className='flex flex-col lg:flex-row gap-12 xl:gap-16'>
-        <aside
-          className={`lg:w-64 xl:w-72 shrink-0 space-y-10 ${
-            showMobileFilters
-              ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
-              : "hidden lg:block"
-          }`}>
-          <div className='flex items-center justify-between lg:hidden mb-8'>
-            <h3 className='font-bold text-xl'>Refine Passes</h3>
-            <button
-              onClick={() => setShowMobileFilters(false)}
-              className='p-2 bg-gray-100 rounded-full'>
-              <X className='w-5 h-5' />
-            </button>
-          </div>
-
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <MapPin className='w-4 h-4 text-[#2D8A60]' /> Studio
-            </h3>
-            <div className='space-y-2 mt-3'>
-              {uniqueStudios.length > 0 ? (
-                uniqueStudios.map((studio) => (
-                  <label
-                    key={studio}
-                    className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
-                    <div
-                      className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${
-                        selectedStudios.includes(studio)
-                          ? "bg-[#1D3D36] border-[#1D3D36] shadow"
-                          : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
-                      }`}>
-                      {selectedStudios.includes(studio) && (
-                        <Check className='w-3.5 h-3.5 text-white' />
-                      )}
-                    </div>
-                    <input
-                      type='checkbox'
-                      className='hidden'
-                      checked={selectedStudios.includes(studio)}
-                      onChange={() => toggleStudioFilter(studio)}
-                    />
-                    <span
-                      className={`text-[15px] ${
-                        selectedStudios.includes(studio)
-                          ? "text-gray-900 font-bold"
-                          : "text-gray-600 font-medium"
-                      }`}>
-                      {studio}
-                    </span>
-                  </label>
-                ))
-              ) : (
-                <p className='text-sm text-gray-400 italic'>
-                  No locations available
-                </p>
-              )}
-            </div>
-          </div>
-
-          <hr className='border-gray-200' />
-
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <Ticket className='w-4 h-4 text-[#2D8A60]' /> Status
-            </h3>
-            <div className='space-y-2 mt-3'>
-              <label className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
-                <div
-                  className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${
-                    selectedStatusFilters.includes("active")
-                      ? "bg-[#1D3D36] border-[#1D3D36] shadow"
-                      : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
-                  }`}>
-                  {selectedStatusFilters.includes("active") && (
-                    <Check className='w-3.5 h-3.5 text-white' />
-                  )}
-                </div>
-                <input
-                  type='checkbox'
-                  className='hidden'
-                  checked={selectedStatusFilters.includes("active")}
-                  onChange={() => toggleStatusFilter("active")}
-                />
-                <span
-                  className={`text-[15px] ${
-                    selectedStatusFilters.includes("active")
-                      ? "text-gray-900 font-bold"
-                      : "text-gray-600 font-medium"
-                  }`}>
-                  Active Passes
-                </span>
-              </label>
-
-              <label className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
-                <div
-                  className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${
-                    selectedStatusFilters.includes("history")
-                      ? "bg-[#1D3D36] border-[#1D3D36] shadow"
-                      : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
-                  }`}>
-                  {selectedStatusFilters.includes("history") && (
-                    <Check className='w-3.5 h-3.5 text-white' />
-                  )}
-                </div>
-                <input
-                  type='checkbox'
-                  className='hidden'
-                  checked={selectedStatusFilters.includes("history")}
-                  onChange={() => toggleStatusFilter("history")}
-                />
-                <span
-                  className={`text-[15px] ${
-                    selectedStatusFilters.includes("history")
-                      ? "text-gray-900 font-bold"
-                      : "text-gray-600 font-medium"
-                  }`}>
-                  Pass History / Expired
-                </span>
-              </label>
-            </div>
-          </div>
+    <div className='container mx-auto px-4 md:px-6 py-8 md:py-12'>
+      <div className='flex flex-col lg:flex-row gap-8 xl:gap-12'>
+        {/* Desktop Sidebar */}
+        <aside className='hidden lg:block lg:w-64 xl:w-72 shrink-0 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm sticky top-28 h-fit'>
+          <h3 className='font-bold text-lg mb-6'>Filters</h3>
+          {renderFilters()}
         </aside>
 
-        <div className='flex-1'>
-          <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 pb-4 border-b border-gray-200'>
-            <p className='text-gray-500 text-[15px] font-medium'>
+        <div className='flex-1 min-w-0'>
+          <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-10 pb-4 border-b border-gray-200'>
+            <p className='text-gray-500 text-sm md:text-[15px] font-medium'>
               Showing{" "}
               <span className='font-bold text-gray-900'>
                 {displayPasses.length}
               </span>{" "}
               passes
             </p>
-            <div className='flex gap-2.5 w-full md:w-auto'>
+            <div className='flex gap-3 w-full md:w-auto'>
               <div className='relative flex-1 md:w-72'>
-                <Search className='absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
+                <Search className='absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] md:w-4 md:h-4 text-gray-400' />
                 <input
                   type='text'
                   placeholder='Search by pass name...'
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className='w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] shadow-sm'
+                  className='w-full pl-10 pr-4 py-3.5 md:py-2.5 bg-white border border-gray-200 rounded-xl text-sm md:text-[14px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] shadow-sm'
                 />
               </div>
               <button
-                className='lg:hidden flex items-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm'
+                className='lg:hidden flex items-center justify-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-3 md:py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm active:scale-95 shrink-0'
                 onClick={() => setShowMobileFilters(true)}>
-                <Filter className='w-4 h-4 text-[#2D8A60]' /> Filter Passes
+                <Filter className='w-4 h-4 text-[#2D8A60]' />{" "}
+                <span className='hidden sm:inline'>Filter Passes</span>
               </button>
             </div>
           </div>
 
-          <div className='space-y-6'>
+          <div className='space-y-4 md:space-y-6'>
             {displayPasses.length > 0 ? (
               displayPasses.map((group) => (
                 <PassCard
@@ -1207,14 +1238,14 @@ function UserPassesView({ user }) {
                 />
               ))
             ) : (
-              <div className='py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm'>
+              <div className='py-20 md:py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm px-4'>
                 <div className='w-16 h-16 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center mx-auto mb-5 text-gray-300'>
                   <WalletCards className='w-8 h-8' />
                 </div>
-                <h3 className='text-xl font-bold text-gray-900 mb-2'>
+                <h3 className='text-lg md:text-xl font-bold text-gray-900 mb-2'>
                   No studio passes available
                 </h3>
-                <p className='text-gray-500 text-[15px]'>
+                <p className='text-gray-500 text-sm md:text-[15px]'>
                   Adjust filters, search queries, or clear them to view passes.
                 </p>
               </div>
@@ -1222,6 +1253,48 @@ function UserPassesView({ user }) {
           </div>
         </div>
       </div>
+
+      {/* Mobile Filters Bottom Sheet */}
+      <AnimatePresence>
+        {showMobileFilters && (
+          <div className='fixed inset-0 z-[60] flex items-end justify-center lg:hidden p-0 bg-black/60 backdrop-blur-sm'>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileFilters(false)}
+              className='absolute inset-0'
+            />
+            <motion.div
+              initial={{ opacity: 0, y: "100%" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className='relative bg-white w-full max-h-[90vh] rounded-t-[2rem] shadow-2xl flex flex-col pb-safe overflow-hidden'>
+              <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 shrink-0' />
+
+              <div className='flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0'>
+                <h3 className='font-bold text-lg'>Refine Passes</h3>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className='p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors'>
+                  <X className='w-5 h-5 text-gray-500' />
+                </button>
+              </div>
+              <div className='p-6 overflow-y-auto flex-1 custom-scrollbar overscroll-contain'>
+                {renderFilters()}
+              </div>
+              <div className='p-4 border-t border-gray-100 bg-white shrink-0'>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className='w-full py-4 bg-[#1D3D36] text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
+                  Apply Filters
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selectedPassGroup && (
@@ -1287,6 +1360,51 @@ function PurchaseHistoryView({ user }) {
     );
   };
 
+  const renderFilters = () => (
+    <div className='space-y-4 pb-4 md:pb-0'>
+      <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
+        <History className='w-4 h-4 text-[#2D8A60]' /> Payment Status
+      </h3>
+      <div className='space-y-3 mt-3'>
+        {[
+          { key: "confirmed", label: "Confirmed" },
+          { key: "waiting_confirmation", label: "Pending Verification" },
+          { key: "pending", label: "Payment Pending" },
+          { key: "payment_rejected", label: "Rejected" },
+        ].map((status) => (
+          <label
+            key={status.key}
+            className='flex items-center gap-3.5 cursor-pointer group py-1'>
+            <div
+              className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
+                selectedStatuses.includes(status.key)
+                  ? "bg-[#1D3D36] border-[#1D3D36] shadow"
+                  : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
+              }`}>
+              {selectedStatuses.includes(status.key) && (
+                <Check className='w-3.5 h-3.5 text-white' />
+              )}
+            </div>
+            <input
+              type='checkbox'
+              className='hidden'
+              checked={selectedStatuses.includes(status.key)}
+              onChange={() => toggleFilter(status.key)}
+            />
+            <span
+              className={`text-[15px] capitalize ${
+                selectedStatuses.includes(status.key)
+                  ? "text-gray-900 font-bold"
+                  : "text-gray-600 font-medium"
+              }`}>
+              {status.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
   if (loading)
     return (
       <div className='h-[60vh] flex flex-col items-center justify-center gap-4'>
@@ -1298,100 +1416,44 @@ function PurchaseHistoryView({ user }) {
     );
 
   return (
-    <div className='container mx-auto px-4 md:px-6 py-12'>
-      <div className='flex flex-col lg:flex-row gap-12 xl:gap-16'>
-        {/* --- SIDEBAR FILTERS --- */}
-        <aside
-          className={`lg:w-64 xl:w-72 shrink-0 space-y-10 ${
-            showMobileFilters
-              ? "block fixed inset-0 z-50 bg-white p-6 overflow-y-auto"
-              : "hidden lg:block"
-          }`}>
-          <div className='flex items-center justify-between lg:hidden mb-8'>
-            <h3 className='font-bold text-xl'>Refine Orders</h3>
-            <button
-              onClick={() => setShowMobileFilters(false)}
-              className='p-2 bg-gray-100 rounded-full'>
-              <X className='w-5 h-5' />
-            </button>
-          </div>
-
-          <div className='space-y-4'>
-            <h3 className='text-sm font-bold text-[#1D3D36] uppercase tracking-wider flex items-center gap-2'>
-              <History className='w-4 h-4 text-[#2D8A60]' /> Payment Status
-            </h3>
-            <div className='space-y-2 mt-3'>
-              {[
-                { key: "confirmed", label: "Confirmed" },
-                { key: "waiting_confirmation", label: "Pending Verification" },
-                { key: "pending", label: "Payment Pending" },
-                { key: "payment_rejected", label: "Rejected" },
-              ].map((status) => (
-                <label
-                  key={status.key}
-                  className='flex items-center gap-3.5 cursor-pointer group py-1.5'>
-                  <div
-                    className={`w-5 h-5 rounded flex items-center justify-center transition-all border ${
-                      selectedStatuses.includes(status.key)
-                        ? "bg-[#1D3D36] border-[#1D3D36] shadow"
-                        : "border-gray-300 group-hover:border-[#2D8A60] bg-white"
-                    }`}>
-                    {selectedStatuses.includes(status.key) && (
-                      <Check className='w-3.5 h-3.5 text-white' />
-                    )}
-                  </div>
-                  <input
-                    type='checkbox'
-                    className='hidden'
-                    checked={selectedStatuses.includes(status.key)}
-                    onChange={() => toggleFilter(status.key)}
-                  />
-                  <span
-                    className={`text-[15px] capitalize ${
-                      selectedStatuses.includes(status.key)
-                        ? "text-gray-900 font-bold"
-                        : "text-gray-600 font-medium"
-                    }`}>
-                    {status.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
+    <div className='container mx-auto px-4 md:px-6 py-8 md:py-12'>
+      <div className='flex flex-col lg:flex-row gap-8 xl:gap-12'>
+        {/* Desktop Sidebar */}
+        <aside className='hidden lg:block lg:w-64 xl:w-72 shrink-0 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm sticky top-28 h-fit'>
+          <h3 className='font-bold text-lg mb-6'>Filters</h3>
+          {renderFilters()}
         </aside>
 
-        {/* --- MAIN GRID --- */}
-        <div className='flex-1'>
-          <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 pb-4 border-b border-gray-200'>
-            <div>
-              <p className='text-gray-500 text-[15px] font-medium'>
-                Showing{" "}
-                <span className='font-bold text-gray-900'>
-                  {filteredTransactions.length}
-                </span>{" "}
-                orders
-              </p>
-            </div>
-            <div className='flex gap-2.5 w-full md:w-auto'>
+        <div className='flex-1 min-w-0'>
+          <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-10 pb-4 border-b border-gray-200'>
+            <p className='text-gray-500 text-sm md:text-[15px] font-medium'>
+              Showing{" "}
+              <span className='font-bold text-gray-900'>
+                {filteredTransactions.length}
+              </span>{" "}
+              orders
+            </p>
+            <div className='flex gap-3 w-full md:w-auto'>
               <div className='relative flex-1 md:w-72'>
-                <Search className='absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
+                <Search className='absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] md:w-4 md:h-4 text-gray-400' />
                 <input
                   type='text'
                   placeholder='Search ID or package name...'
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className='w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] shadow-sm'
+                  className='w-full pl-10 pr-4 py-3.5 md:py-2.5 bg-white border border-gray-200 rounded-xl text-sm md:text-[14px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] shadow-sm'
                 />
               </div>
               <button
-                className='lg:hidden flex items-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm'
+                className='lg:hidden flex items-center justify-center gap-2.5 text-sm font-bold text-gray-900 bg-white border border-gray-200 px-4 py-3 md:py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm active:scale-95 shrink-0'
                 onClick={() => setShowMobileFilters(true)}>
-                <Filter className='w-4 h-4 text-[#2D8A60]' /> Filter Orders
+                <Filter className='w-4 h-4 text-[#2D8A60]' />{" "}
+                <span className='hidden sm:inline'>Filter Orders</span>
               </button>
             </div>
           </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8'>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 xl:gap-8'>
             {filteredTransactions.length > 0 ? (
               filteredTransactions.map((tx) => (
                 <TransactionCard
@@ -1401,14 +1463,14 @@ function PurchaseHistoryView({ user }) {
                 />
               ))
             ) : (
-              <div className='col-span-full py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm'>
+              <div className='col-span-full py-20 md:py-24 text-center bg-white rounded-3xl border border-gray-200 shadow-sm px-4'>
                 <div className='w-16 h-16 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center mx-auto mb-5 text-gray-300'>
                   <History className='w-8 h-8' />
                 </div>
-                <h3 className='text-xl font-bold text-gray-900 mb-2'>
+                <h3 className='text-lg md:text-xl font-bold text-gray-900 mb-2'>
                   No orders found
                 </h3>
-                <p className='text-gray-500 text-[15px]'>
+                <p className='text-gray-500 text-sm md:text-[15px] max-w-xs mx-auto'>
                   Adjust filters, search queries, or clear them to view order
                   history.
                 </p>
@@ -1417,6 +1479,48 @@ function PurchaseHistoryView({ user }) {
           </div>
         </div>
       </div>
+
+      {/* Mobile Filters Bottom Sheet */}
+      <AnimatePresence>
+        {showMobileFilters && (
+          <div className='fixed inset-0 z-[60] flex items-end justify-center lg:hidden p-0 bg-black/60 backdrop-blur-sm'>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileFilters(false)}
+              className='absolute inset-0'
+            />
+            <motion.div
+              initial={{ opacity: 0, y: "100%" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className='relative bg-white w-full max-h-[90vh] rounded-t-[2rem] shadow-2xl flex flex-col pb-safe overflow-hidden'>
+              <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 shrink-0' />
+
+              <div className='flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0'>
+                <h3 className='font-bold text-lg'>Refine Orders</h3>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className='p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors'>
+                  <X className='w-5 h-5 text-gray-500' />
+                </button>
+              </div>
+              <div className='p-6 overflow-y-auto flex-1 custom-scrollbar overscroll-contain'>
+                {renderFilters()}
+              </div>
+              <div className='p-4 border-t border-gray-100 bg-white shrink-0'>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className='w-full py-4 bg-[#1D3D36] text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
+                  Apply Filters
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selectedTransaction && (
@@ -1465,58 +1569,58 @@ function PassCard({ group, onClick }) {
   return (
     <div
       onClick={onClick}
-      className='bg-white rounded-[24px] border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex overflow-hidden cursor-pointer'>
+      className='bg-white rounded-2xl md:rounded-[24px] border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex overflow-hidden cursor-pointer active:scale-[0.99] md:active:scale-100'>
       <div
-        className={`w-[10px] shrink-0 ${isExpired ? "bg-gray-400" : progressPercent < 15 ? "bg-rose-500" : "bg-[#2D8A60]"}`}></div>
-      <div className='flex-1 p-5 md:p-7 flex flex-col md:flex-row justify-between items-center gap-6'>
+        className={`w-1.5 md:w-[10px] shrink-0 ${isExpired ? "bg-gray-400" : progressPercent < 15 ? "bg-rose-500" : "bg-[#2D8A60]"}`}></div>
+      <div className='flex-1 p-4 md:p-7 flex flex-col md:flex-row justify-between md:items-center gap-4 md:gap-6'>
         <div className='flex-1 w-full md:pr-6 md:border-r border-dashed border-gray-200 flex flex-col justify-center h-full'>
-          <div className='mb-2.5 flex items-center gap-2'>
+          <div className='mb-2 md:mb-2.5 flex flex-wrap items-center gap-2'>
             <span
-              className={`text-[10px] font-semibold px-2.5 py-1 rounded tracking-wider ${isExpired ? "bg-gray-100 text-gray-600" : "bg-[#E8F5EE] text-[#1E5D40]"}`}>
+              className={`text-[9px] md:text-[10px] font-semibold px-2 md:px-2.5 py-1 rounded tracking-wider ${isExpired ? "bg-gray-100 text-gray-600" : "bg-[#E8F5EE] text-[#1E5D40]"}`}>
               {isExpired ? "PASS EXPIRED" : "ACTIVE PASS"}
             </span>
             {isFrozen && !isExpired && (
-              <span className='text-[10px] font-bold px-2 py-1 rounded tracking-wider bg-[#ECFEFF] text-[#155E75] flex items-center gap-1.5'>
+              <span className='text-[9px] md:text-[10px] font-bold px-2 py-1 rounded tracking-wider bg-[#ECFEFF] text-[#155E75] flex items-center gap-1 md:gap-1.5'>
                 <Snowflake size={12} /> FROZEN
               </span>
             )}
           </div>
           <h3
-            className='text-[22px] md:text-[26px] font-semibold mb-5 text-[#111827] tracking-tight leading-snug pr-4 md:pr-8 group-hover:text-[#2D8A60] transition-colors'
+            className='text-xl md:text-[26px] font-semibold mb-3 md:mb-5 text-[#111827] tracking-tight leading-snug md:pr-8 group-hover:text-[#2D8A60] transition-colors line-clamp-2'
             title={pkgName}>
             {pkgName}
           </h3>
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-[14px] text-gray-600 font-medium'>
-            <div className='flex items-center gap-2.5'>
-              <CalendarDays size={18} className='text-[#2D8A60] shrink-0' />
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 md:gap-y-3 gap-x-4 md:gap-x-6 text-[13px] md:text-[14px] text-gray-600 font-medium'>
+            <div className='flex items-center gap-2 md:gap-2.5'>
+              <CalendarDays className='w-4 h-4 md:w-[18px] md:h-[18px] text-[#2D8A60] shrink-0' />
               <span className='truncate'>
                 Booked:{" "}
                 {new Date(trx.purchaseDate).toLocaleDateString("en-GB", {
                   day: "numeric",
                   month: "short",
-                  year: "numeric",
+                  year: "2-digit",
                 })}
               </span>
             </div>
-            <div className='flex items-center gap-2.5'>
-              <Clock size={18} className='text-rose-500 shrink-0' />
+            <div className='flex items-center gap-2 md:gap-2.5'>
+              <Clock className='w-4 h-4 md:w-[18px] md:h-[18px] text-rose-500 shrink-0' />
               <span className='truncate'>
                 Ends:{" "}
                 {new Date(trx.expiryDate).toLocaleDateString("en-GB", {
                   day: "numeric",
                   month: "short",
-                  year: "numeric",
+                  year: "2-digit",
                 })}
               </span>
             </div>
-            <div className='flex items-center gap-2.5'>
-              <MapPin size={18} className='text-gray-400 shrink-0' />
+            <div className='flex items-center gap-2 md:gap-2.5'>
+              <MapPin className='w-4 h-4 md:w-[18px] md:h-[18px] text-gray-400 shrink-0' />
               <span className='truncate' title={trx.issuingStudio?.studioName}>
                 {trx.issuingStudio?.studioName}
               </span>
             </div>
-            <div className='flex items-center gap-2.5'>
-              <Users size={18} className='text-gray-400 shrink-0' />
+            <div className='flex items-center gap-2 md:gap-2.5'>
+              <Users className='w-4 h-4 md:w-[18px] md:h-[18px] text-gray-400 shrink-0' />
               <span className='truncate' title={formatClasses()}>
                 {formatClasses()}
               </span>
@@ -1524,35 +1628,58 @@ function PassCard({ group, onClick }) {
           </div>
         </div>
 
-        <div className='md:hidden w-full h-px border-t border-dashed border-gray-200'></div>
+        <div className='md:hidden w-full h-px border-t border-dashed border-gray-200 mt-2 mb-2'></div>
 
-        <div className='w-full md:w-56 md:pl-6 flex flex-col justify-center items-center md:items-end md:pr-10 relative'>
+        <div className='w-full md:w-56 md:pl-6 flex flex-row md:flex-col justify-between items-center md:items-end md:pr-10 relative'>
+          <div className='flex items-center gap-3 md:hidden'>
+            {!isExpired && (
+              <button className='p-2.5 bg-[#E8F5EE] text-[#2D8A60] rounded-full hover:bg-[#D1EAE0] transition-colors shadow-sm shrink-0'>
+                <QrCode className='w-5 h-5' />
+              </button>
+            )}
+            <span className='text-[10px] font-bold text-gray-400 uppercase tracking-widest'>
+              Balance
+            </span>
+          </div>
+
           {!isExpired && (
-            <div className='absolute -top-5 md:top-1/2 md:-translate-y-1/2 md:-left-6 z-10'>
+            <div className='hidden md:block absolute top-1/2 -translate-y-1/2 -left-6 z-10'>
               <button className='p-3 bg-[#E8F5EE] text-[#2D8A60] rounded-full hover:bg-[#D1EAE0] transition-colors shadow-sm'>
                 <QrCode size={20} />
               </button>
             </div>
           )}
 
-          <div className='flex flex-col items-center mt-3 md:mt-0'>
+          <div className='flex flex-row md:flex-col items-baseline md:items-center gap-1.5 md:gap-0 mt-0'>
             <span
-              className={`text-[64px] leading-none font-semibold tracking-tighter ${isExpired ? "text-gray-400" : "text-[#0F2922]"}`}>
+              className={`text-4xl md:text-[64px] leading-none font-semibold tracking-tighter ${isExpired ? "text-gray-400" : "text-[#0F2922]"}`}>
               {group.totalRemaining}
             </span>
-            <span className='text-[12px] font-bold text-gray-500 tracking-[0.15em] mt-2 uppercase'>
+            <span className='hidden md:block text-[12px] font-bold text-gray-500 tracking-[0.15em] mt-2 uppercase'>
               BALANCE LEFT
+            </span>
+            <span className='md:hidden text-xs font-bold text-gray-500 pb-0.5'>
+              left
             </span>
           </div>
 
           {!isExpired && (
-            <div className='w-full max-w-[120px] bg-gray-200 h-1.5 rounded-full mt-5 overflow-hidden'>
+            <div className='hidden md:block w-full max-w-[120px] bg-gray-200 h-1.5 rounded-full mt-5 overflow-hidden'>
               <div
                 className={`${progressPercent < 15 ? "bg-rose-500" : "bg-[#2D8A60]"} h-full rounded-full transition-all`}
                 style={{ width: `${progressPercent}%` }}></div>
             </div>
           )}
         </div>
+
+        {/* Mobile Progress Bar */}
+        {!isExpired && (
+          <div className='md:hidden w-full bg-gray-100 h-1.5 rounded-full mt-1 overflow-hidden'>
+            <div
+              className={`${progressPercent < 15 ? "bg-rose-500" : "bg-[#2D8A60]"} h-full rounded-full transition-all`}
+              style={{ width: `${progressPercent}%` }}></div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1570,33 +1697,42 @@ function PassDetailModal({ group, onClose }) {
     !activePass.isActive || new Date(activePass.expiryDate) < new Date();
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/70 backdrop-blur-sm'>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className='absolute inset-0'
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: "100%" }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        exit={{ opacity: 0, scale: 0.95, y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 350 }}
-        className='relative bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
-        <div className='p-8 pb-6 border-b border-gray-100 flex justify-between items-start bg-white shrink-0'>
+        className='relative bg-white w-full max-w-lg rounded-t-[2rem] md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] md:max-h-[90vh] pb-safe md:pb-0'>
+        <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
+
+        <div className='p-6 md:p-8 pb-4 md:pb-6 border-b border-gray-100 flex justify-between items-start bg-white shrink-0'>
           <div className='space-y-1'>
-            <h3 className='font-semibold text-[26px] text-[#111827] tracking-tight leading-tight'>
+            <h3 className='font-semibold text-xl md:text-[26px] text-[#111827] tracking-tight leading-tight pr-4'>
               {activePass.packageId?.packageName ||
                 activePass.packageNameSnapshot}
             </h3>
-            <p className='text-xs text-gray-500 font-mono tracking-wide'>
+            <p className='text-[11px] md:text-xs text-gray-500 font-mono tracking-wide'>
               Pass ID: {activePass._id}
             </p>
           </div>
           <button
             onClick={onClose}
-            className='p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors ml-4 shrink-0'>
-            <X className='w-5 h-5 text-gray-500' />
+            className='p-1.5 md:p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors ml-2 shrink-0'>
+            <X className='w-5 h-5 md:w-5 md:h-5 text-gray-500' />
           </button>
         </div>
 
         {group.isGroup && (
-          <div className='bg-white px-8 pt-4 pb-3 border-b border-gray-100 shrink-0'>
-            <p className='text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5'>
+          <div className='bg-white px-6 md:px-8 pt-4 pb-3 border-b border-gray-100 shrink-0'>
+            <p className='text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5'>
               Select Session Type
             </p>
             <div className='flex gap-2 overflow-x-auto no-scrollbar pb-2'>
@@ -1604,7 +1740,7 @@ function PassDetailModal({ group, onClose }) {
                 <button
                   key={p._id}
                   onClick={() => setSelectedSubPassId(p._id)}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-xl border text-[13px] font-bold transition-all ${
+                  className={`flex-shrink-0 px-3.5 py-2 md:px-4 md:py-2.5 rounded-xl border text-xs md:text-[13px] font-bold transition-all ${
                     selectedSubPassId === p._id
                       ? "bg-[#E8F5EE] border-[#2D8A60] text-[#1D3D36] shadow-sm"
                       : "bg-white border-gray-200 text-gray-500 hover:border-[#2D8A60]"
@@ -1617,10 +1753,10 @@ function PassDetailModal({ group, onClose }) {
         )}
 
         {!isExpired && (
-          <div className='flex border-b border-gray-100 bg-white px-8 pt-2 gap-8 shrink-0'>
+          <div className='flex border-b border-gray-100 bg-white px-6 md:px-8 pt-2 gap-6 md:gap-8 shrink-0 overflow-x-auto no-scrollbar'>
             <button
               onClick={() => setActiveTab("qr")}
-              className={`pb-4 text-[15px] font-bold transition-colors relative ${activeTab === "qr" ? "text-[#1D3D36]" : "text-gray-400 hover:text-gray-700"}`}>
+              className={`pb-3 md:pb-4 text-sm md:text-[15px] font-bold transition-colors relative whitespace-nowrap ${activeTab === "qr" ? "text-[#1D3D36]" : "text-gray-400 hover:text-gray-700"}`}>
               Check-in QR
               {activeTab === "qr" && (
                 <div className='absolute bottom-0 left-0 w-full h-[3px] bg-[#1D3D36] rounded-t-full' />
@@ -1628,7 +1764,7 @@ function PassDetailModal({ group, onClose }) {
             </button>
             <button
               onClick={() => setActiveTab("share")}
-              className={`pb-4 text-[15px] font-bold transition-colors relative ${activeTab === "share" ? "text-[#1D3D36]" : "text-gray-400 hover:text-gray-700"}`}>
+              className={`pb-3 md:pb-4 text-sm md:text-[15px] font-bold transition-colors relative whitespace-nowrap ${activeTab === "share" ? "text-[#1D3D36]" : "text-gray-400 hover:text-gray-700"}`}>
               Share Pass
               {activeTab === "share" && (
                 <div className='absolute bottom-0 left-0 w-full h-[3px] bg-[#1D3D36] rounded-t-full' />
@@ -1636,7 +1772,7 @@ function PassDetailModal({ group, onClose }) {
             </button>
             <button
               onClick={() => setActiveTab("freeze")}
-              className={`pb-4 text-[15px] font-bold transition-colors relative ${activeTab === "freeze" ? "text-[#1D3D36]" : "text-gray-400 hover:text-gray-700"}`}>
+              className={`pb-3 md:pb-4 text-sm md:text-[15px] font-bold transition-colors relative whitespace-nowrap ${activeTab === "freeze" ? "text-[#1D3D36]" : "text-gray-400 hover:text-gray-700"}`}>
               Freeze Request
               {activeTab === "freeze" && (
                 <div className='absolute bottom-0 left-0 w-full h-[3px] bg-[#1D3D36] rounded-t-full' />
@@ -1645,7 +1781,7 @@ function PassDetailModal({ group, onClose }) {
           </div>
         )}
 
-        <div className='p-8 overflow-y-auto bg-[#F9FAFB] flex-1'>
+        <div className='p-6 md:p-8 overflow-y-auto bg-[#F9FAFB] flex-1 custom-scrollbar overscroll-contain'>
           {activeTab === "qr" && (
             <PassQRView pass={activePass} isExpired={isExpired} />
           )}
@@ -1664,9 +1800,9 @@ function PassQRView({ pass, isExpired }) {
     (pass.freeze?.startDate && new Date(pass.freeze.endDate) > new Date());
 
   return (
-    <div className='flex flex-col items-center text-center h-full justify-center'>
+    <div className='flex flex-col items-center text-center h-full justify-center py-4 md:py-0'>
       <div
-        className={`mb-8 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+        className={`mb-6 md:mb-8 px-4 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
           isExpired
             ? "bg-gray-100 text-gray-700"
             : isFrozen
@@ -1687,9 +1823,9 @@ function PassQRView({ pass, isExpired }) {
             : "Ready for Studio Check-in"}
       </div>
 
-      <div className='relative'>
+      <div className='relative w-full max-w-[240px] md:max-w-none'>
         <div
-          className={`w-64 h-64 rounded-[32px] flex items-center justify-center mb-8 border-2 border-dashed mx-auto p-4 transition-colors shadow-sm ${
+          className={`w-full aspect-square md:w-64 md:h-64 rounded-3xl md:rounded-[32px] flex items-center justify-center mb-6 md:mb-8 border-2 border-dashed mx-auto p-4 transition-colors shadow-sm ${
             isExpired || isFrozen
               ? "bg-gray-50 border-gray-200"
               : "bg-white border-[#2D8A60]"
@@ -1708,41 +1844,43 @@ function PassQRView({ pass, isExpired }) {
               viewBox={`0 0 256 256`}
             />
           </div>
-          {isExpired && <Ban className='absolute w-16 h-16 text-rose-500/80' />}
+          {isExpired && (
+            <Ban className='absolute w-12 h-12 md:w-16 md:h-16 text-rose-500/80' />
+          )}
           {isFrozen && !isExpired && (
-            <Snowflake className='absolute w-16 h-16 text-[#155E75]/80' />
+            <Snowflake className='absolute w-12 h-12 md:w-16 md:h-16 text-[#155E75]/80' />
           )}
         </div>
       </div>
 
-      <p className='text-[15px] text-gray-500 mb-8 font-medium'>
+      <p className='text-sm md:text-[15px] text-gray-500 mb-8 font-medium px-4'>
         Present this QR code to the studio desk representative for check-in.
       </p>
 
-      <div className='grid grid-cols-2 gap-5 w-full mt-auto'>
-        <div className='bg-white p-5 rounded-2xl border border-gray-100 text-center shadow-sm'>
-          <p className='text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1'>
+      <div className='grid grid-cols-2 gap-4 md:gap-5 w-full mt-auto'>
+        <div className='bg-white p-4 md:p-5 rounded-2xl border border-gray-100 text-center shadow-sm'>
+          <p className='text-[10px] md:text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1'>
             Balance Left
           </p>
           <p
-            className={`text-[32px] font-semibold ${isExpired ? "text-gray-400" : "text-[#111827]"} tracking-tight leading-none`}>
+            className={`text-2xl md:text-[32px] font-semibold ${isExpired ? "text-gray-400" : "text-[#111827]"} tracking-tight leading-none`}>
             {pass.remainingCredits}{" "}
-            <span className='text-[15px] font-semibold text-gray-500'>
+            <span className='text-xs md:text-[15px] font-semibold text-gray-500 block md:inline mt-1 md:mt-0'>
               Sessions
             </span>
           </p>
         </div>
-        <div className='bg-white p-5 rounded-2xl border border-gray-100 flex flex-col items-center justify-center shadow-sm'>
-          <CalendarDays className='w-5 h-5 text-rose-500 mb-1.5' />
-          <p className='text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1'>
+        <div className='bg-white p-4 md:p-5 rounded-2xl border border-gray-100 flex flex-col items-center justify-center shadow-sm'>
+          <CalendarDays className='w-4 h-4 md:w-5 md:h-5 text-rose-500 mb-1.5' />
+          <p className='text-[10px] md:text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1'>
             Valid Until
           </p>
           <p
-            className={`text-[16px] font-bold ${isExpired ? "text-gray-400" : "text-[#111827]"}`}>
+            className={`text-sm md:text-[16px] font-bold ${isExpired ? "text-gray-400" : "text-[#111827]"}`}>
             {new Date(pass.expiryDate).toLocaleDateString("en-GB", {
               day: "numeric",
               month: "short",
-              year: "numeric",
+              year: "2-digit",
             })}
           </p>
         </div>
@@ -1821,7 +1959,6 @@ function PassShareView({ pass }) {
     }
   };
 
-  // --- NEW: Detach Logic ---
   const handleDetach = async (userIdToDetach, isSelf) => {
     const confirmMsg = isSelf
       ? "Are you sure you want to leave this shared pass? You will immediately lose access to its credits."
@@ -1831,13 +1968,11 @@ function PassShareView({ pass }) {
 
     setDetachLoading(true);
     try {
-      // Try primary route
       try {
         await axiosInstance.put(`/api/passes/shared/${pass._id}/detach`, {
           userIdToDetach,
         });
       } catch (err) {
-        // Fallback route
         await axiosInstance.put(`/api/user-passes/shared/${pass._id}/detach`, {
           userIdToDetach,
         });
@@ -1848,7 +1983,7 @@ function PassShareView({ pass }) {
           ? "You have left the shared pass."
           : "User removed successfully.",
       );
-      window.location.reload(); // Refresh to update the global passes list
+      window.location.reload();
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to remove user.");
@@ -1858,14 +1993,14 @@ function PassShareView({ pass }) {
   };
 
   return (
-    <div className='flex flex-col h-full space-y-8'>
+    <div className='flex flex-col h-full space-y-6 md:space-y-8'>
       {isOwner ? (
         <>
           <div>
-            <h4 className='text-[15px] font-bold text-gray-900 mb-2 flex items-center gap-2'>
+            <h4 className='text-sm md:text-[15px] font-bold text-gray-900 mb-2 flex items-center gap-2'>
               <Share2 className='w-4 h-4 text-[#2D8A60]' /> Generate Share Link
             </h4>
-            <p className='text-[14px] text-gray-500 mb-5 leading-relaxed font-medium'>
+            <p className='text-xs md:text-[14px] text-gray-500 mb-4 md:mb-5 leading-relaxed font-medium'>
               Create a unique link to share your remaining credits with friends
               or family. They must have an account to accept.
             </p>
@@ -1874,7 +2009,7 @@ function PassShareView({ pass }) {
               <button
                 onClick={handleGenerateShare}
                 disabled={loading}
-                className='w-full py-4 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] transition-colors flex justify-center items-center gap-2 shadow-sm'>
+                className='w-full py-3.5 md:py-4 bg-[#1D3D36] text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-[#0F2922] transition-colors flex justify-center items-center gap-2 shadow-sm active:scale-[0.98]'>
                 {loading ? (
                   <Loader2 className='w-5 h-5 animate-spin' />
                 ) : (
@@ -1882,17 +2017,17 @@ function PassShareView({ pass }) {
                 )}
               </button>
             ) : (
-              <div className='flex gap-3'>
+              <div className='flex flex-col sm:flex-row gap-3'>
                 <input
                   type='text'
                   readOnly
                   value={link}
-                  className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-mono text-gray-600 focus:outline-none shadow-sm'
+                  className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3.5 md:py-3 text-[13px] md:text-[14px] font-mono text-gray-600 focus:outline-none shadow-sm w-full'
                 />
                 <button
                   onClick={handleCopy}
-                  className='px-5 py-3 bg-[#E8F5EE] text-[#1E5D40] rounded-xl font-bold text-[14px] hover:bg-[#2D8A60] hover:text-white transition-colors border border-[#2D8A60]'>
-                  Copy
+                  className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-[#E8F5EE] text-[#1E5D40] rounded-xl font-bold text-sm md:text-[14px] hover:bg-[#2D8A60] hover:text-white transition-colors border border-[#2D8A60] active:scale-[0.98] sm:active:scale-100'>
+                  Copy Link
                 </button>
               </div>
             )}
@@ -1900,21 +2035,21 @@ function PassShareView({ pass }) {
 
           {link && (
             <div className='pt-6 border-t border-gray-200'>
-              <h4 className='text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2'>
+              <h4 className='text-sm md:text-[15px] font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2'>
                 <Mail className='w-4 h-4 text-[#2D8A60]' /> Send via Email
               </h4>
-              <div className='flex gap-3'>
+              <div className='flex flex-col sm:flex-row gap-3'>
                 <input
                   type='email'
                   placeholder='friend@example.com'
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-sm'
+                  className='flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3.5 md:py-3 text-sm md:text-[15px] focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-sm w-full'
                 />
                 <button
                   onClick={sendEmail}
                   disabled={emailLoading || !email}
-                  className='px-6 py-3 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] transition-colors disabled:bg-gray-300 flex items-center justify-center min-w-[90px] shadow-sm'>
+                  className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-[#1D3D36] text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-[#0F2922] transition-colors disabled:bg-gray-300 flex items-center justify-center min-w-[100px] shadow-sm active:scale-[0.98] sm:active:scale-100'>
                   {emailLoading ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (
@@ -1926,17 +2061,19 @@ function PassShareView({ pass }) {
           )}
         </>
       ) : (
-        <div className='bg-amber-50 rounded-2xl p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-8'>
-          <AlertTriangle className='w-10 h-10 text-amber-500 mb-3' />
-          <h4 className='text-lg font-bold text-amber-900 mb-2'>Shared Pass</h4>
-          <p className='text-[14px] text-amber-700 font-medium max-w-sm mb-6'>
+        <div className='bg-amber-50 rounded-2xl p-5 md:p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-6 md:py-8'>
+          <AlertTriangle className='w-8 h-8 md:w-10 md:h-10 text-amber-500 mb-3' />
+          <h4 className='text-base md:text-lg font-bold text-amber-900 mb-2'>
+            Shared Pass
+          </h4>
+          <p className='text-xs md:text-[14px] text-amber-700 font-medium max-w-sm mb-5 md:mb-6'>
             You are currently using a shared pass. Only the original pass owner
             can generate new share links or invite other members.
           </p>
           <button
             onClick={() => handleDetach(user._id, true)}
             disabled={detachLoading}
-            className='px-6 py-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm w-full'>
+            className='w-full sm:w-auto px-6 py-3 md:py-2.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm'>
             {detachLoading ? (
               <Loader2 className='w-4 h-4 animate-spin' />
             ) : (
@@ -1948,37 +2085,35 @@ function PassShareView({ pass }) {
         </div>
       )}
 
-      {/* Shared With List (Visible to both owner and shared users) */}
       {pass.sharedWith && pass.sharedWith.length > 0 && (
         <div className='pt-6 border-t border-gray-200'>
-          <h4 className='text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2'>
+          <h4 className='text-sm md:text-[15px] font-bold text-gray-900 mb-4 flex items-center gap-2'>
             <Users className='w-4 h-4 text-[#2D8A60]' /> Shared With
           </h4>
           <div className='space-y-3'>
             {pass.sharedWith.map((u, i) => (
               <div
                 key={i}
-                className='flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm'>
-                <div className='flex items-center gap-4'>
-                  <div className='w-10 h-10 rounded-full bg-[#E8F5EE] flex items-center justify-center text-[#1E5D40] font-semibold text-sm shrink-0'>
+                className='flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm gap-3'>
+                <div className='flex items-center gap-3 md:gap-4'>
+                  <div className='w-9 h-9 md:w-10 md:h-10 rounded-full bg-[#E8F5EE] flex items-center justify-center text-[#1E5D40] font-semibold text-xs md:text-sm shrink-0'>
                     {u.fullName?.charAt(0) || "U"}
                   </div>
                   <div>
-                    <p className='text-[15px] font-bold text-gray-900'>
+                    <p className='text-sm md:text-[15px] font-bold text-gray-900'>
                       {u.fullName || "User"}
                     </p>
-                    <p className='text-[13px] text-gray-500 font-medium line-clamp-1'>
+                    <p className='text-xs md:text-[13px] text-gray-500 font-medium line-clamp-1'>
                       {u.email}
                     </p>
                   </div>
                 </div>
 
-                {/* Remove Button - Only visible to the owner */}
                 {isOwner && (
                   <button
                     onClick={() => handleDetach(u._id, false)}
                     disabled={detachLoading}
-                    className='ml-3 px-3 py-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100 shrink-0'>
+                    className='self-end sm:self-auto px-4 py-2 md:px-3 md:py-1.5 text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 md:bg-transparent md:hover:bg-red-50 rounded-lg transition-colors border border-red-100 md:border-transparent md:hover:border-red-100 shrink-0 w-full sm:w-auto'>
                     Remove
                   </button>
                 )}
@@ -1992,11 +2127,10 @@ function PassShareView({ pass }) {
 }
 
 function PassFreezeView({ group }) {
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [customDays, setCustomDays] = useState(7);
 
-  // Check if current logged-in user is the actual owner of the pass
   const firstPass = group.passes[0];
   const ownerId = firstPass?.userId?._id || firstPass?.userId;
   const isOwner = String(ownerId) === String(user?._id);
@@ -2055,12 +2189,12 @@ function PassFreezeView({ group }) {
   };
 
   return (
-    <div className='flex flex-col h-full space-y-8'>
-      <div className='bg-[#ECFEFF] border border-cyan-200 rounded-2xl p-6'>
-        <h4 className='text-[15px] font-bold text-cyan-900 mb-3 flex items-center gap-2'>
+    <div className='flex flex-col h-full space-y-6 md:space-y-8'>
+      <div className='bg-[#ECFEFF] border border-cyan-200 rounded-xl md:rounded-2xl p-5 md:p-6'>
+        <h4 className='text-sm md:text-[15px] font-bold text-cyan-900 mb-2 md:mb-3 flex items-center gap-2'>
           <Info className='w-4 h-4 text-cyan-600' /> Freeze Policy
         </h4>
-        <ul className='text-[13.5px] text-cyan-800 space-y-2 list-disc pl-4 font-medium leading-relaxed'>
+        <ul className='text-xs md:text-[13.5px] text-cyan-800 space-y-2 list-disc pl-4 font-medium leading-relaxed'>
           <li>You may freeze your pass to temporarily pause its expiration.</li>
           <li>This extends the validity date of your remaining credits.</li>
           <li>
@@ -2071,21 +2205,23 @@ function PassFreezeView({ group }) {
       </div>
 
       {!isOwner ? (
-        <div className='bg-amber-50 rounded-2xl p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-10'>
-          <AlertTriangle className='w-10 h-10 text-amber-500 mb-3' />
-          <h4 className='text-lg font-bold text-amber-900 mb-2'>Shared Pass</h4>
-          <p className='text-[14px] text-amber-700 font-medium max-w-sm'>
+        <div className='bg-amber-50 rounded-2xl p-5 md:p-6 border border-amber-100 flex flex-col items-center justify-center text-center py-8 md:py-10'>
+          <AlertTriangle className='w-8 h-8 md:w-10 md:h-10 text-amber-500 mb-3' />
+          <h4 className='text-base md:text-lg font-bold text-amber-900 mb-2'>
+            Shared Pass
+          </h4>
+          <p className='text-xs md:text-[14px] text-amber-700 font-medium max-w-sm'>
             You are currently using a shared pass. Only the original pass owner
             can freeze or unfreeze this package.
           </p>
         </div>
       ) : isFrozen ? (
-        <div className='bg-white border border-gray-200 rounded-3xl p-8 text-center shadow-sm'>
-          <Snowflake className='w-12 h-12 text-[#155E75] mx-auto mb-4' />
-          <h3 className='font-semibold text-[#155E75] text-xl mb-2'>
+        <div className='bg-white border border-gray-200 rounded-2xl md:rounded-3xl p-6 md:p-8 text-center shadow-sm'>
+          <Snowflake className='w-10 h-10 md:w-12 md:h-12 text-[#155E75] mx-auto mb-3 md:mb-4' />
+          <h3 className='font-semibold text-[#155E75] text-lg md:text-xl mb-2'>
             Package is currently frozen
           </h3>
-          <p className='text-[15px] font-medium text-cyan-800 mb-4'>
+          <p className='text-sm md:text-[15px] font-medium text-cyan-800 mb-2 md:mb-4'>
             Unfreezes on:{" "}
             {activeEndDate
               ? new Date(activeEndDate).toLocaleDateString("en-GB")
@@ -2093,51 +2229,51 @@ function PassFreezeView({ group }) {
           </p>
         </div>
       ) : usedAllowance ? (
-        <div className='bg-white border border-gray-200 rounded-3xl p-8 text-center shadow-sm'>
-          <AlertCircle className='w-10 h-10 text-gray-400 mx-auto mb-4' />
-          <p className='text-[15px] font-bold text-gray-600'>
+        <div className='bg-white border border-gray-200 rounded-2xl md:rounded-3xl p-6 md:p-8 text-center shadow-sm'>
+          <AlertCircle className='w-10 h-10 text-gray-400 mx-auto mb-3 md:mb-4' />
+          <p className='text-sm md:text-[15px] font-bold text-gray-600'>
             You have already used the freeze allowance for this package.
           </p>
         </div>
       ) : (
-        <div className='space-y-8'>
+        <div className='space-y-6 md:space-y-8'>
           <div>
-            <h4 className='text-[15px] font-bold text-gray-900 mb-4'>
+            <h4 className='text-sm md:text-[15px] font-bold text-gray-900 mb-3 md:mb-4'>
               Quick Presets
             </h4>
-            <div className='grid grid-cols-2 gap-4'>
+            <div className='grid grid-cols-2 gap-3 md:gap-4'>
               <button
                 onClick={() => handleFreeze(7)}
                 disabled={loading}
-                className='py-4 bg-white border border-gray-200 rounded-xl hover:border-[#2D8A60] hover:bg-[#E8F5EE] hover:text-[#1E5D40] transition-all font-bold text-[15px] text-gray-700 shadow-sm'>
+                className='py-3.5 md:py-4 bg-white border border-gray-200 rounded-xl hover:border-[#2D8A60] hover:bg-[#E8F5EE] hover:text-[#1E5D40] transition-all font-bold text-sm md:text-[15px] text-gray-700 shadow-sm active:scale-95'>
                 1 Week
               </button>
               <button
                 onClick={() => handleFreeze(30)}
                 disabled={loading}
-                className='py-4 bg-white border border-gray-200 rounded-xl hover:border-[#2D8A60] hover:bg-[#E8F5EE] hover:text-[#1E5D40] transition-all font-bold text-[15px] text-gray-700 shadow-sm'>
+                className='py-3.5 md:py-4 bg-white border border-gray-200 rounded-xl hover:border-[#2D8A60] hover:bg-[#E8F5EE] hover:text-[#1E5D40] transition-all font-bold text-sm md:text-[15px] text-gray-700 shadow-sm active:scale-95'>
                 1 Month
               </button>
             </div>
           </div>
 
           <div className='pt-2 border-t border-gray-200'>
-            <h4 className='text-[15px] font-bold text-gray-900 mb-4 mt-2'>
+            <h4 className='text-sm md:text-[15px] font-bold text-gray-900 mb-3 md:mb-4 mt-2'>
               Custom Duration (Days)
             </h4>
-            <div className='flex gap-4'>
+            <div className='flex flex-col sm:flex-row gap-3 md:gap-4'>
               <input
                 type='number'
                 min='1'
                 max='90'
                 value={customDays}
                 onChange={(e) => setCustomDays(e.target.value)}
-                className='w-24 px-4 py-3 bg-white border border-gray-200 rounded-xl text-center text-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-sm'
+                className='w-full sm:w-24 px-4 py-3.5 md:py-3 bg-white border border-gray-200 rounded-xl text-center text-sm md:text-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60]/20 shadow-sm'
               />
               <button
                 onClick={() => handleFreeze(parseInt(customDays))}
                 disabled={loading || !customDays}
-                className='flex-1 bg-[#1D3D36] text-white rounded-xl font-bold text-[15px] hover:bg-[#0F2922] flex justify-center items-center shadow-sm transition-colors'>
+                className='w-full sm:flex-1 bg-[#1D3D36] text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-[#0F2922] py-3.5 md:py-3 flex justify-center items-center shadow-sm transition-colors active:scale-[0.98] sm:active:scale-100'>
                 {loading ? (
                   <Loader2 className='w-5 h-5 animate-spin' />
                 ) : (
@@ -2159,55 +2295,55 @@ function TransactionCard({ tx, onClick }) {
   const dateFormatted = new Date(tx.createdAt).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
-    year: "numeric",
+    year: "2-digit",
   });
 
   return (
     <div
       onClick={onClick}
-      className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-3xl p-8 transition-all duration-300 hover:shadow-xl hover:border-emerald-300 relative overflow-hidden shadow-sm'>
-      <div className='flex justify-between items-center mb-6 gap-3'>
+      className='group flex flex-col h-full cursor-pointer bg-white border border-gray-200 rounded-2xl md:rounded-3xl p-5 md:p-8 transition-all duration-300 hover:shadow-xl hover:border-emerald-300 relative overflow-hidden shadow-sm active:scale-[0.99] md:active:scale-100'>
+      <div className='flex justify-between items-center mb-5 md:mb-6 gap-3'>
         <div
-          className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-semibold uppercase tracking-wider ${config.bg} ${config.color}`}>
-          <StatusIcon className='w-3.5 h-3.5' />
+          className={`flex items-center gap-1.5 md:gap-2 px-2.5 py-1 md:px-3 md:py-1.5 rounded text-[9px] md:text-[10px] font-semibold uppercase tracking-wider ${config.bg} ${config.color}`}>
+          <StatusIcon className='w-3 h-3 md:w-3.5 md:h-3.5' />
           {config.label}
         </div>
-        <span className='text-xs text-gray-400 font-mono tracking-tight font-medium'>
+        <span className='text-[11px] md:text-xs text-gray-400 font-mono tracking-tight font-medium'>
           {dateFormatted}
         </span>
       </div>
-      <div className='flex-1 mb-8 space-y-3'>
-        <h3 className='font-semibold text-gray-900 text-[20px] mb-2 group-hover:text-[#2D8A60] transition-colors line-clamp-2 tracking-tight'>
+      <div className='flex-1 mb-6 md:mb-8 space-y-2 md:space-y-3'>
+        <h3 className='font-semibold text-gray-900 text-lg md:text-[20px] mb-1 md:mb-2 group-hover:text-[#2D8A60] transition-colors line-clamp-2 tracking-tight'>
           {tx.packageId?.packageName ||
             tx.packageNameSnapshot ||
             "Package Purchased"}
         </h3>
-        <p className='text-xs text-gray-500 font-mono tracking-wide'>
+        <p className='text-[11px] md:text-xs text-gray-500 font-mono tracking-wide'>
           Transaction ID: {tx.transactionId}
         </p>
-        <div className='flex items-center gap-2.5 text-[13px] font-bold text-gray-700 bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm'>
-          <CreditCard className='w-4 h-4 text-[#2D8A60]' />
+        <div className='flex flex-wrap items-center gap-2 md:gap-2.5 text-xs md:text-[13px] font-bold text-gray-700 bg-gray-50 border border-gray-100 p-3 md:p-4 rounded-xl shadow-sm'>
+          <CreditCard className='w-3.5 h-3.5 md:w-4 md:h-4 text-[#2D8A60] shrink-0' />
           <span className='capitalize'>
-            {tx.paymentMethod?.replace(/_/g, " ")} Payment
+            {tx.paymentMethod?.replace(/_/g, " ")}
           </span>
           {tx.promoCodeApplied && (
-            <span className='bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ml-auto'>
+            <span className='bg-pink-100 text-pink-700 text-[9px] md:text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ml-auto'>
               Promo: {tx.promoCodeApplied}
             </span>
           )}
         </div>
       </div>
-      <div className='pt-6 border-t border-gray-100 flex items-end justify-between gap-3'>
+      <div className='pt-5 md:pt-6 border-t border-gray-100 flex items-end justify-between gap-3'>
         <div>
-          <p className='text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1'>
+          <p className='text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1'>
             Order Amount
           </p>
-          <p className='text-gray-900 font-semibold font-mono text-[26px] tracking-tighter'>
+          <p className='text-gray-900 font-semibold font-mono text-xl md:text-[26px] tracking-tighter'>
             {priceFormatted} IDR
           </p>
         </div>
-        <button className='w-12 h-12 rounded-full bg-white border border-gray-200 group-hover:border-[#2D8A60] text-gray-400 group-hover:text-white flex items-center justify-center group-hover:bg-[#2D8A60] transition-all shadow-sm group-hover:shadow-md'>
-          <ChevronRight className='w-5 h-5' />
+        <button className='w-9 h-9 md:w-12 md:h-12 rounded-full bg-white border border-gray-200 md:group-hover:border-[#2D8A60] text-gray-400 md:group-hover:text-white flex items-center justify-center md:group-hover:bg-[#2D8A60] transition-all shadow-sm md:group-hover:shadow-md shrink-0'>
+          <ChevronRight className='w-4 h-4 md:w-5 md:h-5' />
         </button>
       </div>
     </div>
@@ -2234,120 +2370,124 @@ function InvoicePreviewModal({ tx, onClose }) {
   });
 
   return (
-    <div className='fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 print:p-0 print:bg-white print:static'>
+    <div className='fixed inset-0 z-[60] bg-black/80 flex items-end md:items-center justify-center p-0 md:p-4 print:p-0 print:bg-white print:static'>
       <style>{`
         @media print {
           body * { visibility: hidden; }
           #invoice-content, #invoice-content * { visibility: visible; }
           #invoice-content { position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; padding: 30px; overflow: visible; }
           #invoice-actions { display: none; }
+          .no-print { display: none !important; }
         }
       `}</style>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className='bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] print:shadow-none print:max-h-none print:rounded-none'>
+        initial={{ opacity: 0, y: "100%" }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className='bg-white w-full max-w-4xl rounded-t-[2rem] md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] md:max-h-[95vh] print:shadow-none print:max-h-none print:rounded-none pb-safe md:pb-0 relative'>
+        <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0 no-print' />
+
         <div
           id='invoice-actions'
-          className='flex justify-between items-center px-8 py-5 border-b border-gray-100 bg-gray-50/50'>
-          <h2 className='font-bold text-gray-950 flex items-center gap-2.5'>
-            <FileText className='w-5 h-5 text-[#2D8A60]' />
+          className='flex justify-between items-center px-6 md:px-8 py-4 md:py-5 border-b border-gray-100 bg-gray-50/50 shrink-0'>
+          <h2 className='font-bold text-gray-950 flex items-center gap-2 md:gap-2.5 text-sm md:text-base'>
+            <FileText className='w-4 h-4 md:w-5 md:h-5 text-[#2D8A60]' />
             Invoice Receipt Preview
           </h2>
-          <div className='flex gap-3'>
+          <div className='flex gap-2 md:gap-3'>
             <button
               onClick={handlePrint}
-              className='flex items-center gap-2 px-5 py-2.5 bg-[#1D3D36] hover:bg-[#0F2922] text-white text-sm font-bold rounded-xl transition-colors shadow-sm'>
+              className='hidden md:flex items-center gap-2 px-5 py-2.5 bg-[#1D3D36] hover:bg-[#0F2922] text-white text-sm font-bold rounded-xl transition-colors shadow-sm'>
               <Printer className='w-4 h-4' /> Print / Download PDF
             </button>
             <button
               onClick={onClose}
               className='p-2 hover:bg-gray-100 rounded-full transition-colors'>
-              <X className='w-5 h-5 text-gray-500' />
+              <X className='w-5 h-5 md:w-5 md:h-5 text-gray-500' />
             </button>
           </div>
         </div>
 
         <div
           id='invoice-content'
-          className='p-12 overflow-y-auto bg-white font-sans text-gray-900'>
-          <div className='flex justify-between items-start mb-16 gap-5'>
-            <div className='space-y-1'>
-              <h1 className='text-[32px] font-semibold text-[#1D3D36] tracking-tight'>
+          className='p-6 md:p-12 overflow-y-auto bg-white font-sans text-gray-900 flex-1 custom-scrollbar overscroll-contain'>
+          <div className='flex flex-col md:flex-row justify-between md:items-start mb-10 md:mb-16 gap-6 md:gap-5'>
+            <div className='space-y-1 text-center md:text-left order-2 md:order-1'>
+              <h1 className='text-2xl md:text-[32px] font-semibold text-[#1D3D36] tracking-tight'>
                 {tx.issuingStudio?.studioName || "Pilates Studio"}
               </h1>
-              <p className='text-gray-500 text-[15px] font-medium'>
+              <p className='text-gray-500 text-sm md:text-[15px] font-medium'>
                 Access Premium Pilates Sessions
               </p>
             </div>
-            <div className='text-right'>
-              <h2 className='text-2xl font-semibold text-gray-200 uppercase tracking-widest'>
+            <div className='text-center md:text-right order-1 md:order-2 border-b border-gray-100 md:border-0 pb-6 md:pb-0'>
+              <h2 className='text-xl md:text-2xl font-semibold text-gray-300 md:text-gray-200 uppercase tracking-widest'>
                 Invoice
               </h2>
-              <p className='font-mono text-gray-500 mt-2 text-[14px]'>
+              <p className='font-mono text-gray-500 mt-1 md:mt-2 text-xs md:text-[14px]'>
                 No: {displayId.slice(-8).toUpperCase()}
               </p>
             </div>
           </div>
 
-          <div className='flex justify-between mb-16 gap-8'>
+          <div className='flex flex-col md:flex-row justify-between mb-10 md:mb-16 gap-8'>
             <div>
-              <p className='text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5'>
+              <p className='text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 md:mb-2.5'>
                 Billing Information
               </p>
-              <h3 className='font-semibold text-gray-900 text-xl tracking-tight'>
+              <h3 className='font-semibold text-gray-900 text-lg md:text-xl tracking-tight'>
                 {tx.userId?.fullName || "Valued Member"}
               </h3>
-              <p className='text-gray-500 text-[14px] mt-1 font-medium'>
+              <p className='text-gray-500 text-xs md:text-[14px] mt-1 font-medium'>
                 Member ID: {tx.userId?._id.slice(-6).toUpperCase() || "N/A"}
               </p>
             </div>
-            <div className='text-right'>
-              <p className='text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5'>
+            <div className='text-left md:text-right'>
+              <p className='text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 md:mb-2.5'>
                 Purchase Metadata
               </p>
-              <p className='text-gray-950 font-bold text-[15px]'>
+              <p className='text-gray-950 font-bold text-sm md:text-[15px]'>
                 {formattedDate}
               </p>
-              <p className='text-gray-600 font-medium capitalize text-[14px] mt-1.5'>
+              <p className='text-gray-600 font-medium capitalize text-xs md:text-[14px] mt-1 md:mt-1.5'>
                 Method: {method} Payment
               </p>
             </div>
           </div>
 
-          <div className='mb-16'>
-            <table className='w-full border-collapse'>
+          <div className='mb-10 md:mb-16 overflow-x-auto no-scrollbar'>
+            <table className='w-full border-collapse min-w-[500px]'>
               <thead>
                 <tr className='border-b-2 border-gray-100'>
-                  <th className='text-left py-4 px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider'>
+                  <th className='text-left py-3 md:py-4 px-2 text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider'>
                     Product Description
                   </th>
-                  <th className='text-center py-4 px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider'>
-                    Package Sessions
+                  <th className='text-center py-3 md:py-4 px-2 text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider w-24 md:w-auto'>
+                    Sessions
                   </th>
-                  <th className='text-right py-4 px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider'>
+                  <th className='text-right py-3 md:py-4 px-2 text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider w-32 md:w-auto'>
                     Amount Paid
                   </th>
                 </tr>
               </thead>
               <tbody>
                 <tr className='border-b border-gray-100'>
-                  <td className='py-6 px-2'>
-                    <p className='font-bold text-gray-900 text-[16px]'>
+                  <td className='py-5 md:py-6 px-2'>
+                    <p className='font-bold text-gray-900 text-sm md:text-[16px]'>
                       {tx.packageId?.packageName ||
                         tx.packageNameSnapshot ||
                         "Studio Package"}
                     </p>
-                    <p className='text-[14px] text-gray-500 mt-1 max-w-md'>
+                    <p className='text-xs md:text-[14px] text-gray-500 mt-1 max-w-md line-clamp-2 md:line-clamp-none'>
                       {description}
                     </p>
                   </td>
-                  <td className='text-center py-6 px-2 text-gray-700 font-bold text-[16px]'>
+                  <td className='text-center py-5 md:py-6 px-2 text-gray-700 font-bold text-sm md:text-[16px]'>
                     {credits}
                   </td>
-                  <td className='text-right py-6 px-2 font-semibold font-mono text-[#1D3D36] text-[18px] tracking-tight'>
+                  <td className='text-right py-5 md:py-6 px-2 font-semibold font-mono text-[#1D3D36] text-base md:text-[18px] tracking-tight'>
                     {preDiscountAmount.toLocaleString("id-ID")} IDR
                   </td>
                 </tr>
@@ -2355,42 +2495,42 @@ function InvoicePreviewModal({ tx, onClose }) {
             </table>
           </div>
 
-          <div className='flex justify-end mb-16'>
-            <div className='w-80 space-y-3 bg-[#F9FAFB] rounded-[24px] p-8 border border-gray-100 shadow-sm'>
+          <div className='flex justify-end mb-10 md:mb-16'>
+            <div className='w-full md:w-80 space-y-3 bg-[#F9FAFB] rounded-2xl md:rounded-[24px] p-6 md:p-8 border border-gray-100 shadow-sm'>
               <div className='flex justify-between items-center'>
-                <span className='text-gray-500 text-[15px] font-bold'>
+                <span className='text-gray-500 text-sm md:text-[15px] font-bold'>
                   Subtotal Amount
                 </span>
-                <span className='font-bold text-gray-900 text-[15px]'>
+                <span className='font-bold text-gray-900 text-sm md:text-[15px]'>
                   {preDiscountAmount.toLocaleString("id-ID")} IDR
                 </span>
               </div>
               {tx.promoCodeApplied && (
                 <div className='flex justify-between items-center'>
-                  <span className='text-gray-500 text-[15px] font-bold'>
+                  <span className='text-gray-500 text-sm md:text-[15px] font-bold'>
                     Discount ({tx.promoCodeApplied})
                   </span>
-                  <span className='font-bold text-rose-500 text-[15px]'>
+                  <span className='font-bold text-rose-500 text-sm md:text-[15px]'>
                     - {discountAmount.toLocaleString("id-ID")} IDR
                   </span>
                 </div>
               )}
-              <div className='flex justify-between items-center py-5 border-t border-gray-200 mt-2'>
-                <span className='font-semibold text-gray-900 text-[18px]'>
+              <div className='flex justify-between items-center py-4 md:py-5 border-t border-gray-200 mt-2'>
+                <span className='font-semibold text-gray-900 text-base md:text-[18px]'>
                   Total Payment
                 </span>
-                <span className='font-semibold text-[#2D8A60] font-mono text-3xl tracking-tighter'>
+                <span className='font-semibold text-[#2D8A60] font-mono text-xl md:text-3xl tracking-tighter'>
                   {amount.toLocaleString("id-ID")} IDR
                 </span>
               </div>
             </div>
           </div>
 
-          <div className='border-t border-gray-200 pt-10 text-center space-y-2.5'>
-            <p className='text-[#1D3D36] font-semibold text-xl'>
+          <div className='border-t border-gray-200 pt-8 md:pt-10 text-center space-y-2 md:space-y-2.5 pb-8 md:pb-0'>
+            <p className='text-[#1D3D36] font-semibold text-lg md:text-xl'>
               Thank you for investing in your well-being with us!
             </p>
-            <p className='text-gray-500 text-[13px] max-w-md mx-auto leading-relaxed'>
+            <p className='text-gray-500 text-xs md:text-[13px] max-w-md mx-auto leading-relaxed'>
               Should you have any questions regarding this statement, please do
               not hesitate to contact our customer support team or studio admin.
               <br />
@@ -2465,40 +2605,42 @@ function TransactionDetailModal({ tx, onClose }) {
 
   return (
     <>
-      <div className='fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 sm:p-6'>
+      <div className='fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6 bg-black/70 backdrop-blur-sm'>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className='absolute inset-0 bg-black/70 backdrop-blur-sm'
+          className='absolute inset-0'
         />
         <motion.div
-          initial={{ opacity: 0, y: 100, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 100, scale: 0.95 }}
+          initial={{ opacity: 0, y: "100%" }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className='relative bg-white w-full max-w-3xl rounded-t-4xl md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]'>
-          <div className='flex justify-between items-center px-10 py-7 border-b border-gray-100 bg-white z-10 shrink-0'>
+          className='relative bg-white w-full max-w-3xl rounded-t-[2rem] md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] pb-safe md:pb-0'>
+          <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
+
+          <div className='flex justify-between items-center px-6 md:px-10 py-5 md:py-7 border-b border-gray-100 bg-white z-10 shrink-0'>
             <div>
-              <h2 className='text-[20px] font-semibold text-gray-900 flex gap-3 items-center'>
-                <History className='w-[22px] h-[22px] text-[#2D8A60]' /> Order
-                Verification
+              <h2 className='text-lg md:text-[20px] font-semibold text-gray-900 flex gap-2 md:gap-3 items-center'>
+                <History className='w-5 h-5 md:w-[22px] md:h-[22px] text-[#2D8A60]' />{" "}
+                Order Verification
               </h2>
-              <p className='text-xs text-gray-500 font-mono mt-1.5 font-medium'>
-                Reference ID: {tx.transactionId}
+              <p className='text-[11px] md:text-xs text-gray-500 font-mono mt-1 md:mt-1.5 font-medium'>
+                Ref: {tx.transactionId}
               </p>
             </div>
             <button
               onClick={onClose}
               className='p-2 hover:bg-gray-100 rounded-full transition-colors'>
-              <X className='w-6 h-6 text-gray-500' />
+              <X className='w-5 h-5 md:w-6 md:h-6 text-gray-500' />
             </button>
           </div>
 
-          <div className='p-8 md:p-10 overflow-y-auto bg-[#F9FAFB] space-y-8'>
+          <div className='p-6 md:p-10 overflow-y-auto bg-[#F9FAFB] space-y-6 md:space-y-8 flex-1 custom-scrollbar overscroll-contain'>
             <div
-              className={`rounded-2xl border p-6 ${
+              className={`rounded-2xl border p-5 md:p-6 ${
                 isRejected
                   ? "border-red-200 bg-red-50/60"
                   : tx.status === "confirmed"
@@ -2507,17 +2649,17 @@ function TransactionDetailModal({ tx, onClose }) {
               }`}>
               {isRejected ? (
                 <>
-                  <div className='flex items-center gap-3 mb-4'>
-                    <Ban className='w-6 h-6 text-red-700' />
-                    <h4 className='font-bold text-[16px] text-red-950 uppercase tracking-tight'>
+                  <div className='flex items-center gap-2 md:gap-3 mb-4'>
+                    <Ban className='w-5 h-5 md:w-6 md:h-6 text-red-700' />
+                    <h4 className='font-bold text-sm md:text-[16px] text-red-950 uppercase tracking-tight'>
                       Payment Declined
                     </h4>
                   </div>
-                  <div className='bg-white border border-red-100 rounded-xl p-5 shadow-sm'>
-                    <p className='text-[13px] font-bold text-red-900 mb-1.5 uppercase tracking-wider'>
+                  <div className='bg-white border border-red-100 rounded-xl p-4 md:p-5 shadow-sm'>
+                    <p className='text-[11px] md:text-[13px] font-bold text-red-900 mb-1.5 uppercase tracking-wider'>
                       Decline Reason
                     </p>
-                    <p className='text-[15px] text-red-800 font-medium'>
+                    <p className='text-sm md:text-[15px] text-red-800 font-medium'>
                       {" "}
                       {tx.rejectionReason ||
                         "Please double check your receipt details or contact your bank."}{" "}
@@ -2529,16 +2671,16 @@ function TransactionDetailModal({ tx, onClose }) {
                   <div
                     className={`p-2 rounded-full bg-white shadow-sm border ${tx.status === "confirmed" ? "border-[#6EE7B7]" : "border-amber-200"}`}>
                     <config.icon
-                      className={`w-7 h-7 shrink-0 ${config.color}`}
+                      className={`w-6 h-6 md:w-7 md:h-7 shrink-0 ${config.color}`}
                     />
                   </div>
                   <div>
                     <h4
-                      className={`font-bold text-[16px] ${config.color} uppercase tracking-wider`}>
+                      className={`font-bold text-sm md:text-[16px] ${config.color} uppercase tracking-wider`}>
                       {config.label}
                     </h4>
                     <p
-                      className={`text-[15px] ${config.color} mt-1 font-medium leading-relaxed`}>
+                      className={`text-xs md:text-[15px] ${config.color} mt-1 font-medium leading-relaxed`}>
                       {tx.status === "pending"
                         ? "Waiting for you to complete the payment step."
                         : tx.status === "confirmed"
@@ -2550,19 +2692,19 @@ function TransactionDetailModal({ tx, onClose }) {
               )}
             </div>
 
-            <div className='bg-white px-8 py-7 border border-gray-100 shadow-sm rounded-2xl'>
-              <div className='flex flex-col md:flex-row justify-between items-start mb-8 gap-5 border-b border-gray-100 pb-8'>
+            <div className='bg-white px-6 md:px-8 py-6 md:py-7 border border-gray-100 shadow-sm rounded-2xl'>
+              <div className='flex flex-col md:flex-row justify-between items-start mb-6 md:mb-8 gap-4 md:gap-5 border-b border-gray-100 pb-6 md:pb-8'>
                 <div className='flex-1 space-y-1.5'>
-                  <p className='text-[11px] font-bold text-gray-400 uppercase tracking-wider'>
+                  <p className='text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider'>
                     Package
                   </p>
-                  <h3 className='font-semibold text-gray-900 text-[26px] tracking-tight leading-tight'>
+                  <h3 className='font-semibold text-gray-900 text-xl md:text-[26px] tracking-tight leading-tight'>
                     {tx.packageId?.packageName ||
                       tx.packageNameSnapshot ||
                       "Deleted Package"}
                   </h3>
                   {tx.promoCodeApplied && (
-                    <span className='inline-block mt-2 bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider'>
+                    <span className='inline-block mt-2 bg-pink-100 text-pink-700 text-[9px] md:text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider'>
                       Promo: {tx.promoCodeApplied} (-{" "}
                       {parseInt(tx.discountAmount || 0).toLocaleString("id-ID")}{" "}
                       IDR)
@@ -2570,44 +2712,44 @@ function TransactionDetailModal({ tx, onClose }) {
                   )}
                 </div>
                 <div className='text-left md:text-right shrink-0'>
-                  <p className='text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5'>
+                  <p className='text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1 md:mb-1.5'>
                     Total Price
                   </p>
-                  <h3 className='font-semibold text-[#1D3D36] text-[32px] tracking-tighter leading-none'>
+                  <h3 className='font-semibold text-[#1D3D36] text-2xl md:text-[32px] tracking-tighter leading-none'>
                     {parseInt(tx.totalAmount).toLocaleString("id-ID")} IDR
                   </h3>
                 </div>
               </div>
-              <div className='grid grid-cols-2 lg:grid-cols-3 gap-6'>
-                <div className='flex items-center gap-3.5'>
-                  <Hash className='w-5 h-5 text-[#2D8A60] shrink-0' />
+              <div className='grid grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6'>
+                <div className='flex flex-col md:flex-row md:items-center gap-2 md:gap-3.5'>
+                  <Hash className='w-4 h-4 md:w-5 md:h-5 text-[#2D8A60] shrink-0' />
                   <div>
-                    <p className='text-[10px] font-bold text-gray-400 uppercase'>
+                    <p className='text-[9px] md:text-[10px] font-bold text-gray-400 uppercase'>
                       Total Sessions
                     </p>
-                    <span className='font-bold text-gray-900 text-[15px]'>
+                    <span className='font-bold text-gray-900 text-sm md:text-[15px]'>
                       {tx.creditsPurchased} Credits
                     </span>
                   </div>
                 </div>
-                <div className='flex items-center gap-3.5'>
-                  <CreditCard className='w-5 h-5 text-[#2D8A60] shrink-0' />
+                <div className='flex flex-col md:flex-row md:items-center gap-2 md:gap-3.5'>
+                  <CreditCard className='w-4 h-4 md:w-5 md:h-5 text-[#2D8A60] shrink-0' />
                   <div>
-                    <p className='text-[10px] font-bold text-gray-400 uppercase'>
+                    <p className='text-[9px] md:text-[10px] font-bold text-gray-400 uppercase'>
                       Payment Method
                     </p>
-                    <span className='font-bold text-gray-900 text-[15px] capitalize'>
+                    <span className='font-bold text-gray-900 text-sm md:text-[15px] capitalize'>
                       {tx.paymentMethod?.replace(/_/g, " ")}
                     </span>
                   </div>
                 </div>
-                <div className='flex items-center gap-3.5 col-span-2 lg:col-span-1'>
-                  <CalendarDays className='w-5 h-5 text-[#2D8A60] shrink-0' />
+                <div className='flex flex-col md:flex-row md:items-center gap-2 md:gap-3.5 col-span-2 lg:col-span-1'>
+                  <CalendarDays className='w-4 h-4 md:w-5 md:h-5 text-[#2D8A60] shrink-0' />
                   <div>
-                    <p className='text-[10px] font-bold text-gray-400 uppercase'>
+                    <p className='text-[9px] md:text-[10px] font-bold text-gray-400 uppercase'>
                       Order Date
                     </p>
-                    <span className='font-bold text-gray-900 text-[15px]'>
+                    <span className='font-bold text-gray-900 text-sm md:text-[15px]'>
                       {new Date(tx.createdAt).toLocaleDateString("en-GB")}
                     </span>
                   </div>
@@ -2627,7 +2769,7 @@ function TransactionDetailModal({ tx, onClose }) {
                   />
                   <div
                     onClick={handleTriggerFileSelect}
-                    className={`border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                    className={`border-2 border-dashed rounded-2xl md:rounded-3xl p-8 md:p-10 flex flex-col items-center justify-center cursor-pointer transition-all ${
                       selectedFile
                         ? "border-[#2D8A60] bg-[#E8F5EE]"
                         : "border-gray-300 bg-white hover:border-[#2D8A60] hover:bg-[#F9FAFB] shadow-sm"
@@ -2638,31 +2780,33 @@ function TransactionDetailModal({ tx, onClose }) {
                           <img
                             src={previewUrl}
                             alt='Receipt Preview'
-                            className='h-32 mx-auto mb-6 object-contain rounded-xl shadow-lg bg-white p-2 border border-gray-100'
+                            className='h-24 md:h-32 mx-auto mb-4 md:mb-6 object-contain rounded-xl shadow-lg bg-white p-2 border border-gray-100'
                           />
                         ) : (
-                          <div className='w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm text-[#2D8A60] border border-gray-100'>
-                            <FileIcon className='w-8 h-8' />
+                          <div className='w-14 h-14 md:w-16 md:h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-sm text-[#2D8A60] border border-gray-100'>
+                            <FileIcon className='w-6 h-6 md:w-8 md:h-8' />
                           </div>
                         )}
-                        <div className='flex items-center justify-center gap-2.5 text-[#1D3D36] font-semibold text-[18px] mb-2'>
-                          <CheckCircle2 className='w-6 h-6 text-[#2D8A60]' />
-                          <span>{selectedFile.name}</span>
+                        <div className='flex items-center justify-center gap-2 md:gap-2.5 text-[#1D3D36] font-semibold text-base md:text-[18px] mb-2'>
+                          <CheckCircle2 className='w-5 h-5 md:w-6 md:h-6 text-[#2D8A60]' />
+                          <span className='truncate max-w-[200px] md:max-w-none'>
+                            {selectedFile.name}
+                          </span>
                         </div>
-                        <p className='text-[#2D8A60] text-[14px] font-bold'>
+                        <p className='text-[#2D8A60] text-xs md:text-[14px] font-bold'>
                           {" "}
                           Tap to re-select file{" "}
                         </p>
                       </div>
                     ) : (
                       <div className='text-center'>
-                        <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-gray-200 text-gray-400 shadow-sm'>
-                          <ImageIcon className='w-8 h-8' />
+                        <div className='w-14 h-14 md:w-16 md:h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-5 border border-gray-200 text-gray-400 shadow-sm'>
+                          <ImageIcon className='w-6 h-6 md:w-8 md:h-8' />
                         </div>
-                        <p className='text-gray-900 font-bold text-[18px]'>
+                        <p className='text-gray-900 font-bold text-base md:text-[18px]'>
                           Upload Payment Receipt
                         </p>
-                        <p className='text-[14px] text-gray-500 mt-2 max-w-xs mx-auto font-medium leading-relaxed'>
+                        <p className='text-xs md:text-[14px] text-gray-500 mt-2 max-w-[200px] md:max-w-xs mx-auto font-medium leading-relaxed'>
                           {" "}
                           Supports JPG, PNG, or PDF formats{" "}
                         </p>
@@ -2673,18 +2817,18 @@ function TransactionDetailModal({ tx, onClose }) {
                     <button
                       onClick={handleConfirmUpload}
                       disabled={uploading}
-                      className='w-full py-4 bg-[#1D3D36] hover:bg-[#0F2922] disabled:bg-gray-400 text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg transition-all text-[16px]'>
+                      className='w-full py-4 md:py-4 bg-[#1D3D36] hover:bg-[#0F2922] disabled:bg-gray-400 text-white rounded-xl md:rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg transition-all text-sm md:text-[16px] active:scale-[0.98] md:active:scale-100'>
                       {uploading ? (
                         <>
                           {" "}
-                          <Loader2 className='w-6 h-6 animate-spin' />{" "}
+                          <Loader2 className='w-5 h-5 md:w-6 md:h-6 animate-spin' />{" "}
                           Verifying...{" "}
                         </>
                       ) : (
                         <>
                           {" "}
-                          <UploadCloud className='w-6 h-6' /> Submit Receipt for
-                          Approval{" "}
+                          <UploadCloud className='w-5 h-5 md:w-6 md:h-6' />{" "}
+                          Submit Receipt for Approval{" "}
                         </>
                       )}
                     </button>
@@ -2695,7 +2839,7 @@ function TransactionDetailModal({ tx, onClose }) {
               {tx.status === "confirmed" && (
                 <button
                   onClick={() => setShowInvoice(true)}
-                  className='w-full py-5 bg-white border border-gray-200 shadow-sm hover:bg-gray-50 text-gray-900 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all text-[16px]'>
+                  className='w-full py-4 md:py-5 bg-white border border-gray-200 shadow-sm hover:bg-gray-50 text-gray-900 rounded-xl md:rounded-2xl font-bold flex items-center justify-center gap-2.5 transition-all text-sm md:text-[16px] active:scale-[0.98] md:active:scale-100'>
                   <FileText className='w-5 h-5 text-[#2D8A60]' /> Print Order
                   Receipt / Invoice
                 </button>
