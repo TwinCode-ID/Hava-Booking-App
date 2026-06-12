@@ -286,12 +286,21 @@ function PackageSelectorView({ user }) {
 
   const filteredPackages = packages
     .filter((pkg) => {
-      if (pkg.isOneTimePurchase && purchasedPackageIds.includes(pkg._id))
+      const isStudentPkg =
+        pkg.isStudentPackage || pkg.packageCategory?.includes("Student");
+      if (isStudentPkg && !user?.isStudent) {
         return false;
+      }
+      if (pkg.isOneTimePurchase && purchasedPackageIds.includes(pkg._id)) {
+        return false;
+      }
+
       const matchesStudio =
         selectedStudioLocations.length === 0 ||
         selectedStudioLocations.includes(pkg.studioLocation?.studioName);
+
       const matchesActive = pkg.isActive;
+
       const matchesInstructor =
         selectedInstructorTypes.length === 0 ||
         (Array.isArray(pkg.instructorType)
@@ -299,10 +308,12 @@ function PackageSelectorView({ user }) {
               selectedInstructorTypes.includes(type),
             )
           : selectedInstructorTypes.includes(pkg.instructorType));
+
       const price = parseInt(pkg.isPromo ? pkg.promoPrice : pkg.packagePrice);
       const min = priceMin === "" ? 0 : parseInt(priceMin);
       const max = priceMax === "" ? Infinity : parseInt(priceMax);
       const matchesPrice = price >= min && price <= max;
+
       return (
         matchesStudio && matchesActive && matchesInstructor && matchesPrice
       );
