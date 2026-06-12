@@ -634,3 +634,32 @@ exports.acceptSharedPass = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.getPassForAdminScan = async (req, res) => {
+  try {
+    const { passId } = req.params;
+
+    // Fetch the pass and populate necessary user/package details
+    const pass = await UserPasses.findById(passId)
+      .populate("userId", "fullName email phoneNumber")
+      .populate("packageId", "packageName packageDescription");
+
+    if (!pass) {
+      return res.status(404).json({ message: "Pass not found." });
+    }
+
+    if (!pass.isActive) {
+      return res.status(400).json({ message: "Pass is inactive or expired." });
+    }
+
+    if (pass.remainingCredits <= 0) {
+      return res
+        .status(400)
+        .json({ message: "No credits remaining on this pass." });
+    }
+
+    res.status(200).json(pass);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

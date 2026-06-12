@@ -42,6 +42,8 @@ import {
   MapPin,
   CalendarClock,
   AlertTriangle,
+  Ticket,
+  Zap,
 } from "lucide-react";
 
 import axiosInstance from "../../../utils/axiosInstance";
@@ -64,9 +66,10 @@ const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showScanner, setShowScanner] = useState(false);
 
-  // --- NEW STATES FOR SCANNER ---
-  const [scannedBooking, setScannedBooking] = useState(null); // For Success Modal
-  const [scanError, setScanError] = useState(null); // For Error Overlay
+  // Scanner Result States
+  const [scannedBooking, setScannedBooking] = useState(null);
+  const [scannedPass, setScannedPass] = useState(null); // NEW: State for scanned general passes
+  const [scanError, setScanError] = useState(null);
 
   // Modals State
   const [selectedClassDetails, setSelectedClassDetails] = useState(null);
@@ -209,28 +212,27 @@ const AdminDashboard = () => {
     setSelectedClassDetails(null);
   };
 
-  // --- QR Scan Handler (Updated UI Logic) ---
-  const handleScanResult = (results) => {
-    // Prevent multiple scans/errors from stacking
-    if (scanError || scannedBooking) return;
+  // --- QR Scan Handler (Updated to handle both Bookings and General Passes) ---
+  const handleScanResult = async (results) => {
+    if (scanError || scannedBooking || scannedPass) return;
 
     if (!results || results.length === 0) return;
     const rawValue = results[0]?.rawValue;
     if (!rawValue) return;
 
-    // Find the booking in our loaded list
-    const foundBooking = bookings.find((b) => b._id === rawValue.trim());
+    const scannedId = rawValue.trim();
+
+    // 1. Check if it's a specific class booking ticket
+    const foundBooking = bookings.find((b) => b._id === scannedId);
 
     if (foundBooking) {
       const today = new Date();
       const classDate = new Date(foundBooking.classId.startTime);
 
       if (isSameDay(today, classDate)) {
-        // Correct Day -> Open Success Modal
         setScannedBooking(foundBooking);
         setShowScanner(false);
       } else {
-        // Wrong Day -> Show Error Overlay inside Scanner
         setScanError({
           type: "wrong_date",
           title: "Wrong Class Date",
@@ -241,15 +243,25 @@ const AdminDashboard = () => {
         });
       }
     } else {
-      // Not Found -> Show Error Overlay inside Scanner
-      setScanError({
-        type: "not_found",
-        title: "Booking Not Found",
-        message: "We couldn't find this booking in current records.",
-        detail: "Check studio location.",
-        icon: <AlertTriangle className='w-8 h-8 text-red-600' />,
-        color: "red",
-      });
+      // 2. If not a booking, check if it is a general Studio Pass
+      try {
+        const res = await axiosInstance.get(
+          `/api/passes/admin/scan/${scannedId}`,
+        );
+        setScannedPass(res.data);
+        setShowScanner(false);
+      } catch (err) {
+        setScanError({
+          type: "not_found",
+          title: "Invalid QR Code",
+          message: "We couldn't find a valid booking or active pass.",
+          detail:
+            err.response?.data?.message ||
+            "Check studio location and validity.",
+          icon: <AlertTriangle className='w-8 h-8 text-red-600' />,
+          color: "red",
+        });
+      }
     }
   };
 
@@ -258,7 +270,6 @@ const AdminDashboard = () => {
     const doc = new jsPDF();
     const dateStr = format(selectedDate, "EEEE, d MMMM yyyy");
 
-    // Header
     doc.setFontSize(22);
     doc.setTextColor(6, 78, 59);
     doc.text("Daily Studio Report", 14, 20);
@@ -267,7 +278,6 @@ const AdminDashboard = () => {
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26);
 
-    // Metadata Table
     autoTable(doc, {
       startY: 32,
       head: [["Date", "Studio Location", "Admin"]],
@@ -283,7 +293,6 @@ const AdminDashboard = () => {
       headStyles: { fontStyle: "bold" },
     });
 
-    // Stats Section
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text("Summary Stats", 14, doc.lastAutoTable.finalY + 15);
@@ -307,7 +316,6 @@ const AdminDashboard = () => {
 
     let finalY = doc.lastAutoTable.finalY + 15;
 
-    // Class Overview
     if (scheduledClasses.length > 0) {
       doc.setFontSize(14);
       doc.text("Class Overview", 14, finalY);
@@ -321,7 +329,7 @@ const AdminDashboard = () => {
           `${format(new Date(cls.startTime), "HH:mm")} - ${format(new Date(cls.endTime), "HH:mm")}`,
           cls.className,
           instructorName,
-          `${attendedCount} / ${cls.students.length}`,
+          `${attendedCount} / ${cls.capacity || cls.students.length}`,
           cls.classType,
         ];
       });
@@ -342,7 +350,6 @@ const AdminDashboard = () => {
         finalY = 20;
       }
 
-      // Detailed Lists
       doc.setFontSize(14);
       doc.setTextColor(6, 78, 59);
       doc.text("Detailed Student Lists", 14, finalY);
@@ -404,7 +411,6 @@ const AdminDashboard = () => {
       finalY += 20;
     }
 
-    // Footer
     if (finalY > 240) {
       doc.addPage();
       finalY = 40;
@@ -422,7 +428,6 @@ const AdminDashboard = () => {
     doc.setTextColor(80);
     doc.text(studio?.studioName || "HAVA Studio", 14, startYFooter + 6);
 
-    // Signatures
     const sigX = 130;
     doc.setFont(undefined, "normal");
     doc.setTextColor(0);
@@ -455,7 +460,7 @@ const AdminDashboard = () => {
     doc.save(`Report_${format(selectedDate, "yyyy-MM-dd")}.pdf`);
   };
 
-  if (loading)
+  if (loading && bookings.length === 0)
     return (
       <div className='flex h-screen items-center justify-center bg-gray-50'>
         <LoadingSpinner />
@@ -636,7 +641,7 @@ const AdminDashboard = () => {
                         <div className='flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-100'>
                           <span className='text-xs font-bold text-gray-500'>
                             {cls.students.filter((s) => s.isAttend).length}/
-                            {cls.students.length}
+                            {cls.capacity || cls.students.length}
                           </span>
                           <div className='w-2 h-2 rounded-full bg-emerald-500'></div>
                         </div>
@@ -780,7 +785,7 @@ const AdminDashboard = () => {
                   Scan QR Code
                 </h3>
                 <p className='text-sm text-gray-500'>
-                  Point camera at booking ticket
+                  Point camera at booking ticket or pass
                 </p>
               </div>
 
@@ -854,7 +859,7 @@ const AdminDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* 2. Success Result Modal */}
+      {/* 2. Success Result Modal (For Class Booking Tickets) */}
       <AnimatePresence>
         {scannedBooking && (
           <ScanResultModal
@@ -868,7 +873,22 @@ const AdminDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* 3. Helper Modals */}
+      {/* 3. NEW: Success Result Modal (For General Studio Passes) */}
+      <AnimatePresence>
+        {scannedPass && (
+          <PassScanResultModal
+            pass={scannedPass}
+            scheduledClasses={scheduledClasses}
+            onClose={() => setScannedPass(null)}
+            onSuccess={() => {
+              fetchData();
+              setScannedPass(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 4. Helper Modals */}
       <AnimatePresence>
         {selectedClassDetails && (
           <ClassDetailsModal
@@ -1066,6 +1086,157 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
               "Check In Now"
             )}
           </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// --- NEW COMPONENT: Pass Scan Result Modal ---
+const PassScanResultModal = ({
+  pass,
+  scheduledClasses,
+  onClose,
+  onSuccess,
+}) => {
+  const [loadingId, setLoadingId] = useState(null);
+
+  // Filter scheduled classes to find ones eligible for this pass
+  const eligibleClasses = scheduledClasses.filter((cls) => {
+    const matchInstructor = pass.instructorType?.includes(cls.instructorType);
+    const matchClass = pass.classType?.includes(cls.classType);
+    // You can optionally filter out full classes: const hasSpace = cls.students.length < (cls.capacity || 99);
+    return matchInstructor && matchClass;
+  });
+
+  const handleAssignAndDeduct = async (cls) => {
+    if (
+      !window.confirm(
+        `Book and check-in ${pass.userId?.fullName} for ${cls.className}?`,
+      )
+    )
+      return;
+
+    setLoadingId(cls._id);
+    try {
+      // 1. Create the booking directly via backend
+      const bookRes = await axiosInstance.post(
+        API_PATHS.BOOKING.CREATE_BOOKING,
+        {
+          classId: cls._id,
+          passId: pass._id,
+          targetUserId: pass.userId._id || pass.userId,
+        },
+      );
+
+      const newBookingId = bookRes.data.booking._id;
+
+      // 2. Immediately mark the booking as attended
+      await axiosInstance.put(
+        API_PATHS.BOOKING.STUDENT_CHECK_IN(newBookingId),
+        {
+          isAttend: true,
+        },
+      );
+
+      alert("Successfully assigned, deducted, and checked in!");
+      onSuccess();
+    } catch (error) {
+      alert(
+        error.response?.data?.error ||
+          error.message ||
+          "Failed to assign pass.",
+      );
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className='fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md'>
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]'>
+        <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50'>
+          <h2 className='text-xl font-bold text-gray-900 flex items-center gap-2'>
+            <Ticket className='w-5 h-5 text-emerald-600' /> General Pass Scanned
+          </h2>
+          <button
+            onClick={onClose}
+            className='p-2 bg-white rounded-full hover:bg-gray-200 transition-colors shadow-sm'>
+            <X className='w-5 h-5 text-gray-600' />
+          </button>
+        </div>
+
+        <div className='p-6 bg-white border-b border-gray-100 flex items-center gap-4'>
+          <div className='w-14 h-14 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-bold text-xl'>
+            {pass.userId?.fullName?.charAt(0).toUpperCase() || "U"}
+          </div>
+          <div className='flex-1'>
+            <h3 className='font-bold text-gray-900 text-lg'>
+              {pass.userId?.fullName}
+            </h3>
+            <p className='text-sm text-gray-500 line-clamp-1'>
+              {pass.packageId?.packageName || "Studio Pass"}
+            </p>
+          </div>
+          <div className='text-right'>
+            <p className='text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1'>
+              Balance
+            </p>
+            <p className='text-2xl font-bold text-emerald-600 leading-none'>
+              {pass.remainingCredits}
+            </p>
+          </div>
+        </div>
+
+        <div className='p-6 flex-1 overflow-y-auto bg-gray-50 custom-scrollbar'>
+          <h4 className='text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider'>
+            Eligible Classes Today
+          </h4>
+
+          {eligibleClasses.length > 0 ? (
+            <div className='space-y-3'>
+              {eligibleClasses.map((cls) => (
+                <div
+                  key={cls._id}
+                  className='bg-white p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm'>
+                  <div>
+                    <h5 className='font-bold text-gray-900'>{cls.className}</h5>
+                    <p className='text-sm text-gray-500 font-medium mt-1'>
+                      {format(new Date(cls.startTime), "HH:mm")} -{" "}
+                      {format(new Date(cls.endTime), "HH:mm")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleAssignAndDeduct(cls)}
+                    disabled={loadingId === cls._id}
+                    className='w-full sm:w-auto px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap flex justify-center'>
+                    {loadingId === cls._id ? (
+                      <LoadingSpinner size='sm' />
+                    ) : (
+                      "Assign & Check-in"
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className='text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200'>
+              <AlertCircle className='w-10 h-10 text-gray-300 mx-auto mb-3' />
+              <p className='text-gray-900 font-bold'>No Eligible Classes</p>
+              <p className='text-gray-500 text-sm mt-1 max-w-xs mx-auto'>
+                This pass cannot be used for any remaining classes scheduled for
+                today.
+              </p>
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>
