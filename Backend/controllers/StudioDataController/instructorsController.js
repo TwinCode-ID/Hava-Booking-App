@@ -33,19 +33,19 @@ exports.createInstructor = async (req, res) => {
       assignedStudiosId,
       avatar,
       workingHours,
-      instructorType,
-      instructorTier,
+      studioLevels,
     } = req.body;
+
     if (!fullName)
       return res.status(400).json({ message: "Instructor name is required" });
+
     const instructor = await Instructor.create({
       fullName,
       bio,
       assignedStudiosId,
       avatar,
       workingHours,
-      instructorType,
-      instructorTier,
+      studioLevels,
     });
     res.status(201).json(instructor);
   } catch (err) {
@@ -61,10 +61,10 @@ exports.updateProfile = async (req, res) => {
       assignedStudiosId,
       avatar,
       workingHours,
-      instructorType,
-      instructorTier,
       isActive,
-    } = req.body;
+      studioLevels,
+    } = req.body; // <- Removed instructorType & instructorTier
+
     const instructor = await Instructor.findById(req.params.id);
     if (!instructor)
       return res.status(400).json({ message: "Instructor not found" });
@@ -75,13 +75,11 @@ exports.updateProfile = async (req, res) => {
       instructor.assignedStudiosId = assignedStudiosId;
     if (avatar !== undefined) instructor.avatar = avatar;
     if (workingHours !== undefined) instructor.workingHours = workingHours;
-    if (instructorType !== undefined)
-      instructor.instructorType = instructorType;
-    if (instructorTier !== undefined)
-      instructor.instructorTier = instructorTier;
     if (isActive !== undefined) instructor.isActive = isActive;
+    if (studioLevels !== undefined) instructor.studioLevels = studioLevels;
 
     instructor.markModified("workingHours");
+    instructor.markModified("studioLevels");
     await instructor.save();
     res.status(200).json(instructor);
   } catch (err) {

@@ -973,6 +973,18 @@ const ClassDetailsModal = ({
   const [showRecurrenceOption, setShowRecurrenceOption] = useState(null);
   const [confirmationData, setConfirmationData] = useState(null);
 
+  // Extract the specific level for this studio
+  const clsStudioId =
+    typeof classData.studioId === "object"
+      ? classData.studioId._id
+      : classData.studioId;
+  const levelObj = classData.instructorId?.studioLevels?.find(
+    (l) => String(l.studioId) === String(clsStudioId),
+  );
+  const displayInstructorType = levelObj
+    ? levelObj.instructorType
+    : classData.instructorType || "Apprentice Instructor";
+
   const fetchBookings = async () => {
     setLoadingBookings(true);
     try {
@@ -1000,7 +1012,7 @@ const ClassDetailsModal = ({
     }
   };
 
-  // NEW: Filter out users who have already booked this class
+  // Filter out users who have already booked this class
   const availableUsers = useMemo(() => {
     if (!bookings) return users;
     const bookedUserIds = new Set(
@@ -1036,8 +1048,9 @@ const ClassDetailsModal = ({
           ? p.classType
           : [p.classType];
         const isClassTypeValid = passClassTypes.includes(classData.classType);
-        const targetInstructorLevel =
-          classData.instructorId?.instructorType || classData.instructorType;
+
+        // Check instructor type using the studio-specific level
+        const targetInstructorLevel = displayInstructorType;
         const passInstructorTypes = Array.isArray(p.instructorType)
           ? p.instructorType
           : [p.instructorType];
@@ -1220,8 +1233,7 @@ const ClassDetailsModal = ({
                     Instructor
                   </p>
                   <p className='font-medium text-gray-900'>
-                    {classData.instructorId?.fullName} -{" "}
-                    {classData.instructorId?.instructorType}
+                    {classData.instructorId?.fullName} - {displayInstructorType}
                   </p>
                 </div>
               </div>
@@ -1302,7 +1314,7 @@ const ClassDetailsModal = ({
                       </div>
                       <CustomSelect
                         label='Student'
-                        options={availableUsers} // <-- FIX: Uses filtered users list
+                        options={availableUsers}
                         getLabel={(u) => u.fullName}
                         getValue={(u) => u._id}
                         onChange={handleUserSelect}
@@ -1607,11 +1619,22 @@ const CreateClassModal = ({
   useEffect(() => {
     if (initialData) {
       const isBulk = initialData.recurrenceCount >= 52;
+
+      // Extract the level specifically for this studio
+      const instId = initialData.instructorId?._id || initialData.instructorId;
+      const instObj = instructors.find((i) => i._id === instId);
+      const levelObj = instObj?.studioLevels?.find(
+        (l) => String(l.studioId) === String(studioId),
+      );
+      const initType = levelObj
+        ? levelObj.instructorType
+        : initialData.instructorType || "Apprentice Instructor";
+
       setForm({
         className: initialData.className,
         description: initialData.description || "",
-        instructorId: initialData.instructorId?._id || initialData.instructorId,
-        instructorType: initialData.instructorType,
+        instructorId: instId,
+        instructorType: initType,
         classType: initialData.classType,
         startTime: initialData.startTime,
         duration: initialData.duration,
@@ -1627,7 +1650,7 @@ const CreateClassModal = ({
     } else {
       setSelectedRecurrenceDays([getDay(new Date())]);
     }
-  }, [initialData]);
+  }, [initialData, instructors, studioId]);
 
   useEffect(() => {
     if (!initialData && !form.isRecurring)
@@ -1894,10 +1917,11 @@ const CreateClassModal = ({
 
   const handleInstructorSelect = (selectedId) => {
     const selectedInstructor = instructors.find((i) => i._id === selectedId);
-    const type =
-      selectedInstructor?.role ||
-      selectedInstructor?.instructorType ||
-      "Instructor";
+    const levelObj = selectedInstructor?.studioLevels?.find(
+      (l) => String(l.studioId) === String(studioId),
+    );
+    const type = levelObj ? levelObj.instructorType : "Apprentice Instructor";
+
     setForm((prev) => ({
       ...prev,
       instructorId: selectedId,

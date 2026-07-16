@@ -46,6 +46,14 @@ const getBasePath = () => {
   return base;
 };
 
+const getTypeColor = (type) => {
+  if (type?.includes("Master"))
+    return "bg-purple-50 text-purple-700 border-purple-100";
+  if (type?.includes("Senior"))
+    return "bg-blue-50 text-blue-700 border-blue-100";
+  return "bg-[#dcfce7] text-[#166534] border-[#bbf7d0]";
+};
+
 // ============================================================================
 // CUSTOM SLEEK UI COMPONENTS
 // ============================================================================
@@ -428,6 +436,8 @@ const DateRangePopover = ({
 // ============================================================================
 const ManageInstructors = ({ isEmbedded = false }) => {
   const { user } = useAuth();
+  const myStudioId = String(user?.adminStudioLocation);
+
   const [instructors, setInstructors] = useState([]);
   const [studios, setStudios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -489,12 +499,20 @@ const ManageInstructors = ({ isEmbedded = false }) => {
   };
 
   const filteredInstructors = useMemo(() => {
-    return instructors.filter(
-      (inst) =>
+    return instructors.filter((inst) => {
+      const studioLevel = inst.studioLevels?.find(
+        (l) => String(l.studioId) === myStudioId,
+      );
+      const searchType = studioLevel
+        ? studioLevel.instructorType
+        : "Apprentice Instructor";
+
+      return (
         inst.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inst.instructorType.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-  }, [instructors, searchQuery]);
+        searchType.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    });
+  }, [instructors, searchQuery, myStudioId]);
 
   if (loading) return <LoadingSpinner />;
 
@@ -531,11 +549,6 @@ const ManageInstructors = ({ isEmbedded = false }) => {
             </span>{" "}
             instructors
           </div>
-          {/* <button
-            onClick={() => setIsCreateFormOpen(true)}
-            className='flex items-center gap-2 bg-[#045D43] text-white px-5 py-3 rounded-xl text-sm font-bold hover:bg-[#034d36] transition-colors shadow-md'>
-            <Plus className='w-4 h-4' /> Add Instructor
-          </button> */}
         </div>
       </div>
 
@@ -544,6 +557,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
           <InstructorCard
             key={inst._id}
             instructor={inst}
+            myStudioId={myStudioId}
             onEdit={() => setEditingInstructor(inst)}
             onDelete={() => setDeleteId(inst._id)}
           />
@@ -636,7 +650,7 @@ const InstructorDashboardModal = ({
 
   const [profileForm, setProfileForm] = useState({
     fullName: instructor.fullName || "",
-    instructorType: instructor.instructorType || "",
+    instructorType: "",
     bio: instructor.bio || "",
   });
 
@@ -654,21 +668,49 @@ const InstructorDashboardModal = ({
 
   useEffect(() => {
     if (instructor) {
+      const currentStudioLevel = instructor.studioLevels?.find(
+        (l) => String(l.studioId) === myStudioId,
+      );
+
       setProfileForm({
         fullName: instructor.fullName || "",
-        instructorType: instructor.instructorType || "",
+        instructorType: currentStudioLevel
+          ? currentStudioLevel.instructorType
+          : "Apprentice Instructor",
         bio: instructor.bio || "",
       });
     }
-  }, [instructor._id]);
+  }, [instructor, myStudioId]);
 
+  // Update save function
   const handleProfileSave = async () => {
     try {
       setIsProcessing(true);
-      await axiosInstance.put(
-        `${basePath}/${instructor._id}/update-profile`,
-        profileForm,
+
+      const updatedStudioLevels = [...(instructor.studioLevels || [])];
+      const existingIndex = updatedStudioLevels.findIndex(
+        (l) => String(l.studioId) === myStudioId,
       );
+
+      if (existingIndex >= 0) {
+        updatedStudioLevels[existingIndex].instructorType =
+          profileForm.instructorType;
+      } else {
+        updatedStudioLevels.push({
+          studioId: myStudioId,
+          instructorType: profileForm.instructorType,
+          instructorTier: 1,
+        });
+      }
+
+      // Destructure profileForm so we DO NOT send instructorType to the root
+      const { instructorType, ...restOfProfile } = profileForm;
+
+      await axiosInstance.put(`${basePath}/${instructor._id}/update-profile`, {
+        ...restOfProfile,
+        studioLevels: updatedStudioLevels,
+      });
+
       await refreshData();
       showAlert("Success", "Profile changes saved successfully.", "success");
     } catch (error) {
@@ -736,7 +778,7 @@ const InstructorDashboardModal = ({
       });
 
       let newAssignedStudios = [...(instructor.assignedStudiosId || [])].map(
-        (s) => s._id || s,
+        (s) => (typeof s === "object" ? s._id : s),
       );
       if (!newAssignedStudios.includes(assignForm.studioId))
         newAssignedStudios.push(assignForm.studioId);
@@ -1009,7 +1051,7 @@ const InstructorDashboardModal = ({
     return Array.from(map.values());
   }, [instructor, myStudioId, studios]);
 
-  // Deduplicate assigned studios to prevent the UI issue shown in Picture 3
+  // Deduplicate assigned studios
   const uniqueAssignedStudios = useMemo(() => {
     const unique = [];
     const map = new Map();
@@ -1244,9 +1286,35 @@ const InstructorDashboardModal = ({
                 <div className='flex gap-12 text-[13px] mt-1 mb-2'>
                   <div>
                     <p className='text-gray-400 font-semibold mb-0.5'>Title</p>
-                    <p className='font-bold text-gray-900'>
-                      {instructor.instructorType}
-                    </p>
+                    <div className='font-bold text-gray-900 leading-snug'>
+                      {uniqueAssignedStudios.length > 0
+                        ? uniqueAssignedStudios
+                            .map((studio) => {
+                              const sId =
+                                typeof studio === "object"
+                                  ? studio._id
+                                  : studio;
+                              const sName =
+                                typeof studio === "object" && studio.studioName
+                                  ? studio.studioName.replace(
+                                      "BASI Pilates ",
+                                      "",
+                                    )
+                                  : "Studio";
+                              const levelObj = instructor.studioLevels?.find(
+                                (l) => String(l.studioId) === String(sId),
+                              );
+                              const level = levelObj
+                                ? levelObj.instructorType.replace(
+                                    " Instructor",
+                                    "",
+                                  )
+                                : "Apprentice";
+                              return `${level} - ${sName}`;
+                            })
+                            .join(", ")
+                        : "No Assigned Studios"}
+                    </div>
                   </div>
                   <div>
                     <p className='text-gray-400 font-semibold mb-0.5'>
@@ -1767,7 +1835,7 @@ const InstructorDashboardModal = ({
                     </div>
                     <div>
                       <label className='text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 block'>
-                        LEVEL
+                        LEVEL (For This Studio)
                       </label>
                       <SleekSelect
                         className='shadow-sm border-gray-200 rounded-xl p-4'
@@ -1797,12 +1865,27 @@ const InstructorDashboardModal = ({
                             : "Unknown Location";
                           const sId =
                             typeof studio === "object" ? studio._id : idx;
+
+                          // Look up the specific level for this studio location
+                          const levelObj = instructor.studioLevels?.find(
+                            (l) => String(l.studioId) === String(sId),
+                          );
+                          const studioLevel = levelObj
+                            ? levelObj.instructorType
+                            : "Apprentice Instructor";
+
                           return (
                             <div
                               key={sId}
-                              className='flex items-center gap-3 text-[14px] font-medium text-gray-900 bg-white p-4 border border-gray-200 rounded-xl shadow-sm'>
-                              <MapPin className='w-4 h-4 text-gray-400 shrink-0' />
-                              {sName}
+                              className='flex items-center justify-between bg-white p-4 border border-gray-200 rounded-xl shadow-sm'>
+                              <div className='flex items-center gap-3 text-[14px] font-medium text-gray-900'>
+                                <MapPin className='w-4 h-4 text-gray-400 shrink-0' />
+                                {sName}
+                              </div>
+                              <span
+                                className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-bold border tracking-widest ${getTypeColor(studioLevel)}`}>
+                                {studioLevel}
+                              </span>
                             </div>
                           );
                         })
@@ -1843,66 +1926,103 @@ const InstructorDashboardModal = ({
 // ============================================================================
 // INSTRUCTOR CARD COMPONENT
 // ============================================================================
-const InstructorCard = React.memo(({ instructor, onEdit, onDelete }) => {
-  const getTypeColor = (type) => {
-    if (type?.includes("Master"))
-      return "bg-purple-50 text-purple-700 border-purple-100";
-    if (type?.includes("Senior"))
-      return "bg-blue-50 text-blue-700 border-blue-100";
-    return "bg-[#dcfce7] text-[#166534] border-[#bbf7d0]";
-  };
+const InstructorCard = React.memo(
+  ({ instructor, myStudioId, onEdit, onDelete }) => {
+    // Deduplicate assigned studios for the card view mapping
+    const uniqueAssignedStudios = useMemo(() => {
+      const unique = [];
+      const map = new Map();
+      for (const item of instructor.assignedStudiosId || []) {
+        const idStr = typeof item === "object" ? item._id : item;
+        if (!map.has(idStr)) {
+          map.set(idStr, true);
+          unique.push(item);
+        }
+      }
+      return unique;
+    }, [instructor.assignedStudiosId]);
 
-  const shiftCount = Object.values(instructor.workingHours || {})
-    .flat()
-    .filter((s) => s.isActive !== false).length;
+    const shiftCount = Object.values(instructor.workingHours || {})
+      .flat()
+      .filter((s) => s.isActive !== false).length;
 
-  return (
-    <div
-      className={`bg-white rounded-2xl p-6 border transition-all relative cursor-pointer hover:shadow-lg ${instructor.isActive === false ? "opacity-70 border-red-200 bg-red-50/20" : "border-gray-200 hover:border-[#045D43]"}`}
-      onClick={onEdit}>
-      <div className='flex justify-between items-start mb-4'>
-        <div className='flex gap-4'>
-          <div className='w-14 h-14 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center'>
-            {instructor.avatar ? (
-              <img
-                src={fetchImage(instructor.avatar)}
-                className='w-full h-full object-cover'
-                alt=''
-              />
-            ) : (
-              <span className='text-xl font-bold text-gray-400'>
-                {instructor.fullName.charAt(0).toUpperCase()}
-              </span>
-            )}
+    return (
+      <div
+        className={`bg-white rounded-2xl p-6 border transition-all relative cursor-pointer hover:shadow-lg ${instructor.isActive === false ? "opacity-70 border-red-200 bg-red-50/20" : "border-gray-200 hover:border-[#045D43]"}`}
+        onClick={onEdit}>
+        <div className='flex justify-between items-start mb-4'>
+          <div className='flex gap-4'>
+            <div className='w-14 h-14 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center mt-1'>
+              {instructor.avatar ? (
+                <img
+                  src={fetchImage(instructor.avatar)}
+                  className='w-full h-full object-cover'
+                  alt=''
+                />
+              ) : (
+                <span className='text-xl font-bold text-gray-400'>
+                  {instructor.fullName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className='min-w-0 pt-1'>
+              <h3
+                className={`font-bold text-[17px] leading-tight truncate text-[#045D43] ${instructor.isActive === false ? "text-red-900 line-through" : ""}`}>
+                {instructor.fullName}
+              </h3>
+
+              <div className='flex flex-wrap gap-1.5 mt-2.5'>
+                {uniqueAssignedStudios.map((studio, idx) => {
+                  const sId = typeof studio === "object" ? studio._id : idx;
+                  const sName =
+                    typeof studio === "object" && studio.studioName
+                      ? studio.studioName.replace("BASI Pilates ", "")
+                      : "Studio";
+
+                  const levelObj = instructor.studioLevels?.find(
+                    (l) => String(l.studioId) === String(sId),
+                  );
+                  const level = levelObj
+                    ? levelObj.instructorType
+                    : "Apprentice Instructor";
+                  const shortLevel = level.replace(" Instructor", "");
+
+                  return (
+                    <span
+                      key={sId}
+                      className={`px-2 py-0.5 rounded-md text-[9px] uppercase font-bold border tracking-widest ${getTypeColor(level)}`}>
+                      {shortLevel} - {sName}
+                    </span>
+                  );
+                })}
+
+                {uniqueAssignedStudios.length === 0 && (
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[9px] uppercase font-bold border tracking-widest ${getTypeColor("Apprentice Instructor")}`}>
+                    No Assigned Studios
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <div className='min-w-0 pt-1'>
-            <h3
-              className={`font-bold text-[17px] leading-tight truncate text-[#045D43] ${instructor.isActive === false ? "text-red-900 line-through" : ""}`}>
-              {instructor.fullName}
-            </h3>
-            <span
-              className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold border tracking-widest inline-block mt-2 ${getTypeColor(instructor.instructorType)}`}>
-              {instructor.instructorType}
+        </div>
+
+        <div className='flex items-center justify-between pt-4 mt-6 border-t border-gray-100'>
+          <div className='flex items-center gap-2 text-[14px] text-gray-500'>
+            <CalendarDays className='w-4 h-4' />
+            <span>
+              Active Shifts:{" "}
+              <span className='font-bold text-gray-900'>{shiftCount}</span>
             </span>
           </div>
-        </div>
-      </div>
-
-      <div className='flex items-center justify-between pt-4 mt-6 border-t border-gray-100'>
-        <div className='flex items-center gap-2 text-[14px] text-gray-500'>
-          <CalendarDays className='w-4 h-4' />
-          <span>
-            Active Shifts:{" "}
-            <span className='font-bold text-gray-900'>{shiftCount}</span>
+          <span className='text-[13px] font-bold text-[#045D43] hover:underline'>
+            View Details
           </span>
         </div>
-        <span className='text-[13px] font-bold text-[#045D43] hover:underline'>
-          View Details
-        </span>
       </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 // ============================================================================
 // HELPER COMPONENTS (Alerts)

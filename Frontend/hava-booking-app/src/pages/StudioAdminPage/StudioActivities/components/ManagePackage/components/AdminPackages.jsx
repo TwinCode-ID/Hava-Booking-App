@@ -319,12 +319,6 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
         </div>
       ))}
 
-      {pkg.isStudentPackage && (
-        <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-red-100 text-red-800 flex items-center gap-1'>
-          STUDENT
-        </div>
-      )}
-
       {pkg.isOneTimePurchase && (
         <div className='px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider bg-amber-100 text-amber-800 flex items-center gap-1'>
           <AlertTriangle className='w-3 h-3' /> ONE-TIME
@@ -471,7 +465,10 @@ const PackageFormModal = ({
       ? initialData.packageCategory
       : ["Regular"],
 
-    isStudentPackage: initialData?.isStudentPackage || false,
+    isStudentPackage: Array.isArray(initialData?.packageCategory)
+      ? initialData.packageCategory.includes("Student")
+      : initialData?.isStudentPackage || false,
+
     isOneTimePurchase: initialData?.isOneTimePurchase || false,
     isAvailableToFreeze: initialData?.isAvailableToFreeze || false,
 
@@ -602,7 +599,11 @@ const PackageFormModal = ({
                   options={["Regular", "Student"]}
                   value={formData.packageCategory}
                   onChange={(val) =>
-                    setFormData({ ...formData, packageCategory: val })
+                    setFormData({
+                      ...formData,
+                      packageCategory: val,
+                      isStudentPackage: val.includes("Student"),
+                    })
                   }
                   placeholder='Select Categories...'
                 />
@@ -682,6 +683,8 @@ const PackageFormModal = ({
             </div>
 
             <hr className='border-gray-100' />
+            {/* 
+            # STUDENT PACKAGE SELECTOR OFF CHANGE TO BASED ON PACKAGE CATERGORY
 
             <div className='flex items-center justify-between bg-red-50 p-4 rounded-md border border-red-100'>
               <div>
@@ -706,7 +709,7 @@ const PackageFormModal = ({
                 />
                 <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
               </label>
-            </div>
+            </div> */}
 
             <div className='flex items-center justify-between bg-amber-50 p-4 rounded-md border border-amber-100'>
               <div>

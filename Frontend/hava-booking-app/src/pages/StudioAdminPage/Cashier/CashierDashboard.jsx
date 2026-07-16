@@ -126,7 +126,7 @@ const CashierDashboard = () => {
           .get(`/api/purchases/studio/${studioId}`)
           .catch(() => ({ data: [] }));
         const passesPromise = axiosInstance
-          .get(`/api/user-passes/studio/${studioId}`)
+          .get(`/api/passes/history/${studioId}`)
           .catch(() => ({ data: [] }));
 
         const [usersRes, packagesRes, promosRes, purchasesRes, passesRes] =

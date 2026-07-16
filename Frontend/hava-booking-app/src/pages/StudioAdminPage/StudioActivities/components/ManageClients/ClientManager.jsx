@@ -178,15 +178,25 @@ const ClientManager = ({ isEmbedded = false }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [res, configRes] = await Promise.all([
+      const [res, configRes] = await Promise.allSettled([
         axiosInstance.get(
           API_PATHS.PASSES.GET_ALL_ADMIN(user.adminStudioLocation),
         ),
         axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
       ]);
-      const safePurchases = (res.data || []).map(getSafePassData);
-      setPurchases(safePurchases);
-      setConfig(configRes.data || { classTypes: [], instructorTypes: [] });
+
+      if (res.status === "fulfilled" && res.value.data) {
+        const safePurchases = (res.value.data || []).map(getSafePassData);
+        setPurchases(safePurchases);
+      } else {
+        setPurchases([]);
+      }
+
+      if (configRes.status === "fulfilled" && configRes.value.data) {
+        setConfig(configRes.value.data);
+      } else {
+        setConfig({ classTypes: [], instructorTypes: [] });
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -2648,6 +2658,7 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
         setPackages(res.data || []);
       } catch (err) {
         console.error(err);
+        setPackages([]);
       } finally {
         setIsLoadingData(false);
       }
@@ -2661,9 +2672,15 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
   };
   const isFormValid = formData.packageId && formData.paymentIssuer;
 
-  const filteredPackages = packages.filter(
-    (p) => !!p.isStudent === !!client.isStudent,
-  );
+  const filteredPackages = packages.filter((p) => {
+    const isPackageStudent =
+      p.isStudentPackage === true || p.packageCategory?.includes("Student");
+
+    if (client.isStudent) {
+      return true;
+    }
+    return !isPackageStudent;
+  });
 
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
@@ -2767,14 +2784,24 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     const init = async () => {
       try {
-        const [u, p] = await Promise.all([
+        const [u, p] = await Promise.allSettled([
           axiosInstance.get(API_PATHS.AUTH.GET_ALL_USERS),
           axiosInstance.get(
             API_PATHS.PACKAGES.GET_PACKAGE_BY_STUDIO(user.adminStudioLocation),
           ),
         ]);
-        setUsers(u.data || []);
-        setPackages(p.data || []);
+
+        if (u.status === "fulfilled" && u.value.data) {
+          setUsers(u.value.data);
+        } else {
+          setUsers([]);
+        }
+
+        if (p.status === "fulfilled" && p.value.data) {
+          setPackages(p.value.data);
+        } else {
+          setPackages([]);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -2805,9 +2832,15 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
       ? !!users.find((u) => u._id === formData.userId)?.isStudent
       : formData.newClientData.isStudent;
 
-  const filteredPackages = packages.filter(
-    (p) => !!p.isStudent === isSelectedStudent,
-  );
+  const filteredPackages = packages.filter((p) => {
+    const isPackageStudent =
+      p.isStudentPackage === true || p.packageCategory?.includes("Student");
+
+    if (isSelectedStudent) {
+      return true;
+    }
+    return !isPackageStudent;
+  });
 
   return (
     <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>

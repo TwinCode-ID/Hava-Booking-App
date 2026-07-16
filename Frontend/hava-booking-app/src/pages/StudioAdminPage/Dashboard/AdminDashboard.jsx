@@ -17,7 +17,6 @@ import {
   setYear,
   getYear,
   getMonth,
-  parseISO,
 } from "date-fns";
 import {
   Calendar as CalendarIcon,
@@ -34,7 +33,6 @@ import {
   AlertCircle,
   UserCheck,
   Search,
-  FileText,
   Download,
   Eye,
   QrCode,
@@ -43,7 +41,7 @@ import {
   CalendarClock,
   AlertTriangle,
   Ticket,
-  Zap,
+  FileText,
 } from "lucide-react";
 
 import axiosInstance from "../../../utils/axiosInstance";
@@ -60,6 +58,7 @@ const AdminDashboard = () => {
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
 
   const [bookings, setBookings] = useState([]);
+  const [schedules, setSchedules] = useState([]); // NEW: Store all schedules
   const [loading, setLoading] = useState(true);
 
   // Search & Scan State
@@ -68,7 +67,7 @@ const AdminDashboard = () => {
 
   // Scanner Result States
   const [scannedBooking, setScannedBooking] = useState(null);
-  const [scannedPass, setScannedPass] = useState(null); // NEW: State for scanned general passes
+  const [scannedPass, setScannedPass] = useState(null);
   const [scanError, setScanError] = useState(null);
 
   // Modals State
@@ -83,15 +82,12 @@ const AdminDashboard = () => {
   // --- Fetch Studio Info ---
   const fetchStudio = async () => {
     try {
-      setLoading(true);
       const response = await axiosInstance.get(
         API_PATHS.STUDIO.GET_STUDIO_BY_ID(user.adminStudioLocation),
       );
       setStudio(response.data);
     } catch (err) {
       console.error("Failed to fetch studio", err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -101,14 +97,20 @@ const AdminDashboard = () => {
     }
   }, [user]);
 
-  // --- Fetch Bookings ---
+  // --- Fetch Bookings AND Schedules ---
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get(
-        API_PATHS.BOOKING.GET_STUDIO_BOOKING,
-      );
-      setBookings(response.data);
+      // Fallback to raw path if GET_ALL is not defined in API_PATHS.SCHEDULE
+      const schedulePath = API_PATHS.SCHEDULE?.GET_ALL || "/api/schedules";
+
+      const [bookingRes, scheduleRes] = await Promise.all([
+        axiosInstance.get(API_PATHS.BOOKING.GET_STUDIO_BOOKING),
+        axiosInstance.get(schedulePath),
+      ]);
+
+      setBookings(bookingRes.data);
+      setSchedules(scheduleRes.data);
     } catch (error) {
       console.error("Fetch error:", error);
     } finally {
@@ -128,14 +130,36 @@ const AdminDashboard = () => {
         b.status !== "Cancelled",
     );
 
+    const adminStudioId = String(user?.adminStudioLocation || "");
+
+    // 1. Get ALL schedules for this studio today (even empty ones!)
+    const todaysSchedules = schedules.filter((s) => {
+      const sStudioId = String(s.studioId?._id || s.studioId || "");
+      const isStudioMatch = sStudioId === adminStudioId;
+      const isDateMatch = isSameDay(new Date(s.startTime), selectedDate);
+      return isStudioMatch && isDateMatch && s.isActive;
+    });
+
     const classMap = {};
 
+    // 2. Initialize the map with every scheduled class
+    todaysSchedules.forEach((cls) => {
+      classMap[cls._id] = {
+        ...cls,
+        studioName: cls.studioId?.studioName || studio?.studioName || "Studio",
+        students: [],
+      };
+    });
+
+    // 3. Attach students to the scheduled classes
     todaysBookings.forEach((booking) => {
       const clsId = booking.classId._id;
+
+      // Safety fallback: if booking exists but class is inactive/missing
       if (!classMap[clsId]) {
         classMap[clsId] = {
           ...booking.classId,
-          studioName: booking.studioId.studioName,
+          studioName: booking.studioId?.studioName || studio?.studioName,
           instructorId: booking.instructorId,
           students: [],
         };
@@ -160,16 +184,17 @@ const AdminDashboard = () => {
       (a, b) => new Date(a.startTime) - new Date(b.startTime),
     );
 
+    // Apply Search
     if (searchQuery.trim() !== "") {
       const lowerQuery = searchQuery.toLowerCase();
       classesArray = classesArray.filter((cls) => {
-        if (cls.className.toLowerCase().includes(lowerQuery)) return true;
-        if (cls.studioName.toLowerCase().includes(lowerQuery)) return true;
+        if (cls.className?.toLowerCase().includes(lowerQuery)) return true;
+        if (cls.studioName?.toLowerCase().includes(lowerQuery)) return true;
         const hasStudent = cls.students.some(
           (s) =>
-            s.fullName.toLowerCase().includes(lowerQuery) ||
-            s.email.toLowerCase().includes(lowerQuery) ||
-            s.bookingId.toLowerCase().includes(lowerQuery),
+            s.fullName?.toLowerCase().includes(lowerQuery) ||
+            s.email?.toLowerCase().includes(lowerQuery) ||
+            s.bookingId?.toLowerCase().includes(lowerQuery),
         );
         if (hasStudent) return true;
         return false;
@@ -183,7 +208,7 @@ const AdminDashboard = () => {
       scheduledClasses: classesArray,
       dailyBookings: todaysBookings,
       dailyStats: {
-        totalClasses: Object.keys(classMap).length,
+        totalClasses: classesArray.length, // Reflects empty classes too
         totalStudents,
         totalAttended,
         attendanceRate:
@@ -192,7 +217,7 @@ const AdminDashboard = () => {
             : Math.round((totalAttended / totalStudents) * 100),
       },
     };
-  }, [bookings, selectedDate, searchQuery]);
+  }, [bookings, schedules, selectedDate, searchQuery, user, studio]);
 
   // Handlers
   const handlePrevDay = () => setSelectedDate(subDays(selectedDate, 1));
@@ -212,7 +237,7 @@ const AdminDashboard = () => {
     setSelectedClassDetails(null);
   };
 
-  // --- QR Scan Handler (Updated to handle both Bookings and General Passes) ---
+  // --- QR Scan Handler ---
   const handleScanResult = async (results) => {
     if (scanError || scannedBooking || scannedPass) return;
 
@@ -460,7 +485,7 @@ const AdminDashboard = () => {
     doc.save(`Report_${format(selectedDate, "yyyy-MM-dd")}.pdf`);
   };
 
-  if (loading && bookings.length === 0)
+  if (loading && bookings.length === 0 && schedules.length === 0)
     return (
       <div className='flex h-screen items-center justify-center bg-gray-50'>
         <LoadingSpinner />
@@ -873,7 +898,7 @@ const AdminDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* 3. NEW: Success Result Modal (For General Studio Passes) */}
+      {/* 3. Success Result Modal (For General Studio Passes) */}
       <AnimatePresence>
         {scannedPass && (
           <PassScanResultModal
@@ -1103,10 +1128,36 @@ const PassScanResultModal = ({
 
   // Filter scheduled classes to find ones eligible for this pass
   const eligibleClasses = scheduledClasses.filter((cls) => {
-    const matchInstructor = pass.instructorType?.includes(cls.instructorType);
-    const matchClass = pass.classType?.includes(cls.classType);
-    // You can optionally filter out full classes: const hasSpace = cls.students.length < (cls.capacity || 99);
-    return matchInstructor && matchClass;
+    const passInstructors = pass.instructorType || [];
+    const passClasses = pass.classType || [];
+
+    const cType = Array.isArray(cls.classType)
+      ? cls.classType[0]
+      : cls.classType;
+    const iType = Array.isArray(cls.instructorType)
+      ? cls.instructorType[0]
+      : cls.instructorType;
+
+    const matchClass =
+      passClasses.length === 0 ||
+      !cType ||
+      passClasses.some((pc) => cType.includes(pc)) ||
+      passClasses.includes(cType);
+
+    const matchInstructor =
+      passInstructors.length === 0 ||
+      !iType ||
+      passInstructors.some((pi) => iType.includes(pi)) ||
+      passInstructors.includes(iType);
+
+    const passOwnerId = pass.userId?._id || pass.userId;
+    const isAlreadyBooked = cls.students.some(
+      (s) => String(s.userId) === String(passOwnerId),
+    );
+
+    const isFull = cls.capacity && cls.students.length >= cls.capacity;
+
+    return matchInstructor && matchClass && !isAlreadyBooked && !isFull;
   });
 
   const handleAssignAndDeduct = async (cls) => {
@@ -1119,7 +1170,6 @@ const PassScanResultModal = ({
 
     setLoadingId(cls._id);
     try {
-      // 1. Create the booking directly via backend
       const bookRes = await axiosInstance.post(
         API_PATHS.BOOKING.CREATE_BOOKING,
         {
@@ -1131,7 +1181,6 @@ const PassScanResultModal = ({
 
       const newBookingId = bookRes.data.booking._id;
 
-      // 2. Immediately mark the booking as attended
       await axiosInstance.put(
         API_PATHS.BOOKING.STUDENT_CHECK_IN(newBookingId),
         {
@@ -1162,7 +1211,7 @@ const PassScanResultModal = ({
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
-        className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]'>
+        className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] md:max-h-[85vh]'>
         <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50'>
           <h2 className='text-xl font-bold text-gray-900 flex items-center gap-2'>
             <Ticket className='w-5 h-5 text-emerald-600' /> General Pass Scanned

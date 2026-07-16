@@ -1,5 +1,22 @@
 const mongoose = require("mongoose");
 
+const studioLevelSchema = new mongoose.Schema(
+  {
+    studioId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Studios",
+      required: true,
+    },
+    instructorType: { type: String, required: true },
+    instructorTier: {
+      type: Number,
+      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      default: 1,
+    },
+  },
+  { _id: false },
+);
+
 const exceptionSchema = new mongoose.Schema({
   startDate: { type: String, required: true },
   endDate: { type: String, required: true },
@@ -40,12 +57,7 @@ const InstructorsSchema = new mongoose.Schema(
       saturday: [workingHoursSchema],
       sunday: [workingHoursSchema],
     },
-    instructorType: { type: String, require: true },
-    instructorTier: {
-      type: Number,
-      enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      default: 1,
-    },
+    studioLevels: [studioLevelSchema],
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
