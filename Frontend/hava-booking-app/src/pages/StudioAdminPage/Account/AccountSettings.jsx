@@ -20,7 +20,6 @@ import uploadProfile from "../../../utils/uploadStudio";
 import { fetchImage } from "../../../utils/helper";
 
 // --- WebAuthn Helper Functions ---
-// Converts standard Base64URL strings from your server into ArrayBuffers for the browser API
 const base64URLStringToBuffer = (base64URLString) => {
   const base64 = base64URLString.replace(/-/g, "+").replace(/_/g, "/");
   const padLength = (4 - (base64.length % 4)) % 4;
@@ -34,7 +33,6 @@ const base64URLStringToBuffer = (base64URLString) => {
   return buffer;
 };
 
-// Converts ArrayBuffers back to Base64URL strings to send to your server
 const bufferToBase64URLString = (buffer) => {
   const bytes = new Uint8Array(buffer);
   let str = "";
@@ -51,7 +49,7 @@ const SettingList = () => {
   // --- States ---
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
-  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false); // NEW Passkey State
+  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false);
 
   // Profile State
   const [previewImage, setPreviewImage] = useState(user?.avatar || null);
@@ -160,7 +158,7 @@ const SettingList = () => {
         const uploadRes = await uploadProfile(
           profileData.newAvatarFile,
           user._id,
-        ); // -> Use uploadStudio here for Admin
+        );
         avatarUrl = uploadRes?.imageUrl || uploadRes?.url || uploadRes;
       }
 
@@ -204,15 +202,22 @@ const SettingList = () => {
       return alert("New passwords do not match!");
     if (passwordData.newPassword.length < 6)
       return alert("Password must be at least 6 characters long.");
+    if (
+      user?.password &&
+      user.password !== "" &&
+      !passwordData.currentPassword
+    ) {
+      return alert("Please enter your current password.");
+    }
 
     setIsLoadingPassword(true);
     try {
       await axiosInstance.put(API_PATHS.AUTH.UPDATE_PASSWORD, {
-        password: passwordData.currentPassword,
+        password: passwordData.currentPassword || "",
         newPassword: passwordData.newPassword,
       });
 
-      alert("Password changed successfully!");
+      alert("Password updated successfully!");
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -220,16 +225,12 @@ const SettingList = () => {
       });
     } catch (error) {
       console.error("Password update failed", error);
-      alert(
-        error.response?.data?.message ||
-          "Failed to update password. Check your current password.",
-      );
+      alert(error.response?.data?.message || "Failed to update password.");
     } finally {
       setIsLoadingPassword(false);
     }
   };
 
-  // --- NEW: Passkey Registration Handler ---
   const handleRegisterPasskey = async () => {
     if (!window.PublicKeyCredential) {
       alert("WebAuthn/Passkeys are not supported in this browser.");
@@ -238,13 +239,11 @@ const SettingList = () => {
 
     setIsRegisteringPasskey(true);
     try {
-      // 1. Send the userId in the body!
       const { data: options } = await axiosInstance.post(
         API_PATHS.PASSKEY.REGISTER_START,
-        { userId: user._id }, // <-- FIXED: Added payload
+        { userId: user._id },
       );
 
-      // 2. Format the options for the WebAuthn API
       const publicKeyCredentialCreationOptions = {
         ...options,
         challenge: base64URLStringToBuffer(options.challenge),
@@ -262,12 +261,10 @@ const SettingList = () => {
           }));
       }
 
-      // 3. Prompt the user for their biometrics/device PIN
       const credential = await navigator.credentials.create({
         publicKey: publicKeyCredentialCreationOptions,
       });
 
-      // 4. Format the credential response back into strings
       const credentialResponse = {
         id: credential.id,
         rawId: bufferToBase64URLString(credential.rawId),
@@ -282,10 +279,9 @@ const SettingList = () => {
         },
       };
 
-      // 5. Send to server: wrap in the exact structure your backend expects!
       await axiosInstance.post(API_PATHS.PASSKEY.REGISTER_FINISH, {
-        userId: user._id, // <-- FIXED: Added userId
-        registrationResponse: credentialResponse, // <-- FIXED: Wrapped response
+        userId: user._id,
+        registrationResponse: credentialResponse,
       });
 
       alert("Passkey registered successfully! You can now use it to log in.");
@@ -507,31 +503,33 @@ const SettingList = () => {
 
             <form onSubmit={handleUpdatePassword} className='p-8 space-y-6'>
               <div className='space-y-4'>
-                <div>
-                  <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
-                    Current Password
-                  </label>
-                  <div className='relative'>
-                    <input
-                      type={showPassword.current ? "text" : "password"}
-                      name='currentPassword'
-                      value={passwordData.currentPassword}
-                      onChange={handlePasswordChange}
-                      className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
-                      placeholder='Enter current password'
-                    />
-                    <button
-                      type='button'
-                      onClick={() => togglePasswordVisibility("current")}
-                      className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'>
-                      {showPassword.current ? (
-                        <EyeOff className='w-4 h-4' />
-                      ) : (
-                        <Eye className='w-4 h-4' />
-                      )}
-                    </button>
+                {user?.password !== "" && (
+                  <div>
+                    <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                      Current Password
+                    </label>
+                    <div className='relative'>
+                      <input
+                        type={showPassword.current ? "text" : "password"}
+                        name='currentPassword'
+                        value={passwordData.currentPassword}
+                        onChange={handlePasswordChange}
+                        className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
+                        placeholder='Enter current password'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => togglePasswordVisibility("current")}
+                        className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'>
+                        {showPassword.current ? (
+                          <EyeOff className='w-4 h-4' />
+                        ) : (
+                          <Eye className='w-4 h-4' />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <div>
@@ -591,11 +589,7 @@ const SettingList = () => {
               <div className='pt-2 flex justify-end'>
                 <button
                   type='submit'
-                  disabled={
-                    isLoadingPassword ||
-                    !passwordData.currentPassword ||
-                    !passwordData.newPassword
-                  }
+                  disabled={isLoadingPassword || !passwordData.newPassword}
                   className='px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-gray-900/20 hover:bg-gray-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingPassword ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
