@@ -100,11 +100,16 @@ exports.updateProfileDeveloper = async (req, res) => {
 exports.setUserPassword = async (req, res) => {
   const { password, oldPassword } = req.body;
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).select("+password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     if (!user.password) {
       user.password = password;
     } else {
-      if (user.password !== oldPassword) {
+      if (!(await user.matchPassword(oldPassword))) {
         return res.status(404).json({ message: "Password not matched" });
       } else {
         user.password = password;
@@ -120,7 +125,20 @@ exports.setUserPassword = async (req, res) => {
 exports.setNewUserPassword = async (req, res) => {
   const { password } = req.body;
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("+password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.password) {
+      return res
+        .status(400)
+        .json({
+          message: "Password already exists. Use update password instead.",
+        });
+    }
+
     user.password = password;
     await user.save();
     res.status(201).json({ message: "Success" });
@@ -132,7 +150,12 @@ exports.setNewUserPassword = async (req, res) => {
 exports.updatePassword = async (req, res) => {
   const { password, newPassword } = req.body;
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("+password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     const hasExistingPassword = user.password && user.password !== "";
 
     if (hasExistingPassword) {

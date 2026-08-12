@@ -202,11 +202,7 @@ const SettingList = () => {
       return alert("New passwords do not match!");
     if (passwordData.newPassword.length < 6)
       return alert("Password must be at least 6 characters long.");
-    if (
-      user?.password &&
-      user.password !== "" &&
-      !passwordData.currentPassword
-    ) {
+    if (user?.hasPassword && !passwordData.currentPassword) {
       return alert("Please enter your current password.");
     }
 
@@ -223,6 +219,9 @@ const SettingList = () => {
         newPassword: "",
         confirmPassword: "",
       });
+      if (setUser) {
+        setUser((currentUser) => ({ ...currentUser, hasPassword: true }));
+      }
     } catch (error) {
       console.error("Password update failed", error);
       alert(error.response?.data?.message || "Failed to update password.");
@@ -503,7 +502,7 @@ const SettingList = () => {
 
             <form onSubmit={handleUpdatePassword} className='p-8 space-y-6'>
               <div className='space-y-4'>
-                {user?.password !== "" && (
+                {user?.hasPassword && (
                   <div>
                     <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
                       Current Password
@@ -589,7 +588,11 @@ const SettingList = () => {
               <div className='pt-2 flex justify-end'>
                 <button
                   type='submit'
-                  disabled={isLoadingPassword || !passwordData.newPassword}
+                  disabled={
+                    isLoadingPassword ||
+                    !passwordData.newPassword ||
+                    (user?.hasPassword && !passwordData.currentPassword)
+                  }
                   className='px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-gray-900/20 hover:bg-gray-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingPassword ? (
                     <Loader2 className='w-4 h-4 animate-spin' />

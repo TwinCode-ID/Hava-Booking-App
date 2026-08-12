@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
       },
     ],
     currentChallenge: { type: String },
-    password: { type: String },
+    password: { type: String, select: false },
     phoneNumber: { type: String },
     isStudent: { type: Boolean, default: false },
     preferredStudioId: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
@@ -42,6 +42,15 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+// Never expose a password hash when a user document is serialized to JSON,
+// even if a controller explicitly selected it for authentication.
+userSchema.set("toJSON", {
+  transform: (_document, returnedObject) => {
+    delete returnedObject.password;
+    return returnedObject;
+  },
+});
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return;

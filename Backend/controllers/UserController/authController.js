@@ -99,7 +99,7 @@ exports.checkUserStatus = async (req, res) => {
     const { email } = req.body;
 
     // 1. Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
     // 2. If user doesn't exist
     if (!user) {
@@ -172,7 +172,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: "Invalid Credentials" });
     }
@@ -335,9 +335,9 @@ exports.loginWithAppleWeb = async (req, res) => {
 exports.checkAuth = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
     if (!user || !(await user.matchPassword(password))) {
-      res.status(401).json({ message: "Invalid Credentials" });
+      return res.status(401).json({ message: "Invalid Credentials" });
     }
 
     res.status(201).json({

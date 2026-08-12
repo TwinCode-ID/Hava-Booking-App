@@ -204,6 +204,8 @@ const SettingList = () => {
       return alert("New passwords do not match!");
     if (passwordData.newPassword.length < 6)
       return alert("Password must be at least 6 characters long.");
+    if (user?.hasPassword && !passwordData.currentPassword)
+      return alert("Please enter your current password.");
 
     setIsLoadingPassword(true);
     try {
@@ -218,6 +220,9 @@ const SettingList = () => {
         newPassword: "",
         confirmPassword: "",
       });
+      if (setUser) {
+        setUser((currentUser) => ({ ...currentUser, hasPassword: true }));
+      }
     } catch (error) {
       console.error("Password update failed", error);
       alert(
@@ -507,31 +512,33 @@ const SettingList = () => {
 
             <form onSubmit={handleUpdatePassword} className='p-8 space-y-6'>
               <div className='space-y-4'>
-                <div>
-                  <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
-                    Current Password
-                  </label>
-                  <div className='relative'>
-                    <input
-                      type={showPassword.current ? "text" : "password"}
-                      name='currentPassword'
-                      value={passwordData.currentPassword}
-                      onChange={handlePasswordChange}
-                      className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
-                      placeholder='Enter current password'
-                    />
-                    <button
-                      type='button'
-                      onClick={() => togglePasswordVisibility("current")}
-                      className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'>
-                      {showPassword.current ? (
-                        <EyeOff className='w-4 h-4' />
-                      ) : (
-                        <Eye className='w-4 h-4' />
-                      )}
-                    </button>
+                {user?.hasPassword && (
+                  <div>
+                    <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                      Current Password
+                    </label>
+                    <div className='relative'>
+                      <input
+                        type={showPassword.current ? "text" : "password"}
+                        name='currentPassword'
+                        value={passwordData.currentPassword}
+                        onChange={handlePasswordChange}
+                        className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
+                        placeholder='Enter current password'
+                      />
+                      <button
+                        type='button'
+                        onClick={() => togglePasswordVisibility("current")}
+                        className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'>
+                        {showPassword.current ? (
+                          <EyeOff className='w-4 h-4' />
+                        ) : (
+                          <Eye className='w-4 h-4' />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <div>
@@ -593,8 +600,8 @@ const SettingList = () => {
                   type='submit'
                   disabled={
                     isLoadingPassword ||
-                    !passwordData.currentPassword ||
-                    !passwordData.newPassword
+                    !passwordData.newPassword ||
+                    (user?.hasPassword && !passwordData.currentPassword)
                   }
                   className='px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-gray-900/20 hover:bg-gray-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingPassword ? (
