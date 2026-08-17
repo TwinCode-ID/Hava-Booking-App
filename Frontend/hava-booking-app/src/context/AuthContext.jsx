@@ -3,7 +3,6 @@ import React, {
   useContext,
   useState,
   useEffect,
-  Children,
 } from "react";
 import axiosInstance from "../utils/axiosInstance";
 import { API_PATHS } from "../utils/apiPath";
@@ -56,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         const response = await axiosInstance.get(API_PATHS.AUTH.GET_PROFILE);
         const loginData = response.data;
-        setUser(JSON.stringify(loginData));
+        setUser(loginData);
         setIsAuthenticated(true);
       }
     } catch (error) {

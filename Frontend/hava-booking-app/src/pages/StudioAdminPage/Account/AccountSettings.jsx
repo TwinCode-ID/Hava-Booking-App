@@ -199,7 +199,11 @@ const SettingList = () => {
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
     if (passwordData.newPassword !== passwordData.confirmPassword)
-      return alert("New passwords do not match!");
+      return alert(
+        user?.hasPassword
+          ? "New passwords do not match!"
+          : "Passwords do not match!",
+      );
     if (passwordData.newPassword.length < 6)
       return alert("Password must be at least 6 characters long.");
     if (user?.hasPassword && !passwordData.currentPassword) {
@@ -213,7 +217,11 @@ const SettingList = () => {
         newPassword: passwordData.newPassword,
       });
 
-      alert("Password updated successfully!");
+      alert(
+        user?.hasPassword
+          ? "Password changed successfully!"
+          : "Password created successfully!",
+      );
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -496,7 +504,7 @@ const SettingList = () => {
                 <div className='p-2 bg-white border border-gray-200 rounded-lg shadow-sm'>
                   <Lock className='w-4 h-4 text-emerald-600' />
                 </div>
-                Change Password
+                {user?.hasPassword ? "Change Password" : "Create New Password"}
               </h3>
             </div>
 
@@ -505,7 +513,7 @@ const SettingList = () => {
                 {user?.hasPassword && (
                   <div>
                     <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
-                      Current Password
+                      Old Password
                     </label>
                     <div className='relative'>
                       <input
@@ -514,7 +522,8 @@ const SettingList = () => {
                         value={passwordData.currentPassword}
                         onChange={handlePasswordChange}
                         className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
-                        placeholder='Enter current password'
+                        placeholder='Enter old password'
+                        autoComplete='current-password'
                       />
                       <button
                         type='button'
@@ -533,7 +542,7 @@ const SettingList = () => {
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <div>
                     <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
-                      New Password
+                      {user?.hasPassword ? "New Password" : "Password"}
                     </label>
                     <div className='relative'>
                       <input
@@ -543,6 +552,7 @@ const SettingList = () => {
                         onChange={handlePasswordChange}
                         className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
                         placeholder='Min. 6 characters'
+                        autoComplete='new-password'
                       />
                       <button
                         type='button'
@@ -569,6 +579,7 @@ const SettingList = () => {
                         onChange={handlePasswordChange}
                         className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
                         placeholder='Re-enter new password'
+                        autoComplete='new-password'
                       />
                       <button
                         type='button'
@@ -591,6 +602,7 @@ const SettingList = () => {
                   disabled={
                     isLoadingPassword ||
                     !passwordData.newPassword ||
+                    !passwordData.confirmPassword ||
                     (user?.hasPassword && !passwordData.currentPassword)
                   }
                   className='px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-gray-900/20 hover:bg-gray-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
@@ -599,7 +611,7 @@ const SettingList = () => {
                   ) : (
                     <Save className='w-4 h-4' />
                   )}
-                  Update Password
+                  {user?.hasPassword ? "Change Password" : "Create Password"}
                 </button>
               </div>
             </form>

@@ -27,6 +27,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeCanvas } from "qrcode.react";
+import { Link } from "react-router-dom";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../context/AuthContext";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
@@ -129,17 +130,40 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
     try {
       const response = await axiosInstance.post(
         API_PATHS.AUTH.VERIFY_PASSWORD,
-        { email: user.email, password },
+        { password },
       );
       if (response.data.success || response.status === 200) onUnlock();
     } catch (err) {
-      if (err.response && err.response.status === 401)
+      if (err.response?.data?.code === "PASSWORD_NOT_SET")
+        setError("Create a password in Account Settings first.");
+      else if (err.response && err.response.status === 401)
         setError("Incorrect password.");
       else setError("Verification failed.");
     } finally {
       setVerifying(false);
     }
   };
+
+  if (!user?.hasPassword) {
+    return (
+      <div className='bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center justify-center text-center py-16 group hover:border-emerald-200 transition-colors'>
+        <div className='w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform'>
+          <Lock className='w-8 h-8 text-amber-600' />
+        </div>
+        <h2 className='text-xl font-bold text-gray-900 mb-2'>
+          Create a Password First
+        </h2>
+        <p className='text-gray-500 mb-6 text-sm max-w-sm'>
+          You need to create a password before you can unlock financial data.
+        </p>
+        <Link
+          to='/admin-account-settings'
+          className='w-full max-w-sm py-3 bg-emerald-900 text-white rounded-xl font-semibold hover:bg-emerald-800 transition-colors flex justify-center items-center'>
+          Create Password
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className='bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center justify-center text-center py-16 group hover:border-emerald-200 transition-colors'>
@@ -159,11 +183,13 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder='Admin Password'
+          autoComplete='current-password'
+          required
           className='w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all'
         />
         {error && <p className='text-red-500 text-xs'>{error}</p>}
         <button
-          disabled={verifying}
+          disabled={verifying || !password}
           type='submit'
           className='w-full py-3 bg-emerald-900 text-white rounded-xl font-semibold hover:bg-emerald-800 transition-colors flex justify-center items-center gap-2'>
           {verifying ? "Verifying..." : "Unlock Revenue"}
@@ -1637,7 +1663,9 @@ const StudioReports = () => {
   const generateMasterPDF = () => {
     if (isRevenueLocked) {
       alert(
-        "Please unlock the Revenue section before exporting the comprehensive master report.",
+        user?.hasPassword
+          ? "Please unlock the Revenue section before exporting the comprehensive master report."
+          : "Please create a password in Account Settings before exporting financial data.",
       );
       return;
     }

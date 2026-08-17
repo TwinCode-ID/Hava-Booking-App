@@ -334,14 +334,45 @@ exports.loginWithAppleWeb = async (req, res) => {
 
 exports.checkAuth = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).select("+password");
-    if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: "Invalid Credentials" });
+    const { password } = req.body;
+    const user = await User.findById(req.user._id).select("+password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "Authenticated user not found.",
+      });
     }
 
-    res.status(201).json({
-      success: "true",
+    if (!user.password) {
+      return res.status(409).json({
+        success: false,
+        code: "PASSWORD_NOT_SET",
+        hasPassword: false,
+        message: "Create a password before unlocking financial data.",
+      });
+    }
+
+    if (typeof password !== "string" || password.length === 0) {
+      return res.status(400).json({
+        success: false,
+        code: "PASSWORD_REQUIRED",
+        message: "Password is required.",
+      });
+    }
+
+    if (!(await user.matchPassword(password))) {
+      return res.status(401).json({
+        success: false,
+        code: "INVALID_PASSWORD",
+        message: "Incorrect password.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      hasPassword: true,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

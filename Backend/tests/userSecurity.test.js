@@ -1,7 +1,24 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const User = require("../models/UserData/User");
-const {} = require("../helper/userResponse");
+const { toAuthenticatedUser } = require("../helper/userResponse");
+const { checkAuth } = require("../controllers/UserController/authController");
+const {
+  updatePassword,
+} = require("../controllers/UserController/userController");
+
+const createResponse = () => ({
+  statusCode: 200,
+  body: undefined,
+  status(code) {
+    this.statusCode = code;
+    return this;
+  },
+  json(body) {
+    this.body = body;
+    return this;
+  },
+});
 
 test("authenticated user response detects a stored password without exposing it", () => {
   const responseUser = toAuthenticatedUser({
@@ -36,4 +53,115 @@ test("user model excludes password from queries and serialized JSON", () => {
   const serializedUser = user.toJSON();
 
   assert.equal(Object.hasOwn(serializedUser, "password"), false);
+});
+
+test("financial unlock tells authenticated users without a password to create one", async () => {
+  const originalFindById = User.findById;
+  User.findById = (id) => ({
+    select: async () => ({ _id: id, password: "" }),
+  });
+
+  try {
+    const response = createResponse();
+    await checkAuth(
+      {
+        user: { _id: "authenticated-user" },
+        body: { email: "another-user@example.com", password: "secret" },
+      },
+      response,
+    );
+
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "PASSWORD_NOT_SET");
+    assert.equal(response.body.hasPassword, false);
+  } finally {
+    User.findById = originalFindById;
+  }
+});
+
+test("financial unlock verifies the authenticated account rather than a supplied email", async () => {
+  const originalFindById = User.findById;
+  let requestedUserId;
+  User.findById = (id) => {
+    requestedUserId = id;
+    return {
+      select: async () => ({
+        password: "stored-hash",
+        matchPassword: async (password) => password === "correct-password",
+      }),
+    };
+  };
+
+  try {
+    const response = createResponse();
+    await checkAuth(
+      {
+        user: { _id: "authenticated-user" },
+        body: {
+          email: "another-user@example.com",
+          password: "correct-password",
+        },
+      },
+      response,
+    );
+
+    assert.equal(requestedUserId, "authenticated-user");
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.success, true);
+  } finally {
+    User.findById = originalFindById;
+  }
+});
+
+test("password update creates a password without requiring a current password", async () => {
+  const originalFindById = User.findById;
+  let saved = false;
+  const user = {
+    password: "",
+    save: async () => {
+      saved = true;
+    },
+  };
+  User.findById = () => ({ select: async () => user });
+
+  try {
+    const response = createResponse();
+    await updatePassword(
+      {
+        user: { _id: "authenticated-user" },
+        body: { password: "", newPassword: "new-password" },
+      },
+      response,
+    );
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.hasPassword, true);
+    assert.equal(user.password, "new-password");
+    assert.equal(saved, true);
+  } finally {
+    User.findById = originalFindById;
+  }
+});
+
+test("password update requires the current password when one exists", async () => {
+  const originalFindById = User.findById;
+  User.findById = () => ({
+    select: async () => ({ password: "stored-hash" }),
+  });
+
+  try {
+    const response = createResponse();
+    await updatePassword(
+      {
+        user: { _id: "authenticated-user" },
+        body: { newPassword: "new-password" },
+      },
+      response,
+    );
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.body.code, "CURRENT_PASSWORD_REQUIRED");
+  } finally {
+    User.findById = originalFindById;
+  }
 });

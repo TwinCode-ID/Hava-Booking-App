@@ -125,6 +125,12 @@ exports.setUserPassword = async (req, res) => {
 exports.setNewUserPassword = async (req, res) => {
   const { password } = req.body;
   try {
+    if (typeof password !== "string" || password.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters long." });
+    }
+
     const user = await User.findById(req.user._id).select("+password");
 
     if (!user) {
@@ -150,6 +156,12 @@ exports.setNewUserPassword = async (req, res) => {
 exports.updatePassword = async (req, res) => {
   const { password, newPassword } = req.body;
   try {
+    if (typeof newPassword !== "string" || newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "New password must be at least 6 characters long." });
+    }
+
     const user = await User.findById(req.user._id).select("+password");
 
     if (!user) {
@@ -159,11 +171,21 @@ exports.updatePassword = async (req, res) => {
     const hasExistingPassword = user.password && user.password !== "";
 
     if (hasExistingPassword) {
+      if (typeof password !== "string" || password.length === 0) {
+        return res.status(400).json({
+          code: "CURRENT_PASSWORD_REQUIRED",
+          message: "Current password is required.",
+        });
+      }
+
       const isMatch = await user.matchPassword(password);
       if (!isMatch) {
         return res
           .status(400)
-          .json({ message: "Old password does not match." });
+          .json({
+            code: "INVALID_CURRENT_PASSWORD",
+            message: "Current password does not match.",
+          });
       }
     }
 
@@ -171,7 +193,7 @@ exports.updatePassword = async (req, res) => {
     user.password = newPassword;
     await user.save();
 
-    res.status(201).json({ message: "Success" });
+    res.status(200).json({ message: "Success", hasPassword: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
