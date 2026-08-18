@@ -113,6 +113,9 @@ export const API_PATHS = {
     REGISTER_FINISH: "/api/user/passkey/register-finish",
     LOGIN_START: "/api/user/passkey/login-start",
     LOGIN_FINISH: "/api/user/passkey/login-finish",
+    LIST: "/api/user/passkey",
+    DELETE: (authenticatorId) =>
+      `/api/user/passkey/${encodeURIComponent(authenticatorId)}`,
   },
 
   APPLE: {

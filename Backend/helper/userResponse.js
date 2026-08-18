@@ -1,5 +1,10 @@
 const toAuthenticatedUser = (user) => {
-  const { password, ...safeUser } = user;
+  const {
+    password,
+    authenticators,
+    currentChallenge,
+    ...safeUser
+  } = user;
 
   return {
     ...safeUser,

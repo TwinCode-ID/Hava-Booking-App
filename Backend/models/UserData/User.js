@@ -16,15 +16,28 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
-    authenticators: [
-      {
-        credentialID: { type: String, required: true },
-        credentialPublicKey: { type: Buffer, required: true },
-        counter: { type: Number, default: 0 },
-        transports: [String],
-      },
-    ],
-    currentChallenge: { type: String },
+    authenticators: {
+      type: [
+        {
+          credentialID: { type: String, required: true },
+          credentialPublicKey: { type: Buffer, required: true },
+          counter: { type: Number, default: 0 },
+          transports: [String],
+          name: { type: String, maxlength: 80, default: "Passkey" },
+          createdAt: { type: Date },
+          lastUsedAt: { type: Date },
+          deviceType: {
+            type: String,
+            enum: ["singleDevice", "multiDevice", "unknown"],
+            default: "unknown",
+          },
+          backedUp: { type: Boolean, default: false },
+        },
+      ],
+      default: [],
+      select: false,
+    },
+    currentChallenge: { type: String, select: false },
     password: { type: String, select: false },
     phoneNumber: { type: String },
     isStudent: { type: Boolean, default: false },
@@ -43,13 +56,18 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Never expose a password hash when a user document is serialized to JSON,
-// even if a controller explicitly selected it for authentication.
-userSchema.set("toJSON", {
-  transform: (_document, returnedObject) => {
-    delete returnedObject.password;
-    return returnedObject;
-  },
+// Never serialize authentication secrets, even when a controller explicitly
+// selected them for an authentication operation.
+const removeSensitiveAuthenticationFields = (_document, returnedObject) => {
+  delete returnedObject.password;
+  delete returnedObject.authenticators;
+  delete returnedObject.currentChallenge;
+  return returnedObject;
+};
+
+userSchema.set("toJSON", { transform: removeSensitiveAuthenticationFields });
+userSchema.set("toObject", {
+  transform: removeSensitiveAuthenticationFields,
 });
 
 userSchema.pre("save", async function (next) {

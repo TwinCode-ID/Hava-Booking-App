@@ -1,5 +1,6 @@
 const User = require("../../models/UserData/User");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
 const {
   generateRegistrationOptions,
@@ -10,18 +11,161 @@ const {
 
 const RP_ID = "bookingservice.my.id";
 const ORIGIN = `https://${RP_ID}`;
+const PASSKEY_NAME_MAX_LENGTH = 80;
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+const DEVICE_TYPES = new Set(["singleDevice", "multiDevice"]);
+const PASSKEY_TRANSPORTS = new Set([
+  "ble",
+  "cable",
+  "hybrid",
+  "internal",
+  "nfc",
+  "smart-card",
+  "usb",
+]);
 
-const base64urlToBuffer = (base64url) => {
-  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = base64.length % 4 ? "=".repeat(4 - (base64.length % 4)) : "";
-  return Buffer.from(base64 + pad, "base64");
+const normalizePasskeyName = (name) => {
+  if (typeof name !== "string") return "Passkey";
+
+  const normalized = name
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, PASSKEY_NAME_MAX_LENGTH);
+
+  return normalized || "Passkey";
+};
+
+const normalizeTransports = (transports) => {
+  if (!Array.isArray(transports)) return [];
+
+  return [
+    ...new Set(
+      transports.filter(
+        (transport) =>
+          typeof transport === "string" &&
+          PASSKEY_TRANSPORTS.has(transport),
+      ),
+    ),
+  ];
+};
+
+const getPasskeyCreatedAt = (authenticator) => {
+  if (authenticator.createdAt) return authenticator.createdAt;
+
+  if (typeof authenticator._id?.getTimestamp === "function") {
+    return authenticator._id.getTimestamp();
+  }
+
+  return null;
+};
+
+const toSafePasskey = (authenticator) => ({
+  id: authenticator._id.toString(),
+  name: normalizePasskeyName(authenticator.name),
+  createdAt: getPasskeyCreatedAt(authenticator),
+  lastUsedAt: authenticator.lastUsedAt || null,
+  deviceType: DEVICE_TYPES.has(authenticator.deviceType)
+    ? authenticator.deviceType
+    : "unknown",
+  backedUp: Boolean(authenticator.backedUp),
+  transports: normalizeTransports(authenticator.transports),
+});
+
+const toSafePasskeyList = (authenticators = []) =>
+  authenticators
+    .filter((authenticator) => authenticator?._id)
+    .map(toSafePasskey)
+    .sort((left, right) => {
+      const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+      const rightTime = right.createdAt
+        ? new Date(right.createdAt).getTime()
+        : 0;
+      return rightTime - leftTime;
+    });
+
+const getAuthenticatedUserId = (req) => req.user?._id;
+
+exports.listPasskeys = async (req, res) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    const user = await User.findById(userId).select("+authenticators");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      passkeys: toSafePasskeyList(user.authenticators),
+    });
+  } catch (err) {
+    console.error("listPasskeys error:", err);
+    return res.status(500).json({ message: "Unable to list passkeys" });
+  }
+};
+
+exports.deletePasskey = async (req, res) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    const authenticatorId = req.params.authenticatorId?.trim();
+    if (!authenticatorId || !OBJECT_ID_PATTERN.test(authenticatorId)) {
+      return res.status(400).json({
+        code: "INVALID_PASSKEY_ID",
+        message: "Invalid passkey ID.",
+      });
+    }
+
+    const user = await User.findById(userId).select("+authenticators");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const authenticators = user.authenticators || [];
+    const authenticatorIndex = authenticators.findIndex(
+      (authenticator) =>
+        authenticator._id?.toString().toLowerCase() ===
+        authenticatorId.toLowerCase(),
+    );
+
+    if (authenticatorIndex === -1) {
+      return res.status(404).json({
+        code: "PASSKEY_NOT_FOUND",
+        message: "Passkey not found.",
+      });
+    }
+
+    authenticators.splice(authenticatorIndex, 1);
+    user.markModified("authenticators");
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Passkey removed successfully.",
+      passkeys: toSafePasskeyList(user.authenticators),
+    });
+  } catch (err) {
+    console.error("deletePasskey error:", err);
+    return res.status(500).json({ message: "Unable to remove passkey" });
+  }
 };
 
 exports.registerStart = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authorized" });
+    }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select(
+      "+authenticators +currentChallenge",
+    );
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const options = await generateRegistrationOptions({
@@ -35,6 +179,11 @@ exports.registerStart = async (req, res) => {
         residentKey: "required",
         userVerification: "preferred",
       },
+      excludeCredentials: (user.authenticators || []).map((authenticator) => ({
+        id: authenticator.credentialID,
+        type: "public-key",
+        transports: normalizeTransports(authenticator.transports),
+      })),
     });
 
     user.currentChallenge = options.challenge;
@@ -49,9 +198,17 @@ exports.registerStart = async (req, res) => {
 
 exports.registerFinish = async (req, res) => {
   try {
-    const { userId, registrationResponse } = req.body;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authorized" });
+    }
 
-    const user = await User.findById(userId);
+    const { registrationResponse } = req.body;
+    const requestedName = req.body.name ?? req.body.deviceName;
+
+    const user = await User.findById(userId).select(
+      "+authenticators +currentChallenge",
+    );
     if (!user || !user.currentChallenge) {
       return res.status(400).json({ error: "Invalid session" });
     }
@@ -87,17 +244,40 @@ exports.registerFinish = async (req, res) => {
         ? credentialID
         : Buffer.from(credentialID).toString("base64url");
 
+    const duplicateCredential = (user.authenticators || []).some(
+      (authenticator) => authenticator.credentialID === credentialIDString,
+    );
+    if (duplicateCredential) {
+      user.currentChallenge = undefined;
+      await user.save();
+      return res.status(409).json({
+        code: "PASSKEY_ALREADY_REGISTERED",
+        error: "This passkey is already registered.",
+      });
+    }
+
+    const deviceType = DEVICE_TYPES.has(info?.credentialDeviceType)
+      ? info.credentialDeviceType
+      : "unknown";
+
     user.authenticators.push({
+      _id: new mongoose.Types.ObjectId(),
       credentialID: credentialIDString,
       credentialPublicKey: Buffer.from(credentialPublicKey),
       counter: counter,
-      transports,
+      transports: normalizeTransports(transports),
+      name: normalizePasskeyName(requestedName),
+      createdAt: new Date(),
+      lastUsedAt: null,
+      deviceType,
+      backedUp: Boolean(info?.credentialBackedUp),
     });
 
     user.currentChallenge = undefined;
     await user.save();
 
-    res.json({ success: true });
+    const passkey = user.authenticators[user.authenticators.length - 1];
+    res.json({ success: true, passkey: toSafePasskey(passkey) });
   } catch (err) {
     console.error("registerFinish error:", err);
     res.status(500).json({ error: err.message });
@@ -110,7 +290,9 @@ exports.loginStart = async (req, res) => {
 
     if (!email) return res.status(400).json({ error: "Email required" });
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select(
+      "+authenticators +currentChallenge",
+    );
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
@@ -118,11 +300,6 @@ exports.loginStart = async (req, res) => {
       return res.status(400).json({
         error: "No passkey registered",
       });
-
-    console.log(
-      "Using credentialIDs:",
-      user.authenticators.map((a) => a.credentialID),
-    );
 
     const options = await generateAuthenticationOptions({
       rpID: RP_ID,
@@ -149,7 +326,9 @@ exports.loginFinish = async (req, res) => {
   try {
     const { email, response } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select(
+      "+authenticators +currentChallenge",
+    );
     if (!user || !user.currentChallenge) {
       return res.status(400).json({ error: "Session expired" });
     }
@@ -186,6 +365,19 @@ exports.loginFinish = async (req, res) => {
 
     // 3. Update counter and clear challenge
     authenticator.counter = verification.authenticationInfo.newCounter;
+    authenticator.lastUsedAt = new Date();
+
+    if (
+      DEVICE_TYPES.has(
+        verification.authenticationInfo.credentialDeviceType,
+      )
+    ) {
+      authenticator.deviceType =
+        verification.authenticationInfo.credentialDeviceType;
+    }
+    authenticator.backedUp = Boolean(
+      verification.authenticationInfo.credentialBackedUp,
+    );
 
     // Mark the subdocument as modified (sometimes needed for updates inside arrays)
     user.markModified("authenticators");

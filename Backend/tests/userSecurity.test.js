@@ -25,10 +25,19 @@ test("authenticated user response detects a stored password without exposing it"
     _id: "user-id",
     email: "user@example.com",
     password: "$2b$10$stored-password-hash",
+    authenticators: [
+      {
+        credentialID: "credential-id",
+        credentialPublicKey: Buffer.from("public-key"),
+      },
+    ],
+    currentChallenge: "challenge",
   });
 
   assert.equal(responseUser.hasPassword, true);
   assert.equal(Object.hasOwn(responseUser, "password"), false);
+  assert.equal(Object.hasOwn(responseUser, "authenticators"), false);
+  assert.equal(Object.hasOwn(responseUser, "currentChallenge"), false);
 });
 
 test("authenticated user response reports when no password exists", () => {
@@ -42,17 +51,28 @@ test("authenticated user response reports when no password exists", () => {
   assert.equal(Object.hasOwn(responseUser, "password"), false);
 });
 
-test("user model excludes password from queries and serialized JSON", () => {
+test("user model excludes authentication secrets from queries and serialized JSON", () => {
   assert.equal(User.schema.path("password").options.select, false);
+  assert.equal(User.schema.path("authenticators").options.select, false);
+  assert.equal(User.schema.path("currentChallenge").options.select, false);
 
   const user = new User({
     fullName: "Test User",
     email: "user@example.com",
     password: "$2b$10$stored-password-hash",
+    authenticators: [
+      {
+        credentialID: "credential-id",
+        credentialPublicKey: Buffer.from("public-key"),
+      },
+    ],
+    currentChallenge: "challenge",
   });
   const serializedUser = user.toJSON();
 
   assert.equal(Object.hasOwn(serializedUser, "password"), false);
+  assert.equal(Object.hasOwn(serializedUser, "authenticators"), false);
+  assert.equal(Object.hasOwn(serializedUser, "currentChallenge"), false);
 });
 
 test("financial unlock tells authenticated users without a password to create one", async () => {

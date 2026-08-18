@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   User,
   Camera,
@@ -18,6 +18,8 @@ import axiosInstance from "../../../../utils/axiosInstance";
 import { API_PATHS } from "../../../../utils/apiPath";
 import uploadProfile from "../../../../utils/uploadProfile";
 import { fetchImage } from "../../../../utils/helper";
+import PasskeyList from "../../../../components/PasskeyList";
+import { getSuggestedPasskeyName } from "../../../../utils/passkey";
 
 // --- WebAuthn Helper Functions ---
 // Converts standard Base64URL strings from your server into ArrayBuffers for the browser API
@@ -51,7 +53,11 @@ const SettingList = () => {
   // --- States ---
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
-  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false); // NEW Passkey State
+  const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false);
+  const [passkeys, setPasskeys] = useState([]);
+  const [isLoadingPasskeys, setIsLoadingPasskeys] = useState(true);
+  const [passkeyListError, setPasskeyListError] = useState("");
+  const [deletingPasskeyId, setDeletingPasskeyId] = useState(null);
 
   // Profile State
   const [previewImage, setPreviewImage] = useState(user?.avatar || null);
@@ -77,6 +83,25 @@ const SettingList = () => {
     confirm: false,
   });
 
+  const fetchPasskeys = useCallback(async () => {
+    setIsLoadingPasskeys(true);
+    setPasskeyListError("");
+
+    try {
+      const { data } = await axiosInstance.get(API_PATHS.PASSKEY.LIST);
+      setPasskeys(Array.isArray(data) ? data : data?.passkeys || []);
+    } catch (error) {
+      console.error("Failed to load passkeys:", error);
+      setPasskeyListError(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to load registered passkeys.",
+      );
+    } finally {
+      setIsLoadingPasskeys(false);
+    }
+  }, []);
+
   // --- SYNC ON LOAD ---
   useEffect(() => {
     if (user) {
@@ -99,6 +124,10 @@ const SettingList = () => {
       }
     }
   }, [user?._id]);
+
+  useEffect(() => {
+    if (user?._id) fetchPasskeys();
+  }, [user?._id, fetchPasskeys]);
 
   // --- DIRTY CHECKS ---
   const isProfileDirty = useMemo(() => {
@@ -242,7 +271,6 @@ const SettingList = () => {
     }
   };
 
-  // --- NEW: Passkey Registration Handler ---
   const handleRegisterPasskey = async () => {
     if (!window.PublicKeyCredential) {
       alert("WebAuthn/Passkeys are not supported in this browser.");
@@ -251,10 +279,9 @@ const SettingList = () => {
 
     setIsRegisteringPasskey(true);
     try {
-      // 1. Send the userId in the body!
       const { data: options } = await axiosInstance.post(
         API_PATHS.PASSKEY.REGISTER_START,
-        { userId: user._id }, // <-- FIXED: Added payload
+        {},
       );
 
       // 2. Format the options for the WebAuthn API
@@ -292,15 +319,16 @@ const SettingList = () => {
           clientDataJSON: bufferToBase64URLString(
             credential.response.clientDataJSON,
           ),
+          transports: credential.response.getTransports?.() || [],
         },
       };
 
-      // 5. Send to server: wrap in the exact structure your backend expects!
       await axiosInstance.post(API_PATHS.PASSKEY.REGISTER_FINISH, {
-        userId: user._id, // <-- FIXED: Added userId
-        registrationResponse: credentialResponse, // <-- FIXED: Wrapped response
+        registrationResponse: credentialResponse,
+        name: getSuggestedPasskeyName(),
       });
 
+      await fetchPasskeys();
       alert("Passkey registered successfully! You can now use it to log in.");
     } catch (error) {
       console.error("Passkey registration failed:", error);
@@ -313,6 +341,36 @@ const SettingList = () => {
       }
     } finally {
       setIsRegisteringPasskey(false);
+    }
+  };
+
+  const handleDeletePasskey = async (passkey) => {
+    const passkeyId = passkey.id || passkey._id;
+    if (!passkeyId) return;
+
+    const passkeyName = passkey.name || passkey.deviceName || "this passkey";
+    const confirmed = window.confirm(
+      `Remove "${passkeyName}" from your Hava account?\n\nIt will no longer be able to sign in to Hava. You may still need to remove the saved credential separately from your device or password manager.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingPasskeyId(passkeyId);
+    setPasskeyListError("");
+    try {
+      const { data } = await axiosInstance.delete(
+        API_PATHS.PASSKEY.DELETE(passkeyId),
+      );
+      if (Array.isArray(data?.passkeys)) setPasskeys(data.passkeys);
+      else await fetchPasskeys();
+    } catch (error) {
+      console.error("Failed to delete passkey:", error);
+      setPasskeyListError(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to delete the passkey. Please try again.",
+      );
+    } finally {
+      setDeletingPasskeyId(null);
     }
   };
 
@@ -504,6 +562,14 @@ const SettingList = () => {
                 )}
                 Register New Passkey
               </button>
+              <PasskeyList
+                passkeys={passkeys}
+                isLoading={isLoadingPasskeys}
+                error={passkeyListError}
+                deletingPasskeyId={deletingPasskeyId}
+                onRetry={fetchPasskeys}
+                onDelete={handleDeletePasskey}
+              />
             </div>
           </div>
 
