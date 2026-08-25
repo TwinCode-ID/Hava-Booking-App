@@ -1,6 +1,9 @@
 const express = require("express"); // Assuming you use express
 const chatController = require("../../controllers/MessagingController/chatController");
 const { protect } = require("../../middlewares/authMiddleware"); // Your JWT auth middleware
+const {
+  chatMessageLimiter,
+} = require("../../middlewares/rateLimitMiddleware");
 
 const router = express.Router();
 
@@ -12,7 +15,7 @@ router.get("/:conversationId/messages", protect, chatController.getMessages);
 
 router.put("/:conversationId/read", protect, chatController.markAsRead);
 // Send a message
-router.post("/send", protect, chatController.sendMessage);
+router.post("/send", protect, chatMessageLimiter, chatController.sendMessage);
 
 // Start a new chat (or get existing one)
 router.post("/initiate", protect, chatController.createOrGetConversation);

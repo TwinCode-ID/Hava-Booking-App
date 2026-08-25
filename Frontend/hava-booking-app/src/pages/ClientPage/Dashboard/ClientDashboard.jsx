@@ -176,7 +176,7 @@ const ClientDashboard = () => {
     return (
       <div className='h-screen flex flex-col items-center justify-center'>
         <LoadingSpinner />
-        <p className='text-gray-600 font-medium mt-4'>
+        <p className='text-stone-600 font-medium mt-4'>
           Loading your dashboard, please wait...
         </p>
       </div>
@@ -187,17 +187,17 @@ const ClientDashboard = () => {
       {/* --- HEADER --- */}
       <div className='mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6'>
         <div>
-          <h1 className='text-3xl font-bold text-gray-900 tracking-tight'>
+          <h1 className='text-3xl font-bold text-stone-900 tracking-tight'>
             Welcome, {user?.fullName?.split(" ")[0]}!
           </h1>
-          <p className='text-gray-500 mt-2 text-base'>
+          <p className='text-stone-500 mt-2 text-base'>
             {format(new Date(), "EEEE, MMMM dd, yyyy")}
           </p>
         </div>
         {nextClasses.length > 0 && (
           <button
             onClick={() => navigate("/book-the-class")}
-            className='flex items-center gap-2 bg-[#0f392b] text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-emerald-900 transition-all shadow-xl shadow-emerald-900/10 active:scale-95 group'>
+            className='flex items-center gap-2 bg-[#0f392b] text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-stone-600 transition-all shadow-xl shadow-stone-600/10 active:scale-95 group'>
             <Plus className='w-5 h-5' />
             <span>Book New Class</span>
           </button>
@@ -216,19 +216,19 @@ const ClientDashboard = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className='bg-white rounded-4xl border border-gray-100 shadow-sm overflow-hidden relative group'>
+                  className='bg-white rounded-4xl border border-stone-100 shadow-sm overflow-hidden relative group'>
                   <div className='p-8'>
                     <div className='flex items-start justify-between mb-6'>
                       <div className='flex gap-2 items-center'>
                         {index === 0 ? (
                           <>
-                            <span className='flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse'></span>
-                            <span className='text-xs font-bold text-emerald-600 uppercase tracking-wider'>
+                            <span className='flex h-2 w-2 rounded-full bg-stone-500 animate-pulse'></span>
+                            <span className='text-xs font-bold text-stone-800 uppercase tracking-wider'>
                               Up Next
                             </span>
                           </>
                         ) : (
-                          <span className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                          <span className='text-xs font-bold text-stone-400 uppercase tracking-wider'>
                             Upcoming
                           </span>
                         )}
@@ -236,8 +236,8 @@ const ClientDashboard = () => {
                       <span
                         className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           item.status === "Confirmed"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-gray-100 text-gray-600"
+                            ? "bg-stone-100 text-stone-800"
+                            : "bg-stone-100 text-stone-600"
                         }`}>
                         {item.status || "Confirmed"}
                       </span>
@@ -245,27 +245,27 @@ const ClientDashboard = () => {
 
                     <div className='flex flex-col md:flex-row gap-8 items-start md:items-center'>
                       {/* Date Box */}
-                      <div className='bg-gray-50 rounded-2xl p-5 min-w-27.5 text-center border border-gray-100'>
-                        <span className='block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1'>
+                      <div className='bg-stone-50 rounded-2xl p-5 min-w-27.5 text-center border border-stone-100'>
+                        <span className='block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1'>
                           {format(new Date(item.classId?.startTime), "MMMM")}
                         </span>
-                        <span className='block text-4xl font-bold text-gray-900 leading-none mb-1'>
+                        <span className='block text-4xl font-bold text-stone-900 leading-none mb-1'>
                           {format(new Date(item.classId?.startTime), "dd")}
                         </span>
-                        <span className='block text-sm font-medium text-gray-500'>
+                        <span className='block text-sm font-medium text-stone-500'>
                           {format(new Date(item.classId?.startTime), "EEEE")}
                         </span>
                       </div>
 
                       {/* Details */}
                       <div className='flex-1 space-y-3'>
-                        <h3 className='text-2xl font-bold text-gray-900 leading-tight'>
+                        <h3 className='text-2xl font-bold text-stone-900 leading-tight'>
                           {item.classId?.className}
                         </h3>
 
-                        <div className='flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600'>
+                        <div className='flex flex-wrap gap-x-6 gap-y-2 text-sm text-stone-600'>
                           <div className='flex items-center gap-2'>
-                            <Clock className='w-4 h-4 text-emerald-600' />
+                            <Clock className='w-4 h-4 text-stone-800' />
                             {format(
                               new Date(item.classId?.startTime),
                               "h:mm a",
@@ -274,16 +274,16 @@ const ClientDashboard = () => {
                             {format(new Date(item.classId?.endTime), "h:mm a")}
                           </div>
                           <div className='flex items-center gap-2'>
-                            <MapPin className='w-4 h-4 text-emerald-600' />
+                            <MapPin className='w-4 h-4 text-stone-800' />
                             {item.studioId?.studioName}
                           </div>
                         </div>
 
                         <div className='flex items-center gap-2 pt-1'>
-                          <div className='w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500'>
+                          <div className='w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500'>
                             {item.instructorId?.fullName?.charAt(0) || "I"}
                           </div>
-                          <span className='text-sm font-medium text-gray-700'>
+                          <span className='text-sm font-medium text-stone-700'>
                             {item.instructorId?.fullName || "Instructor"}
                           </span>
                         </div>
@@ -291,7 +291,7 @@ const ClientDashboard = () => {
 
                       <button
                         onClick={() => setSelectedClass(item)}
-                        className='w-full md:w-auto px-6 py-3 bg-white border border-gray-200 text-gray-900 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm'>
+                        className='w-full md:w-auto px-6 py-3 bg-white border border-stone-200 text-stone-900 font-bold rounded-xl hover:bg-stone-50 transition-all shadow-sm'>
                         View Details
                       </button>
                     </div>
@@ -300,19 +300,19 @@ const ClientDashboard = () => {
               ))}
             </div>
           ) : (
-            <div className='flex flex-col items-center justify-center h-64 bg-white rounded-4xl border border-gray-100 border-dashed text-center p-6'>
-              <div className='w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mb-4'>
-                <Calendar className='w-6 h-6 text-gray-300' />
+            <div className='flex flex-col items-center justify-center h-64 bg-white rounded-4xl border border-stone-100 border-dashed text-center p-6'>
+              <div className='w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center mb-4'>
+                <Calendar className='w-6 h-6 text-stone-300' />
               </div>
-              <h3 className='text-lg font-bold text-gray-900'>
+              <h3 className='text-lg font-bold text-stone-900'>
                 No upcoming classes
               </h3>
-              <p className='text-gray-500 text-sm mt-1 mb-4'>
+              <p className='text-stone-500 text-sm mt-1 mb-4'>
                 You haven't booked any sessions yet.
               </p>
               <button
                 onClick={() => navigate("/book-the-class")}
-                className='text-sm font-bold text-emerald-700 bg-emerald-50 p-4 rounded-2xl hover:text-emerald-800 flex items-center gap-1'>
+                className='text-sm font-bold text-stone-800 bg-stone-100 p-4 rounded-2xl hover:text-stone-900 flex items-center gap-1'>
                 Find a class <ArrowRight className='w-4 h-4' />
               </button>
             </div>
@@ -323,7 +323,7 @@ const ClientDashboard = () => {
         {historyClasses.length > 0 && (
           <div className='lg:col-span-3 pt-8'>
             <div className='flex items-center gap-2 mb-6'>
-              <h2 className='text-xl font-bold text-gray-900'>
+              <h2 className='text-xl font-bold text-stone-900'>
                 Booking History
               </h2>
             </div>
@@ -340,17 +340,17 @@ const ClientDashboard = () => {
                   <div
                     key={item._id}
                     onClick={() => setSelectedClass(item)}
-                    className='bg-white p-5 rounded-2xl border border-gray-100 shadow-sm active:bg-gray-50 transition-colors'>
+                    className='bg-white p-5 rounded-2xl border border-stone-100 shadow-sm active:bg-stone-50 transition-colors'>
                     <div className='flex justify-between items-start mb-3'>
                       <div>
-                        <p className='text-xs font-bold text-gray-400 uppercase mb-1'>
+                        <p className='text-xs font-bold text-stone-400 uppercase mb-1'>
                           {format(dateObj, "MMM dd, yyyy")} •{" "}
                           {format(dateObj, "h:mm a")}
                         </p>
-                        <h3 className='font-bold text-lg text-gray-900 leading-tight'>
+                        <h3 className='font-bold text-lg text-stone-900 leading-tight'>
                           {item.classId?.className || "Unknown Class"}
                         </h3>
-                        <p className='text-sm text-gray-500 mt-1'>
+                        <p className='text-sm text-stone-500 mt-1'>
                           {item.instructorId?.fullName}
                         </p>
                       </div>
@@ -359,22 +359,22 @@ const ClientDashboard = () => {
                           <XCircle className='w-5 h-5' />
                         </div>
                       ) : (
-                        <div className='bg-emerald-50 text-emerald-600 p-1.5 rounded-lg'>
+                        <div className='bg-stone-100 text-stone-800 p-1.5 rounded-lg'>
                           <CheckCircle2 className='w-5 h-5' />
                         </div>
                       )}
                     </div>
 
-                    <div className='flex justify-between items-center pt-3 border-t border-gray-50'>
-                      <div className='flex items-center gap-1 text-xs font-bold text-gray-500'>
+                    <div className='flex justify-between items-center pt-3 border-t border-stone-50'>
+                      <div className='flex items-center gap-1 text-xs font-bold text-stone-500'>
                         <MapPin className='w-3 h-3' />
                         {item.studioId?.studioName || "N/A"}
                       </div>
                       <span
                         className={`text-xs font-bold px-2 py-1 rounded-md ${
                           item.isAttend
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-gray-100 text-gray-600"
+                            ? "bg-stone-200 text-stone-900"
+                            : "bg-stone-100 text-stone-600"
                         }`}>
                         {item.isAttend ? "Attended" : "Not Attended"}
                       </span>
@@ -385,30 +385,30 @@ const ClientDashboard = () => {
             </div>
 
             {/* --- DESKTOP TABLE VIEW (Hidden on Mobile) --- */}
-            <div className='hidden md:block bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden'>
+            <div className='hidden md:block bg-white rounded-3xl border border-stone-100 shadow-sm overflow-hidden'>
               <div className='overflow-x-auto'>
                 <table className='w-full text-left border-collapse'>
-                  <thead className='bg-gray-50 border-b border-gray-100'>
+                  <thead className='bg-stone-50 border-b border-stone-100'>
                     <tr>
-                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                      <th className='py-4 px-6 text-xs font-bold text-stone-400 uppercase tracking-wider'>
                         Date
                       </th>
-                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                      <th className='py-4 px-6 text-xs font-bold text-stone-400 uppercase tracking-wider'>
                         Class
                       </th>
-                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                      <th className='py-4 px-6 text-xs font-bold text-stone-400 uppercase tracking-wider'>
                         Studio
                       </th>
-                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider'>
+                      <th className='py-4 px-6 text-xs font-bold text-stone-400 uppercase tracking-wider'>
                         Attendance Status
                       </th>
-                      <th className='py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-center'>
+                      <th className='py-4 px-6 text-xs font-bold text-stone-400 uppercase tracking-wider text-center'>
                         Status
                       </th>
                       <th className='py-4 px-6 w-10'></th>
                     </tr>
                   </thead>
-                  <tbody className='divide-y divide-gray-50'>
+                  <tbody className='divide-y divide-stone-50'>
                     {historyClasses.map((item) => {
                       const isCancelled = item.status === "Cancelled";
                       const dateObj = item.classId?.startTime
@@ -419,18 +419,18 @@ const ClientDashboard = () => {
                         <tr
                           key={item._id}
                           onClick={() => setSelectedClass(item)}
-                          className='group transition-colors duration-200 hover:bg-emerald-50 cursor-pointer'>
+                          className='group transition-colors duration-200 hover:bg-stone-100 cursor-pointer'>
                           <td className='py-4 px-6'>
                             <div className='flex flex-col'>
                               <span
                                 className={`font-bold text-sm transition-colors ${
                                   isCancelled
-                                    ? "text-gray-400"
-                                    : "text-gray-900 group-hover:text-emerald-900"
+                                    ? "text-stone-400"
+                                    : "text-stone-900 group-hover:text-stone-900"
                                 }`}>
                                 {format(dateObj, "MMM dd, yyyy")}
                               </span>
-                              <span className='text-xs text-gray-400'>
+                              <span className='text-xs text-stone-400'>
                                 {format(dateObj, "h:mm a")}
                               </span>
                             </div>
@@ -440,20 +440,20 @@ const ClientDashboard = () => {
                               <span
                                 className={`font-bold text-sm transition-colors ${
                                   isCancelled
-                                    ? "text-gray-400"
-                                    : "text-gray-900 group-hover:text-emerald-900"
+                                    ? "text-stone-400"
+                                    : "text-stone-900 group-hover:text-stone-900"
                                 }`}>
                                 {item.classId?.className || "Unknown Class"}
                               </span>
-                              <span className='text-xs text-gray-400'>
+                              <span className='text-xs text-stone-400'>
                                 {item.instructorId?.fullName || "Instructor"}
                               </span>
                             </div>
                           </td>
-                          <td className='py-4 px-6 text-sm text-gray-500 transition-colors group-hover:text-emerald-700'>
+                          <td className='py-4 px-6 text-sm text-stone-500 transition-colors group-hover:text-stone-800'>
                             {item.studioId?.studioName || "N/A"}
                           </td>
-                          <td className='py-4 px-6 text-sm text-gray-500 text-left transition-colors group-hover:text-emerald-700'>
+                          <td className='py-4 px-6 text-sm text-stone-500 text-left transition-colors group-hover:text-stone-800'>
                             {item.isAttend ? "Attended" : "Not attended"}
                           </td>
                           <td className='py-4 px-6 text-right'>
@@ -463,7 +463,7 @@ const ClientDashboard = () => {
                                   <XCircle className='w-3 h-3' /> Cancelled
                                 </span>
                               ) : (
-                                <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold border border-gray-200 group-hover:bg-emerald-200/50 group-hover:border-emerald-200 group-hover:text-emerald-800 transition-all'>
+                                <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 text-xs font-bold border border-stone-200 group-hover:bg-stone-300/50 group-hover:border-stone-300 group-hover:text-stone-900 transition-all'>
                                   <CheckCircle2 className='w-3 h-3' /> Completed
                                 </span>
                               )}
@@ -471,7 +471,7 @@ const ClientDashboard = () => {
                           </td>
                           <td className='py-4 px-6 text-center w-10'>
                             <ChevronRight
-                              className={`w-5 h-5 transition-all duration-300 transform text-gray-300 opacity-100 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0`}
+                              className={`w-5 h-5 transition-all duration-300 transform text-stone-300 opacity-100 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0`}
                             />
                           </td>
                         </tr>
@@ -519,22 +519,22 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className='relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden text-center max-h-[90vh] flex flex-col'>
-        <div className='flex justify-between items-center px-8 py-6 border-b border-gray-100 bg-white z-10 shrink-0'>
-          <h2 className='text-xl font-bold text-gray-900'>Booking Pass</h2>
+        <div className='flex justify-between items-center px-8 py-6 border-b border-stone-100 bg-white z-10 shrink-0'>
+          <h2 className='text-xl font-bold text-stone-900'>Booking Pass</h2>
           <button
             onClick={onClose}
-            className='p-2 hover:bg-gray-200 rounded-full transition-colors'>
-            <X className='w-5 h-5 text-gray-500' />
+            className='p-2 hover:bg-stone-200 rounded-full transition-colors'>
+            <X className='w-5 h-5 text-stone-500' />
           </button>
         </div>
 
         <div className='p-4 overflow-y-auto flex-1'>
           <div className='px-3 py-2 pb-6 rounded-2xl'>
-            <div className='w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4'>
-              <Ticket className='w-8 h-8 text-emerald-600' />
+            <div className='w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4'>
+              <Ticket className='w-8 h-8 text-stone-800' />
             </div>
 
-            <h2 className='text-xl font-bold text-gray-900 mb-1'>
+            <h2 className='text-xl font-bold text-stone-900 mb-1'>
               {booking.classId?.className}
             </h2>
             <div className='flex justify-center mb-6'>
@@ -542,55 +542,55 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
                 className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                   isCancelled
                     ? "bg-red-50 text-red-600"
-                    : "bg-emerald-50 text-emerald-600"
+                    : "bg-stone-100 text-stone-800"
                 }`}>
                 {isCancelled ? "Cancelled" : "Confirmed Booking"}
               </span>
             </div>
 
-            <div className='bg-gray-50 rounded-2xl p-4 text-left space-y-3 mb-6'>
-              <div className='flex justify-between items-center border-b border-gray-100 pb-2'>
-                <span className='text-xs font-bold text-gray-400 uppercase'>
+            <div className='bg-stone-50 rounded-2xl p-4 text-left space-y-3 mb-6'>
+              <div className='flex justify-between items-center border-b border-stone-100 pb-2'>
+                <span className='text-xs font-bold text-stone-400 uppercase'>
                   Instructor
                 </span>
-                <span className='text-sm font-bold text-gray-900'>
+                <span className='text-sm font-bold text-stone-900'>
                   {booking.instructorId?.fullName}
                 </span>
               </div>
-              <div className='flex justify-between items-center border-b border-gray-100 pb-2'>
-                <span className='text-xs font-bold text-gray-400 uppercase'>
+              <div className='flex justify-between items-center border-b border-stone-100 pb-2'>
+                <span className='text-xs font-bold text-stone-400 uppercase'>
                   Date
                 </span>
-                <span className='text-sm font-bold text-gray-900'>
+                <span className='text-sm font-bold text-stone-900'>
                   {format(startTime, "MMM do, yyyy")}
                 </span>
               </div>
-              <div className='flex justify-between items-center border-b border-gray-100 pb-2'>
-                <span className='text-xs font-bold text-gray-400 uppercase'>
+              <div className='flex justify-between items-center border-b border-stone-100 pb-2'>
+                <span className='text-xs font-bold text-stone-400 uppercase'>
                   Time
                 </span>
-                <span className='text-sm font-bold text-gray-900'>
+                <span className='text-sm font-bold text-stone-900'>
                   {format(startTime, "h:mm a")}
                 </span>
               </div>
               <div className='flex justify-between items-center'>
-                <span className='text-xs font-bold text-gray-400 uppercase'>
+                <span className='text-xs font-bold text-stone-400 uppercase'>
                   Studio
                 </span>
-                <span className='text-sm font-bold text-gray-900'>
+                <span className='text-sm font-bold text-stone-900'>
                   {booking.studioId?.studioName}
                 </span>
               </div>
               <div className='flex justify-between items-center'>
-                <span className='text-xs font-bold text-gray-400 uppercase'>
+                <span className='text-xs font-bold text-stone-400 uppercase'>
                   Attendance Status
                 </span>
-                <span className='text-sm font-bold text-gray-900'>
+                <span className='text-sm font-bold text-stone-900'>
                   {booking.isAttend ? "Attended" : "Not attended"}
                 </span>
               </div>
 
-              <div className='w-48 h-48 rounded-xl flex items-center justify-center my-6 border-2 border-dashed bg-white border-emerald-500 mx-auto p-2'>
+              <div className='w-48 h-48 rounded-xl flex items-center justify-center my-6 border-2 border-dashed bg-white border-stone-500 mx-auto p-2'>
                 <div className='w-full h-full rounded-lg overflow-hidden'>
                   <QRCode
                     size={256}
@@ -605,7 +605,7 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
                   />
                 </div>
               </div>
-              <p className='text-sm text-gray-500 mb-4 text-center mx-auto'>
+              <p className='text-sm text-stone-500 mb-4 text-center mx-auto'>
                 Show this QR code to the studio staff to check-in.
               </p>
             </div>
@@ -630,7 +630,7 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
 
               <button
                 onClick={onClose}
-                className='w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors text-sm'>
+                className='w-full py-3 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors text-sm'>
                 Close Details
               </button>
             </div>

@@ -1,2 +1,13 @@
 node_modules/
 .env
+.env.*
+!.env.example
+
+# Runtime credentials and signing keys must be supplied outside Git.
+*firebase-adminsdk*.json
+keys/*.key
+keys/*.p12
+keys/*Key.pem
+
+# Runtime user uploads may contain personal and payment information.
+uploads/

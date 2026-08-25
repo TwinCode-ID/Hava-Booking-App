@@ -163,24 +163,24 @@ const AdminInbox = () => {
   }, [selectedChat, user._id]);
 
   return (
-    <div className='h-[calc(100vh-64px)] md:h-screen bg-gray-50 flex p-4 md:p-6 gap-4 font-sans'>
+    <div className='h-[calc(100vh-64px)] md:h-screen bg-stone-50 flex p-4 md:p-6 gap-4 font-sans'>
       {/* --- LEFT PANEL: INBOX LIST --- */}
       <div
-        className={`bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col w-full md:w-80 lg:w-96 shrink-0 overflow-hidden ${selectedChat ? "hidden md:flex" : "flex"}`}>
+        className={`bg-white border border-stone-200 rounded-2xl shadow-sm flex flex-col w-full md:w-80 lg:w-96 shrink-0 overflow-hidden ${selectedChat ? "hidden md:flex" : "flex"}`}>
         {/* Header */}
-        <div className='p-4 border-b border-gray-100 flex flex-col gap-4'>
+        <div className='p-4 border-b border-stone-100 flex flex-col gap-4'>
           <div className='flex items-center justify-between'>
-            <h2 className='text-xl font-bold text-gray-900'>Messages</h2>
-            <div className='p-2 bg-emerald-50 text-emerald-600 rounded-full'>
+            <h2 className='text-xl font-bold text-stone-900'>Messages</h2>
+            <div className='p-2 bg-stone-100 text-stone-800 rounded-full'>
               <MessageCircle className='w-5 h-5' />
             </div>
           </div>
           <div className='relative'>
-            <Search className='w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2' />
+            <Search className='w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2' />
             <input
               type='text'
               placeholder='Search clients...'
-              className='w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all'
+              className='w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-500/20 focus:border-stone-500 transition-all'
             />
           </div>
         </div>
@@ -188,7 +188,7 @@ const AdminInbox = () => {
         {/* Conversation List */}
         <div className='flex-1 overflow-y-auto custom-scrollbar'>
           {loadingInbox ? (
-            <div className='flex justify-center items-center h-full text-gray-400'>
+            <div className='flex justify-center items-center h-full text-stone-400'>
               <LoadingSpinner />
             </div>
           ) : conversations.length > 0 ? (
@@ -196,9 +196,9 @@ const AdminInbox = () => {
               <div
                 key={conv._id}
                 onClick={() => setSelectedChat(conv)}
-                className={`p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors flex gap-3 ${selectedChat?._id === conv._id ? "bg-emerald-50/50 hover:bg-emerald-50/50" : ""}`}>
+                className={`p-4 border-b border-stone-50 cursor-pointer hover:bg-stone-50 transition-colors flex gap-3 ${selectedChat?._id === conv._id ? "bg-stone-100/50 hover:bg-stone-100/50" : ""}`}>
                 {/* Avatar */}
-                <div className='w-12 h-12 rounded-full bg-emerald-100 border-2 border-white shadow-sm flex items-center justify-center text-emerald-700 font-bold shrink-0 overflow-hidden'>
+                <div className='w-12 h-12 rounded-full bg-stone-200 border-2 border-white shadow-sm flex items-center justify-center text-stone-800 font-bold shrink-0 overflow-hidden'>
                   {conv.client?.avatar ? (
                     <img
                       src={fetchImage(conv.client.avatar)}
@@ -213,31 +213,31 @@ const AdminInbox = () => {
                 {/* Info */}
                 <div className='flex-1 min-w-0 flex flex-col justify-center'>
                   <div className='flex justify-between items-baseline mb-0.5'>
-                    <h3 className='font-bold text-gray-900 text-sm truncate'>
+                    <h3 className='font-bold text-stone-900 text-sm truncate'>
                       {conv.client?.fullName}
                     </h3>
-                    <span className='text-[10px] text-gray-400 font-medium whitespace-nowrap ml-2'>
+                    <span className='text-[10px] text-stone-400 font-medium whitespace-nowrap ml-2'>
                       {new Date(conv.lastMessageAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </span>
                   </div>
-                  <p className='text-xs text-gray-500 truncate'>
+                  <p className='text-xs text-stone-500 truncate'>
                     {conv.lastMessage || "No messages yet."}
                   </p>
                 </div>
 
                 {/* Unread Badge */}
                 {conv.unreadCountStudio > 0 && (
-                  <div className='flex items-center justify-center self-center shrink-0 w-5 h-5 bg-emerald-500 rounded-full text-[10px] font-bold text-white shadow-sm'>
+                  <div className='flex items-center justify-center self-center shrink-0 w-5 h-5 bg-stone-500 rounded-full text-[10px] font-bold text-white shadow-sm'>
                     {conv.unreadCountStudio}
                   </div>
                 )}
               </div>
             ))
           ) : (
-            <div className='p-8 text-center text-gray-400 flex flex-col items-center'>
+            <div className='p-8 text-center text-stone-400 flex flex-col items-center'>
               <MessageCircle className='w-10 h-10 mb-3 opacity-20' />
               <p className='text-sm font-medium'>No conversations yet.</p>
             </div>
@@ -247,16 +247,16 @@ const AdminInbox = () => {
 
       {/* --- RIGHT PANEL: ACTIVE CHAT --- */}
       <div
-        className={`bg-white border border-gray-200 rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden relative ${!selectedChat ? "hidden md:flex" : "flex"}`}>
+        className={`bg-white border border-stone-200 rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden relative ${!selectedChat ? "hidden md:flex" : "flex"}`}>
         {selectedChat ? (
           <>
             {/* Chat Header */}
-            <div className='h-16 px-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0 shadow-sm z-10'>
+            <div className='h-16 px-6 border-b border-stone-100 flex items-center justify-between bg-white shrink-0 shadow-sm z-10'>
               <div className='flex items-center gap-3'>
                 {/* Mobile Back Button */}
                 <button
                   onClick={() => setSelectedChat(null)}
-                  className='md:hidden p-1.5 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full'>
+                  className='md:hidden p-1.5 -ml-2 text-stone-500 hover:bg-stone-100 rounded-full'>
                   <svg
                     xmlns='http://www.w3.org/2000/svg'
                     width='24'
@@ -271,7 +271,7 @@ const AdminInbox = () => {
                   </svg>
                 </button>
 
-                <div className='w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold overflow-hidden'>
+                <div className='w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center text-stone-800 font-bold overflow-hidden'>
                   {selectedChat.client?.avatar ? (
                     <img
                       src={fetchImage(selectedChat.client.avatar)}
@@ -283,15 +283,15 @@ const AdminInbox = () => {
                   )}
                 </div>
                 <div>
-                  <h3 className='font-bold text-gray-900 text-sm leading-tight'>
+                  <h3 className='font-bold text-stone-900 text-sm leading-tight'>
                     {selectedChat.client?.fullName}
                   </h3>
-                  <p className='text-[10px] text-gray-500 uppercase tracking-wider font-bold'>
+                  <p className='text-[10px] text-stone-500 uppercase tracking-wider font-bold'>
                     Client
                   </p>
                 </div>
               </div>
-              <button className='p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors'>
+              <button className='p-2 text-stone-400 hover:bg-stone-100 rounded-full transition-colors'>
                 <MoreVertical className='w-5 h-5' />
               </button>
             </div>
@@ -315,12 +315,12 @@ const AdminInbox = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className={`max-w-[75%] md:max-w-[65%] rounded-2xl p-3.5 shadow-sm relative ${
                           isAdmin
-                            ? "bg-emerald-700 text-white rounded-tr-sm"
-                            : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
+                            ? "bg-stone-600 text-white rounded-tr-sm"
+                            : "bg-white border border-stone-200 text-stone-800 rounded-tl-sm"
                         }`}>
                         <p className='text-sm leading-relaxed'>{msg.text}</p>
                         <div
-                          className={`flex items-center gap-1 mt-1 justify-end ${isAdmin ? "text-emerald-200" : "text-gray-400"}`}>
+                          className={`flex items-center gap-1 mt-1 justify-end ${isAdmin ? "text-stone-300" : "text-stone-400"}`}>
                           <span className='text-[10px] font-medium'>
                             {new Date(msg.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
@@ -334,9 +334,9 @@ const AdminInbox = () => {
                   );
                 })
               ) : (
-                <div className='h-full flex flex-col items-center justify-center text-gray-400'>
-                  <div className='w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3'>
-                    <MessageCircle className='w-8 h-8 text-gray-300' />
+                <div className='h-full flex flex-col items-center justify-center text-stone-400'>
+                  <div className='w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-3'>
+                    <MessageCircle className='w-8 h-8 text-stone-300' />
                   </div>
                   <p className='text-sm font-medium'>
                     Say hello to {selectedChat.client?.fullName}!
@@ -347,7 +347,7 @@ const AdminInbox = () => {
             </div>
 
             {/* Input Area */}
-            <div className='p-4 bg-white border-t border-gray-100 shrink-0'>
+            <div className='p-4 bg-white border-t border-stone-100 shrink-0'>
               <form
                 onSubmit={handleSendMessage}
                 className='flex items-center gap-3'>
@@ -356,12 +356,12 @@ const AdminInbox = () => {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder='Type a message...'
-                  className='flex-1 bg-gray-50 border border-gray-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white transition-all'
+                  className='flex-1 bg-stone-50 border border-stone-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-stone-500 focus:bg-white transition-all'
                 />
                 <button
                   type='submit'
                   disabled={!newMessage.trim() || sending}
-                  className='w-12 h-12 shrink-0 bg-emerald-900 text-white rounded-full flex items-center justify-center hover:bg-emerald-800 disabled:opacity-50 disabled:hover:bg-emerald-900 transition-all shadow-md hover:shadow-lg'>
+                  className='w-12 h-12 shrink-0 bg-stone-600 text-white rounded-full flex items-center justify-center hover:bg-stone-700 disabled:opacity-50 disabled:hover:bg-stone-700 transition-all shadow-md hover:shadow-lg'>
                   {sending ? (
                     <Loader2 className='w-5 h-5 animate-spin' />
                   ) : (
@@ -372,11 +372,11 @@ const AdminInbox = () => {
             </div>
           </>
         ) : (
-          <div className='hidden md:flex h-full flex-col items-center justify-center text-gray-400 bg-gray-50/50'>
-            <div className='w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 mb-4'>
-              <MessageCircle className='w-10 h-10 text-emerald-200' />
+          <div className='hidden md:flex h-full flex-col items-center justify-center text-stone-400 bg-stone-50/50'>
+            <div className='w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-stone-100 mb-4'>
+              <MessageCircle className='w-10 h-10 text-stone-300' />
             </div>
-            <h3 className='text-lg font-bold text-gray-900 mb-1'>
+            <h3 className='text-lg font-bold text-stone-900 mb-1'>
               Your Messages
             </h3>
             <p className='text-sm'>

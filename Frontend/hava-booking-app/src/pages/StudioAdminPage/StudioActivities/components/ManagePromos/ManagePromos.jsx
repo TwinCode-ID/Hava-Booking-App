@@ -53,7 +53,10 @@ const ManagePromos = () => {
   const fetchPromos = async () => {
     try {
       const studioId = user?.adminStudioLocation;
-      if (!studioId) return;
+      if (!studioId) {
+        setPromos([]);
+        return;
+      }
       const res = await axiosInstance.get(`/api/promos/studio/${studioId}`);
       setPromos(res.data);
     } catch (error) {
@@ -131,26 +134,46 @@ const ManagePromos = () => {
 
   // --- VOUCHER PRINTING LOGIC --- //
 
+  const escapeVoucherHtml = (value) =>
+    String(value ?? "").replace(
+      /[&<>'"]/g,
+      (character) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "'": "&#39;",
+          '"': "&quot;",
+        })[character],
+    );
+
   const generateVoucherHTML = (promo, codeStr) => {
     let bigValue = "";
     let subValue = "";
 
     if (promo.discountType === "percentage") {
-      bigValue = `${promo.discountValue}<span>*</span>`;
+      bigValue = `${escapeVoucherHtml(promo.discountValue)}<span>*</span>`;
       subValue = "% OFF";
     } else if (promo.discountType === "fixed") {
-      bigValue = `${promo.discountValue / 1000}<span>K*</span>`;
+      bigValue = `${escapeVoucherHtml(promo.discountValue / 1000)}<span>K*</span>`;
       subValue = "IDR OFF";
     } else {
       bigValue = `BOGO`;
-      subValue = `Buy ${promo.buyX} Get ${promo.getY}`;
+      subValue = `Buy ${escapeVoucherHtml(promo.buyX)} Get ${escapeVoucherHtml(promo.getY)}`;
     }
+
+    const title = escapeVoucherHtml(promo.title);
+    const description = escapeVoucherHtml(
+      promo.description ||
+        "Enjoy this exclusive reward at our studio. Present this code at the receptionist or enter it during checkout.",
+    );
+    const voucherCode = escapeVoucherHtml(codeStr);
 
     return `
       <div class="voucher">
         <div class="ribbon">PROMO</div>
         <div class="left-section">
-          <p class="desc-text"><strong>${promo.title}</strong><br/>${promo.description || "Enjoy this exclusive reward at our studio. Present this code at the receptionist or enter it during checkout."}</p>
+          <p class="desc-text"><strong>${title}</strong><br/>${description}</p>
           <div style="display: flex; align-items: baseline; gap: 10px;">
             <div class="big-discount">${bigValue}</div>
             <div style="font-size: 16px; font-weight: 800; color: #9ca3af; text-transform: uppercase;">${subValue}</div>
@@ -160,7 +183,7 @@ const ManagePromos = () => {
         
         <div class="right-section">
           <div class="badge">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #059669;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #292524;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           </div>
           <div style="margin-bottom: 25px;">
               <h4 class="about-title">HOW TO USE</h4>
@@ -168,7 +191,7 @@ const ManagePromos = () => {
           </div>
           <div>
               <p class="code-label">USE CODE</p>
-              <div class="code-box">${codeStr}</div>
+              <div class="code-box">${voucherCode}</div>
           </div>
         </div>
       </div>
@@ -331,6 +354,7 @@ const ManagePromos = () => {
     window.open(
       `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`,
       "_blank",
+      "noopener,noreferrer",
     );
   };
 
@@ -358,54 +382,54 @@ const ManagePromos = () => {
   };
 
   return (
-    <div className='p-6 h-full flex flex-col bg-white rounded-lg shadow-subtle border border-slate-100 m-4'>
+    <div className='p-6 h-full flex flex-col bg-white rounded-lg shadow-subtle border border-stone-100 m-4'>
       <div className='flex flex-col md:flex-row justify-end items-start md:items-center gap-4 mb-8 shrink-0'>
         <div className='flex gap-3 w-full md:w-auto'>
           <div className='relative flex-1 md:w-72'>
-            <Search className='w-4 h-4 absolute left-3.5 top-3 text-slate-400' />
+            <Search className='w-4 h-4 absolute left-3.5 top-3 text-stone-400' />
             <input
               type='text'
               placeholder='Search campaigns...'
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className='w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-md text-sm outline-none focus:border-emerald-500 font-medium'
+              className='w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-md text-sm outline-none focus:border-stone-500 font-medium'
             />
           </div>
           <button
             onClick={() => setShowFormModal(true)}
-            className='flex items-center gap-2 bg-[#1a4d3e] hover:bg-[#133d31] text-white px-5 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors shrink-0'>
+            className='flex items-center gap-2 bg-stone-600 hover:bg-stone-700 text-white px-5 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors shrink-0'>
             <Plus className='w-4 h-4' /> New Campaign
           </button>
         </div>
       </div>
 
-      <div className='flex-1 overflow-auto border border-slate-200 rounded-md shadow-inner bg-slate-50/20'>
+      <div className='flex-1 overflow-auto border border-stone-200 rounded-md shadow-inner bg-stone-50/20'>
         <table className='w-full text-left border-collapse table-auto'>
-          <thead className='bg-white sticky top-0 z-10 border-b border-slate-200'>
+          <thead className='bg-white sticky top-0 z-10 border-b border-stone-200'>
             <tr>
-              <th className='p-4 text-xs font-bold text-slate-500 uppercase tracking-wider'>
+              <th className='p-4 text-xs font-bold text-stone-500 uppercase tracking-wider'>
                 Campaign & Type
               </th>
-              <th className='p-4 text-xs font-bold text-slate-500 uppercase tracking-wider'>
+              <th className='p-4 text-xs font-bold text-stone-500 uppercase tracking-wider'>
                 Discount
               </th>
-              <th className='p-4 text-xs font-bold text-slate-500 uppercase tracking-wider'>
+              <th className='p-4 text-xs font-bold text-stone-500 uppercase tracking-wider'>
                 Usage / Availability
               </th>
-              <th className='p-4 text-xs font-bold text-slate-500 uppercase tracking-wider'>
+              <th className='p-4 text-xs font-bold text-stone-500 uppercase tracking-wider'>
                 Status
               </th>
-              <th className='p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right'>
+              <th className='p-4 text-xs font-bold text-stone-500 uppercase tracking-wider text-right'>
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className='divide-y divide-slate-100 bg-white'>
+          <tbody className='divide-y divide-stone-100 bg-white'>
             {isLoading ? (
               <tr>
                 <td
                   colSpan='5'
-                  className='p-10 text-center text-slate-400 font-medium'>
+                  className='p-10 text-center text-stone-400 font-medium'>
                   Loading campaigns...
                 </td>
               </tr>
@@ -413,7 +437,7 @@ const ManagePromos = () => {
               <tr>
                 <td
                   colSpan='5'
-                  className='p-10 text-center text-slate-400 font-medium'>
+                  className='p-10 text-center text-stone-400 font-medium'>
                   No campaigns found.
                 </td>
               </tr>
@@ -434,9 +458,9 @@ const ManagePromos = () => {
                 return (
                   <tr
                     key={promo._id}
-                    className='hover:bg-slate-50/50 transition-colors'>
+                    className='hover:bg-stone-50/50 transition-colors'>
                     <td className='p-4'>
-                      <p className='font-bold text-slate-800 tracking-tight flex items-center gap-2'>
+                      <p className='font-bold text-stone-800 tracking-tight flex items-center gap-2'>
                         {promo.title}
                       </p>
                       <div className='flex items-center gap-1.5 mt-1'>
@@ -455,7 +479,7 @@ const ManagePromos = () => {
                         )}
                       </div>
                     </td>
-                    <td className='p-4 text-sm font-bold text-slate-700'>
+                    <td className='p-4 text-sm font-bold text-stone-700'>
                       {getPromoValueString(promo)}
                     </td>
                     <td className='p-4'>
@@ -464,7 +488,7 @@ const ManagePromos = () => {
                           <span className='px-2 py-1 rounded w-fit text-xs font-bold bg-amber-50 text-amber-700'>
                             Unlimited Usage
                           </span>
-                          <span className='text-[10px] font-medium text-slate-400 mt-1'>
+                          <span className='text-[10px] font-medium text-stone-400 mt-1'>
                             {promo.currentUsageCount} used so far
                           </span>
                         </div>
@@ -475,7 +499,7 @@ const ManagePromos = () => {
                             {promo.currentUsageCount} / {promo.maxUsageLimit}{" "}
                             Used
                           </span>
-                          <span className='text-[10px] font-medium text-slate-400 mt-1'>
+                          <span className='text-[10px] font-medium text-stone-400 mt-1'>
                             1 per user
                           </span>
                         </div>
@@ -488,7 +512,7 @@ const ManagePromos = () => {
                     </td>
                     <td className='p-4'>
                       <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold tracking-tight ${promo.isActive && !limitReached ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold tracking-tight ${promo.isActive && !limitReached ? "bg-stone-200 text-stone-900" : "bg-stone-100 text-stone-500"}`}>
                         {promo.isActive && !limitReached ? (
                           <Check className='w-3.5 h-3.5' />
                         ) : (
@@ -507,25 +531,25 @@ const ManagePromos = () => {
                           setSelectedPromoForCodes(promo);
                           setShowCodesModal(true);
                         }}
-                        className='p-2.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors bg-white border border-slate-200'
+                        className='p-2.5 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-md transition-colors bg-white border border-stone-200'
                         title='View & Share'>
                         <List className='w-4 h-4' />
                       </button>
                       <button
                         onClick={() => handleEditClick(promo)}
-                        className='p-2.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-md transition-colors bg-white'
+                        className='p-2.5 text-stone-400 hover:text-sky-600 hover:bg-sky-50 rounded-md transition-colors bg-white'
                         title='Edit Campaign Rules'>
                         <Edit2 className='w-4 h-4' />
                       </button>
                       <button
                         onClick={() => toggleStatus(promo._id)}
-                        className='p-2.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors bg-white'
+                        className='p-2.5 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors bg-white'
                         title='Toggle Status'>
                         <Power className='w-4 h-4' />
                       </button>
                       <button
                         onClick={() => deletePromo(promo._id)}
-                        className='p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors bg-white'
+                        className='p-2.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors bg-white'
                         title='Delete Campaign'>
                         <Trash2 className='w-4 h-4' />
                       </button>
@@ -540,21 +564,21 @@ const ManagePromos = () => {
 
       <AnimatePresence>
         {showFormModal && (
-          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm'>
+          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-700/50 backdrop-blur-sm'>
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className='bg-white w-full max-w-3xl rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 max-h-[90vh]'>
-              <div className='px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-slate-50'>
-                <h3 className='text-lg font-extrabold text-slate-950 tracking-tight'>
+              className='bg-white w-full max-w-3xl rounded-lg shadow-2xl flex flex-col overflow-hidden border border-stone-200 max-h-[90vh]'>
+              <div className='px-6 py-5 border-b border-stone-100 flex justify-between items-center bg-stone-50'>
+                <h3 className='text-lg font-extrabold text-stone-950 tracking-tight'>
                   {editingPromoId
                     ? "Edit Campaign Rules"
                     : "Create Promo Campaign"}
                 </h3>
                 <button
                   onClick={handleCloseFormModal}
-                  className='p-2 rounded-md hover:bg-slate-200 text-slate-400'>
+                  className='p-2 rounded-md hover:bg-stone-200 text-stone-400'>
                   <X className='w-5 h-5' />
                 </button>
               </div>
@@ -563,7 +587,7 @@ const ManagePromos = () => {
                 onSubmit={handleSubmit}
                 className='p-6 overflow-y-auto custom-scrollbar space-y-6'>
                 <div className='col-span-2'>
-                  <label className='block text-xs font-extrabold text-slate-600 uppercase mb-2.5'>
+                  <label className='block text-xs font-extrabold text-stone-600 uppercase mb-2.5'>
                     Campaign Title
                   </label>
                   <input
@@ -574,12 +598,12 @@ const ManagePromos = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, title: e.target.value })
                     }
-                    className='w-full p-3.5 bg-slate-50 border border-slate-200 rounded-md text-sm font-bold focus:border-emerald-500 outline-none'
+                    className='w-full p-3.5 bg-stone-50 border border-stone-200 rounded-md text-sm font-bold focus:border-stone-500 outline-none'
                   />
                 </div>
 
-                <div className='border-t border-slate-100 pt-6'>
-                  <label className='block text-xs font-extrabold text-slate-600 uppercase mb-3'>
+                <div className='border-t border-stone-100 pt-6'>
+                  <label className='block text-xs font-extrabold text-stone-600 uppercase mb-3'>
                     Promo Strategy
                   </label>
                   <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-5'>
@@ -589,15 +613,15 @@ const ManagePromos = () => {
                       onClick={() =>
                         setFormData({ ...formData, promoType: "bulk" })
                       }
-                      className={`p-4 rounded-lg border text-left transition-all ${formData.promoType === "bulk" ? "border-purple-500 bg-purple-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                      className={`p-4 rounded-lg border text-left transition-all ${formData.promoType === "bulk" ? "border-purple-500 bg-purple-50 shadow-sm" : "border-stone-200 bg-white hover:border-stone-300"}`}>
                       <KeyRound
-                        className={`w-5 h-5 mb-2 ${formData.promoType === "bulk" ? "text-purple-600" : "text-slate-400"}`}
+                        className={`w-5 h-5 mb-2 ${formData.promoType === "bulk" ? "text-purple-600" : "text-stone-400"}`}
                       />
                       <p
-                        className={`text-sm font-bold ${formData.promoType === "bulk" ? "text-purple-900" : "text-slate-700"}`}>
+                        className={`text-sm font-bold ${formData.promoType === "bulk" ? "text-purple-900" : "text-stone-700"}`}>
                         Bulk Vouchers
                       </p>
-                      <p className='text-xs text-slate-500 mt-1 font-medium'>
+                      <p className='text-xs text-stone-500 mt-1 font-medium'>
                         Unique 1-time codes for distribution.
                       </p>
                     </button>
@@ -607,15 +631,15 @@ const ManagePromos = () => {
                       onClick={() =>
                         setFormData({ ...formData, promoType: "static" })
                       }
-                      className={`p-4 rounded-lg border text-left transition-all ${formData.promoType === "static" ? "border-sky-500 bg-sky-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                      className={`p-4 rounded-lg border text-left transition-all ${formData.promoType === "static" ? "border-sky-500 bg-sky-50 shadow-sm" : "border-stone-200 bg-white hover:border-stone-300"}`}>
                       <Users
-                        className={`w-5 h-5 mb-2 ${formData.promoType === "static" ? "text-sky-600" : "text-slate-400"}`}
+                        className={`w-5 h-5 mb-2 ${formData.promoType === "static" ? "text-sky-600" : "text-stone-400"}`}
                       />
                       <p
-                        className={`text-sm font-bold ${formData.promoType === "static" ? "text-sky-900" : "text-slate-700"}`}>
+                        className={`text-sm font-bold ${formData.promoType === "static" ? "text-sky-900" : "text-stone-700"}`}>
                         Client Code
                       </p>
-                      <p className='text-xs text-slate-500 mt-1 font-medium'>
+                      <p className='text-xs text-stone-500 mt-1 font-medium'>
                         Public code. Limited usage. 1 per user.
                       </p>
                     </button>
@@ -625,25 +649,25 @@ const ManagePromos = () => {
                       onClick={() =>
                         setFormData({ ...formData, promoType: "admin" })
                       }
-                      className={`p-4 rounded-lg border text-left transition-all ${formData.promoType === "admin" ? "border-amber-500 bg-amber-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                      className={`p-4 rounded-lg border text-left transition-all ${formData.promoType === "admin" ? "border-amber-500 bg-amber-50 shadow-sm" : "border-stone-200 bg-white hover:border-stone-300"}`}>
                       <ShieldCheck
-                        className={`w-5 h-5 mb-2 ${formData.promoType === "admin" ? "text-amber-600" : "text-slate-400"}`}
+                        className={`w-5 h-5 mb-2 ${formData.promoType === "admin" ? "text-amber-600" : "text-stone-400"}`}
                       />
                       <p
-                        className={`text-sm font-bold ${formData.promoType === "admin" ? "text-amber-900" : "text-slate-700"}`}>
+                        className={`text-sm font-bold ${formData.promoType === "admin" ? "text-amber-900" : "text-stone-700"}`}>
                         Cashier Code
                       </p>
-                      <p className='text-xs text-slate-500 mt-1 font-medium'>
+                      <p className='text-xs text-stone-500 mt-1 font-medium'>
                         Hidden from clients. Unlimited POS usage.
                       </p>
                     </button>
                   </div>
 
-                  <div className='grid grid-cols-2 gap-5 p-5 bg-slate-50 rounded-lg border border-slate-200'>
+                  <div className='grid grid-cols-2 gap-5 p-5 bg-stone-50 rounded-lg border border-stone-200'>
                     {formData.promoType === "bulk" ? (
                       <>
                         <div>
-                          <label className='block text-xs font-extrabold text-slate-600 uppercase mb-2.5'>
+                          <label className='block text-xs font-extrabold text-stone-600 uppercase mb-2.5'>
                             Code Prefix (Optional)
                           </label>
                           <input
@@ -656,12 +680,12 @@ const ManagePromos = () => {
                                 prefix: e.target.value.toUpperCase(),
                               })
                             }
-                            className='w-full p-3.5 bg-white border border-slate-200 rounded-md text-sm font-bold uppercase focus:border-purple-500 outline-none'
+                            className='w-full p-3.5 bg-white border border-stone-200 rounded-md text-sm font-bold uppercase focus:border-purple-500 outline-none'
                             disabled={!!editingPromoId}
                           />
                         </div>
                         <div>
-                          <label className='block text-xs font-extrabold text-slate-600 uppercase mb-2.5'>
+                          <label className='block text-xs font-extrabold text-stone-600 uppercase mb-2.5'>
                             {editingPromoId
                               ? "Generate More Codes"
                               : "Quantity"}
@@ -683,14 +707,14 @@ const ManagePromos = () => {
                                   })
                                 : setFormData({ ...formData, quantity: val });
                             }}
-                            className='w-full p-3.5 bg-white border border-slate-200 rounded-md text-sm font-bold focus:border-purple-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                            className='w-full p-3.5 bg-white border border-stone-200 rounded-md text-sm font-bold focus:border-purple-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                           />
                         </div>
                       </>
                     ) : (
                       <>
                         <div>
-                          <label className='block text-xs font-extrabold text-slate-600 uppercase mb-2.5'>
+                          <label className='block text-xs font-extrabold text-stone-600 uppercase mb-2.5'>
                             Static Code String
                           </label>
                           <input
@@ -704,14 +728,14 @@ const ManagePromos = () => {
                                 staticCode: e.target.value.toUpperCase(),
                               })
                             }
-                            className='w-full p-3.5 bg-white border border-slate-200 rounded-md text-sm font-bold uppercase focus:border-emerald-500 outline-none'
+                            className='w-full p-3.5 bg-white border border-stone-200 rounded-md text-sm font-bold uppercase focus:border-stone-500 outline-none'
                             disabled={!!editingPromoId}
                           />
                         </div>
 
                         {formData.promoType === "static" && (
                           <div>
-                            <label className='block text-xs font-extrabold text-slate-600 uppercase mb-2.5'>
+                            <label className='block text-xs font-extrabold text-stone-600 uppercase mb-2.5'>
                               Total Global Uses
                             </label>
                             <input
@@ -725,9 +749,9 @@ const ManagePromos = () => {
                                   maxUsageLimit: parseInt(e.target.value) || 1,
                                 })
                               }
-                              className='w-full p-3.5 bg-white border border-slate-200 rounded-md text-sm font-bold focus:border-sky-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                              className='w-full p-3.5 bg-white border border-stone-200 rounded-md text-sm font-bold focus:border-sky-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                             />
-                            <p className='text-[10px] text-slate-500 mt-1'>
+                            <p className='text-[10px] text-stone-500 mt-1'>
                               Total times this code can be claimed across ALL
                               users.
                             </p>
@@ -750,8 +774,8 @@ const ManagePromos = () => {
                   </div>
                 </div>
 
-                <div className='border-t border-slate-100 pt-6 pb-3'>
-                  <label className='block text-xs font-extrabold text-slate-600 uppercase mb-2.5'>
+                <div className='border-t border-stone-100 pt-6 pb-3'>
+                  <label className='block text-xs font-extrabold text-stone-600 uppercase mb-2.5'>
                     Discount Setup
                   </label>
                   <div className='relative mb-4'>
@@ -763,12 +787,12 @@ const ManagePromos = () => {
                           discountType: e.target.value,
                         })
                       }
-                      className='w-full h-[50px] pl-4 pr-11 bg-slate-50 border border-slate-200 rounded-md text-sm font-bold focus:border-emerald-500 outline-none appearance-none cursor-pointer'>
+                      className='w-full h-[50px] pl-4 pr-11 bg-stone-50 border border-stone-200 rounded-md text-sm font-bold focus:border-stone-500 outline-none appearance-none cursor-pointer'>
                       <option value='percentage'>Percentage (%)</option>
                       <option value='fixed'>Fixed Amount (IDR)</option>
                       <option value='buy_x_get_y'>Buy X Get Y Free</option>
                     </select>
-                    <ChevronsUpDown className='w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
+                    <ChevronsUpDown className='w-4 h-4 text-stone-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
                   </div>
 
                   {formData.discountType === "percentage" && (
@@ -782,7 +806,7 @@ const ManagePromos = () => {
                           discountValue: e.target.value,
                         })
                       }
-                      className='w-full h-[50px] px-4 bg-white border border-slate-200 rounded-md text-sm font-bold focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                      className='w-full h-[50px] px-4 bg-white border border-stone-200 rounded-md text-sm font-bold focus:border-stone-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                     />
                   )}
                   {formData.discountType === "fixed" && (
@@ -796,7 +820,7 @@ const ManagePromos = () => {
                           discountValue: e.target.value,
                         })
                       }
-                      className='w-full h-[50px] px-4 bg-white border border-slate-200 rounded-md text-sm font-bold focus:border-emerald-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                      className='w-full h-[50px] px-4 bg-white border border-stone-200 rounded-md text-sm font-bold focus:border-stone-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                     />
                   )}
                   {formData.discountType === "buy_x_get_y" && (
@@ -808,7 +832,7 @@ const ManagePromos = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, buyX: e.target.value })
                         }
-                        className='w-full h-[50px] px-4 border border-slate-200 rounded-md text-sm font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                        className='w-full h-[50px] px-4 border border-stone-200 rounded-md text-sm font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                       />
                       <input
                         type='number'
@@ -817,16 +841,16 @@ const ManagePromos = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, getY: e.target.value })
                         }
-                        className='w-full h-[50px] px-4 border border-slate-200 rounded-md text-sm font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                        className='w-full h-[50px] px-4 border border-stone-200 rounded-md text-sm font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                       />
                     </div>
                   )}
                 </div>
 
-                <div className='pt-5 border-t border-slate-100 bg-white sticky bottom-0 -mx-6 -mb-6 p-6'>
+                <div className='pt-5 border-t border-stone-100 bg-white sticky bottom-0 -mx-6 -mb-6 p-6'>
                   <button
                     type='submit'
-                    className='w-full bg-[#1a4d3e] hover:bg-[#133d31] text-white font-extrabold py-4 rounded-md shadow-md transition-all tracking-tight'>
+                    className='w-full bg-stone-600 hover:bg-stone-700 text-white font-extrabold py-4 rounded-md shadow-md transition-all tracking-tight'>
                     {editingPromoId ? "Save Changes" : "Create Campaign"}
                   </button>
                 </div>
@@ -838,15 +862,15 @@ const ManagePromos = () => {
 
       <AnimatePresence>
         {showCodesModal && selectedPromoForCodes && (
-          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm'>
+          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-700/50 backdrop-blur-sm'>
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className='bg-white w-full max-w-4xl rounded-lg shadow-2xl flex flex-col overflow-hidden border border-slate-200 max-h-[85vh]'>
-              <div className='px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-slate-50'>
+              className='bg-white w-full max-w-4xl rounded-lg shadow-2xl flex flex-col overflow-hidden border border-stone-200 max-h-[85vh]'>
+              <div className='px-6 py-5 border-b border-stone-100 flex justify-between items-center bg-stone-50'>
                 <div>
-                  <h3 className='text-lg font-extrabold text-slate-950 tracking-tight'>
+                  <h3 className='text-lg font-extrabold text-stone-950 tracking-tight'>
                     Campaign: {selectedPromoForCodes.title}
                   </h3>
                   {selectedPromoForCodes.promoType === "admin" ? (
@@ -854,12 +878,12 @@ const ManagePromos = () => {
                       Unlimited Cashier Promo
                     </p>
                   ) : selectedPromoForCodes.promoType === "static" ? (
-                    <p className='text-xs text-slate-500 mt-1'>
+                    <p className='text-xs text-stone-500 mt-1'>
                       {selectedPromoForCodes.currentUsageCount} out of{" "}
                       {selectedPromoForCodes.maxUsageLimit} global uses claimed.
                     </p>
                   ) : (
-                    <p className='text-xs text-slate-500 mt-1'>
+                    <p className='text-xs text-stone-500 mt-1'>
                       {
                         (selectedPromoForCodes.codes || []).filter(
                           (c) => !c.isUsed,
@@ -877,13 +901,13 @@ const ManagePromos = () => {
                       onClick={() =>
                         handlePrintAllAvailableVouchers(selectedPromoForCodes)
                       }
-                      className='flex items-center gap-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-2 rounded-md text-xs font-bold transition-colors'>
+                      className='flex items-center gap-2 bg-stone-200 hover:bg-stone-300 text-stone-900 px-4 py-2 rounded-md text-xs font-bold transition-colors'>
                       <Printer className='w-3.5 h-3.5' /> Print All Available
                     </button>
                   )}
                   <button
                     onClick={() => setShowCodesModal(false)}
-                    className='p-2 rounded-md hover:bg-slate-200 text-slate-400'>
+                    className='p-2 rounded-md hover:bg-stone-200 text-stone-400'>
                     <X className='w-5 h-5' />
                   </button>
                 </div>
@@ -901,23 +925,23 @@ const ManagePromos = () => {
                         {selectedPromoForCodes.staticCode}
                       </span>
                     </div>
-                    <p className='text-sm text-slate-600 max-w-md font-medium'>
+                    <p className='text-sm text-stone-600 max-w-md font-medium'>
                       This code is intended for admin and cashier use only. It
                       can be applied an unlimited number of times at checkout.
                     </p>
                   </div>
                 ) : selectedPromoForCodes.promoType === "static" ? (
-                  <div className='flex flex-col items-center justify-center p-10 bg-slate-50 rounded-lg border border-slate-200 border-dashed text-center'>
+                  <div className='flex flex-col items-center justify-center p-10 bg-stone-50 rounded-lg border border-stone-200 border-dashed text-center'>
                     <Users className='w-12 h-12 text-sky-300 mb-4' />
-                    <h4 className='text-sm font-bold text-slate-500 uppercase tracking-widest mb-2'>
+                    <h4 className='text-sm font-bold text-stone-500 uppercase tracking-widest mb-2'>
                       Master Code
                     </h4>
-                    <div className='bg-white px-8 py-4 border border-slate-200 rounded-lg shadow-sm mb-6'>
-                      <span className='font-mono text-3xl font-extrabold text-slate-800 tracking-widest'>
+                    <div className='bg-white px-8 py-4 border border-stone-200 rounded-lg shadow-sm mb-6'>
+                      <span className='font-mono text-3xl font-extrabold text-stone-800 tracking-widest'>
                         {selectedPromoForCodes.staticCode}
                       </span>
                     </div>
-                    <p className='text-sm text-slate-600 max-w-md font-medium mb-6'>
+                    <p className='text-sm text-stone-600 max-w-md font-medium mb-6'>
                       Share this code with your clients. Each user can only
                       claim it once during checkout until the global limit of{" "}
                       {selectedPromoForCodes.maxUsageLimit} is reached.
@@ -931,7 +955,7 @@ const ManagePromos = () => {
                             selectedPromoForCodes.staticCode,
                           )
                         }
-                        className='flex items-center gap-2 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-bold transition-colors'>
+                        className='flex items-center gap-2 px-6 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-md text-sm font-bold transition-colors'>
                         <Printer className='w-4 h-4' /> Print Design
                       </button>
                     </div>
@@ -941,31 +965,31 @@ const ManagePromos = () => {
                     {(selectedPromoForCodes.codes || []).map((item) => (
                       <div
                         key={item._id}
-                        className={`border rounded-lg p-4 flex flex-col justify-between ${item.isUsed ? "bg-slate-50 border-slate-200 opacity-60" : "bg-white border-emerald-200 shadow-sm"}`}>
+                        className={`border rounded-lg p-4 flex flex-col justify-between ${item.isUsed ? "bg-stone-50 border-stone-200 opacity-60" : "bg-white border-stone-300 shadow-sm"}`}>
                         <div className='flex justify-between items-start mb-4'>
                           <div>
-                            <p className='font-mono text-lg font-bold text-slate-900'>
+                            <p className='font-mono text-lg font-bold text-stone-900'>
                               {item.code}
                             </p>
-                            <p className='text-xs font-medium text-slate-500 mt-1'>
+                            <p className='text-xs font-medium text-stone-500 mt-1'>
                               {item.isUsed
                                 ? `Used on: ${new Date(item.usedAt).toLocaleDateString()}`
                                 : "Available"}
                             </p>
                           </div>
                           {item.isUsed ? (
-                            <span className='bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider'>
+                            <span className='bg-stone-200 text-stone-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider'>
                               Claimed
                             </span>
                           ) : (
-                            <span className='bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider'>
+                            <span className='bg-stone-200 text-stone-900 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider'>
                               Valid
                             </span>
                           )}
                         </div>
 
                         {!item.isUsed && (
-                          <div className='flex gap-2 border-t border-slate-100 pt-3'>
+                          <div className='flex gap-2 border-t border-stone-100 pt-3'>
                             <button
                               onClick={() =>
                                 shareWhatsApp(selectedPromoForCodes, item.code)
@@ -987,7 +1011,7 @@ const ManagePromos = () => {
                                   item.code,
                                 )
                               }
-                              className='flex-1 flex justify-center items-center gap-1.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold transition-colors'>
+                              className='flex-1 flex justify-center items-center gap-1.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-xs font-bold transition-colors'>
                               <Printer className='w-3.5 h-3.5' /> Print
                             </button>
                           </div>

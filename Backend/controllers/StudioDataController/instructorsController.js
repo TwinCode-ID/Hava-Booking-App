@@ -2,6 +2,57 @@ const Instructor = require("../../models/StudioData/Instructors");
 const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
 const ClassBooking = require("../../models/ClassBooking/ClassBooking");
 const UserPasses = require("../../models/UserData/User_Passes");
+const {
+  canManageStudio,
+  idsEqual,
+  isDevTeam,
+} = require("../../helper/authorization");
+
+const DAYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+const getInstructorStudioIds = (instructor) => {
+  const studioIds = [...(instructor.assignedStudiosId || [])];
+  for (const level of instructor.studioLevels || []) {
+    studioIds.push(level.studioId);
+  }
+  for (const day of DAYS) {
+    for (const shift of instructor.workingHours?.[day] || []) {
+      studioIds.push(shift.location);
+    }
+  }
+  return studioIds.filter(Boolean);
+};
+
+const canGloballyManageInstructor = (user, instructor) => {
+  if (isDevTeam(user)) return true;
+  const studioIds = getInstructorStudioIds(instructor);
+  return (
+    studioIds.length > 0 &&
+    studioIds.every((studioId) => canManageStudio(user, studioId))
+  );
+};
+
+const scopeWorkingHours = (workingHours = {}, studioId) =>
+  Object.fromEntries(
+    DAYS.map((day) => [
+      day,
+      (workingHours[day] || []).map((shift) => ({
+        start: shift.start,
+        end: shift.end,
+        isActive: shift.isActive !== false,
+        location: studioId,
+        exceptions: [],
+      })),
+    ]),
+  );
 
 const getLocalTimeParts = (dateObj) => {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -39,13 +90,27 @@ exports.createInstructor = async (req, res) => {
     if (!fullName)
       return res.status(400).json({ message: "Instructor name is required" });
 
+    const requestedStudios = assignedStudiosId || [];
+    const studioId = req.user.adminStudioLocation;
+    if (!isDevTeam(req.user) && !studioId) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
     const instructor = await Instructor.create({
       fullName,
       bio,
-      assignedStudiosId,
+      assignedStudiosId: isDevTeam(req.user)
+        ? requestedStudios
+        : [studioId],
       avatar,
-      workingHours,
-      studioLevels,
+      workingHours: isDevTeam(req.user)
+        ? workingHours
+        : scopeWorkingHours(workingHours, studioId),
+      studioLevels: isDevTeam(req.user)
+        ? studioLevels
+        : (studioLevels || [])
+            .filter((level) => idsEqual(level.studioId, studioId))
+            .map((level) => ({ ...level, studioId })),
     });
     res.status(201).json(instructor);
   } catch (err) {
@@ -68,15 +133,21 @@ exports.updateProfile = async (req, res) => {
     const instructor = await Instructor.findById(req.params.id);
     if (!instructor)
       return res.status(400).json({ message: "Instructor not found" });
+    if (!canGloballyManageInstructor(req.user, instructor)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
 
     if (fullName !== undefined) instructor.fullName = fullName;
     if (bio !== undefined) instructor.bio = bio;
-    if (assignedStudiosId !== undefined)
+    if (isDevTeam(req.user) && assignedStudiosId !== undefined)
       instructor.assignedStudiosId = assignedStudiosId;
     if (avatar !== undefined) instructor.avatar = avatar;
-    if (workingHours !== undefined) instructor.workingHours = workingHours;
-    if (isActive !== undefined) instructor.isActive = isActive;
-    if (studioLevels !== undefined) instructor.studioLevels = studioLevels;
+    if (isDevTeam(req.user) && workingHours !== undefined)
+      instructor.workingHours = workingHours;
+    if (isDevTeam(req.user) && isActive !== undefined)
+      instructor.isActive = isActive;
+    if (isDevTeam(req.user) && studioLevels !== undefined)
+      instructor.studioLevels = studioLevels;
 
     instructor.markModified("workingHours");
     instructor.markModified("studioLevels");
@@ -106,6 +177,11 @@ exports.toggleInstructorShift = async (req, res) => {
 
     // BULK ASSIGN OR BULK UNDO LOGIC
     if (shiftId === "bulk_reassign" || shiftId === "bulk_undo") {
+      if (!isDevTeam(req.user)) {
+        return res.status(403).json({
+          error: "Cross-studio reassignments require developer access.",
+        });
+      }
       const startBounds = new Date(startDate).getTime();
       const endBounds = new Date(endDate || startDate).setHours(
         23,
@@ -318,6 +394,9 @@ exports.toggleInstructorShift = async (req, res) => {
 
     const shift = shiftArray.id(shiftId);
     if (!shift) throw new Error("Shift not found");
+    if (!canManageStudio(req.user, shift.location)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
 
     const cancelAndRefundClass = async (classId) => {
       const bookings = await ClassBooking.find({ classId, status: "Booked" });
@@ -428,9 +507,13 @@ exports.getPublicProfile = async (req, res) => {
 
 exports.deleteInstructor = async (req, res) => {
   try {
-    const instructor = await Instructor.findByIdAndDelete(req.params.id);
+    const instructor = await Instructor.findById(req.params.id);
     if (!instructor)
       return res.status(404).json({ message: "Instructor not found" });
+    if (!canGloballyManageInstructor(req.user, instructor)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    await instructor.deleteOne();
     res.json({ message: "Instructor deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -442,6 +525,9 @@ exports.instructorStatus = async (req, res) => {
     const instructor = await Instructor.findById(req.params.id);
     if (!instructor)
       return res.status(404).json({ message: "Instructor not found" });
+    if (!canGloballyManageInstructor(req.user, instructor)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
     instructor.isActive = !instructor.isActive;
     await instructor.save();
     res.json({

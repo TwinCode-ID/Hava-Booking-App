@@ -22,8 +22,14 @@ import {
   User as UserIcon,
   GraduationCap,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
 import { BASE_URL, API_PATHS } from "../../utils/apiPath";
+import {
+  getAccessToken,
+  notifyAuthTokenRotated,
+  storeAccessToken,
+} from "../../utils/authToken";
 import { useAuth } from "../../context/AuthContext";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
@@ -60,13 +66,13 @@ const SleekSelect = ({
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className='flex items-center justify-between w-full p-4 border border-slate-200 rounded-xl bg-white cursor-pointer hover:border-slate-300 transition-colors shadow-sm'>
+        className='flex items-center justify-between w-full p-4 border border-stone-200 rounded-xl bg-white cursor-pointer hover:border-stone-300 transition-colors shadow-sm'>
         <span
-          className={`text-[14px] truncate ${!value ? "text-slate-400" : "text-slate-900 font-medium"}`}>
+          className={`text-[14px] truncate ${!value ? "text-stone-400" : "text-stone-900 font-medium"}`}>
           {displayLabel}
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-stone-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </div>
       <AnimatePresence>
@@ -76,7 +82,7 @@ const SleekSelect = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.15 }}
-            className='absolute z-[100] w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar'>
+            className='absolute z-[100] w-full mt-2 bg-white border border-stone-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar'>
             {options.map((opt, idx) => {
               const optValue = typeof opt === "string" ? opt : opt.value;
               const optLabel = typeof opt === "string" ? opt : opt.label;
@@ -87,7 +93,7 @@ const SleekSelect = ({
                     onChange(optValue);
                     setIsOpen(false);
                   }}
-                  className={`px-4 py-3 text-[14px] cursor-pointer hover:bg-slate-50 transition-colors ${value === optValue ? "bg-slate-50 font-bold text-slate-900" : "text-slate-700"}`}>
+                  className={`px-4 py-3 text-[14px] cursor-pointer hover:bg-stone-50 transition-colors ${value === optValue ? "bg-stone-50 font-bold text-stone-900" : "text-stone-700"}`}>
                   {optLabel}
                 </div>
               );
@@ -100,7 +106,7 @@ const SleekSelect = ({
 };
 
 const DevelopmentDashboard = () => {
-  const { user: currentUser } = useAuth();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -121,10 +127,13 @@ const DevelopmentDashboard = () => {
   const [isCreateInstructorOpen, setIsCreateInstructorOpen] = useState(false);
   const [editingInstructor, setEditingInstructor] = useState(null);
 
-  const getAuthHeaders = () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-  });
+  const getAuthHeaders = () => {
+    const token = getAccessToken();
+    return {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -223,32 +232,44 @@ const DevelopmentDashboard = () => {
   };
 
   return (
-    <div className='min-h-screen bg-[#F8FAFC] text-slate-900 p-4 md:p-8 lg:p-10 font-sans w-full max-w-[100vw] overflow-x-hidden custom-scrollbar'>
+    <div className='min-h-screen bg-stone-50 text-stone-900 p-4 md:p-8 lg:p-10 font-sans w-full max-w-[100vw] overflow-x-hidden custom-scrollbar'>
       <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8'>
         <div>
-          <h1 className='text-[26px] font-extrabold text-slate-900 tracking-tight'>
+          <h1 className='text-[26px] font-extrabold text-stone-900 tracking-tight'>
             System Administration
           </h1>
           <div className='flex items-center gap-2 mt-1'>
-            <span className='flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100 text-[10px] font-bold uppercase tracking-widest text-emerald-700'>
-              <div className='w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse' />
+            <span className='flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-stone-100 border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-800'>
+              <div className='w-1.5 h-1.5 rounded-full bg-stone-500 animate-pulse' />
               Dev Team Access
             </span>
-            <span className='text-xs font-medium text-slate-500'>
+            <span className='text-xs font-medium text-stone-500'>
               Managing {usersList.length} users, {studiosList.length} studios &{" "}
               {instructorsList.length} instructors
             </span>
           </div>
         </div>
 
-        <button
-          onClick={fetchData}
-          className='px-5 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 active:scale-[0.98] transition-all'>
-          <Activity
-            className={`w-4 h-4 ${isLoading ? "animate-spin text-emerald-500" : ""}`}
-          />
-          {isLoading ? "Syncing..." : "Sync Database"}
-        </button>
+        <div className='flex items-center gap-3'>
+          <button
+            onClick={fetchData}
+            className='px-5 py-2.5 bg-white text-stone-700 border border-stone-200 rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-stone-50 active:scale-[0.98] transition-all'>
+            <Activity
+              className={`w-4 h-4 ${isLoading ? "animate-spin text-stone-700" : ""}`}
+            />
+            {isLoading ? "Syncing..." : "Sync Database"}
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm("Log out of the developer dashboard?")) {
+                logout();
+              }
+            }}
+            className='px-5 py-2.5 bg-white text-rose-600 border border-stone-200 rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-rose-50 hover:border-rose-200 active:scale-[0.98] transition-all'>
+            <LogOut className='w-4 h-4' />
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className='flex gap-3 overflow-x-auto pb-4 custom-scrollbar mb-4 -mx-4 px-4 md:mx-0 md:px-0'>
@@ -314,12 +335,12 @@ const DevelopmentDashboard = () => {
         {activeTab === "studios" && (
           <div className='animate-in fade-in duration-500'>
             <div className='flex justify-between items-center mb-6'>
-              <h2 className='text-lg font-extrabold text-slate-900'>
+              <h2 className='text-lg font-extrabold text-stone-900'>
                 Active Studios
               </h2>
               <button
                 onClick={() => setIsCreateStudioOpen(true)}
-                className='px-5 py-2.5 bg-[#1a4d3e] text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all active:scale-[0.98]'>
+                className='px-5 py-2.5 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
                 <Plus className='w-4 h-4' /> New Studio
               </button>
             </div>
@@ -340,53 +361,53 @@ const DevelopmentDashboard = () => {
           <div className='animate-in fade-in duration-500 flex flex-col gap-6'>
             <div className='flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4'>
               <div className='relative w-full sm:w-96'>
-                <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4' />
+                <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4' />
                 <input
                   type='text'
                   placeholder='Search users by name or email...'
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className='w-full pl-11 pr-4 py-3 bg-white border border-slate-200/80 rounded-[14px] text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm font-medium'
+                  className='w-full pl-11 pr-4 py-3 bg-white border border-stone-200/80 rounded-[14px] text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm font-medium'
                 />
               </div>
               <button
                 onClick={() => setIsCreateUserOpen(true)}
-                className='px-5 py-3 bg-[#1a4d3e] text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all active:scale-[0.98]'>
+                className='px-5 py-3 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
                 <Plus className='w-4 h-4' /> New User
               </button>
             </div>
 
-            <div className='bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden w-full'>
+            <div className='bg-white rounded-3xl border border-stone-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden w-full'>
               <div className='overflow-x-auto w-full custom-scrollbar'>
                 <table className='w-full text-left border-collapse min-w-max'>
-                  <thead className='bg-slate-50/50 border-b border-slate-100'>
+                  <thead className='bg-stone-50/50 border-b border-stone-100'>
                     <tr>
-                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                      <th className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                         User Profile
                       </th>
-                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                      <th className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                         Role
                       </th>
-                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right'>
+                      <th className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-widest text-right'>
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className='divide-y divide-slate-50'>
+                  <tbody className='divide-y divide-stone-50'>
                     {filteredUsers.map((u) => (
                       <tr
                         key={u._id}
-                        className='hover:bg-slate-50/80 transition-colors group'>
+                        className='hover:bg-stone-50/80 transition-colors group'>
                         <td className='py-4 px-6'>
                           <div className='flex items-center gap-4'>
-                            <div className='w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-slate-100 to-slate-200 text-slate-700 flex items-center justify-center font-extrabold text-sm uppercase shadow-sm border border-slate-300/30'>
+                            <div className='w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-stone-100 to-stone-200 text-stone-700 flex items-center justify-center font-extrabold text-sm uppercase shadow-sm border border-stone-300/30'>
                               {u.fullName.charAt(0)}
                             </div>
                             <div className='flex flex-col min-w-0'>
-                              <p className='font-bold text-slate-900 text-[14px] mb-0.5 truncate'>
+                              <p className='font-bold text-stone-900 text-[14px] mb-0.5 truncate'>
                                 {u.fullName}
                               </p>
-                              <p className='text-slate-400 text-xs font-medium truncate'>
+                              <p className='text-stone-400 text-xs font-medium truncate'>
                                 {u.email}
                               </p>
                             </div>
@@ -398,8 +419,8 @@ const DevelopmentDashboard = () => {
                               u.role === "devTeam"
                                 ? "bg-indigo-50 text-indigo-700 border-indigo-100"
                                 : u.role === "studioAdmin"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                  : "bg-slate-50 text-slate-600 border-slate-200"
+                                  ? "bg-stone-100 text-stone-800 border-stone-200"
+                                  : "bg-stone-50 text-stone-600 border-stone-200"
                             }`}>
                             {u.role || "client"}
                           </span>
@@ -414,7 +435,7 @@ const DevelopmentDashboard = () => {
                             <ActionButton
                               icon={<Edit />}
                               onClick={() => setEditingUser(u)}
-                              hoverColor='hover:text-emerald-600 hover:bg-emerald-50'
+                              hoverColor='hover:text-stone-800 hover:bg-stone-100'
                             />
                             <ActionButton
                               icon={<Trash2 />}
@@ -429,8 +450,8 @@ const DevelopmentDashboard = () => {
                       <tr>
                         <td colSpan='3' className='py-16 text-center'>
                           <div className='flex flex-col items-center justify-center'>
-                            <UserIcon className='w-10 h-10 text-slate-200 mb-3' />
-                            <p className='text-sm font-medium text-slate-500'>
+                            <UserIcon className='w-10 h-10 text-stone-200 mb-3' />
+                            <p className='text-sm font-medium text-stone-500'>
                               No users found.
                             </p>
                           </div>
@@ -448,64 +469,64 @@ const DevelopmentDashboard = () => {
           <div className='animate-in fade-in duration-500 flex flex-col gap-6'>
             <div className='flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4'>
               <div className='relative w-full sm:w-96'>
-                <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4' />
+                <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4' />
                 <input
                   type='text'
                   placeholder='Search instructors...'
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className='w-full pl-11 pr-4 py-3 bg-white border border-slate-200/80 rounded-[14px] text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm font-medium'
+                  className='w-full pl-11 pr-4 py-3 bg-white border border-stone-200/80 rounded-[14px] text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm font-medium'
                 />
               </div>
               <button
                 onClick={() => setIsCreateInstructorOpen(true)}
-                className='px-5 py-3 bg-[#1a4d3e] text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all active:scale-[0.98]'>
+                className='px-5 py-3 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
                 <Plus className='w-4 h-4' /> New Instructor
               </button>
             </div>
 
-            <div className='bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden w-full'>
+            <div className='bg-white rounded-3xl border border-stone-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden w-full'>
               <div className='overflow-x-auto w-full custom-scrollbar'>
                 <table className='w-full text-left border-collapse min-w-max'>
-                  <thead className='bg-slate-50/50 border-b border-slate-100'>
+                  <thead className='bg-stone-50/50 border-b border-stone-100'>
                     <tr>
-                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                      <th className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                         Instructor Profile
                       </th>
-                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                      <th className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                         Type
                       </th>
-                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                      <th className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                         Status
                       </th>
-                      <th className='py-4 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right'>
+                      <th className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-widest text-right'>
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className='divide-y divide-slate-50'>
+                  <tbody className='divide-y divide-stone-50'>
                     {filteredInstructors.map((instructor) => (
                       <tr
                         key={instructor._id}
-                        className='hover:bg-slate-50/80 transition-colors group'>
+                        className='hover:bg-stone-50/80 transition-colors group'>
                         <td className='py-4 px-6'>
                           <div className='flex items-center gap-4'>
                             {instructor.avatar ? (
                               <img
                                 src={instructor.avatar}
                                 alt='Avatar'
-                                className='w-10 h-10 shrink-0 rounded-xl object-cover shadow-sm border border-slate-300/30'
+                                className='w-10 h-10 shrink-0 rounded-xl object-cover shadow-sm border border-stone-300/30'
                               />
                             ) : (
-                              <div className='w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-slate-100 to-slate-200 text-slate-700 flex items-center justify-center font-extrabold text-sm uppercase shadow-sm border border-slate-300/30'>
+                              <div className='w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-stone-100 to-stone-200 text-stone-700 flex items-center justify-center font-extrabold text-sm uppercase shadow-sm border border-stone-300/30'>
                                 {instructor.fullName.charAt(0)}
                               </div>
                             )}
                             <div className='flex flex-col min-w-0'>
-                              <p className='font-bold text-slate-900 text-[14px] mb-0.5 truncate'>
+                              <p className='font-bold text-stone-900 text-[14px] mb-0.5 truncate'>
                                 {instructor.fullName}
                               </p>
-                              <p className='text-slate-400 text-xs font-medium truncate max-w-[200px]'>
+                              <p className='text-stone-400 text-xs font-medium truncate max-w-[200px]'>
                                 {instructor.bio || "No bio provided."}
                               </p>
                             </div>
@@ -518,7 +539,7 @@ const DevelopmentDashboard = () => {
                         </td>
                         <td className='py-4 px-6'>
                           {instructor.isActive ? (
-                            <span className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-100'>
+                            <span className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-stone-100 text-stone-800 border border-stone-200'>
                               <CheckCircle2 className='w-3 h-3' /> Active
                             </span>
                           ) : (
@@ -532,7 +553,7 @@ const DevelopmentDashboard = () => {
                             <ActionButton
                               icon={<Edit />}
                               onClick={() => setEditingInstructor(instructor)}
-                              hoverColor='hover:text-emerald-600 hover:bg-emerald-50'
+                              hoverColor='hover:text-stone-800 hover:bg-stone-100'
                             />
                             <ActionButton
                               icon={<Trash2 />}
@@ -549,8 +570,8 @@ const DevelopmentDashboard = () => {
                       <tr>
                         <td colSpan='4' className='py-16 text-center'>
                           <div className='flex flex-col items-center justify-center'>
-                            <GraduationCap className='w-10 h-10 text-slate-200 mb-3' />
-                            <p className='text-sm font-medium text-slate-500'>
+                            <GraduationCap className='w-10 h-10 text-stone-200 mb-3' />
+                            <p className='text-sm font-medium text-stone-500'>
                               No instructors found.
                             </p>
                           </div>
@@ -633,21 +654,21 @@ const DevelopmentDashboard = () => {
 const StatCard = ({ icon, title, value, color }) => {
   const colorMap = {
     blue: "text-blue-600 bg-blue-50 border-blue-100",
-    emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    emerald: "text-stone-800 bg-stone-100 border-stone-200",
     indigo: "text-indigo-600 bg-indigo-50 border-indigo-100",
   };
 
   return (
-    <div className='p-6 rounded-[24px] bg-white border border-slate-100 shadow-sm flex items-center gap-5'>
+    <div className='p-6 rounded-[24px] bg-white border border-stone-100 shadow-sm flex items-center gap-5'>
       <div
         className={`w-14 h-14 rounded-[16px] flex items-center justify-center border shrink-0 ${colorMap[color]}`}>
         {React.cloneElement(icon, { className: "w-6 h-6 stroke-[2.5]" })}
       </div>
       <div>
-        <p className='text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1'>
+        <p className='text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1'>
           {title}
         </p>
-        <h3 className='text-3xl font-extrabold text-slate-900 leading-none'>
+        <h3 className='text-3xl font-extrabold text-stone-900 leading-none'>
           {value}
         </h3>
       </div>
@@ -660,8 +681,8 @@ const TabButton = ({ active, onClick, label, icon }) => (
     onClick={onClick}
     className={`px-5 py-2.5 rounded-[14px] text-[13px] font-bold transition-all whitespace-nowrap flex items-center gap-2 shrink-0 ${
       active
-        ? "bg-[#1a4d3e] text-white shadow-md"
-        : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50"
+        ? "bg-stone-600 text-white shadow-md"
+        : "bg-white text-stone-500 border border-stone-200 hover:bg-stone-50"
     }`}>
     {React.cloneElement(icon, { className: "w-4 h-4" })} {label}
   </button>
@@ -670,15 +691,15 @@ const TabButton = ({ active, onClick, label, icon }) => (
 const ActionButton = ({ icon, onClick, hoverColor }) => (
   <button
     onClick={onClick}
-    className={`p-2 bg-white border border-slate-200 rounded-[10px] transition-all text-slate-400 shadow-sm ${hoverColor}`}>
+    className={`p-2 bg-white border border-stone-200 rounded-[10px] transition-all text-stone-400 shadow-sm ${hoverColor}`}>
     {React.cloneElement(icon, { className: "w-4 h-4" })}
   </button>
 );
 
 const StudioCard = ({ studio, onEdit, onDelete }) => (
-  <div className='bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex flex-col'>
+  <div className='bg-white p-5 rounded-[24px] border border-stone-100 shadow-sm flex flex-col'>
     <div className='flex items-center gap-4 mb-6'>
-      <div className='w-14 h-14 rounded-[16px] bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center'>
+      <div className='w-14 h-14 rounded-[16px] bg-stone-50 border border-stone-100 overflow-hidden shrink-0 flex items-center justify-center'>
         {studio.studioPictures?.[0]?.[0] ? (
           <img
             src={studio.studioPictures[0][0]}
@@ -686,23 +707,23 @@ const StudioCard = ({ studio, onEdit, onDelete }) => (
             alt='Studio'
           />
         ) : (
-          <Building2 className='w-6 h-6 text-slate-300' />
+          <Building2 className='w-6 h-6 text-stone-300' />
         )}
       </div>
       <div className='min-w-0'>
-        <h3 className='text-[16px] font-extrabold text-slate-900 truncate'>
+        <h3 className='text-[16px] font-extrabold text-stone-900 truncate'>
           {studio.studioName}
         </h3>
-        <p className='text-[11px] font-bold text-slate-400 mt-1 flex items-center gap-1.5 uppercase tracking-wider truncate'>
+        <p className='text-[11px] font-bold text-stone-400 mt-1 flex items-center gap-1.5 uppercase tracking-wider truncate'>
           <MapPin className='w-3 h-3' />{" "}
           {studio.address?.city || "Unknown Location"}
         </p>
       </div>
     </div>
-    <div className='flex gap-3 mt-auto pt-4 border-t border-slate-50'>
+    <div className='flex gap-3 mt-auto pt-4 border-t border-stone-50'>
       <button
         onClick={onEdit}
-        className='flex-1 py-2.5 bg-slate-50 text-slate-700 rounded-[12px] text-xs font-bold hover:bg-slate-100 transition-all border border-slate-200'>
+        className='flex-1 py-2.5 bg-stone-50 text-stone-700 rounded-[12px] text-xs font-bold hover:bg-stone-100 transition-all border border-stone-200'>
         Edit
       </button>
       <button
@@ -774,29 +795,29 @@ const MetricBox = ({
 }) => {
   const colorMap = {
     blue: "text-blue-600 border-blue-200 bg-blue-50",
-    emerald: "text-emerald-600 border-emerald-200 bg-emerald-50",
+    emerald: "text-stone-800 border-stone-300 bg-stone-100",
   };
 
   return (
-    <div className='bg-white p-8 rounded-[24px] border border-slate-100 shadow-sm relative overflow-hidden'>
+    <div className='bg-white p-8 rounded-[24px] border border-stone-100 shadow-sm relative overflow-hidden'>
       <div
         className={`w-12 h-12 rounded-xl flex items-center justify-center mb-6 border ${colorMap[color]}`}>
         {React.cloneElement(icon, { className: "w-5 h-5" })}
       </div>
-      <p className='text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2'>
+      <p className='text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 mb-2'>
         {label}
       </p>
       <div className='flex items-end gap-4'>
-        <h3 className='text-[40px] font-extrabold text-slate-900 tracking-tight leading-none'>
+        <h3 className='text-[40px] font-extrabold text-stone-900 tracking-tight leading-none'>
           {value}
         </h3>
-        <div className='flex items-center gap-1.5 text-emerald-600 font-bold text-[10px] uppercase tracking-widest mb-1.5 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100'>
-          <span className='w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping' />{" "}
+        <div className='flex items-center gap-1.5 text-stone-800 font-bold text-[10px] uppercase tracking-widest mb-1.5 bg-stone-100 px-2 py-1 rounded-md border border-stone-200'>
+          <span className='w-1.5 h-1.5 bg-stone-500 rounded-full animate-ping' />{" "}
           LIVE
         </div>
       </div>
       {hasProgress && (
-        <div className='w-full bg-slate-100 h-2 rounded-full mt-6 overflow-hidden'>
+        <div className='w-full bg-stone-100 h-2 rounded-full mt-6 overflow-hidden'>
           <div
             className='bg-blue-500 h-full rounded-full transition-all duration-1000'
             style={{ width: `${progressValue}%` }}
@@ -853,28 +874,28 @@ const DetailsModal = ({
       : 0;
 
   return (
-    <div className='fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white rounded-[32px] w-full max-w-2xl border border-white/20 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden'>
-        <div className='p-6 md:p-8 flex justify-between items-center border-b border-slate-100 bg-white shrink-0'>
+        <div className='p-6 md:p-8 flex justify-between items-center border-b border-stone-100 bg-white shrink-0'>
           <div>
-            <h2 className='text-2xl font-extrabold text-slate-900 tracking-tight mb-1.5'>
+            <h2 className='text-2xl font-extrabold text-stone-900 tracking-tight mb-1.5'>
               {user.fullName}
             </h2>
-            <span className='px-3 py-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5'>
-              <ShieldCheck className='w-3 h-3 text-emerald-500' /> {user.role}
+            <span className='px-3 py-1 bg-stone-50 border border-stone-200 text-stone-600 rounded-lg text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5'>
+              <ShieldCheck className='w-3 h-3 text-stone-700' /> {user.role}
             </span>
           </div>
           <button
             onClick={onClose}
-            className='p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all'>
+            className='p-2 text-stone-400 hover:text-stone-900 hover:bg-stone-100 rounded-full transition-all'>
             <X className='w-5 h-5' />
           </button>
         </div>
 
-        <div className='flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30 custom-scrollbar space-y-6'>
+        <div className='flex-1 overflow-y-auto p-6 md:p-8 bg-stone-50/30 custom-scrollbar space-y-6'>
           {loading ? (
             <div className='py-20 flex flex-col items-center justify-center'>
               <LoadingSpinner />
@@ -882,25 +903,25 @@ const DetailsModal = ({
           ) : user.role === "client" ? (
             <>
               <div className='grid grid-cols-2 gap-4'>
-                <div className='bg-white p-5 rounded-[20px] border border-slate-100 shadow-sm'>
-                  <p className='text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-1'>
+                <div className='bg-white p-5 rounded-[20px] border border-stone-100 shadow-sm'>
+                  <p className='text-[10px] uppercase text-stone-400 font-bold tracking-widest mb-1'>
                     Total Credits
                   </p>
-                  <h4 className='text-3xl font-extrabold text-slate-900'>
+                  <h4 className='text-3xl font-extrabold text-stone-900'>
                     {totalCredits}
                   </h4>
                 </div>
-                <div className='bg-white p-5 rounded-[20px] border border-slate-100 shadow-sm'>
-                  <p className='text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-1'>
+                <div className='bg-white p-5 rounded-[20px] border border-stone-100 shadow-sm'>
+                  <p className='text-[10px] uppercase text-stone-400 font-bold tracking-widest mb-1'>
                     Active Passes
                   </p>
-                  <h4 className='text-3xl font-extrabold text-slate-900'>
+                  <h4 className='text-3xl font-extrabold text-stone-900'>
                     {data?.length || 0}
                   </h4>
                 </div>
               </div>
               <div className='space-y-4'>
-                <h3 className='text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2'>
+                <h3 className='text-[11px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2'>
                   <LayoutGrid className='w-4 h-4' /> Package Passes
                 </h3>
                 <div className='space-y-3'>
@@ -908,10 +929,10 @@ const DetailsModal = ({
                     data.map((p, i) => (
                       <div
                         key={i}
-                        className='p-4 bg-white border border-slate-200 rounded-[16px] flex justify-between items-center shadow-sm'>
+                        className='p-4 bg-white border border-stone-200 rounded-[16px] flex justify-between items-center shadow-sm'>
                         <div className='flex items-center gap-4'>
                           <div
-                            className={`w-10 h-10 rounded-[12px] flex items-center justify-center border ${p.remainingCredits > 0 ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-rose-50 text-rose-600 border-rose-200"}`}>
+                            className={`w-10 h-10 rounded-[12px] flex items-center justify-center border ${p.remainingCredits > 0 ? "bg-stone-100 text-stone-800 border-stone-300" : "bg-rose-50 text-rose-600 border-rose-200"}`}>
                             {p.remainingCredits > 0 ? (
                               <CheckCircle2 className='w-5 h-5' />
                             ) : (
@@ -919,22 +940,22 @@ const DetailsModal = ({
                             )}
                           </div>
                           <div>
-                            <p className='font-extrabold text-slate-900 text-[14px]'>
+                            <p className='font-extrabold text-stone-900 text-[14px]'>
                               {p?.packageId?.packageName || "Standard Pass"}
                             </p>
-                            <p className='text-[10px] text-emerald-500 font-bold uppercase tracking-wider mt-0.5'>
+                            <p className='text-[10px] text-stone-700 font-bold uppercase tracking-wider mt-0.5'>
                               Active
                             </p>
                           </div>
                         </div>
                         <p
-                          className={`text-[20px] font-extrabold ${p.remainingCredits > 0 ? "text-slate-900" : "text-slate-400"}`}>
+                          className={`text-[20px] font-extrabold ${p.remainingCredits > 0 ? "text-stone-900" : "text-stone-400"}`}>
                           {p.remainingCredits}
                         </p>
                       </div>
                     ))
                   ) : (
-                    <p className='text-center text-slate-400 text-sm py-6 font-medium'>
+                    <p className='text-center text-stone-400 text-sm py-6 font-medium'>
                       No active passes.
                     </p>
                   )}
@@ -943,20 +964,20 @@ const DetailsModal = ({
             </>
           ) : user.role === "studioAdmin" ? (
             <>
-              <div className='p-6 bg-emerald-50 rounded-[24px] border border-emerald-100'>
-                <p className='text-[10px] uppercase tracking-widest text-emerald-600 font-bold mb-2'>
+              <div className='p-6 bg-stone-100 rounded-[24px] border border-stone-200'>
+                <p className='text-[10px] uppercase tracking-widest text-stone-800 font-bold mb-2'>
                   Assigned Studio
                 </p>
-                <h3 className='text-[20px] font-extrabold text-slate-900'>
+                <h3 className='text-[20px] font-extrabold text-stone-900'>
                   {data?.studio?.studioName || "Not Assigned"}
                 </h3>
-                <div className='flex items-center gap-1.5 mt-2 text-emerald-700 text-xs font-bold'>
+                <div className='flex items-center gap-1.5 mt-2 text-stone-800 text-xs font-bold'>
                   <MapPin className='w-3.5 h-3.5' />{" "}
                   {data?.studio?.address?.city || "Unknown Location"}
                 </div>
               </div>
               <div className='space-y-4'>
-                <h3 className='text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2'>
+                <h3 className='text-[11px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2'>
                   <Users className='w-4 h-4' /> Managed Users
                 </h3>
                 <div className='space-y-2'>
@@ -964,22 +985,22 @@ const DetailsModal = ({
                     data.clients.map((c, i) => (
                       <div
                         key={i}
-                        className='p-3.5 bg-white border border-slate-200 rounded-[14px] flex items-center gap-3 shadow-sm'>
-                        <div className='w-8 h-8 rounded-[10px] bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs uppercase'>
+                        className='p-3.5 bg-white border border-stone-200 rounded-[14px] flex items-center gap-3 shadow-sm'>
+                        <div className='w-8 h-8 rounded-[10px] bg-stone-50 border border-stone-200 flex items-center justify-center text-stone-600 font-bold text-xs uppercase'>
                           {c.fullName.charAt(0)}
                         </div>
                         <div className='min-w-0'>
-                          <p className='font-bold text-slate-900 text-sm truncate'>
+                          <p className='font-bold text-stone-900 text-sm truncate'>
                             {c.fullName}
                           </p>
-                          <p className='text-[11px] font-medium text-slate-500 truncate'>
+                          <p className='text-[11px] font-medium text-stone-500 truncate'>
                             {c.email}
                           </p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <p className='text-center text-slate-400 text-sm py-6 font-medium'>
+                    <p className='text-center text-stone-400 text-sm py-6 font-medium'>
                       No users found.
                     </p>
                   )}
@@ -988,8 +1009,8 @@ const DetailsModal = ({
             </>
           ) : (
             <div className='text-center py-20 flex flex-col items-center'>
-              <Server className='w-12 h-12 text-slate-300 mb-4' />
-              <p className='text-slate-400 text-[11px] font-bold uppercase tracking-widest'>
+              <Server className='w-12 h-12 text-stone-300 mb-4' />
+              <p className='text-stone-400 text-[11px] font-bold uppercase tracking-widest'>
                 Dev Team Access
               </p>
             </div>
@@ -1047,24 +1068,24 @@ const StudioModal = ({ studio, onClose, onSuccess, getAuthHeaders }) => {
   };
 
   return (
-    <div className='fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white rounded-[32px] w-full max-w-2xl border border-white/20 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden'>
-        <div className='p-6 md:p-8 flex justify-between items-center border-b border-slate-100 bg-white shrink-0'>
-          <h2 className='text-xl font-extrabold text-slate-900'>
+        <div className='p-6 md:p-8 flex justify-between items-center border-b border-stone-100 bg-white shrink-0'>
+          <h2 className='text-xl font-extrabold text-stone-900'>
             {isEdit ? "Edit Studio" : "New Studio"}
           </h2>
           <button
             onClick={onClose}
-            className='p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors'>
+            className='p-2 hover:bg-stone-100 rounded-full text-stone-400 transition-colors'>
             <X className='w-5 h-5' />
           </button>
         </div>
         <form
           onSubmit={handleSubmit}
-          className='flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/30 custom-scrollbar'>
+          className='flex-1 overflow-y-auto p-6 md:p-8 bg-stone-50/30 custom-scrollbar'>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-5'>
             <div className='col-span-1 sm:col-span-2'>
               <Input
@@ -1126,11 +1147,11 @@ const StudioModal = ({ studio, onClose, onSuccess, getAuthHeaders }) => {
             </div>
           </div>
         </form>
-        <div className='p-6 border-t border-slate-100 bg-white shrink-0'>
+        <div className='p-6 border-t border-stone-100 bg-white shrink-0'>
           <button
             type='submit'
             onClick={handleSubmit}
-            className='w-full bg-[#1a4d3e] text-white py-4 rounded-[16px] font-bold text-[15px] hover:bg-[#133d31] transition-all shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)]'>
+            className='w-full bg-stone-600 text-white py-4 rounded-[16px] font-bold text-[15px] hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)]'>
             Save Studio
           </button>
         </div>
@@ -1152,6 +1173,10 @@ const UserModal = ({
     typeof userToEdit?.adminStudioLocation === "object"
       ? userToEdit?.adminStudioLocation?._id
       : userToEdit?.adminStudioLocation;
+  const initialPreferredStudio =
+    typeof userToEdit?.preferredStudioId === "object"
+      ? userToEdit?.preferredStudioId?._id
+      : userToEdit?.preferredStudioId;
 
   const [formData, setFormData] = useState({
     fullName: userToEdit?.fullName || "",
@@ -1159,6 +1184,7 @@ const UserModal = ({
     password: "",
     role: userToEdit?.role || "client",
     adminStudioLocation: initialStudioLocation || "",
+    preferredStudioId: initialPreferredStudio || "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -1167,6 +1193,18 @@ const UserModal = ({
 
     if (formData.role === "studioAdmin" && !formData.adminStudioLocation) {
       alert("Please select an assigned studio for the Studio Admin.");
+      return;
+    }
+    if (formData.role === "client" && !formData.preferredStudioId) {
+      alert("Please select the client's managed studio.");
+      return;
+    }
+    if (
+      !isEdit &&
+      formData.role !== "client" &&
+      formData.password.length < 8
+    ) {
+      alert("Studio Admin and Dev Team accounts need a password of at least 8 characters.");
       return;
     }
 
@@ -1179,12 +1217,18 @@ const UserModal = ({
       fullName: formData.fullName,
       role: formData.role,
       isStudent: false,
-      ...(formData.password && { password: formData.password }),
+      ...(!isEdit && formData.role === "client"
+        ? { password: "" }
+        : formData.password
+          ? { password: formData.password }
+          : {}),
       ...(!isEdit && { email: formData.email }),
       adminStudioLocation:
         formData.role === "studioAdmin" && formData.adminStudioLocation
           ? formData.adminStudioLocation
           : null,
+      preferredStudioId:
+        formData.role === "client" ? formData.preferredStudioId : null,
     };
 
     try {
@@ -1196,6 +1240,14 @@ const UserModal = ({
 
       if (res.ok) {
         const resData = await res.json();
+        if (
+          resData?.code === "AUTHENTICATION_METHOD_CHANGED" &&
+          resData?.reauthenticationRequired === false &&
+          typeof resData?.token === "string"
+        ) {
+          storeAccessToken(resData.token);
+          notifyAuthTokenRotated();
+        }
         if (
           !isEdit &&
           formData.role === "studioAdmin" &&
@@ -1233,18 +1285,18 @@ const UserModal = ({
   };
 
   return (
-    <div className='fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white rounded-[24px] w-full max-w-md border border-white/20 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden'>
-        <div className='px-8 py-6 border-b border-slate-100 bg-white shrink-0 flex justify-between items-center'>
-          <h2 className='text-xl font-extrabold text-slate-900'>
+        <div className='px-8 py-6 border-b border-stone-100 bg-white shrink-0 flex justify-between items-center'>
+          <h2 className='text-xl font-extrabold text-stone-900'>
             {isEdit ? "Edit User" : "New User"}
           </h2>
           <button
             onClick={onClose}
-            className='p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors'>
+            className='p-2 hover:bg-stone-100 rounded-full text-stone-400 transition-colors'>
             <X className='w-5 h-5' />
           </button>
         </div>
@@ -1253,7 +1305,7 @@ const UserModal = ({
           onSubmit={handleSubmit}
           className='flex-1 overflow-y-auto p-8 bg-white custom-scrollbar space-y-6'>
           <div className='space-y-2'>
-            <label className='text-[10px] font-extrabold uppercase text-slate-500 tracking-widest pl-1'>
+            <label className='text-[10px] font-extrabold uppercase text-stone-500 tracking-widest pl-1'>
               Full Name
             </label>
             <input
@@ -1262,12 +1314,12 @@ const UserModal = ({
               onChange={(e) =>
                 setFormData({ ...formData, fullName: e.target.value })
               }
-              className='w-full p-4 bg-white border border-slate-200 rounded-[14px] font-bold text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+              className='w-full p-4 bg-white border border-stone-200 rounded-[14px] font-bold text-sm text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
             />
           </div>
 
           <div className='space-y-2'>
-            <label className='text-[10px] font-extrabold uppercase text-slate-500 tracking-widest pl-1'>
+            <label className='text-[10px] font-extrabold uppercase text-stone-500 tracking-widest pl-1'>
               Email Address
             </label>
             <input
@@ -1278,25 +1330,35 @@ const UserModal = ({
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
-              className={`w-full p-4 border rounded-[14px] font-bold text-sm outline-none transition-all shadow-sm ${isEdit ? "bg-slate-50 border-slate-100 text-slate-500 cursor-not-allowed" : "bg-white border-slate-200 text-slate-900 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"}`}
+              className={`w-full p-4 border rounded-[14px] font-bold text-sm outline-none transition-all shadow-sm ${isEdit ? "bg-stone-50 border-stone-100 text-stone-500 cursor-not-allowed" : "bg-white border-stone-200 text-stone-900 focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10"}`}
             />
           </div>
 
           <div className='space-y-2'>
-            <label className='text-[10px] font-extrabold uppercase text-slate-500 tracking-widest pl-1'>
+            <label className='text-[10px] font-extrabold uppercase text-stone-500 tracking-widest pl-1'>
               {isEdit ? "New Password" : "Password"}
             </label>
             <input
               type='password'
+              value={formData.password}
+              required={!isEdit && formData.role !== "client"}
+              disabled={formData.role === "client"}
+              placeholder={
+                formData.role === "client"
+                  ? "Client verifies email before creating a password"
+                  : isEdit
+                    ? "Leave blank to keep the current password"
+                    : "At least 8 characters"
+              }
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
-              className='w-full p-4 bg-white border border-slate-200 rounded-[14px] font-bold text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+              className='w-full p-4 bg-white border border-stone-200 rounded-[14px] font-bold text-sm text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm disabled:bg-stone-50 disabled:text-stone-400'
             />
           </div>
 
           <div className='space-y-2'>
-            <label className='text-[10px] font-extrabold uppercase text-slate-500 tracking-widest pl-1'>
+            <label className='text-[10px] font-extrabold uppercase text-stone-500 tracking-widest pl-1'>
               Role
             </label>
             <select
@@ -1309,9 +1371,13 @@ const UserModal = ({
                     e.target.value !== "studioAdmin"
                       ? ""
                       : formData.adminStudioLocation,
+                  preferredStudioId:
+                    e.target.value !== "client"
+                      ? ""
+                      : formData.preferredStudioId,
                 })
               }
-              className='w-full p-4 bg-white border border-slate-200 rounded-[14px] font-bold text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none'>
+              className='w-full p-4 bg-white border border-stone-200 rounded-[14px] font-bold text-sm text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm appearance-none'>
               <option value='client'>Client</option>
               <option value='studioAdmin'>Studio Admin</option>
               <option value='devTeam'>Dev Team</option>
@@ -1320,7 +1386,7 @@ const UserModal = ({
 
           {formData.role === "studioAdmin" && (
             <div className='space-y-2 animate-in fade-in slide-in-from-top-2'>
-              <label className='text-[10px] font-extrabold uppercase text-emerald-600 tracking-widest pl-1'>
+              <label className='text-[10px] font-extrabold uppercase text-stone-800 tracking-widest pl-1'>
                 Assign Studio
               </label>
               <select
@@ -1332,7 +1398,7 @@ const UserModal = ({
                     adminStudioLocation: e.target.value,
                   })
                 }
-                className='w-full p-4 bg-emerald-50/50 border border-emerald-200 rounded-[14px] font-bold text-sm text-emerald-900 outline-none focus:bg-emerald-50 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none'>
+                className='w-full p-4 bg-stone-100/50 border border-stone-300 rounded-[14px] font-bold text-sm text-stone-900 outline-none focus:bg-stone-100 focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm appearance-none'>
                 <option value='' disabled>
                   Select Studio...
                 </option>
@@ -1344,20 +1410,47 @@ const UserModal = ({
               </select>
             </div>
           )}
+
+          {formData.role === "client" && (
+            <div className='space-y-2 animate-in fade-in slide-in-from-top-2'>
+              <label className='text-[10px] font-extrabold uppercase text-stone-800 tracking-widest pl-1'>
+                Managed Studio
+              </label>
+              <select
+                required
+                value={formData.preferredStudioId}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    preferredStudioId: e.target.value,
+                  })
+                }
+                className='w-full p-4 bg-stone-100/50 border border-stone-300 rounded-[14px] font-bold text-sm text-stone-900 outline-none focus:bg-stone-100 focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm appearance-none'>
+                <option value='' disabled>
+                  Select Studio...
+                </option>
+                {studiosList.map((studio) => (
+                  <option key={studio._id} value={studio._id}>
+                    {studio.studioName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </form>
 
-        <div className='p-6 border-t border-slate-100 bg-white shrink-0 flex gap-4'>
+        <div className='p-6 border-t border-stone-100 bg-white shrink-0 flex gap-4'>
           <button
             type='button'
             onClick={onClose}
-            className='flex-1 py-4 text-slate-600 font-bold bg-slate-50 hover:bg-slate-100 rounded-[16px] transition-colors text-[14px]'>
+            className='flex-1 py-4 text-stone-600 font-bold bg-stone-50 hover:bg-stone-100 rounded-[16px] transition-colors text-[14px]'>
             Cancel
           </button>
           <button
             type='submit'
             onClick={handleSubmit}
             disabled={loading}
-            className='flex-1 py-4 bg-[#1a4d3e] text-white font-bold rounded-[16px] shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
+            className='flex-1 py-4 bg-stone-600 text-white font-bold rounded-[16px] shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
             {loading ? "Saving..." : "Save User"}
           </button>
         </div>
@@ -1447,18 +1540,18 @@ const InstructorModal = ({
   };
 
   return (
-    <div className='fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white rounded-[24px] w-full max-w-xl border border-white/20 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden'>
-        <div className='px-8 py-6 border-b border-slate-100 bg-white shrink-0 flex justify-between items-center'>
-          <h2 className='text-xl font-extrabold text-slate-900'>
+        <div className='px-8 py-6 border-b border-stone-100 bg-white shrink-0 flex justify-between items-center'>
+          <h2 className='text-xl font-extrabold text-stone-900'>
             {isEdit ? "Edit Instructor" : "New Instructor"}
           </h2>
           <button
             onClick={onClose}
-            className='p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors'>
+            className='p-2 hover:bg-stone-100 rounded-full text-stone-400 transition-colors'>
             <X className='w-5 h-5' />
           </button>
         </div>
@@ -1467,7 +1560,7 @@ const InstructorModal = ({
           onSubmit={handleSubmit}
           className='flex-1 overflow-y-auto p-8 bg-white custom-scrollbar space-y-6'>
           <div className='space-y-2'>
-            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+            <label className='text-[10px] font-bold text-stone-400 uppercase tracking-widest pl-1'>
               Full Name
             </label>
             <input
@@ -1476,12 +1569,12 @@ const InstructorModal = ({
               onChange={(e) =>
                 setFormData({ ...formData, fullName: e.target.value })
               }
-              className='w-full p-4 bg-white border border-slate-200 rounded-xl font-medium text-[14px] text-slate-900 outline-none focus:border-[#045D43] transition-all shadow-sm'
+              className='w-full p-4 bg-white border border-stone-200 rounded-xl font-medium text-[14px] text-stone-900 outline-none focus:border-stone-500 transition-all shadow-sm'
             />
           </div>
 
           <div className='space-y-2'>
-            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+            <label className='text-[10px] font-bold text-stone-400 uppercase tracking-widest pl-1'>
               Avatar URL
             </label>
             <input
@@ -1489,12 +1582,12 @@ const InstructorModal = ({
               onChange={(e) =>
                 setFormData({ ...formData, avatar: e.target.value })
               }
-              className='w-full p-4 bg-white border border-slate-200 rounded-xl font-medium text-[14px] text-slate-900 outline-none focus:border-[#045D43] transition-all shadow-sm'
+              className='w-full p-4 bg-white border border-stone-200 rounded-xl font-medium text-[14px] text-stone-900 outline-none focus:border-stone-500 transition-all shadow-sm'
             />
           </div>
 
           <div className='space-y-2'>
-            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+            <label className='text-[10px] font-bold text-stone-400 uppercase tracking-widest pl-1'>
               Bio
             </label>
             <textarea
@@ -1503,12 +1596,12 @@ const InstructorModal = ({
               onChange={(e) =>
                 setFormData({ ...formData, bio: e.target.value })
               }
-              className='w-full p-4 bg-white border border-slate-200 rounded-xl font-medium text-[14px] text-slate-900 outline-none focus:border-[#045D43] transition-all shadow-sm resize-none'
+              className='w-full p-4 bg-white border border-stone-200 rounded-xl font-medium text-[14px] text-stone-900 outline-none focus:border-stone-500 transition-all shadow-sm resize-none'
             />
           </div>
 
           <div className='space-y-2'>
-            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+            <label className='text-[10px] font-bold text-stone-400 uppercase tracking-widest pl-1'>
               Instructor Type
             </label>
             <SleekSelect
@@ -1521,7 +1614,7 @@ const InstructorModal = ({
           </div>
 
           <div className='space-y-3 pt-2'>
-            <label className='text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1'>
+            <label className='text-[10px] font-bold text-stone-400 uppercase tracking-widest pl-1'>
               Assigned Studios
             </label>
             <div className='flex flex-col gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar'>
@@ -1532,9 +1625,10 @@ const InstructorModal = ({
                 return (
                   <label
                     key={studio._id}
-                    className={`flex items-center gap-3 p-3.5 border rounded-xl hover:bg-slate-50 cursor-pointer transition-all bg-white ${isChecked ? "border-[#045D43]/30" : "border-slate-200"}`}>
+                    onClick={() => handleStudioToggle(studio._id)}
+                    className={`flex items-center gap-3 p-3.5 border rounded-xl hover:bg-stone-50 cursor-pointer transition-all bg-white ${isChecked ? "border-stone-500/30" : "border-stone-200"}`}>
                     <div
-                      className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${isChecked ? "bg-[#045D43] border-[#045D43]" : "border-slate-300"}`}>
+                      className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${isChecked ? "bg-stone-600 border-stone-500" : "border-stone-300"}`}>
                       {isChecked && (
                         <svg
                           className='w-3 h-3 text-white'
@@ -1550,14 +1644,14 @@ const InstructorModal = ({
                         </svg>
                       )}
                     </div>
-                    <span className='text-[14px] font-bold text-slate-700'>
+                    <span className='text-[14px] font-bold text-stone-700'>
                       {studio.studioName}
                     </span>
                   </label>
                 );
               })}
               {uniqueStudios.length === 0 && (
-                <span className='text-[14px] text-slate-400 pl-1'>
+                <span className='text-[14px] text-stone-400 pl-1'>
                   No studios available.
                 </span>
               )}
@@ -1565,9 +1659,13 @@ const InstructorModal = ({
           </div>
 
           <div className='pt-2'>
-            <label className='flex items-center gap-3 cursor-pointer w-fit'>
+            <label
+              onClick={() =>
+                setFormData((prev) => ({ ...prev, isActive: !prev.isActive }))
+              }
+              className='flex items-center gap-3 cursor-pointer w-fit'>
               <div
-                className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${formData.isActive ? "bg-[#045D43] border-[#045D43]" : "border-slate-300"}`}>
+                className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${formData.isActive ? "bg-stone-600 border-stone-500" : "border-stone-300"}`}>
                 {formData.isActive && (
                   <svg
                     className='w-3 h-3 text-white'
@@ -1583,25 +1681,25 @@ const InstructorModal = ({
                   </svg>
                 )}
               </div>
-              <span className='text-[14px] font-bold text-slate-700'>
+              <span className='text-[14px] font-bold text-stone-700'>
                 Profile is Active
               </span>
             </label>
           </div>
         </form>
 
-        <div className='p-6 border-t border-slate-100 bg-white shrink-0 flex gap-4'>
+        <div className='p-6 border-t border-stone-100 bg-white shrink-0 flex gap-4'>
           <button
             type='button'
             onClick={onClose}
-            className='flex-1 py-4 text-slate-600 font-bold bg-slate-50 hover:bg-slate-100 rounded-[14px] transition-colors text-[14px]'>
+            className='flex-1 py-4 text-stone-600 font-bold bg-stone-50 hover:bg-stone-100 rounded-[14px] transition-colors text-[14px]'>
             Cancel
           </button>
           <button
             type='submit'
             onClick={handleSubmit}
             disabled={loading}
-            className='flex-1 py-4 bg-[#1a4d3e] text-white font-bold rounded-[14px] shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
+            className='flex-1 py-4 bg-stone-600 text-white font-bold rounded-[14px] shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
             {loading ? "Saving..." : "Save Instructor"}
           </button>
         </div>
@@ -1612,12 +1710,12 @@ const InstructorModal = ({
 
 const Input = ({ label, className, ...props }) => (
   <div className='space-y-2'>
-    <label className='text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em] ml-1'>
+    <label className='text-[10px] font-bold uppercase text-stone-500 tracking-[0.2em] ml-1'>
       {label}
     </label>
     <input
       {...props}
-      className={`w-full p-4 bg-white border border-slate-200 rounded-[14px] font-bold text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm placeholder:text-slate-300 ${className || ""}`}
+      className={`w-full p-4 bg-white border border-stone-200 rounded-[14px] font-bold text-sm text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm placeholder:text-stone-300 ${className || ""}`}
     />
   </div>
 );

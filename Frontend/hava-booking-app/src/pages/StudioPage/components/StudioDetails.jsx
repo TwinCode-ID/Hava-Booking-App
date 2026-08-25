@@ -102,10 +102,10 @@ const StudioDetails = () => {
           <div className='container mx-auto px-4 md:px-6 py-4 flex items-center'>
             <button
               onClick={() => navigate(-1)}
-              className='p-2 rounded-full hover:bg-gray-100 transition-colors border border-gray-100 shadow-sm'>
-              <ArrowLeft className='w-5 h-5 md:w-6 md:h-6 text-gray-800' />
+              className='p-2 rounded-full hover:bg-stone-100 transition-colors border border-stone-100 shadow-sm'>
+              <ArrowLeft className='w-5 h-5 md:w-6 md:h-6 text-stone-800' />
             </button>
-            <span className='ml-4 text-lg md:text-xl font-bold text-gray-900'>
+            <span className='ml-4 text-lg md:text-xl font-bold text-stone-900'>
               Studio Details
             </span>
           </div>
@@ -172,30 +172,30 @@ const StudioDetails = () => {
             <div className='mt-6 md:mt-8'>
               <div className='flex flex-col md:flex-row md:justify-between md:items-start gap-4'>
                 <div>
-                  <h1 className='text-2xl md:text-3xl font-bold text-emerald-900'>
+                  <h1 className='text-2xl md:text-3xl font-bold text-stone-900'>
                     {studio.studioName}
                   </h1>
-                  <div className='flex items-center text-gray-500 mt-2'>
-                    <MapPin className='w-4 h-4 mr-1 text-emerald-700' />
+                  <div className='flex items-center text-stone-500 mt-2'>
+                    <MapPin className='w-4 h-4 mr-1 text-stone-800' />
                     <p>{studio.address.city}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <hr className='my-6 md:my-8 border-gray-100' />
+            <hr className='my-6 md:my-8 border-stone-100' />
 
             {/* Facilities */}
             <div className='mt-6'>
-              <h2 className='text-lg md:text-xl font-bold text-emerald-900 mb-4'>
+              <h2 className='text-lg md:text-xl font-bold text-stone-900 mb-4'>
                 Studio Facilities
               </h2>
               <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4'>
                 {facilityList.map((facility, index) => (
                   <div
                     key={index}
-                    className='flex items-center gap-3 p-3 bg-gray-50 rounded-2xl text-gray-600'>
-                    <div className='p-2 bg-white rounded-full shadow-sm text-emerald-800 shrink-0'>
+                    className='flex items-center gap-3 p-3 bg-stone-50 rounded-2xl text-stone-600'>
+                    <div className='p-2 bg-white rounded-full shadow-sm text-stone-900 shrink-0'>
                       {getFacilityIcon(facility)}
                     </div>
                     <span className='text-sm font-medium truncate'>
@@ -207,17 +207,17 @@ const StudioDetails = () => {
             </div>
 
             {/* Location */}
-            <div className='mt-8 p-5 md:p-6 bg-gray-50 rounded-3xl mb-8'>
-              <h2 className='text-lg md:text-xl font-bold text-emerald-900 mb-4'>
+            <div className='mt-8 p-5 md:p-6 bg-stone-50 rounded-3xl mb-8'>
+              <h2 className='text-lg md:text-xl font-bold text-stone-900 mb-4'>
                 Location
               </h2>
               <div className='flex items-start gap-3'>
-                <MapPin className='w-6 h-6 text-emerald-900 mt-1 shrink-0' />
+                <MapPin className='w-6 h-6 text-stone-900 mt-1 shrink-0' />
                 <div>
-                  <p className='text-gray-700 font-medium'>
+                  <p className='text-stone-700 font-medium'>
                     {studio.address.street}
                   </p>
-                  <p className='text-gray-500 text-sm mt-1'>
+                  <p className='text-stone-500 text-sm mt-1'>
                     {studio.address.city}, {studio.address.zip}
                   </p>
                 </div>
@@ -226,7 +226,7 @@ const StudioDetails = () => {
 
             {/* Book Button */}
             <div className='pb-8'>
-              <button className='w-full bg-emerald-900 text-white font-bold py-4 rounded-full shadow-lg hover:bg-emerald-800 transition-transform active:scale-[0.98] text-lg'>
+              <button className='w-full bg-stone-600 text-white font-bold py-4 rounded-full shadow-lg hover:bg-stone-700 transition-transform active:scale-[0.98] text-lg'>
                 Book a Class
               </button>
             </div>

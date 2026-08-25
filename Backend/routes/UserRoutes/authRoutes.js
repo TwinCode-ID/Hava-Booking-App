@@ -9,7 +9,18 @@ const {
   loginWithAppleWeb,
   loginWithGoogle,
 } = require("../../controllers/UserController/authController");
-const { protect } = require("../../middlewares/authMiddleware");
+const {
+  optionalProtect,
+  protect,
+  studioAdmin,
+} = require("../../middlewares/authMiddleware");
+const {
+  authAccountLimiter,
+  authIpLimiter,
+  otpRequestLimiter,
+  otpVerifyLimiter,
+  sensitiveActionLimiter,
+} = require("../../middlewares/rateLimitMiddleware");
 const {
   uploadProfile,
   uploadProof,
@@ -19,62 +30,94 @@ const {
   requestOTP,
   verifyOTP,
 } = require("../../controllers/OTPController/otpController");
+const { getPublicApiOrigin } = require("../../config/security");
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/login", login);
+router.use((_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
+router.post(
+  "/register",
+  authIpLimiter,
+  authAccountLimiter,
+  optionalProtect,
+  register,
+);
+router.post("/login", authIpLimiter, authAccountLimiter, login);
 router.get("/me", protect, getMe);
-router.post("/apple", loginWithApple);
-router.post("/apple-web", loginWithAppleWeb);
-router.post("/otp/request", requestOTP);
-router.post("/otp/verify", verifyOTP);
-router.post("/verify-password", protect, checkAuth);
-router.post("/check-status", checkUserStatus);
-router.post("/google", loginWithGoogle);
+router.post("/apple", authIpLimiter, loginWithApple);
+router.post("/apple-web", authIpLimiter, loginWithAppleWeb);
+router.post("/otp/request", authIpLimiter, otpRequestLimiter, requestOTP);
+router.post("/otp/verify", authIpLimiter, otpVerifyLimiter, verifyOTP);
+router.post(
+  "/verify-password",
+  protect,
+  sensitiveActionLimiter,
+  checkAuth,
+);
+router.post(
+  "/check-status",
+  authIpLimiter,
+  authAccountLimiter,
+  checkUserStatus,
+);
+router.post("/google", authIpLimiter, loginWithGoogle);
 
-router.post("/upload-profile", uploadProfile.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No file uploaded" });
-  }
+const getUploadedImageUrl = (req) => {
+  const normalizedPath = req.file.path.replace(/\\/g, "/");
+  const uploadsIndex = normalizedPath.lastIndexOf("uploads/");
+  const relativePath =
+    uploadsIndex >= 0 ? normalizedPath.slice(uploadsIndex) : normalizedPath;
+  const encodedPath = relativePath
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  return new URL(`/${encodedPath}`, getPublicApiOrigin()).toString();
+};
 
-  // Use req.body.userId to build the URL since req.user is missing
-  const userId = req.body.userId || "unassigned";
+router.post(
+  "/upload-profile",
+  protect,
+  sensitiveActionLimiter,
+  uploadProfile.single("image"),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
-  const imageUrl = `${req.protocol}://${req.get(
-    "host",
-  )}/uploads/UserProfile/${userId}/${req.file.filename}`;
+    return res.status(200).json({ imageUrl: getUploadedImageUrl(req) });
+  },
+);
 
-  res.status(200).json({ imageUrl });
-});
+router.post(
+  "/upload-proof",
+  protect,
+  sensitiveActionLimiter,
+  uploadProof.single("image"),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
-router.post("/upload-proof", uploadProof.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No file uploaded" });
-  }
+    return res.status(200).json({ imageUrl: getUploadedImageUrl(req) });
+  },
+);
 
-  // Use req.body.userId to build the URL since req.user is missing
-  const userId = req.body.userId || "unassigned";
+router.post(
+  "/upload-studio",
+  protect,
+  studioAdmin,
+  sensitiveActionLimiter,
+  uploadStudio.single("image"),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
-  const imageUrl = `${req.protocol}://${req.get(
-    "host",
-  )}/uploads/ProofOfPurchase/${userId}/${req.file.filename}`;
-
-  res.status(200).json({ imageUrl });
-});
-
-router.post("/upload-studio", uploadStudio.single("image"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No file uploaded" });
-  }
-
-  // Use req.body.userId to build the URL since req.user is missing
-  const studioId = req.body.adminStudioLocation || "unassigned";
-
-  const imageUrl = `${req.protocol}://${req.get(
-    "host",
-  )}/uploads/Studio/${studioId}/${req.file.filename}`;
-
-  res.status(200).json({ imageUrl });
-});
+    return res.status(200).json({ imageUrl: getUploadedImageUrl(req) });
+  },
+);
 
 module.exports = router;

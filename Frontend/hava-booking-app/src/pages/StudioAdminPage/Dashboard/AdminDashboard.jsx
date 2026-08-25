@@ -487,30 +487,30 @@ const AdminDashboard = () => {
 
   if (loading && bookings.length === 0 && schedules.length === 0)
     return (
-      <div className='flex h-screen items-center justify-center bg-gray-50'>
+      <div className='flex h-screen items-center justify-center bg-stone-50'>
         <LoadingSpinner />
       </div>
     );
 
   return (
-    <div className='max-w-480 mx-auto h-full flex flex-col lg:flex-row bg-gray-50 overflow-hidden relative'>
+    <div className='max-w-480 mx-auto h-full flex flex-col lg:flex-row bg-stone-50 overflow-hidden relative'>
       {/* LEFT COLUMN */}
       <div className='flex-1 flex flex-col h-full overflow-hidden order-2 lg:order-1'>
         {/* MOBILE HEADER */}
-        <div className='lg:hidden bg-white border-b border-gray-200 px-4 py-3 shrink-0 z-20 shadow-sm'>
+        <div className='lg:hidden bg-white border-b border-stone-200 px-4 py-3 shrink-0 z-20 shadow-sm'>
           <div className='mb-3 relative flex items-center gap-2'>
             <div className='relative flex-1'>
-              <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
+              <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400' />
               <input
                 type='text'
                 placeholder='Search...'
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className='w-full pl-9 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all'
+                className='w-full pl-9 pr-10 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-stone-500/20 focus:border-stone-500 transition-all'
               />
               <button
                 onClick={() => setShowScanner(true)}
-                className='absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-emerald-600 transition-colors'>
+                className='absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-stone-800 transition-colors'>
                 <QrCode className='w-4 h-4' />
               </button>
             </div>
@@ -519,14 +519,14 @@ const AdminDashboard = () => {
             <div className='flex items-center gap-2'>
               <button
                 onClick={() => setShowCalendarModal(true)}
-                className='p-2 bg-emerald-50 text-emerald-900 rounded-lg hover:bg-emerald-100 transition-colors'>
+                className='p-2 bg-stone-100 text-stone-900 rounded-lg hover:bg-stone-200 transition-colors'>
                 <CalendarIcon className='w-5 h-5' />
               </button>
               <div>
-                <h2 className='text-lg font-bold text-gray-900 leading-tight'>
+                <h2 className='text-lg font-bold text-stone-900 leading-tight'>
                   {format(selectedDate, "EEE, dd MMM")}
                 </h2>
-                <p className='text-xs text-gray-400 font-medium'>
+                <p className='text-xs text-stone-400 font-medium'>
                   Daily Schedule
                 </p>
               </div>
@@ -534,12 +534,12 @@ const AdminDashboard = () => {
             <div className='flex gap-1'>
               <button
                 onClick={handlePrevDay}
-                className='p-1.5 rounded-lg border border-gray-100 hover:bg-gray-50 text-gray-500'>
+                className='p-1.5 rounded-lg border border-stone-100 hover:bg-stone-50 text-stone-500'>
                 <ChevronLeft className='w-5 h-5' />
               </button>
               <button
                 onClick={handleNextDay}
-                className='p-1.5 rounded-lg border border-gray-100 hover:bg-gray-50 text-gray-500'>
+                className='p-1.5 rounded-lg border border-stone-100 hover:bg-stone-50 text-stone-500'>
                 <ChevronRight className='w-5 h-5' />
               </button>
             </div>
@@ -547,28 +547,28 @@ const AdminDashboard = () => {
           {/* Mobile Stats */}
           <div
             className={`grid gap-4 ${isToday ? "grid-cols-2" : "grid-cols-3"}`}>
-            <div className='flex-1 flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-100'>
-              <div className='w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center'>
-                <Users className='w-3 h-3 text-gray-600' />
+            <div className='flex-1 flex items-center gap-2 bg-stone-50 px-3 py-2 rounded-lg border border-stone-100'>
+              <div className='w-6 h-6 rounded-full bg-white border border-stone-200 flex items-center justify-center'>
+                <Users className='w-3 h-3 text-stone-600' />
               </div>
               <div>
-                <span className='block text-xs text-gray-400 font-medium uppercase tracking-wider'>
+                <span className='block text-xs text-stone-400 font-medium uppercase tracking-wider'>
                   Students
                 </span>
-                <span className='block text-sm font-bold text-gray-900 leading-none'>
+                <span className='block text-sm font-bold text-stone-900 leading-none'>
                   {dailyStats.totalStudents}
                 </span>
               </div>
             </div>
-            <div className='flex-1 flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-100'>
-              <div className='w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center'>
-                <Briefcase className='w-3 h-3 text-gray-600' />
+            <div className='flex-1 flex items-center gap-2 bg-stone-50 px-3 py-2 rounded-lg border border-stone-100'>
+              <div className='w-6 h-6 rounded-full bg-white border border-stone-200 flex items-center justify-center'>
+                <Briefcase className='w-3 h-3 text-stone-600' />
               </div>
               <div>
-                <span className='block text-xs text-gray-400 font-medium uppercase tracking-wider'>
+                <span className='block text-xs text-stone-400 font-medium uppercase tracking-wider'>
                   Classes
                 </span>
-                <span className='block text-sm font-bold text-gray-900 leading-none'>
+                <span className='block text-sm font-bold text-stone-900 leading-none'>
                   {dailyStats.totalClasses}
                 </span>
               </div>
@@ -576,7 +576,7 @@ const AdminDashboard = () => {
             {!isToday && (
               <button
                 onClick={jumpToToday}
-                className='flex flex-col items-center justify-center px-3 py-2 bg-emerald-900 text-white rounded-lg shadow-sm active:scale-95 transition-all'>
+                className='flex flex-col items-center justify-center px-3 py-2 bg-stone-600 text-white rounded-lg shadow-sm active:scale-95 transition-all'>
                 <RotateCcw className='w-4 h-4 mb-0.5' />
                 <span className='text-[10px] font-bold uppercase'>Today</span>
               </button>
@@ -585,13 +585,13 @@ const AdminDashboard = () => {
         </div>
 
         {/* DESKTOP CONTENT */}
-        <div className='flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scrollbar bg-gray-50'>
+        <div className='flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scrollbar bg-stone-50'>
           <div className='hidden lg:flex mb-8 justify-between items-end gap-6'>
             <div>
-              <h1 className='text-3xl font-bold text-gray-900'>
+              <h1 className='text-3xl font-bold text-stone-900'>
                 {format(selectedDate, "d MMMM, yyyy")}
               </h1>
-              <p className='text-gray-500 mt-1 font-medium'>
+              <p className='text-stone-500 mt-1 font-medium'>
                 Today's Studio Schedule
               </p>
             </div>
@@ -599,11 +599,11 @@ const AdminDashboard = () => {
               <div className='relative w-full max-w-md group flex items-center gap-2'>
                 <div className='relative flex-1'>
                   <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                    <Search className='h-5 w-5 text-gray-400' />
+                    <Search className='h-5 w-5 text-stone-400' />
                   </div>
                   <input
                     type='text'
-                    className='block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 sm:text-sm transition-all shadow-sm'
+                    className='block w-full pl-10 pr-10 py-2.5 border border-stone-200 rounded-xl leading-5 bg-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-500/20 focus:border-stone-500 sm:text-sm transition-all shadow-sm'
                     placeholder='Search...'
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -611,7 +611,7 @@ const AdminDashboard = () => {
                 </div>
                 <button
                   onClick={() => setShowScanner(true)}
-                  className='p-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all shadow-md flex items-center gap-2 whitespace-nowrap'>
+                  className='p-2.5 bg-stone-700 text-white rounded-xl hover:bg-stone-600 transition-all shadow-md flex items-center gap-2 whitespace-nowrap'>
                   <QrCode className='w-5 h-5' />
                   <span className='text-sm font-bold hidden xl:block'>
                     Scan
@@ -627,15 +627,15 @@ const AdminDashboard = () => {
                 <div
                   key={cls._id}
                   onClick={() => setSelectedClassDetails(cls)}
-                  className='bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group overflow-hidden'>
+                  className='bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md hover:border-stone-300 transition-all cursor-pointer group overflow-hidden'>
                   <div
                     className={`h-1.5 w-full ${cls.classType === "Private" ? "bg-purple-500" : "bg-blue-500"}`}></div>
                   <div className='p-5 md:p-6'>
                     <div className='flex justify-between items-start mb-3'>
                       <div className='flex items-center gap-3'>
-                        <div className='px-3 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-bold shadow-sm'>
+                        <div className='px-3 py-1.5 bg-stone-700 text-white rounded-lg text-sm font-bold shadow-sm'>
                           {format(new Date(cls.startTime), "HH:mm")}
-                          <span className='text-gray-400 font-normal mx-1'>
+                          <span className='text-stone-400 font-normal mx-1'>
                             -
                           </span>
                           {format(new Date(cls.endTime), "HH:mm")}
@@ -648,27 +648,27 @@ const AdminDashboard = () => {
                     </div>
                     <div className='flex flex-col md:flex-row md:items-center justify-between gap-4'>
                       <div>
-                        <h3 className='text-xl font-bold text-gray-900 mb-2 group-hover:text-emerald-900 transition-colors'>
+                        <h3 className='text-xl font-bold text-stone-900 mb-2 group-hover:text-stone-900 transition-colors'>
                           {cls.className}
                         </h3>
-                        <div className='flex items-center text-sm text-gray-500 gap-4'>
+                        <div className='flex items-center text-sm text-stone-500 gap-4'>
                           <span className='flex items-center gap-1.5'>
-                            <MapPin className='w-4 h-4 text-emerald-600' />{" "}
+                            <MapPin className='w-4 h-4 text-stone-800' />{" "}
                             {cls.studioName}
                           </span>
                           <span className='flex items-center gap-1.5'>
-                            <Clock className='w-4 h-4 text-emerald-600' />{" "}
+                            <Clock className='w-4 h-4 text-stone-800' />{" "}
                             {cls.duration} min
                           </span>
                         </div>
                       </div>
                       <div className='flex items-center gap-3 mt-2 md:mt-0'>
-                        <div className='flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-md border border-gray-100'>
-                          <span className='text-xs font-bold text-gray-500'>
+                        <div className='flex items-center gap-2 bg-stone-50 px-2 py-1 rounded-md border border-stone-100'>
+                          <span className='text-xs font-bold text-stone-500'>
                             {cls.students.filter((s) => s.isAttend).length}/
                             {cls.capacity || cls.students.length}
                           </span>
-                          <div className='w-2 h-2 rounded-full bg-emerald-500'></div>
+                          <div className='w-2 h-2 rounded-full bg-stone-500'></div>
                         </div>
                       </div>
                     </div>
@@ -676,14 +676,14 @@ const AdminDashboard = () => {
                 </div>
               ))
             ) : (
-              <div className='flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200 m-4'>
-                <div className='w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4'>
-                  <CalendarIcon className='w-8 h-8 text-gray-300' />
+              <div className='flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-stone-200 m-4'>
+                <div className='w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-4'>
+                  <CalendarIcon className='w-8 h-8 text-stone-300' />
                 </div>
-                <h3 className='text-gray-900 font-bold text-lg'>
+                <h3 className='text-stone-900 font-bold text-lg'>
                   No classes scheduled
                 </h3>
-                <p className='text-gray-400 text-sm mt-1 max-w-xs'>
+                <p className='text-stone-400 text-sm mt-1 max-w-xs'>
                   There are no active sessions for{" "}
                   {format(selectedDate, "MMMM do")}.
                 </p>
@@ -694,13 +694,13 @@ const AdminDashboard = () => {
       </div>
 
       {/* RIGHT COLUMN */}
-      <div className='hidden lg:flex w-100 xl:w-112.5 bg-white border-l border-gray-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
+      <div className='hidden lg:flex w-100 xl:w-112.5 bg-white border-l border-stone-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
         <div className='space-y-4'>
           <DigitalClock />
           {!isSameDay(selectedDate, new Date()) && (
             <button
               onClick={jumpToToday}
-              className='w-full px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-all active:scale-95 whitespace-nowrap'>
+              className='w-full px-5 py-2.5 bg-white border border-stone-200 rounded-xl text-sm font-bold text-stone-700 hover:bg-stone-50 shadow-sm transition-all active:scale-95 whitespace-nowrap'>
               Jump to Today
             </button>
           )}
@@ -711,9 +711,9 @@ const AdminDashboard = () => {
           />
 
           <div className='grid grid-cols-2 gap-4'>
-            <div className='bg-gray-900 text-white p-6 rounded-2xl shadow-xl shadow-gray-200 relative overflow-hidden flex items-center justify-between'>
+            <div className='bg-stone-700 text-white p-6 rounded-2xl shadow-xl shadow-stone-200 relative overflow-hidden flex items-center justify-between'>
               <div className='relative z-10'>
-                <p className='text-gray-400 text-xs font-bold uppercase tracking-wider'>
+                <p className='text-stone-400 text-xs font-bold uppercase tracking-wider'>
                   Total Students
                 </p>
                 <h2 className='text-4xl font-bold mt-1'>
@@ -722,59 +722,59 @@ const AdminDashboard = () => {
               </div>
               <Users className='w-12 h-12 text-white' />
             </div>
-            <div className='bg-emerald-50 text-emerald-900 p-6 rounded-2xl border border-emerald-100 flex items-center justify-between'>
+            <div className='bg-stone-100 text-stone-900 p-6 rounded-2xl border border-stone-200 flex items-center justify-between'>
               <div>
-                <p className='text-emerald-600 text-xs font-bold uppercase tracking-wider'>
+                <p className='text-stone-800 text-xs font-bold uppercase tracking-wider'>
                   Total Classes
                 </p>
                 <h2 className='text-3xl font-bold mt-1'>
                   {dailyStats.totalClasses}
                 </h2>
               </div>
-              <Clock className='w-12 h-12 text-emerald-600' />
+              <Clock className='w-12 h-12 text-stone-800' />
             </div>
           </div>
 
           <div
             onClick={() => setShowAttendanceDetails(true)}
-            className='bg-white border border-gray-200 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-emerald-200 transition-all cursor-pointer group'>
+            className='bg-white border border-stone-200 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-stone-300 transition-all cursor-pointer group'>
             <div className='flex justify-between mb-2 items-center'>
               <div className='flex items-center gap-2'>
                 <div className='p-2 bg-blue-50 text-blue-600 rounded-lg'>
                   <UserCheck className='w-5 h-5' />
                 </div>
-                <h3 className='font-bold text-gray-900'>Attendance</h3>
+                <h3 className='font-bold text-stone-900'>Attendance</h3>
               </div>
               <span className='text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md group-hover:bg-blue-100 transition-colors'>
                 View Details
               </span>
             </div>
-            <div className='mb-2 flex justify-between text-xs font-medium text-gray-500'>
+            <div className='mb-2 flex justify-between text-xs font-medium text-stone-500'>
               <span>{dailyStats.totalAttended} Present</span>
               <span>
                 {dailyStats.totalStudents - dailyStats.totalAttended} Absent
               </span>
             </div>
-            <div className='w-full h-3 bg-gray-100 rounded-full overflow-hidden flex'>
+            <div className='w-full h-3 bg-stone-100 rounded-full overflow-hidden flex'>
               <div
                 className='h-full bg-blue-500 transition-all duration-500'
                 style={{ width: `${dailyStats.attendanceRate}%` }}></div>
             </div>
           </div>
 
-          <div className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm'>
+          <div className='bg-white p-6 rounded-2xl border border-stone-100 shadow-sm'>
             <div className='flex items-center gap-3 mb-4'>
               <div className='p-2 bg-purple-50 rounded-lg text-purple-600'>
                 <FileText className='w-5 h-5' />
               </div>
               <div>
-                <h3 className='font-bold text-gray-900'>Daily Summary</h3>
-                <p className='text-xs text-gray-500'>Preview & Download PDF</p>
+                <h3 className='font-bold text-stone-900'>Daily Summary</h3>
+                <p className='text-xs text-stone-500'>Preview & Download PDF</p>
               </div>
             </div>
             <button
               onClick={handlePreviewReport}
-              className='w-full flex items-center justify-center gap-2 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-md'>
+              className='w-full flex items-center justify-center gap-2 py-3 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors shadow-md'>
               <Eye className='w-4 h-4' /> Preview Report
             </button>
           </div>
@@ -806,10 +806,10 @@ const AdminDashboard = () => {
               </button>
 
               <div className='p-6 pb-2 text-center bg-white z-10 relative'>
-                <h3 className='text-xl font-bold text-gray-900'>
+                <h3 className='text-xl font-bold text-stone-900'>
                   Scan QR Code
                 </h3>
-                <p className='text-sm text-gray-500'>
+                <p className='text-sm text-stone-500'>
                   Point camera at booking ticket or pass
                 </p>
               </div>
@@ -837,11 +837,11 @@ const AdminDashboard = () => {
                     />
                     <div className='absolute inset-0 pointer-events-none flex items-center justify-center z-10'>
                       <div className='w-56 h-56 border-2 border-white/50 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'>
-                        <ScanLine className='w-full h-full text-emerald-500/80 animate-pulse p-4' />
-                        <div className='absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-emerald-500 -mt-1 -ml-1 rounded-tl-lg'></div>
-                        <div className='absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-emerald-500 -mt-1 -mr-1 rounded-tr-lg'></div>
-                        <div className='absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-emerald-500 -mb-1 -ml-1 rounded-bl-lg'></div>
-                        <div className='absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-emerald-500 -mb-1 -mr-1 rounded-br-lg'></div>
+                        <ScanLine className='w-full h-full text-stone-700/80 animate-pulse p-4' />
+                        <div className='absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-stone-500 -mt-1 -ml-1 rounded-tl-lg'></div>
+                        <div className='absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-stone-500 -mt-1 -mr-1 rounded-tr-lg'></div>
+                        <div className='absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-stone-500 -mb-1 -ml-1 rounded-bl-lg'></div>
+                        <div className='absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-stone-500 -mb-1 -mr-1 rounded-br-lg'></div>
                       </div>
                     </div>
                   </>
@@ -860,18 +860,18 @@ const AdminDashboard = () => {
                           className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${scanError.color === "amber" ? "bg-amber-50" : "bg-red-50"}`}>
                           {scanError.icon}
                         </div>
-                        <h4 className='text-xl font-bold text-gray-900 mb-2'>
+                        <h4 className='text-xl font-bold text-stone-900 mb-2'>
                           {scanError.title}
                         </h4>
-                        <p className='text-sm text-gray-500 mb-1'>
+                        <p className='text-sm text-stone-500 mb-1'>
                           {scanError.message}
                         </p>
-                        <p className='text-base font-bold text-gray-900 mb-6'>
+                        <p className='text-base font-bold text-stone-900 mb-6'>
                           {scanError.detail}
                         </p>
                         <button
                           onClick={() => setScanError(null)}
-                          className='w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-lg'>
+                          className='w-full py-3 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors shadow-lg'>
                           Scan Again
                         </button>
                       </div>
@@ -942,8 +942,8 @@ const AdminDashboard = () => {
             <div className='bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 relative'>
               <button
                 onClick={() => setShowCalendarModal(false)}
-                className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full'>
-                <X className='w-5 h-5 text-gray-600' />
+                className='absolute top-4 right-4 p-2 bg-stone-100 rounded-full'>
+                <X className='w-5 h-5 text-stone-600' />
               </button>
               <MiniCalendar
                 selectedDate={selectedDate}
@@ -969,29 +969,29 @@ const AdminDashboard = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               className='bg-white w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col relative'>
-              <div className='flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white'>
+              <div className='flex items-center justify-between px-6 py-4 border-b border-stone-200 bg-white'>
                 <div>
-                  <h2 className='text-xl font-bold text-gray-900'>
+                  <h2 className='text-xl font-bold text-stone-900'>
                     Report Preview
                   </h2>
-                  <p className='text-sm text-gray-500'>
+                  <p className='text-sm text-stone-500'>
                     {format(selectedDate, "dd MMMM yyyy")}
                   </p>
                 </div>
                 <div className='flex items-center gap-3'>
                   <button
                     onClick={handleDownloadReport}
-                    className='flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm'>
+                    className='flex items-center gap-2 px-4 py-2 bg-stone-600 text-white font-bold rounded-lg hover:bg-stone-700 transition-colors shadow-sm'>
                     <Download className='w-4 h-4' /> Download PDF
                   </button>
                   <button
                     onClick={() => setShowPdfPreview(false)}
-                    className='p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors text-gray-600'>
+                    className='p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors text-stone-600'>
                     <X className='w-5 h-5' />
                   </button>
                 </div>
               </div>
-              <div className='flex-1 bg-gray-100'>
+              <div className='flex-1 bg-stone-100'>
                 <iframe
                   src={pdfUrl}
                   className='w-full h-full border-none'
@@ -1015,11 +1015,11 @@ const DigitalClock = () => {
     return () => clearInterval(timer);
   }, []);
   return (
-    <div className='bg-gray-900 text-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center'>
+    <div className='bg-stone-700 text-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center'>
       <h3 className='text-4xl font-bold font-mono tracking-wider'>
         {format(time, "HH:mm:ss")}
       </h3>
-      <p className='text-emerald-400 text-xs font-bold uppercase tracking-widest mt-1'>
+      <p className='text-stone-600 text-xs font-bold uppercase tracking-widest mt-1'>
         {format(time, "EEEE, d MMM")}
       </p>
     </div>
@@ -1054,46 +1054,46 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
         className='bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden relative'>
         <button
           onClick={onClose}
-          className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors'>
-          <X className='w-5 h-5 text-gray-600' />
+          className='absolute top-4 right-4 p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors'>
+          <X className='w-5 h-5 text-stone-600' />
         </button>
         <div className='p-8 text-center'>
           <div
-            className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${booking.isAttend ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"}`}>
+            className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${booking.isAttend ? "bg-stone-200 text-stone-800" : "bg-blue-100 text-blue-600"}`}>
             {booking.isAttend ? (
               <CheckCircle2 className='w-10 h-10' />
             ) : (
               <UserCheck className='w-10 h-10' />
             )}
           </div>
-          <h2 className='text-2xl font-bold text-gray-900 mb-1'>
+          <h2 className='text-2xl font-bold text-stone-900 mb-1'>
             {booking.userId?.fullName}
           </h2>
-          <p className='text-gray-500 text-sm mb-6'>{booking.userId?.email}</p>
-          <div className='bg-gray-50 rounded-2xl p-4 text-left space-y-3 mb-6'>
+          <p className='text-stone-500 text-sm mb-6'>{booking.userId?.email}</p>
+          <div className='bg-stone-50 rounded-2xl p-4 text-left space-y-3 mb-6'>
             <div>
-              <p className='text-xs font-bold text-gray-400 uppercase'>Class</p>
-              <p className='font-bold text-gray-900'>
+              <p className='text-xs font-bold text-stone-400 uppercase'>Class</p>
+              <p className='font-bold text-stone-900'>
                 {booking.classId?.className}
               </p>
             </div>
             <div className='flex justify-between'>
               <div>
-                <p className='text-xs font-bold text-gray-400 uppercase'>
+                <p className='text-xs font-bold text-stone-400 uppercase'>
                   Time
                 </p>
-                <p className='font-bold text-gray-900'>
+                <p className='font-bold text-stone-900'>
                   {booking.classId?.startTime
                     ? format(new Date(booking.classId.startTime), "HH:mm")
                     : "-"}
                 </p>
               </div>
               <div className='text-right'>
-                <p className='text-xs font-bold text-gray-400 uppercase'>
+                <p className='text-xs font-bold text-stone-400 uppercase'>
                   Status
                 </p>
                 <span
-                  className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${booking.isAttend ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"}`}>
+                  className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${booking.isAttend ? "bg-stone-200 text-stone-800" : "bg-stone-200 text-stone-600"}`}>
                   {booking.isAttend ? "Present" : "Not Checked In"}
                 </span>
               </div>
@@ -1102,7 +1102,7 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
           <button
             onClick={handleCheckIn}
             disabled={loading}
-            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${booking.isAttend ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${booking.isAttend ? "bg-stone-100 text-stone-600 hover:bg-stone-200" : "bg-stone-600 text-white hover:bg-stone-700"}`}>
             {loading ? (
               <LoadingSpinner size='sm' />
             ) : booking.isAttend ? (
@@ -1212,41 +1212,41 @@ const PassScanResultModal = ({
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         className='bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] md:max-h-[85vh]'>
-        <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50'>
-          <h2 className='text-xl font-bold text-gray-900 flex items-center gap-2'>
-            <Ticket className='w-5 h-5 text-emerald-600' /> General Pass Scanned
+        <div className='p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50'>
+          <h2 className='text-xl font-bold text-stone-900 flex items-center gap-2'>
+            <Ticket className='w-5 h-5 text-stone-800' /> General Pass Scanned
           </h2>
           <button
             onClick={onClose}
-            className='p-2 bg-white rounded-full hover:bg-gray-200 transition-colors shadow-sm'>
-            <X className='w-5 h-5 text-gray-600' />
+            className='p-2 bg-white rounded-full hover:bg-stone-200 transition-colors shadow-sm'>
+            <X className='w-5 h-5 text-stone-600' />
           </button>
         </div>
 
-        <div className='p-6 bg-white border-b border-gray-100 flex items-center gap-4'>
-          <div className='w-14 h-14 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-bold text-xl'>
+        <div className='p-6 bg-white border-b border-stone-100 flex items-center gap-4'>
+          <div className='w-14 h-14 bg-stone-200 text-stone-800 rounded-full flex items-center justify-center font-bold text-xl'>
             {pass.userId?.fullName?.charAt(0).toUpperCase() || "U"}
           </div>
           <div className='flex-1'>
-            <h3 className='font-bold text-gray-900 text-lg'>
+            <h3 className='font-bold text-stone-900 text-lg'>
               {pass.userId?.fullName}
             </h3>
-            <p className='text-sm text-gray-500 line-clamp-1'>
+            <p className='text-sm text-stone-500 line-clamp-1'>
               {pass.packageId?.packageName || "Studio Pass"}
             </p>
           </div>
           <div className='text-right'>
-            <p className='text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1'>
+            <p className='text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1'>
               Balance
             </p>
-            <p className='text-2xl font-bold text-emerald-600 leading-none'>
+            <p className='text-2xl font-bold text-stone-800 leading-none'>
               {pass.remainingCredits}
             </p>
           </div>
         </div>
 
-        <div className='p-6 flex-1 overflow-y-auto bg-gray-50 custom-scrollbar'>
-          <h4 className='text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider'>
+        <div className='p-6 flex-1 overflow-y-auto bg-stone-50 custom-scrollbar'>
+          <h4 className='text-sm font-bold text-stone-900 mb-4 uppercase tracking-wider'>
             Eligible Classes Today
           </h4>
 
@@ -1255,10 +1255,10 @@ const PassScanResultModal = ({
               {eligibleClasses.map((cls) => (
                 <div
                   key={cls._id}
-                  className='bg-white p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm'>
+                  className='bg-white p-4 rounded-xl border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm'>
                   <div>
-                    <h5 className='font-bold text-gray-900'>{cls.className}</h5>
-                    <p className='text-sm text-gray-500 font-medium mt-1'>
+                    <h5 className='font-bold text-stone-900'>{cls.className}</h5>
+                    <p className='text-sm text-stone-500 font-medium mt-1'>
                       {format(new Date(cls.startTime), "HH:mm")} -{" "}
                       {format(new Date(cls.endTime), "HH:mm")}
                     </p>
@@ -1266,7 +1266,7 @@ const PassScanResultModal = ({
                   <button
                     onClick={() => handleAssignAndDeduct(cls)}
                     disabled={loadingId === cls._id}
-                    className='w-full sm:w-auto px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap flex justify-center'>
+                    className='w-full sm:w-auto px-4 py-2.5 bg-stone-600 text-white font-bold rounded-lg hover:bg-stone-700 transition-colors shadow-sm whitespace-nowrap flex justify-center'>
                     {loadingId === cls._id ? (
                       <LoadingSpinner size='sm' />
                     ) : (
@@ -1277,10 +1277,10 @@ const PassScanResultModal = ({
               ))}
             </div>
           ) : (
-            <div className='text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200'>
-              <AlertCircle className='w-10 h-10 text-gray-300 mx-auto mb-3' />
-              <p className='text-gray-900 font-bold'>No Eligible Classes</p>
-              <p className='text-gray-500 text-sm mt-1 max-w-xs mx-auto'>
+            <div className='text-center py-10 bg-white rounded-2xl border border-dashed border-stone-200'>
+              <AlertCircle className='w-10 h-10 text-stone-300 mx-auto mb-3' />
+              <p className='text-stone-900 font-bold'>No Eligible Classes</p>
+              <p className='text-stone-500 text-sm mt-1 max-w-xs mx-auto'>
                 This pass cannot be used for any remaining classes scheduled for
                 today.
               </p>
@@ -1308,20 +1308,20 @@ const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
         className='bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 relative flex flex-col max-h-[85vh]'>
         <button
           onClick={onClose}
-          className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors'>
-          <X className='w-5 h-5 text-gray-600' />
+          className='absolute top-4 right-4 p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors'>
+          <X className='w-5 h-5 text-stone-600' />
         </button>
         <div className='mb-6'>
-          <h2 className='text-xl font-bold text-gray-900'>Attendance Log</h2>
-          <p className='text-sm text-gray-500'>
+          <h2 className='text-xl font-bold text-stone-900'>Attendance Log</h2>
+          <p className='text-sm text-stone-500'>
             {format(date, "EEEE, d MMMM yyyy")}
           </p>
         </div>
         <div className='flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6'>
           <div>
             <div className='flex items-center gap-2 mb-3'>
-              <div className='w-2 h-2 rounded-full bg-emerald-500'></div>
-              <h3 className='text-sm font-bold text-gray-900 uppercase tracking-wider'>
+              <div className='w-2 h-2 rounded-full bg-stone-500'></div>
+              <h3 className='text-sm font-bold text-stone-900 uppercase tracking-wider'>
                 Present ({present.length})
               </h3>
             </div>
@@ -1330,31 +1330,31 @@ const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
                 {present.map((p) => (
                   <div
                     key={p._id}
-                    className='flex justify-between items-center p-3 bg-emerald-50/50 rounded-xl border border-emerald-100'>
+                    className='flex justify-between items-center p-3 bg-stone-100/50 rounded-xl border border-stone-200'>
                     <div>
-                      <p className='text-sm font-bold text-gray-900'>
+                      <p className='text-sm font-bold text-stone-900'>
                         {p.userId?.fullName}
                       </p>
-                      <p className='text-xs text-gray-500'>
+                      <p className='text-xs text-stone-500'>
                         {p.classId?.className}
                       </p>
                     </div>
-                    <span className='text-xs font-mono text-emerald-700 bg-white px-2 py-1 rounded border border-emerald-100'>
+                    <span className='text-xs font-mono text-stone-800 bg-white px-2 py-1 rounded border border-stone-200'>
                       {format(new Date(p.classId?.startTime), "HH:mm")}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className='text-sm text-gray-400 italic pl-4'>
+              <p className='text-sm text-stone-400 italic pl-4'>
                 No one has checked in yet.
               </p>
             )}
           </div>
           <div>
             <div className='flex items-center gap-2 mb-3'>
-              <div className='w-2 h-2 rounded-full bg-gray-300'></div>
-              <h3 className='text-sm font-bold text-gray-900 uppercase tracking-wider'>
+              <div className='w-2 h-2 rounded-full bg-stone-300'></div>
+              <h3 className='text-sm font-bold text-stone-900 uppercase tracking-wider'>
                 Not Checked In ({absent.length})
               </h3>
             </div>
@@ -1363,23 +1363,23 @@ const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
                 {absent.map((a) => (
                   <div
                     key={a._id}
-                    className='flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100 opacity-75'>
+                    className='flex justify-between items-center p-3 bg-stone-50 rounded-xl border border-stone-100 opacity-75'>
                     <div>
-                      <p className='text-sm font-bold text-gray-700'>
+                      <p className='text-sm font-bold text-stone-700'>
                         {a.userId?.fullName}
                       </p>
-                      <p className='text-xs text-gray-500'>
+                      <p className='text-xs text-stone-500'>
                         {a.classId?.className}
                       </p>
                     </div>
-                    <span className='text-xs font-mono text-gray-500 bg-white px-2 py-1 rounded border border-gray-200'>
+                    <span className='text-xs font-mono text-stone-500 bg-white px-2 py-1 rounded border border-stone-200'>
                       {format(new Date(a.classId?.startTime), "HH:mm")}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className='text-sm text-gray-400 italic pl-4'>
+              <p className='text-sm text-stone-400 italic pl-4'>
                 Everyone is present!
               </p>
             )}
@@ -1447,38 +1447,38 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
         <div className='p-6 pb-2'>
           <button
             onClick={onClose}
-            className='absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors z-10'>
-            <X className='w-5 h-5 text-gray-600' />
+            className='absolute top-4 right-4 p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors z-10'>
+            <X className='w-5 h-5 text-stone-600' />
           </button>
           <span
             className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider mb-3 ${cls.classType === "Private" ? "bg-purple-50 text-purple-700" : "bg-blue-50 text-blue-700"}`}>
             {cls.classType}
           </span>
-          <h2 className='text-2xl font-bold text-gray-900 mb-1 pr-8'>
+          <h2 className='text-2xl font-bold text-stone-900 mb-1 pr-8'>
             {cls.className}
           </h2>
-          <p className='text-emerald-700 font-bold'>
+          <p className='text-stone-800 font-bold'>
             {format(new Date(cls.startTime), "HH:mm")} -{" "}
             {format(new Date(cls.endTime), "HH:mm")}
           </p>
         </div>
-        <div className='px-6 py-4 bg-gray-50 border-y border-gray-100'>
+        <div className='px-6 py-4 bg-stone-50 border-y border-stone-100'>
           <div className='flex justify-between items-end mb-2'>
-            <span className='text-xs font-bold text-gray-400 uppercase tracking-wider'>
+            <span className='text-xs font-bold text-stone-400 uppercase tracking-wider'>
               Attendance Progress
             </span>
-            <span className='text-sm font-bold text-emerald-900'>
+            <span className='text-sm font-bold text-stone-900'>
               {attendedCount}{" "}
-              <span className='text-gray-400 font-normal'>
+              <span className='text-stone-400 font-normal'>
                 / {totalStudents} present
               </span>
             </span>
           </div>
-          <div className='h-2 w-full bg-gray-200 rounded-full overflow-hidden'>
+          <div className='h-2 w-full bg-stone-200 rounded-full overflow-hidden'>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
-              className='h-full bg-emerald-500 rounded-full'
+              className='h-full bg-stone-500 rounded-full'
             />
           </div>
         </div>
@@ -1490,28 +1490,28 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
                 return (
                   <div
                     key={idx}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isCheckedIn ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-100"}`}>
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isCheckedIn ? "bg-stone-100 border-stone-300" : "bg-white border-stone-100"}`}>
                     <div
-                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isCheckedIn ? "bg-white border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-100 text-gray-500"}`}>
+                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${isCheckedIn ? "bg-white border-stone-300 text-stone-800" : "bg-stone-50 border-stone-100 text-stone-500"}`}>
                       {student.fullName
                         ? student.fullName.charAt(0).toUpperCase()
                         : "U"}
                     </div>
                     <div className='flex-1 min-w-0'>
                       <p
-                        className={`text-sm font-bold truncate ${isCheckedIn ? "text-emerald-900" : "text-gray-900"}`}>
+                        className={`text-sm font-bold truncate ${isCheckedIn ? "text-stone-900" : "text-stone-900"}`}>
                         {student.fullName}
                       </p>
-                      <p className='text-xs text-gray-500 truncate'>
+                      <p className='text-xs text-stone-500 truncate'>
                         {student.phoneNumber}
                       </p>
-                      <p className='text-xs text-gray-500 truncate'>
+                      <p className='text-xs text-stone-500 truncate'>
                         {student.email}
                       </p>
                     </div>
                     <button
                       onClick={() => toggleAttendance(student.bookingId)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${isCheckedIn ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-200 hover:bg-emerald-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"}`}>
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${isCheckedIn ? "bg-stone-500 border-stone-500 text-white shadow-md shadow-stone-300 hover:bg-stone-600" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50"}`}>
                       {isCheckedIn ? (
                         <>
                           <CheckCircle2 className='w-3.5 h-3.5' /> Checked In
@@ -1526,7 +1526,7 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
                 );
               })
             ) : (
-              <p className='text-gray-400 text-sm text-center py-4'>
+              <p className='text-stone-400 text-sm text-center py-4'>
                 No students enrolled.
               </p>
             )}
@@ -1538,10 +1538,10 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               exit={{ y: 100 }}
-              className='p-4 border-t border-gray-100 bg-white'>
+              className='p-4 border-t border-stone-100 bg-white'>
               <button
                 onClick={() => setShowConfirm(true)}
-                className='w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-lg flex items-center justify-center gap-2'>
+                className='w-full py-3.5 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors shadow-lg flex items-center justify-center gap-2'>
                 <Save className='w-4 h-4' /> Save Changes
               </button>
             </motion.div>
@@ -1549,23 +1549,23 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
         </AnimatePresence>
         {showConfirm && (
           <div className='absolute inset-0 z-20 bg-white/90 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in'>
-            <div className='bg-white border border-gray-100 shadow-2xl rounded-3xl p-6 w-full max-w-xs text-center'>
+            <div className='bg-white border border-stone-100 shadow-2xl rounded-3xl p-6 w-full max-w-xs text-center'>
               <div className='w-12 h-12 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4'>
                 <AlertCircle className='w-6 h-6' />
               </div>
-              <h3 className='text-lg font-bold text-gray-900 mb-2'>
+              <h3 className='text-lg font-bold text-stone-900 mb-2'>
                 Save Changes?
               </h3>
               <div className='flex gap-3 mt-6'>
                 <button
                   onClick={() => setShowConfirm(false)}
-                  className='flex-1 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200'>
+                  className='flex-1 py-2.5 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200'>
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveChanges}
                   disabled={isSaving}
-                  className='flex-1 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700'>
+                  className='flex-1 py-2.5 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700'>
                   {isSaving ? "Saving..." : "Yes, Save"}
                 </button>
               </div>
@@ -1608,18 +1608,18 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
   const handleYearChange = (e) =>
     setViewDate(setYear(viewDate, parseInt(e.target.value)));
   return (
-    <div className='bg-gray-50 p-4 rounded-2xl border border-gray-200 select-none'>
+    <div className='bg-stone-50 p-4 rounded-2xl border border-stone-200 select-none'>
       <div className='flex justify-between items-center mb-4 gap-2'>
         <button
           onClick={() => setViewDate((prev) => addMonths(prev, -1))}
           className='p-1 hover:bg-white hover:shadow-sm rounded-lg'>
-          <ChevronLeft className='w-4 h-4 text-gray-600' />
+          <ChevronLeft className='w-4 h-4 text-stone-600' />
         </button>
         <div className='flex gap-2'>
           <select
             value={months[getMonth(viewDate)]}
             onChange={handleMonthChange}
-            className='bg-transparent text-sm font-bold text-gray-900 outline-none cursor-pointer hover:bg-gray-100 p-1 rounded'>
+            className='bg-transparent text-sm font-bold text-stone-900 outline-none cursor-pointer hover:bg-stone-100 p-1 rounded'>
             {months.map((m) => (
               <option key={m} value={m}>
                 {m}
@@ -1629,7 +1629,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
           <select
             value={getYear(viewDate)}
             onChange={handleYearChange}
-            className='bg-transparent text-sm font-bold text-gray-900 outline-none cursor-pointer hover:bg-gray-100 p-1 rounded'>
+            className='bg-transparent text-sm font-bold text-stone-900 outline-none cursor-pointer hover:bg-stone-100 p-1 rounded'>
             {years.map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -1640,14 +1640,14 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
         <button
           onClick={() => setViewDate((prev) => addMonths(prev, 1))}
           className='p-1 hover:bg-white hover:shadow-sm rounded-lg'>
-          <ChevronRight className='w-4 h-4 text-gray-600' />
+          <ChevronRight className='w-4 h-4 text-stone-600' />
         </button>
       </div>
       <div className='grid grid-cols-7 gap-1 text-center mb-2'>
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
           <span
             key={i}
-            className='text-[10px] font-bold text-gray-400 uppercase'>
+            className='text-[10px] font-bold text-stone-400 uppercase'>
             {d}
           </span>
         ))}
@@ -1662,7 +1662,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
             <button
               key={day.toString()}
               onClick={() => onSelectDate(day)}
-              className={`h-8 w-full rounded-lg flex items-center justify-center text-xs font-medium transition-all ${isSelected ? "bg-emerald-900 text-white shadow-md font-bold" : "text-gray-700 hover:bg-white hover:shadow-sm"}`}>
+              className={`h-8 w-full rounded-lg flex items-center justify-center text-xs font-medium transition-all ${isSelected ? "bg-stone-600 text-white shadow-md font-bold" : "text-stone-700 hover:bg-white hover:shadow-sm"}`}>
               {format(day, "d")}
             </button>
           );

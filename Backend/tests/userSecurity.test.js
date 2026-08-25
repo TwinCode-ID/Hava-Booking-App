@@ -86,6 +86,7 @@ test("financial unlock tells authenticated users without a password to create on
     await checkAuth(
       {
         user: { _id: "authenticated-user" },
+        auth: { jti: "access-session" },
         body: { email: "another-user@example.com", password: "secret" },
       },
       response,
@@ -101,11 +102,15 @@ test("financial unlock tells authenticated users without a password to create on
 
 test("financial unlock verifies the authenticated account rather than a supplied email", async () => {
   const originalFindById = User.findById;
+  const originalSecret = process.env.JWT_SECRET;
+  process.env.JWT_SECRET =
+    "user-security-test-secret-that-is-at-least-32-characters";
   let requestedUserId;
   User.findById = (id) => {
     requestedUserId = id;
     return {
       select: async () => ({
+        _id: id,
         password: "stored-hash",
         matchPassword: async (password) => password === "correct-password",
       }),
@@ -117,6 +122,7 @@ test("financial unlock verifies the authenticated account rather than a supplied
     await checkAuth(
       {
         user: { _id: "authenticated-user" },
+        auth: { jti: "access-session" },
         body: {
           email: "another-user@example.com",
           password: "correct-password",
@@ -128,8 +134,11 @@ test("financial unlock verifies the authenticated account rather than a supplied
     assert.equal(requestedUserId, "authenticated-user");
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.success, true);
+    assert.equal(typeof response.body.stepUpToken, "string");
   } finally {
     User.findById = originalFindById;
+    if (originalSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = originalSecret;
   }
 });
 

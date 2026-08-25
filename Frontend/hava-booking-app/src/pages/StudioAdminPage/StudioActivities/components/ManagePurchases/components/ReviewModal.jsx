@@ -43,9 +43,9 @@ const CustomSelect = ({
     <div className='relative' ref={dropdownRef}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className='w-full p-2.5 pl-9 pr-8 rounded-lg border border-gray-200 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 outline-none text-sm font-medium bg-white flex items-center justify-between cursor-pointer shadow-sm'>
+        className='w-full p-2.5 pl-9 pr-8 rounded-lg border border-stone-200 focus-within:ring-2 focus-within:ring-stone-500 focus-within:border-stone-500 outline-none text-sm font-medium bg-white flex items-center justify-between cursor-pointer shadow-sm'>
         {Icon && (
-          <Icon className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400' />
+          <Icon className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400' />
         )}
 
         <div className='flex items-center gap-3 overflow-hidden'>
@@ -57,18 +57,18 @@ const CustomSelect = ({
             />
           )}
           <span
-            className={`truncate ${selectedOption ? "text-gray-900 font-bold" : "text-gray-500"}`}>
+            className={`truncate ${selectedOption ? "text-stone-900 font-bold" : "text-stone-500"}`}>
             {selectedOption ? selectedOption.name : placeholder}
           </span>
         </div>
 
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform absolute right-3 top-1/2 -translate-y-1/2 ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-stone-400 transition-transform absolute right-3 top-1/2 -translate-y-1/2 ${isOpen ? "rotate-180" : ""}`}
         />
       </div>
 
       {isOpen && (
-        <div className='absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-1 animate-in fade-in slide-in-from-top-1'>
+        <div className='absolute z-50 w-full mt-1 bg-white border border-stone-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-1 animate-in fade-in slide-in-from-top-1'>
           {options.map((opt) => (
             <div
               key={opt.id}
@@ -76,7 +76,7 @@ const CustomSelect = ({
                 onChange(opt.id);
                 setIsOpen(false);
               }}
-              className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${value === opt.id ? "bg-emerald-50 text-emerald-800" : "text-gray-700 hover:bg-gray-50"}`}>
+              className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${value === opt.id ? "bg-stone-100 text-stone-900" : "text-stone-700 hover:bg-stone-50"}`}>
               {opt.logo ? (
                 <img
                   src={opt.logo}
@@ -84,7 +84,7 @@ const CustomSelect = ({
                   className='h-5 w-8 object-contain shrink-0'
                 />
               ) : (
-                <div className='h-5 w-8 shrink-0 flex items-center justify-center bg-gray-100 rounded text-[10px] font-bold text-gray-400'>
+                <div className='h-5 w-8 shrink-0 flex items-center justify-center bg-stone-100 rounded text-[10px] font-bold text-stone-400'>
                   N/A
                 </div>
               )}
@@ -248,7 +248,7 @@ const ReviewModal = ({
   const renderStatusBadge = () => {
     if (isConfirmed) {
       return (
-        <span className='inline-flex items-center gap-1.5 text-emerald-600 font-bold text-sm bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100'>
+        <span className='inline-flex items-center gap-1.5 text-stone-800 font-bold text-sm bg-stone-100 px-2 py-1 rounded-md border border-stone-200'>
           <CheckCircle2 className='w-4 h-4' /> Confirmed
         </span>
       );
@@ -274,7 +274,7 @@ const ReviewModal = ({
         </span>
       );
     }
-    return <span className='text-gray-500 font-medium'>Unknown Status</span>;
+    return <span className='text-stone-500 font-medium'>Unknown Status</span>;
   };
 
   return (
@@ -284,17 +284,17 @@ const ReviewModal = ({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className='bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]'>
-        <div className='p-6 border-b border-gray-100 flex justify-between items-start'>
+        <div className='p-6 border-b border-stone-100 flex justify-between items-start'>
           <div>
-            <h3 className='text-xl font-bold text-gray-900'>Review Payment</h3>
-            <p className='text-sm text-gray-500 font-mono mt-1'>
+            <h3 className='text-xl font-bold text-stone-900'>Review Payment</h3>
+            <p className='text-sm text-stone-500 font-mono mt-1'>
               ID: {purchase.transactionId}
             </p>
           </div>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-gray-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-500' />
+            className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+            <X className='w-5 h-5 text-stone-500' />
           </button>
         </div>
 
@@ -302,15 +302,15 @@ const ReviewModal = ({
           <div className='flex flex-col md:flex-row gap-6'>
             <div className='flex-1'>
               {isPayAtStudio ? (
-                <div className='bg-emerald-50 rounded-xl p-6 border border-emerald-100 h-full flex flex-col'>
-                  <div className='flex items-center gap-2 mb-6 text-emerald-800 font-bold'>
+                <div className='bg-stone-100 rounded-xl p-6 border border-stone-200 h-full flex flex-col'>
+                  <div className='flex items-center gap-2 mb-6 text-stone-900 font-bold'>
                     <DollarSign className='w-5 h-5' />
                     <span>Studio Payment Details</span>
                   </div>
 
                   {showReviewActions ? (
                     <div className='flex-1'>
-                      <label className='block text-sm font-medium text-emerald-900 mb-3'>
+                      <label className='block text-sm font-medium text-stone-900 mb-3'>
                         Payment Received Via{" "}
                         <span className='text-red-500'>*</span>
                       </label>
@@ -334,8 +334,8 @@ const ReviewModal = ({
                               }}
                               className={`py-2 px-3 rounded-lg border text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                                 paymentType === type
-                                  ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
-                                  : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                  ? "bg-stone-600 text-white border-stone-600 shadow-md"
+                                  : "bg-white text-stone-900 border-stone-300 hover:bg-stone-200"
                               }`}>
                               {type}
                             </button>
@@ -347,8 +347,8 @@ const ReviewModal = ({
                       <div className='animate-in fade-in slide-in-from-top-2 duration-200'>
                         {/* Custom QRIS Select */}
                         {paymentType === "QRIS" && (
-                          <div className='space-y-3 bg-white p-4 rounded-xl border border-emerald-100 shadow-sm'>
-                            <label className='block text-xs font-bold text-gray-600'>
+                          <div className='space-y-3 bg-white p-4 rounded-xl border border-stone-200 shadow-sm'>
+                            <label className='block text-xs font-bold text-stone-600'>
                               QRIS Issuer{" "}
                               <span className='text-red-500'>*</span>
                             </label>
@@ -364,8 +364,8 @@ const ReviewModal = ({
 
                         {/* Custom Transfer Select */}
                         {paymentType === "Transfer" && (
-                          <div className='space-y-3 bg-white p-4 rounded-xl border border-emerald-100 shadow-sm'>
-                            <label className='block text-xs font-bold text-gray-600'>
+                          <div className='space-y-3 bg-white p-4 rounded-xl border border-stone-200 shadow-sm'>
+                            <label className='block text-xs font-bold text-stone-600'>
                               Bank Issuer{" "}
                               <span className='text-red-500'>*</span>
                             </label>
@@ -381,9 +381,9 @@ const ReviewModal = ({
 
                         {/* EDC Inputs */}
                         {paymentType === "EDC" && (
-                          <div className='space-y-3 bg-white p-4 rounded-xl border border-emerald-100 shadow-sm'>
+                          <div className='space-y-3 bg-white p-4 rounded-xl border border-stone-200 shadow-sm'>
                             <div>
-                              <label className='block text-xs font-bold text-gray-600 mb-1'>
+                              <label className='block text-xs font-bold text-stone-600 mb-1'>
                                 Appli Code{" "}
                                 <span className='text-red-500'>*</span>
                               </label>
@@ -392,16 +392,16 @@ const ReviewModal = ({
                                 value={appliCode}
                                 onChange={(e) => setAppliCode(e.target.value)}
                                 placeholder='e.g. 123456'
-                                className='w-full p-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm font-medium'
+                                className='w-full p-2.5 rounded-lg border border-stone-200 focus:ring-2 focus:ring-stone-500 focus:border-stone-500 outline-none text-sm font-medium'
                               />
                             </div>
                             <div>
-                              <label className='block text-xs font-bold text-gray-600 mb-1'>
+                              <label className='block text-xs font-bold text-stone-600 mb-1'>
                                 Last 4 Digits of Card{" "}
                                 <span className='text-red-500'>*</span>
                               </label>
                               <div className='relative'>
-                                <CreditCard className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400' />
+                                <CreditCard className='w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400' />
                                 <input
                                   type='text'
                                   maxLength={4}
@@ -412,7 +412,7 @@ const ReviewModal = ({
                                     )
                                   }
                                   placeholder='e.g. 9876'
-                                  className='w-full p-2.5 pl-9 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm font-mono'
+                                  className='w-full p-2.5 pl-9 rounded-lg border border-stone-200 focus:ring-2 focus:ring-stone-500 focus:border-stone-500 outline-none text-sm font-mono'
                                 />
                               </div>
                             </div>
@@ -426,24 +426,24 @@ const ReviewModal = ({
                             value={customIssuer}
                             onChange={(e) => setCustomIssuer(e.target.value)}
                             placeholder='Specify custom payment method...'
-                            className='w-full p-3 rounded-lg border border-emerald-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-white'
+                            className='w-full p-3 rounded-lg border border-stone-300 focus:ring-2 focus:ring-stone-500 focus:border-stone-500 outline-none text-sm bg-white'
                           />
                         )}
                       </div>
                     </div>
                   ) : (
-                    <div className='bg-white p-4 rounded-xl border border-emerald-100 mt-auto shadow-sm'>
-                      <p className='text-xs text-emerald-600 font-bold uppercase mb-1'>
+                    <div className='bg-white p-4 rounded-xl border border-stone-200 mt-auto shadow-sm'>
+                      <p className='text-xs text-stone-800 font-bold uppercase mb-1'>
                         Received Via
                       </p>
-                      <p className='text-emerald-900 font-medium'>
+                      <p className='text-stone-900 font-medium'>
                         {purchase.paymentIssuer || "Not specified"}
                       </p>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className='bg-gray-100 rounded-xl overflow-hidden border border-gray-200 min-h-[300px] flex items-center justify-center relative'>
+                <div className='bg-stone-100 rounded-xl overflow-hidden border border-stone-200 min-h-[300px] flex items-center justify-center relative'>
                   {purchase.proofOfPayment ? (
                     <img
                       src={fetchImage(purchase.proofOfPayment)}
@@ -451,7 +451,7 @@ const ReviewModal = ({
                       className='w-full h-full object-contain'
                     />
                   ) : (
-                    <div className='text-center text-gray-400'>
+                    <div className='text-center text-stone-400'>
                       <p>No Proof Uploaded</p>
                     </div>
                   )}
@@ -460,26 +460,26 @@ const ReviewModal = ({
             </div>
 
             <div className='w-full md:w-72 flex flex-col gap-4'>
-              <div className='p-4 bg-gray-50 rounded-xl space-y-3'>
+              <div className='p-4 bg-stone-50 rounded-xl space-y-3'>
                 <div>
-                  <label className='text-xs text-gray-500 uppercase font-bold'>
+                  <label className='text-xs text-stone-500 uppercase font-bold'>
                     Customer
                   </label>
-                  <p className='font-medium text-gray-900'>
+                  <p className='font-medium text-stone-900'>
                     {purchase.userId?.fullName}
                   </p>
                 </div>
                 <div>
-                  <label className='text-xs text-gray-500 uppercase font-bold'>
+                  <label className='text-xs text-stone-500 uppercase font-bold'>
                     Package
                   </label>
-                  <p className='font-medium text-gray-900'>
+                  <p className='font-medium text-stone-900'>
                     {purchase.packageId?.packageName}
                   </p>
                 </div>
                 {purchase.promoCodeApplied && (
                   <div>
-                    <label className='text-xs text-gray-500 uppercase font-bold'>
+                    <label className='text-xs text-stone-500 uppercase font-bold'>
                       Promo Applied
                     </label>
                     <p className='font-medium text-pink-600'>
@@ -489,10 +489,10 @@ const ReviewModal = ({
                   </div>
                 )}
                 <div>
-                  <label className='text-xs text-gray-500 uppercase font-bold'>
+                  <label className='text-xs text-stone-500 uppercase font-bold'>
                     Amount
                   </label>
-                  <p className='font-bold text-lg text-emerald-700'>
+                  <p className='font-bold text-lg text-stone-800'>
                     {new Intl.NumberFormat("id-ID", {
                       style: "currency",
                       currency: "IDR",
@@ -501,25 +501,25 @@ const ReviewModal = ({
                   </p>
                 </div>
                 <div>
-                  <label className='text-xs text-gray-500 uppercase font-bold'>
+                  <label className='text-xs text-stone-500 uppercase font-bold'>
                     Method
                   </label>
-                  <p className='font-medium text-gray-900 capitalize'>
+                  <p className='font-medium text-stone-900 capitalize'>
                     {purchase.paymentMethod?.replace(/_/g, " ")}
                   </p>
                 </div>
                 {purchase.paymentIssuer && !isPayAtStudio && (
                   <div>
-                    <label className='text-xs text-gray-500 uppercase font-bold'>
+                    <label className='text-xs text-stone-500 uppercase font-bold'>
                       Issuer (Bank / QRIS)
                     </label>
-                    <p className='font-medium text-gray-900 capitalize'>
+                    <p className='font-medium text-stone-900 capitalize'>
                       {purchase.paymentIssuer?.replace(/_/g, " ")}
                     </p>
                   </div>
                 )}
                 <div>
-                  <label className='text-xs text-gray-500 uppercase font-bold mb-1 block'>
+                  <label className='text-xs text-stone-500 uppercase font-bold mb-1 block'>
                     Status
                   </label>
                   {renderStatusBadge()}
@@ -532,7 +532,7 @@ const ReviewModal = ({
                     <button
                       onClick={() => setConfirmationStep("confirm_approve")}
                       disabled={isApproveDisabled()}
-                      className='w-full py-3 bg-emerald-900 text-white rounded-xl font-bold hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-2'>
+                      className='w-full py-3 bg-stone-600 text-white rounded-xl font-bold hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-2'>
                       <CheckCircle2 className='w-4 h-4' /> Approve Payment
                     </button>
                     <button
@@ -566,7 +566,7 @@ const ReviewModal = ({
                         <button
                           onClick={handleConfirmApprove}
                           disabled={isProcessing}
-                          className='flex-1 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-50'>
+                          className='flex-1 py-2 bg-stone-600 text-white rounded-lg text-sm font-bold hover:bg-stone-700 disabled:opacity-50'>
                           {isProcessing ? "Processing..." : "Yes"}
                         </button>
                       </div>
@@ -579,13 +579,13 @@ const ReviewModal = ({
                       placeholder='Reason...'
                       value={rejectionReason}
                       onChange={(e) => setRejectionReason(e.target.value)}
-                      className='w-full p-3 rounded-xl border border-gray-300 text-sm mb-3 focus:border-red-500 outline-none'
+                      className='w-full p-3 rounded-xl border border-stone-300 text-sm mb-3 focus:border-red-500 outline-none'
                       rows={2}
                     />
                     <div className='flex gap-2'>
                       <button
                         onClick={() => setConfirmationStep("initial")}
-                        className='flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200'>
+                        className='flex-1 py-2 bg-stone-100 text-stone-700 rounded-lg text-sm font-bold hover:bg-stone-200'>
                         Cancel
                       </button>
                       <button
@@ -607,7 +607,7 @@ const ReviewModal = ({
                     </button>
                     <button
                       onClick={onClose}
-                      className='w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200'>
+                      className='w-full py-3 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200'>
                       Close
                     </button>
                   </>
@@ -616,7 +616,7 @@ const ReviewModal = ({
                 {(isConfirmed || isExpired) && (
                   <button
                     onClick={onClose}
-                    className='w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl mt-auto hover:bg-gray-200'>
+                    className='w-full py-3 bg-stone-100 text-stone-700 font-bold rounded-xl mt-auto hover:bg-stone-200'>
                     Close
                   </button>
                 )}

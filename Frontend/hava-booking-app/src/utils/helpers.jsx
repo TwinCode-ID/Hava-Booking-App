@@ -46,7 +46,7 @@ export const getBankLogo = (bankName) => {
 
   // Fallback icon based on whether it sounds like a wallet or bank
   if (n.includes("pay") || n.includes("wallet")) {
-    return <Wallet className='w-5 h-5 text-gray-400' />;
+    return <Wallet className='w-5 h-5 text-stone-400' />;
   }
-  return <Landmark className='w-5 h-5 text-gray-400' />;
+  return <Landmark className='w-5 h-5 text-stone-400' />;
 };

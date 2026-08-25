@@ -19,34 +19,15 @@ import { API_PATHS } from "../../../utils/apiPath";
 import uploadProfile from "../../../utils/uploadStudio";
 import { fetchImage } from "../../../utils/helper";
 import PasskeyList from "../../../components/PasskeyList";
-import { getSuggestedPasskeyName } from "../../../utils/passkey";
-
-// --- WebAuthn Helper Functions ---
-const base64URLStringToBuffer = (base64URLString) => {
-  const base64 = base64URLString.replace(/-/g, "+").replace(/_/g, "/");
-  const padLength = (4 - (base64.length % 4)) % 4;
-  const padded = base64.padEnd(base64.length + padLength, "=");
-  const binary = atob(padded);
-  const buffer = new ArrayBuffer(binary.length);
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return buffer;
-};
-
-const bufferToBase64URLString = (buffer) => {
-  const bytes = new Uint8Array(buffer);
-  let str = "";
-  for (const charCode of bytes) {
-    str += String.fromCharCode(charCode);
-  }
-  const base64String = btoa(str);
-  return base64String.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-};
+import {
+  getSuggestedPasskeyName,
+  PASSKEY_STEP_UP_CANCELLED,
+  withPasswordStepUp,
+} from "../../../utils/passkey";
+import { startRegistration } from "@simplewebauthn/browser";
 
 const SettingList = () => {
-  const { user, setUser } = useAuth();
+  const { user, updateUser } = useAuth();
 
   // --- States ---
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -89,7 +70,7 @@ const SettingList = () => {
       const { data } = await axiosInstance.get(API_PATHS.PASSKEY.LIST);
       setPasskeys(Array.isArray(data) ? data : data?.passkeys || []);
     } catch (error) {
-      console.error("Failed to load passkeys:", error);
+      console.error("Failed to load passkeys.");
       setPasskeyListError(
         error.response?.data?.error ||
           error.response?.data?.message ||
@@ -203,7 +184,7 @@ const SettingList = () => {
       );
       const fetchedUserData = responseBack.data;
 
-      if (setUser) setUser(fetchedUserData);
+      updateUser(fetchedUserData);
 
       const cleanFetched = {
         fullName: fetchedUserData.fullName || "",
@@ -217,8 +198,8 @@ const SettingList = () => {
       setPreviewImage(fetchedUserData.avatar || null);
 
       alert("Profile updated successfully!");
-    } catch (error) {
-      console.error("Update failed", error);
+    } catch {
+      console.error("Profile update failed.");
       alert("Failed to update profile.");
     } finally {
       setIsLoadingProfile(false);
@@ -233,8 +214,10 @@ const SettingList = () => {
           ? "New passwords do not match!"
           : "Passwords do not match!",
       );
-    if (passwordData.newPassword.length < 6)
-      return alert("Password must be at least 6 characters long.");
+    if (passwordData.newPassword.length < 8)
+      return alert("Password must be at least 8 characters long.");
+    if (passwordData.newPassword.length > 128)
+      return alert("Password must be no more than 128 characters long.");
     if (user?.hasPassword && !passwordData.currentPassword) {
       return alert("Please enter your current password.");
     }
@@ -256,11 +239,9 @@ const SettingList = () => {
         newPassword: "",
         confirmPassword: "",
       });
-      if (setUser) {
-        setUser((currentUser) => ({ ...currentUser, hasPassword: true }));
-      }
+      updateUser({ hasPassword: true });
     } catch (error) {
-      console.error("Password update failed", error);
+      console.error("Password update failed.");
       alert(error.response?.data?.message || "Failed to update password.");
     } finally {
       setIsLoadingPassword(false);
@@ -275,59 +256,40 @@ const SettingList = () => {
 
     setIsRegisteringPasskey(true);
     try {
-      const { data: options } = await axiosInstance.post(
-        API_PATHS.PASSKEY.REGISTER_START,
-        {},
+      const { data } = await withPasswordStepUp((requestConfig) =>
+        axiosInstance.post(
+          API_PATHS.PASSKEY.REGISTER_START,
+          {},
+          requestConfig,
+        ),
       );
-
-      const publicKeyCredentialCreationOptions = {
-        ...options,
-        challenge: base64URLStringToBuffer(options.challenge),
-        user: {
-          ...options.user,
-          id: base64URLStringToBuffer(options.user.id),
-        },
-      };
-
-      if (options.excludeCredentials) {
-        publicKeyCredentialCreationOptions.excludeCredentials =
-          options.excludeCredentials.map((cred) => ({
-            ...cred,
-            id: base64URLStringToBuffer(cred.id),
-          }));
+      const { ceremonyId, options } = data;
+      if (typeof ceremonyId !== "string" || !options) {
+        throw new Error("The server returned an invalid passkey request.");
       }
 
-      const credential = await navigator.credentials.create({
-        publicKey: publicKeyCredentialCreationOptions,
+      const registrationResponse = await startRegistration({
+        optionsJSON: options,
       });
 
-      const credentialResponse = {
-        id: credential.id,
-        rawId: bufferToBase64URLString(credential.rawId),
-        type: credential.type,
-        response: {
-          attestationObject: bufferToBase64URLString(
-            credential.response.attestationObject,
-          ),
-          clientDataJSON: bufferToBase64URLString(
-            credential.response.clientDataJSON,
-          ),
-          transports: credential.response.getTransports?.() || [],
-        },
-      };
-
       await axiosInstance.post(API_PATHS.PASSKEY.REGISTER_FINISH, {
-        registrationResponse: credentialResponse,
+        ceremonyId,
+        registrationResponse,
         name: getSuggestedPasskeyName(),
       });
 
       await fetchPasskeys();
       alert("Passkey registered successfully! You can now use it to log in.");
     } catch (error) {
-      console.error("Passkey registration failed:", error);
-      if (error.name !== "NotAllowedError") {
+      console.error("Passkey registration failed.");
+      if (error.name === PASSKEY_STEP_UP_CANCELLED) return;
+      if (
+        error.name !== "NotAllowedError" &&
+        error.cause?.name !== "NotAllowedError"
+      ) {
         alert(
           error.response?.data?.error ||
+            error.response?.data?.message ||
             error.message ||
             "Failed to register passkey.",
         );
@@ -350,13 +312,17 @@ const SettingList = () => {
     setDeletingPasskeyId(passkeyId);
     setPasskeyListError("");
     try {
-      const { data } = await axiosInstance.delete(
-        API_PATHS.PASSKEY.DELETE(passkeyId),
+      const { data } = await withPasswordStepUp((requestConfig) =>
+        axiosInstance.delete(
+          API_PATHS.PASSKEY.DELETE(passkeyId),
+          requestConfig,
+        ),
       );
       if (Array.isArray(data?.passkeys)) setPasskeys(data.passkeys);
       else await fetchPasskeys();
     } catch (error) {
-      console.error("Failed to delete passkey:", error);
+      console.error("Failed to delete passkey.");
+      if (error.name === PASSKEY_STEP_UP_CANCELLED) return;
       setPasskeyListError(
         error.response?.data?.error ||
           error.response?.data?.message ||
@@ -368,13 +334,13 @@ const SettingList = () => {
   };
 
   return (
-    <div className='p-6 md:p-10 bg-gray-50 min-h-screen font-sans'>
+    <div className='p-6 md:p-10 bg-stone-50 min-h-screen font-sans'>
       {/* Header */}
       <div className='mb-10'>
-        <h1 className='text-3xl font-bold text-gray-900 tracking-tight'>
+        <h1 className='text-3xl font-bold text-stone-900 tracking-tight'>
           Account Settings
         </h1>
-        <p className='text-gray-500 mt-2 text-sm'>
+        <p className='text-stone-500 mt-2 text-sm'>
           Manage your personal details and account security settings.
         </p>
       </div>
@@ -382,12 +348,12 @@ const SettingList = () => {
       <div className='grid grid-cols-1 lg:grid-cols-12 gap-8'>
         {/* LEFT COLUMN: Profile Card */}
         <div className='lg:col-span-4 space-y-6'>
-          <div className='bg-white rounded-2xl p-8 border border-gray-100 shadow-sm flex flex-col items-center text-center'>
+          <div className='bg-white rounded-2xl p-8 border border-stone-100 shadow-sm flex flex-col items-center text-center'>
             <div className='relative group cursor-pointer mb-6'>
               <div
                 className={`w-32 h-32 rounded-full overflow-hidden border-4 ${
                   !previewImage
-                    ? "border-emerald-50 shadow-inner ring-4 ring-transparent group-hover:ring-emerald-50"
+                    ? "border-stone-100 shadow-inner ring-4 ring-transparent group-hover:ring-stone-100"
                     : "border-white ring-4 ring-transparent group-hover:ring-white"
                 }  transition-all duration-300`}>
                 {previewImage ? (
@@ -405,7 +371,7 @@ const SettingList = () => {
                     />
                   )
                 ) : (
-                  <div className='w-full h-full bg-emerald-50 flex items-center justify-center text-emerald-300'>
+                  <div className='w-full h-full bg-stone-100 flex items-center justify-center text-stone-400'>
                     <User className='w-12 h-12' />
                   </div>
                 )}
@@ -424,17 +390,17 @@ const SettingList = () => {
               </label>
             </div>
 
-            <h2 className='text-xl font-bold text-gray-900'>
+            <h2 className='text-xl font-bold text-stone-900'>
               {user?.fullName || "Admin User"}
             </h2>
-            <div className='inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold mt-2 border border-emerald-100'>
+            <div className='inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-bold mt-2 border border-stone-200'>
               <Shield className='w-3 h-3' /> {user?.role || "Administrator"}
             </div>
           </div>
 
-          <div className='bg-emerald-900 rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/20'>
+          <div className='bg-stone-600 rounded-2xl p-6 text-white shadow-lg shadow-stone-600/20'>
             <h3 className='font-bold text-lg mb-2'>Security Tip</h3>
-            <p className='text-emerald-200 text-sm leading-relaxed'>
+            <p className='text-stone-300 text-sm leading-relaxed'>
               Use a strong, unique password or register a Passkey to protect
               your studio's data.
             </p>
@@ -444,11 +410,11 @@ const SettingList = () => {
         {/* RIGHT COLUMN: Forms */}
         <div className='lg:col-span-8 space-y-8'>
           {/* 1. PERSONAL INFO CARD */}
-          <div className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden'>
-            <div className='px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center'>
-              <h3 className='font-bold text-gray-900 flex items-center gap-2.5'>
-                <div className='p-2 bg-white border border-gray-200 rounded-lg shadow-sm'>
-                  <User className='w-4 h-4 text-emerald-600' />
+          <div className='bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden'>
+            <div className='px-8 py-6 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center'>
+              <h3 className='font-bold text-stone-900 flex items-center gap-2.5'>
+                <div className='p-2 bg-white border border-stone-200 rounded-lg shadow-sm'>
+                  <User className='w-4 h-4 text-stone-800' />
                 </div>
                 Personal Information
               </h3>
@@ -462,7 +428,7 @@ const SettingList = () => {
             <form onSubmit={handleUpdateProfile} className='p-8 space-y-6'>
               <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                 <div className='col-span-2 md:col-span-1'>
-                  <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                  <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                     Full Name
                   </label>
                   <input
@@ -470,40 +436,40 @@ const SettingList = () => {
                     name='fullName'
                     value={profileData.fullName}
                     onChange={handleProfileChange}
-                    className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
+                    className='w-full p-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-stone-500 focus:border-transparent outline-none transition-all'
                   />
                 </div>
 
                 <div className='col-span-2 md:col-span-1'>
-                  <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                  <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                     Phone Number
                   </label>
                   <div className='relative'>
-                    <Phone className='absolute left-3 top-3.5 w-4 h-4 text-gray-400' />
+                    <Phone className='absolute left-3 top-3.5 w-4 h-4 text-stone-400' />
                     <input
                       type='tel'
                       name='phoneNumber'
                       value={profileData.phoneNumber}
                       onChange={handleProfileChange}
-                      className='w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
+                      className='w-full pl-10 p-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-stone-500 focus:border-transparent outline-none transition-all'
                     />
                   </div>
                 </div>
 
                 <div className='col-span-2'>
-                  <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                  <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                     Email Address
                   </label>
                   <div className='relative'>
-                    <Mail className='absolute left-3 top-3.5 w-4 h-4 text-gray-400' />
+                    <Mail className='absolute left-3 top-3.5 w-4 h-4 text-stone-400' />
                     <input
                       type='email'
                       name='email'
                       value={profileData.email}
                       disabled
-                      className='w-full pl-10 p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 cursor-not-allowed'
+                      className='w-full pl-10 p-3 bg-stone-100 border border-stone-200 rounded-xl text-sm text-stone-500 cursor-not-allowed'
                     />
-                    <span className='absolute right-3 top-3 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded'>
+                    <span className='absolute right-3 top-3 text-[10px] font-bold text-stone-800 bg-stone-100 px-2 py-1 rounded'>
                       VERIFIED
                     </span>
                   </div>
@@ -514,7 +480,7 @@ const SettingList = () => {
                 <button
                   type='submit'
                   disabled={isLoadingProfile || !isProfileDirty}
-                  className='px-6 py-2.5 bg-emerald-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-900/20 hover:bg-emerald-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:translate-y-0 disabled:cursor-not-allowed'>
+                  className='px-6 py-2.5 bg-stone-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-stone-600/20 hover:bg-stone-700 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingProfile ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (
@@ -527,18 +493,18 @@ const SettingList = () => {
           </div>
 
           {/* 2. PASSKEY CARD (NEW) */}
-          <div className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden'>
-            <div className='px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center'>
-              <h3 className='font-bold text-gray-900 flex items-center gap-2.5'>
-                <div className='p-2 bg-white border border-gray-200 rounded-lg shadow-sm'>
-                  <Fingerprint className='w-4 h-4 text-emerald-600' />
+          <div className='bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden'>
+            <div className='px-8 py-6 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center'>
+              <h3 className='font-bold text-stone-900 flex items-center gap-2.5'>
+                <div className='p-2 bg-white border border-stone-200 rounded-lg shadow-sm'>
+                  <Fingerprint className='w-4 h-4 text-stone-800' />
                 </div>
                 Passkeys & Biometrics
               </h3>
             </div>
 
             <div className='p-8'>
-              <p className='text-sm text-gray-500 mb-6'>
+              <p className='text-sm text-stone-500 mb-6'>
                 Register a passkey to sign in faster and more securely using
                 your device's biometric authentication (Fingerprint, FaceID) or
                 screen lock.
@@ -547,7 +513,7 @@ const SettingList = () => {
                 type='button'
                 onClick={handleRegisterPasskey}
                 disabled={isRegisteringPasskey}
-                className='px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-sm shadow-sm hover:bg-emerald-100 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'>
+                className='px-6 py-2.5 bg-stone-100 text-stone-800 border border-stone-300 rounded-xl font-bold text-sm shadow-sm hover:bg-stone-200 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'>
                 {isRegisteringPasskey ? (
                   <Loader2 className='w-4 h-4 animate-spin' />
                 ) : (
@@ -567,11 +533,11 @@ const SettingList = () => {
           </div>
 
           {/* 3. SECURITY CARD (Password) */}
-          <div className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden'>
-            <div className='px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center'>
-              <h3 className='font-bold text-gray-900 flex items-center gap-2.5'>
-                <div className='p-2 bg-white border border-gray-200 rounded-lg shadow-sm'>
-                  <Lock className='w-4 h-4 text-emerald-600' />
+          <div className='bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden'>
+            <div className='px-8 py-6 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center'>
+              <h3 className='font-bold text-stone-900 flex items-center gap-2.5'>
+                <div className='p-2 bg-white border border-stone-200 rounded-lg shadow-sm'>
+                  <Lock className='w-4 h-4 text-stone-800' />
                 </div>
                 {user?.hasPassword ? "Change Password" : "Create New Password"}
               </h3>
@@ -581,23 +547,24 @@ const SettingList = () => {
               <div className='space-y-4'>
                 {user?.hasPassword && (
                   <div>
-                    <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                    <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                       Old Password
                     </label>
                     <div className='relative'>
                       <input
                         type={showPassword.current ? "text" : "password"}
                         name='currentPassword'
-                        value={passwordData.currentPassword}
-                        onChange={handlePasswordChange}
-                        className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
-                        placeholder='Enter old password'
                         autoComplete='current-password'
+                        value={passwordData.currentPassword}
+                        maxLength={128}
+                        onChange={handlePasswordChange}
+                        className='w-full p-3 pr-10 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-stone-500 focus:border-transparent outline-none transition-all'
+                        placeholder='Enter old password'
                       />
                       <button
                         type='button'
                         onClick={() => togglePasswordVisibility("current")}
-                        className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'>
+                        className='absolute right-3 top-3.5 text-stone-400 hover:text-stone-600'>
                         {showPassword.current ? (
                           <EyeOff className='w-4 h-4' />
                         ) : (
@@ -610,23 +577,24 @@ const SettingList = () => {
 
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <div>
-                    <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                    <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                       {user?.hasPassword ? "New Password" : "Password"}
                     </label>
                     <div className='relative'>
                       <input
                         type={showPassword.new ? "text" : "password"}
                         name='newPassword'
-                        value={passwordData.newPassword}
-                        onChange={handlePasswordChange}
-                        className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
-                        placeholder='Min. 6 characters'
                         autoComplete='new-password'
+                        value={passwordData.newPassword}
+                        maxLength={128}
+                        onChange={handlePasswordChange}
+                        className='w-full p-3 pr-10 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-stone-500 focus:border-transparent outline-none transition-all'
+                        placeholder='Min. 8 characters'
                       />
                       <button
                         type='button'
                         onClick={() => togglePasswordVisibility("new")}
-                        className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'>
+                        className='absolute right-3 top-3.5 text-stone-400 hover:text-stone-600'>
                         {showPassword.new ? (
                           <EyeOff className='w-4 h-4' />
                         ) : (
@@ -637,23 +605,24 @@ const SettingList = () => {
                   </div>
 
                   <div>
-                    <label className='block text-xs font-bold text-gray-500 uppercase mb-2 ml-1'>
+                    <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                       Confirm Password
                     </label>
                     <div className='relative'>
                       <input
                         type={showPassword.confirm ? "text" : "password"}
                         name='confirmPassword'
-                        value={passwordData.confirmPassword}
-                        onChange={handlePasswordChange}
-                        className='w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all'
-                        placeholder='Re-enter new password'
                         autoComplete='new-password'
+                        value={passwordData.confirmPassword}
+                        maxLength={128}
+                        onChange={handlePasswordChange}
+                        className='w-full p-3 pr-10 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-stone-500 focus:border-transparent outline-none transition-all'
+                        placeholder='Re-enter new password'
                       />
                       <button
                         type='button'
                         onClick={() => togglePasswordVisibility("confirm")}
-                        className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'>
+                        className='absolute right-3 top-3.5 text-stone-400 hover:text-stone-600'>
                         {showPassword.confirm ? (
                           <EyeOff className='w-4 h-4' />
                         ) : (
@@ -674,7 +643,7 @@ const SettingList = () => {
                     !passwordData.confirmPassword ||
                     (user?.hasPassword && !passwordData.currentPassword)
                   }
-                  className='px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-gray-900/20 hover:bg-gray-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
+                  className='px-6 py-2.5 bg-stone-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-stone-700/20 hover:bg-stone-600 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingPassword ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (

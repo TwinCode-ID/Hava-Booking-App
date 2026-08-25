@@ -17,12 +17,12 @@ const NavigationItem = ({ item, isActive, onClick, isCollapsed }) => {
       onClick={() => onClick(item.id)}
       className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${
         isActive
-          ? "bg-emerald-800 text-white shadow-sm shadow-emerald-100"
-          : "text-gray-600 hover:bg-gray-50 hover:text-emerald-700"
+          ? "bg-stone-600 text-white shadow-sm shadow-stone-200"
+          : "text-stone-600 hover:bg-stone-50 hover:text-stone-800"
       }`}>
       <Icon
         className={`h-5 w-5 shrink-0 ${
-          isActive ? "text-white" : "text-gray-500"
+          isActive ? "text-white" : "text-stone-500"
         }`}
       />
       {!isCollapsed && <span className='ml-3 truncate'>{item.name}</span>}
@@ -84,7 +84,7 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
   const sidebarCollapsed = !isMobile && false;
 
   return (
-    <div className='flex h-screen bg-gray-50'>
+    <div className='flex h-screen bg-stone-50'>
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-50 transition-transform duration-300 transform ${
@@ -95,30 +95,30 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
             : "translate-x-0"
         } ${
           sidebarCollapsed ? "w-16" : "w-64"
-        } bg-white border-r border-gray-200`}>
+        } bg-white border-r border-stone-200`}>
         {/* Company Logo */}
-        <div className='flex items-center h-16 border-b border-gray-200 pl-6'>
+        <div className='flex items-center h-16 border-b border-stone-200 pl-6'>
           {!sidebarCollapsed ? (
             <Link className='flex items-center space-x-3' to='/'>
-              <div className='h-8 w-8 bg-emerald-900 rounded-lg flex items-center justify-center'>
+              <div className='h-8 w-8 bg-stone-600 rounded-lg flex items-center justify-center'>
                 <User className='h-5 w-5 text-white' />
               </div>
               {user.role === "studioAdmin" ? (
-                <span className='text-gray-900 font-bold text-xl'>
+                <span className='text-stone-900 font-bold text-xl'>
                   Admin Dashboard
                 </span>
               ) : user.role === "client" ? (
-                <span className='text-gray-900 font-bold text-xl'>
+                <span className='text-stone-900 font-bold text-xl'>
                   Client Dashboard
                 </span>
               ) : (
-                <span className='text-gray-900 font-bold text-xl'>
+                <span className='text-stone-900 font-bold text-xl'>
                   Dev Dashboard
                 </span>
               )}
             </Link>
           ) : (
-            <div className='h-8 w-8 bg-emerald-900 rounded-lg flex items-center justify-center'>
+            <div className='h-8 w-8 bg-stone-600 rounded-lg flex items-center justify-center'>
               <Building2 className='h-5 w-5 text-white' />
             </div>
           )}
@@ -166,9 +166,9 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
         {/* Logout */}
         <div className='absolute bottom-4 left-4 right-4'>
           <button
-            className='w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-emerald-700 transition-all duration-200'
+            className='w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-stone-600 hover:bg-stone-50 hover:text-stone-800 transition-all duration-200'
             onClick={logout}>
-            <LogOut className='h-5 w-5 shrink-0 text-gray-500' />
+            <LogOut className='h-5 w-5 shrink-0 text-stone-500' />
             {!sidebarCollapsed && <span className='ml-3'>Sign out</span>}
           </button>
         </div>
@@ -188,24 +188,24 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
           isMobile ? "ml-0" : sidebarCollapsed ? "ml-16" : "ml-64"
         }`}>
         {/* Top navbar */}
-        <header className='bg-white/80 backdrop-blur-sm border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30'>
+        <header className='bg-white/80 backdrop-blur-sm border-b border-stone-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30'>
           <div className='flex items-center space-x-4'>
             {isMobile && (
               <button
                 onClick={toggleSidebar}
-                className='p-2 rounded-xl hover:bg-gray-100 transition-colors duration-200'>
+                className='p-2 rounded-xl hover:bg-stone-100 transition-colors duration-200'>
                 {sidebarOpen ? (
-                  <X className='h-5 w-5 text-gray-600' />
+                  <X className='h-5 w-5 text-stone-600' />
                 ) : (
-                  <Menu className='h-5 w-5 text-gray-600' />
+                  <Menu className='h-5 w-5 text-stone-600' />
                 )}
               </button>
             )}
             <div>
-              <h1 className='text-base font-semibold text-gray-900'>
+              <h1 className='text-base font-semibold text-stone-900'>
                 Welcome Back
               </h1>
-              <p className='text-sm text-gray-500 hidden sm:block'>
+              <p className='text-sm text-stone-500 hidden sm:block'>
                 Here's what's happening with your studio today.
               </p>
             </div>

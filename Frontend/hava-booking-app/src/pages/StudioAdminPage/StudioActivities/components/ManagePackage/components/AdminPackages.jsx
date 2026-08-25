@@ -47,33 +47,33 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder }) => {
 
   return (
     <div className='relative' ref={containerRef}>
-      <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+      <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
         {label}
       </label>
       <button
         type='button'
         onClick={() => setIsOpen(!isOpen)}
-        className='w-full min-h-[42px] px-3 py-2 bg-white border border-gray-300 rounded-md text-left focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none flex justify-between items-center transition-shadow'>
+        className='w-full min-h-[42px] px-3 py-2 bg-white border border-stone-300 rounded-md text-left focus:ring-1 focus:ring-stone-500 focus:border-stone-500 outline-none flex justify-between items-center transition-shadow'>
         <div className='flex flex-wrap gap-1'>
           {value.length > 0 ? (
             value.map((item, idx) => (
               <span
                 key={idx}
-                className='bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs px-2 py-0.5 rounded-sm font-medium'>
+                className='bg-stone-100 text-stone-800 border border-stone-300 text-xs px-2 py-0.5 rounded-sm font-medium'>
                 {item}
               </span>
             ))
           ) : (
-            <span className='text-gray-400 text-sm'>{placeholder}</span>
+            <span className='text-stone-400 text-sm'>{placeholder}</span>
           )}
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-stone-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
       {isOpen && (
-        <div className='absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto p-1'>
+        <div className='absolute z-50 w-full mt-1 bg-white border border-stone-200 rounded-md shadow-lg max-h-60 overflow-y-auto p-1'>
           {options.map((option) => {
             const isSelected = value.includes(option);
             return (
@@ -82,11 +82,11 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder }) => {
                 onClick={() => toggleOption(option)}
                 className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded-sm text-sm transition-colors ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-medium"
-                    : "text-gray-700 hover:bg-gray-50"
+                    ? "bg-stone-100 text-stone-900 font-medium"
+                    : "text-stone-700 hover:bg-stone-50"
                 }`}>
                 <div
-                  className={`w-4 h-4 rounded-sm border flex items-center justify-center ${isSelected ? "bg-emerald-600 border-emerald-600" : "border-gray-300"}`}>
+                  className={`w-4 h-4 rounded-sm border flex items-center justify-center ${isSelected ? "bg-stone-600 border-stone-600" : "border-stone-300"}`}>
                   {isSelected && <Check className='w-3 h-3 text-white' />}
                 </div>
                 {option}
@@ -164,14 +164,14 @@ const AdminPackages = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-6 md:p-8 ${isEmbedded ? "pt-6" : ""} bg-gray-50/50 relative min-h-screen`}>
+      className={`p-6 md:p-8 ${isEmbedded ? "pt-6" : ""} bg-stone-50/50 relative min-h-screen`}>
       {!isEmbedded && (
         <div className='flex flex-col md:flex-row justify-between items-start mb-8 gap-4'>
           <div>
-            <h1 className='text-2xl font-bold text-gray-900 tracking-tight'>
+            <h1 className='text-2xl font-bold text-stone-900 tracking-tight'>
               Package Management
             </h1>
-            <p className='text-gray-500 text-sm mt-1'>
+            <p className='text-stone-500 text-sm mt-1'>
               Create and manage studio pricing tiers & combinations
             </p>
           </div>
@@ -180,20 +180,20 @@ const AdminPackages = ({ isEmbedded = false }) => {
 
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4'>
         <div className='relative w-full md:w-96'>
-          <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
+          <Search className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4' />
           <input
             type='text'
             placeholder='Search packages...'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className='w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-md text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all shadow-sm'
+            className='w-full pl-9 pr-4 py-2 bg-white border border-stone-300 rounded-md text-sm outline-none focus:border-stone-500 focus:ring-1 focus:ring-stone-500 transition-all shadow-sm'
           />
         </div>
 
         <div className='flex items-center gap-3 w-full md:w-auto justify-end'>
           <button
             onClick={() => setIsConfigModalOpen(true)}
-            className='bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-gray-50 transition-colors font-medium text-sm shadow-sm'>
+            className='bg-white border border-stone-300 text-stone-700 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-stone-50 transition-colors font-medium text-sm shadow-sm'>
             <Settings className='w-4 h-4' /> Categories
           </button>
           <button
@@ -201,7 +201,7 @@ const AdminPackages = ({ isEmbedded = false }) => {
               setEditingPackage(null);
               setIsFormOpen(true);
             }}
-            className='bg-emerald-800 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-emerald-900 transition-colors shadow-sm whitespace-nowrap text-sm font-medium'>
+            className='bg-stone-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-stone-700 transition-colors shadow-sm whitespace-nowrap text-sm font-medium'>
             <Plus className='w-4 h-4' /> New Package
           </button>
         </div>
@@ -228,8 +228,8 @@ const AdminPackages = ({ isEmbedded = false }) => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className='col-span-full py-16 text-center text-gray-500 bg-white rounded-lg border border-dashed border-gray-300'>
-            <PackageIcon className='w-8 h-8 mx-auto mb-3 text-gray-300' />
+            className='col-span-full py-16 text-center text-stone-500 bg-white rounded-lg border border-dashed border-stone-300'>
+            <PackageIcon className='w-8 h-8 mx-auto mb-3 text-stone-300' />
             <p className='text-sm'>No packages found.</p>
           </motion.div>
         )}
@@ -286,28 +286,28 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, scale: 0.98 }}
-    className='bg-white p-5 rounded-lg shadow-sm border border-gray-200 hover:border-emerald-200 transition-colors relative group flex flex-col'>
+    className='bg-white p-5 rounded-lg shadow-sm border border-stone-200 hover:border-stone-300 transition-colors relative group flex flex-col'>
     <div className='absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5'>
       <button
         onClick={onEdit}
-        className='p-1.5 bg-gray-50 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded-md border border-gray-200'>
+        className='p-1.5 bg-stone-50 hover:bg-stone-100 text-stone-500 hover:text-stone-800 rounded-md border border-stone-200'>
         <Edit2 className='w-3.5 h-3.5' />
       </button>
       <button
         onClick={isActive}
-        className='p-1.5 bg-gray-50 hover:bg-blue-50 text-gray-500 hover:text-blue-700 rounded-md border border-gray-200'>
+        className='p-1.5 bg-stone-50 hover:bg-blue-50 text-stone-500 hover:text-blue-700 rounded-md border border-stone-200'>
         <Power className='w-3.5 h-3.5' />
       </button>
       <button
         onClick={onDelete}
-        className='p-1.5 bg-gray-50 hover:bg-red-50 text-gray-500 hover:text-red-700 rounded-md border border-gray-200'>
+        className='p-1.5 bg-stone-50 hover:bg-red-50 text-stone-500 hover:text-red-700 rounded-md border border-stone-200'>
         <Trash2 className='w-3.5 h-3.5' />
       </button>
     </div>
 
     <div className='flex flex-wrap items-center gap-2 mb-3'>
       <div
-        className={`px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider ${pkg.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
+        className={`px-2 py-0.5 rounded-sm text-[10px] font-bold tracking-wider ${pkg.isActive ? "bg-stone-200 text-stone-900" : "bg-stone-100 text-stone-600"}`}>
         {pkg.isActive ? "ACTIVE" : "INACTIVE"}
       </div>
 
@@ -344,60 +344,60 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
       )}
     </div>
 
-    <h3 className='text-base font-bold text-gray-900'>{pkg.packageName}</h3>
+    <h3 className='text-base font-bold text-stone-900'>{pkg.packageName}</h3>
 
     {pkg.isPromo ? (
       <div className='mt-1 mb-3'>
-        <span className='text-sm text-gray-400 line-through mr-2'>
+        <span className='text-sm text-stone-400 line-through mr-2'>
           {parseInt(pkg.packagePrice).toLocaleString("id-ID")} {pkg.currency}
         </span>
-        <span className='text-xl font-bold text-emerald-800'>
+        <span className='text-xl font-bold text-stone-900'>
           {parseInt(pkg.promoPrice).toLocaleString("id-ID")} {pkg.currency}
         </span>
       </div>
     ) : (
-      <div className='text-xl font-bold text-emerald-800 mt-1 mb-3'>
+      <div className='text-xl font-bold text-stone-900 mt-1 mb-3'>
         {parseInt(pkg.packagePrice).toLocaleString("id-ID")} {pkg.currency}
       </div>
     )}
 
-    <div className='flex-1 border-t border-gray-100 pt-3'>
-      <p className='text-sm text-gray-600 mb-4 line-clamp-2'>
+    <div className='flex-1 border-t border-stone-100 pt-3'>
+      <p className='text-sm text-stone-600 mb-4 line-clamp-2'>
         {pkg.packageDescription}
       </p>
 
       <div className='flex flex-col gap-1 mb-4'>
-        <div className='flex items-center gap-2 text-sm text-gray-600 font-medium'>
-          <Calendar className='w-4 h-4 text-gray-400' />
+        <div className='flex items-center gap-2 text-sm text-stone-600 font-medium'>
+          <Calendar className='w-4 h-4 text-stone-400' />
           Active for {pkg.validityDays} days after first use
         </div>
-        <div className='flex items-center gap-2 text-[11px] text-gray-500 font-medium ml-6'>
+        <div className='flex items-center gap-2 text-[11px] text-stone-500 font-medium ml-6'>
           *Must be activated within {pkg.activationPeriodDays} days
         </div>
       </div>
 
       {pkg.isCombo ? (
-        <div className='space-y-2 bg-gray-50/50 p-3 rounded-md border border-gray-100'>
-          <div className='text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2'>
+        <div className='space-y-2 bg-stone-50/50 p-3 rounded-md border border-stone-100'>
+          <div className='text-[11px] font-bold text-stone-500 uppercase tracking-wider mb-2'>
             Combo Includes
           </div>
           {pkg.comboItems?.map((item, idx) => (
             <div
               key={idx}
-              className='bg-white p-2.5 rounded-sm border border-gray-200 shadow-sm'>
-              <div className='font-bold text-sm text-gray-800 mb-1.5'>
+              className='bg-white p-2.5 rounded-sm border border-stone-200 shadow-sm'>
+              <div className='font-bold text-sm text-stone-800 mb-1.5'>
                 {item.credits} Credits
               </div>
               <div className='flex flex-col gap-1 text-xs'>
                 <div className='flex items-start gap-1.5'>
-                  <PersonStandingIcon className='w-3.5 h-3.5 text-gray-400 shrink-0' />
-                  <span className='text-gray-600 leading-tight'>
+                  <PersonStandingIcon className='w-3.5 h-3.5 text-stone-400 shrink-0' />
+                  <span className='text-stone-600 leading-tight'>
                     {item.instructorType.join(", ")}
                   </span>
                 </div>
                 <div className='flex items-start gap-1.5'>
-                  <Settings className='w-3.5 h-3.5 text-gray-400 shrink-0' />
-                  <span className='text-gray-600 leading-tight'>
+                  <Settings className='w-3.5 h-3.5 text-stone-400 shrink-0' />
+                  <span className='text-stone-600 leading-tight'>
                     {item.classType.join(", ")}
                   </span>
                 </div>
@@ -408,13 +408,13 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
       ) : (
         <div className='grid grid-cols-1 gap-2.5 text-sm'>
           <div className='flex items-start gap-2'>
-            <Layers className='w-4 h-4 text-gray-400 mt-0.5 shrink-0' />
-            <span className='font-medium text-gray-700'>
+            <Layers className='w-4 h-4 text-stone-400 mt-0.5 shrink-0' />
+            <span className='font-medium text-stone-700'>
               {pkg.credits} Credits
             </span>
           </div>
           <div className='flex items-start gap-2'>
-            <PersonStandingIcon className='w-4 h-4 text-gray-400 mt-0.5 shrink-0' />
+            <PersonStandingIcon className='w-4 h-4 text-stone-400 mt-0.5 shrink-0' />
             <div className='flex flex-wrap gap-1'>
               {pkg.instructorType?.map((type, i) => (
                 <span
@@ -426,7 +426,7 @@ const AdminPackageCard = ({ pkg, onEdit, onDelete, isActive }) => (
             </div>
           </div>
           <div className='flex items-start gap-2'>
-            <Settings className='w-4 h-4 text-gray-400 mt-0.5 shrink-0' />
+            <Settings className='w-4 h-4 text-stone-400 mt-0.5 shrink-0' />
             <div className='flex flex-wrap gap-1'>
               {pkg.classType?.map((type, i) => (
                 <span
@@ -574,18 +574,18 @@ const PackageFormModal = ({
   ];
 
   return (
-    <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+    <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         className='bg-white rounded-lg w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]'>
-        <div className='flex justify-between items-center p-6 border-b border-gray-100'>
-          <h2 className='text-xl font-bold text-gray-900'>
+        <div className='flex justify-between items-center p-6 border-b border-stone-100'>
+          <h2 className='text-xl font-bold text-stone-900'>
             {initialData ? "Edit Package" : "Create Package"}
           </h2>
           <button
             onClick={onClose}
-            className='text-gray-400 hover:text-gray-600'>
+            className='text-stone-400 hover:text-stone-600'>
             <X className='w-5 h-5' />
           </button>
         </div>
@@ -609,7 +609,7 @@ const PackageFormModal = ({
                 />
               </div>
               <div className='md:col-span-2'>
-                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                   Package Name
                 </label>
                 <input
@@ -618,11 +618,11 @@ const PackageFormModal = ({
                   required
                   value={formData.packageName}
                   onChange={handleInputChange}
-                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                  className='w-full p-2.5 rounded-md border border-stone-300 focus:border-stone-500 focus:ring-1 focus:ring-stone-500 outline-none text-sm'
                 />
               </div>
               <div className='md:col-span-2'>
-                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                   Description
                 </label>
                 <textarea
@@ -630,11 +630,11 @@ const PackageFormModal = ({
                   rows='2'
                   value={formData.packageDescription}
                   onChange={handleInputChange}
-                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                  className='w-full p-2.5 rounded-md border border-stone-300 focus:border-stone-500 focus:ring-1 focus:ring-stone-500 outline-none text-sm'
                 />
               </div>
               <div>
-                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                   {formData.isPromo ? "Original Price" : "Price"} (
                   {formData.currency})
                 </label>
@@ -650,12 +650,12 @@ const PackageFormModal = ({
                       : ""
                   }
                   onChange={handlePriceChange} // Changed handler
-                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                  className='w-full p-2.5 rounded-md border border-stone-300 focus:border-stone-500 focus:ring-1 focus:ring-stone-500 outline-none text-sm'
                 />
               </div>
               <div></div> {/* Empty div to keep the grid clean */}
               <div>
-                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                   Must Activate Within (Days)
                 </label>
                 <input
@@ -664,11 +664,11 @@ const PackageFormModal = ({
                   required
                   value={formData.activationPeriodDays}
                   onChange={handleInputChange}
-                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                  className='w-full p-2.5 rounded-md border border-stone-300 focus:border-stone-500 focus:ring-1 focus:ring-stone-500 outline-none text-sm'
                 />
               </div>
               <div>
-                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                   Validity After 1st Class (Days)
                 </label>
                 <input
@@ -677,12 +677,12 @@ const PackageFormModal = ({
                   required
                   value={formData.validityDays}
                   onChange={handleInputChange}
-                  className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                  className='w-full p-2.5 rounded-md border border-stone-300 focus:border-stone-500 focus:ring-1 focus:ring-stone-500 outline-none text-sm'
                 />
               </div>
             </div>
 
-            <hr className='border-gray-100' />
+            <hr className='border-stone-100' />
             {/* 
             # STUDENT PACKAGE SELECTOR OFF CHANGE TO BASED ON PACKAGE CATERGORY
 
@@ -707,7 +707,7 @@ const PackageFormModal = ({
                     })
                   }
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
               </label>
             </div> */}
 
@@ -732,7 +732,7 @@ const PackageFormModal = ({
                     })
                   }
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
               </label>
             </div>
 
@@ -758,14 +758,14 @@ const PackageFormModal = ({
                     })
                   }
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
               </label>
             </div>
 
             {/* EXPIRY REMINDER SETTINGS (Only visible if toggled on) */}
             {formData.enableExpiryReminder && (
               <div className='p-4 bg-white border border-indigo-100 rounded-md shadow-sm'>
-                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3'>
+                <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-3'>
                   Remind client before expiry:
                 </label>
 
@@ -788,7 +788,7 @@ const PackageFormModal = ({
                       className={`px-4 py-2 text-xs font-bold rounded-md transition-colors border ${
                         Number(formData.reminderDaysBefore) === preset.value
                           ? "bg-indigo-600 text-white border-indigo-600"
-                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                          : "bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100"
                       }`}>
                       {preset.label}
                     </button>
@@ -796,8 +796,8 @@ const PackageFormModal = ({
                 </div>
 
                 {/* Custom Input */}
-                <div className='flex items-center gap-3 pt-3 border-t border-gray-100'>
-                  <span className='text-xs font-medium text-gray-500'>
+                <div className='flex items-center gap-3 pt-3 border-t border-stone-100'>
+                  <span className='text-xs font-medium text-stone-500'>
                     Custom Days:
                   </span>
                   <input
@@ -834,16 +834,16 @@ const PackageFormModal = ({
                     })
                   }
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
               </label>
             </div>
 
-            <div className='flex items-center justify-between bg-emerald-50 p-4 rounded-md border border-emerald-100'>
+            <div className='flex items-center justify-between bg-stone-100 p-4 rounded-md border border-stone-200'>
               <div>
-                <h4 className='font-bold text-emerald-900 text-sm'>
+                <h4 className='font-bold text-stone-900 text-sm'>
                   Promo Package
                 </h4>
-                <p className='text-xs text-emerald-700 mt-0.5'>
+                <p className='text-xs text-stone-800 mt-0.5'>
                   Enable this to apply a discounted price.
                 </p>
               </div>
@@ -856,13 +856,13 @@ const PackageFormModal = ({
                     setFormData({ ...formData, isPromo: e.target.checked })
                   }
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-600"></div>
               </label>
             </div>
 
             {formData.isPromo && (
               <div>
-                <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                   Promo Price ({formData.currency})
                 </label>
                 <input
@@ -877,19 +877,19 @@ const PackageFormModal = ({
                       : ""
                   }
                   onChange={handlePriceChange} // Changed handler
-                  className='w-full p-2.5 rounded-md border border-emerald-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm bg-emerald-50/30'
+                  className='w-full p-2.5 rounded-md border border-stone-400 focus:border-stone-500 focus:ring-1 focus:ring-stone-500 outline-none text-sm bg-stone-100/30'
                 />
               </div>
             )}
 
-            <hr className='border-gray-100' />
+            <hr className='border-stone-100' />
 
-            <div className='flex items-center justify-between bg-gray-50 p-4 rounded-md border border-gray-200'>
+            <div className='flex items-center justify-between bg-stone-50 p-4 rounded-md border border-stone-200'>
               <div>
-                <h4 className='font-bold text-gray-900 text-sm'>
+                <h4 className='font-bold text-stone-900 text-sm'>
                   Combination Package
                 </h4>
-                <p className='text-xs text-gray-500 mt-0.5'>
+                <p className='text-xs text-stone-500 mt-0.5'>
                   Enable this to mix different class and instructor types in one
                   package.
                 </p>
@@ -903,14 +903,14 @@ const PackageFormModal = ({
                     setFormData({ ...formData, isCombo: e.target.checked })
                   }
                 />
-                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-600"></div>
               </label>
             </div>
 
             {!formData.isCombo ? (
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 border border-gray-200 rounded-md'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 border border-stone-200 rounded-md'>
                 <div className='md:col-span-2'>
-                  <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                  <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                     Total Credits
                   </label>
                   <input
@@ -919,7 +919,7 @@ const PackageFormModal = ({
                     required={!formData.isCombo}
                     value={formData.credits}
                     onChange={handleInputChange}
-                    className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-sm'
+                    className='w-full p-2.5 rounded-md border border-stone-300 focus:border-stone-500 focus:ring-1 focus:ring-stone-500 outline-none text-sm'
                   />
                 </div>
                 <div>
@@ -950,21 +950,21 @@ const PackageFormModal = ({
                 {formData.comboItems.map((item, index) => (
                   <div
                     key={index}
-                    className='relative bg-white p-4 border border-gray-200 rounded-md shadow-sm'>
+                    className='relative bg-white p-4 border border-stone-200 rounded-md shadow-sm'>
                     {formData.comboItems.length > 1 && (
                       <button
                         type='button'
                         onClick={() => removeComboItem(index)}
-                        className='absolute top-3 right-3 text-gray-400 hover:text-red-500'>
+                        className='absolute top-3 right-3 text-stone-400 hover:text-red-500'>
                         <Trash2 className='w-4 h-4' />
                       </button>
                     )}
-                    <h5 className='text-xs font-bold text-gray-800 uppercase tracking-wider mb-3'>
+                    <h5 className='text-xs font-bold text-stone-800 uppercase tracking-wider mb-3'>
                       Pass Segment {index + 1}
                     </h5>
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                       <div className='md:col-span-2'>
-                        <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>
+                        <label className='block text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1'>
                           Credits for this segment
                         </label>
                         <input
@@ -978,7 +978,7 @@ const PackageFormModal = ({
                               e.target.value,
                             )
                           }
-                          className='w-full p-2.5 rounded-md border border-gray-300 focus:border-emerald-500 outline-none text-sm'
+                          className='w-full p-2.5 rounded-md border border-stone-300 focus:border-stone-500 outline-none text-sm'
                         />
                       </div>
                       <div>
@@ -1009,7 +1009,7 @@ const PackageFormModal = ({
                 <button
                   type='button'
                   onClick={addComboItem}
-                  className='w-full py-3 border-2 border-dashed border-gray-300 text-gray-600 font-medium rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors flex items-center justify-center gap-2 text-sm'>
+                  className='w-full py-3 border-2 border-dashed border-stone-300 text-stone-600 font-medium rounded-md hover:bg-stone-50 hover:border-stone-400 transition-colors flex items-center justify-center gap-2 text-sm'>
                   <PlusCircle className='w-4 h-4' /> Add Another Pass Segment
                 </button>
               </div>
@@ -1017,18 +1017,18 @@ const PackageFormModal = ({
           </form>
         </div>
 
-        <div className='p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3'>
+        <div className='p-6 border-t border-stone-100 bg-stone-50 flex justify-end gap-3'>
           <button
             type='button'
             onClick={onClose}
-            className='px-5 py-2.5 text-gray-600 font-medium hover:bg-gray-200 rounded-md text-sm transition-colors'>
+            className='px-5 py-2.5 text-stone-600 font-medium hover:bg-stone-200 rounded-md text-sm transition-colors'>
             Cancel
           </button>
           <button
             type='submit'
             form='package-form'
             disabled={loading}
-            className='px-6 py-2.5 bg-emerald-800 text-white font-medium rounded-md hover:bg-emerald-900 shadow-sm disabled:opacity-50 text-sm transition-colors'>
+            className='px-6 py-2.5 bg-stone-600 text-white font-medium rounded-md hover:bg-stone-700 shadow-sm disabled:opacity-50 text-sm transition-colors'>
             {loading ? "Saving..." : "Save Package"}
           </button>
         </div>
@@ -1038,7 +1038,7 @@ const PackageFormModal = ({
 };
 
 const DeleteConfirmationModal = ({ onClose, onConfirm }) => (
-  <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+  <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
     <motion.div
       initial={{ scale: 0.98, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -1046,14 +1046,14 @@ const DeleteConfirmationModal = ({ onClose, onConfirm }) => (
       <div className='w-10 h-10 bg-red-50 border border-red-100 rounded-md flex items-center justify-center mx-auto mb-4 text-red-600'>
         <AlertTriangle className='w-5 h-5' />
       </div>
-      <h3 className='text-lg font-bold text-gray-900 mb-1'>Delete Package?</h3>
-      <p className='text-gray-500 text-sm mb-6'>
+      <h3 className='text-lg font-bold text-stone-900 mb-1'>Delete Package?</h3>
+      <p className='text-stone-500 text-sm mb-6'>
         This action cannot be undone.
       </p>
       <div className='flex gap-3'>
         <button
           onClick={onClose}
-          className='flex-1 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-md border border-gray-200 text-sm'>
+          className='flex-1 py-2 text-stone-700 font-medium hover:bg-stone-100 rounded-md border border-stone-200 text-sm'>
           Cancel
         </button>
         <button
@@ -1067,7 +1067,7 @@ const DeleteConfirmationModal = ({ onClose, onConfirm }) => (
 );
 
 const ToggleConfirmationModal = ({ onClose, onConfirm, status }) => (
-  <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+  <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
     <motion.div
       initial={{ scale: 0.98, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -1075,16 +1075,16 @@ const ToggleConfirmationModal = ({ onClose, onConfirm, status }) => (
       <div className='w-10 h-10 bg-blue-50 border border-blue-100 rounded-md flex items-center justify-center mx-auto mb-4 text-blue-600'>
         <Power className='w-5 h-5' />
       </div>
-      <h3 className='text-lg font-bold text-gray-900 mb-1'>
+      <h3 className='text-lg font-bold text-stone-900 mb-1'>
         {status ? "Deactivate" : "Activate"} Package?
       </h3>
-      <p className='text-gray-500 text-sm mb-6'>
+      <p className='text-stone-500 text-sm mb-6'>
         Are you sure you want to change this status?
       </p>
       <div className='flex gap-3'>
         <button
           onClick={onClose}
-          className='flex-1 py-2 text-gray-700 font-medium hover:bg-gray-100 border border-gray-200 rounded-md text-sm'>
+          className='flex-1 py-2 text-stone-700 font-medium hover:bg-stone-100 border border-stone-200 rounded-md text-sm'>
           Cancel
         </button>
         <button
@@ -1134,15 +1134,15 @@ const ManageTypesModal = ({ onClose, config, studioId, onUpdate }) => {
   };
 
   return (
-    <div className='fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+    <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         className='bg-white rounded-lg w-full max-w-md p-6 shadow-xl'>
         <div className='flex justify-between items-center mb-5'>
-          <h3 className='text-lg font-bold text-gray-900'>Categories</h3>
+          <h3 className='text-lg font-bold text-stone-900'>Categories</h3>
           <button onClick={onClose}>
-            <X className='text-gray-400 hover:text-gray-600 w-5 h-5' />
+            <X className='text-stone-400 hover:text-stone-600 w-5 h-5' />
           </button>
         </div>
         <form onSubmit={handleAdd} className='flex gap-2 mb-4'>
@@ -1150,11 +1150,11 @@ const ManageTypesModal = ({ onClose, config, studioId, onUpdate }) => {
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
             placeholder='New Class Type...'
-            className='flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:border-emerald-500'
+            className='flex-1 border border-stone-300 rounded-md px-3 py-2 text-sm outline-none focus:border-stone-500'
           />
           <button
             disabled={loading}
-            className='bg-emerald-800 text-white px-4 py-2 rounded-md hover:bg-emerald-900 text-sm font-medium'>
+            className='bg-stone-600 text-white px-4 py-2 rounded-md hover:bg-stone-700 text-sm font-medium'>
             Add
           </button>
         </form>
@@ -1162,11 +1162,11 @@ const ManageTypesModal = ({ onClose, config, studioId, onUpdate }) => {
           {config[activeTab]?.map((item) => (
             <div
               key={item}
-              className='flex justify-between items-center px-3 py-2 bg-gray-50 rounded-md border border-gray-200'>
-              <span className='font-medium text-gray-700 text-sm'>{item}</span>
+              className='flex justify-between items-center px-3 py-2 bg-stone-50 rounded-md border border-stone-200'>
+              <span className='font-medium text-stone-700 text-sm'>{item}</span>
               <button
                 onClick={() => handleRemove(item)}
-                className='text-gray-400 hover:text-red-500'>
+                className='text-stone-400 hover:text-red-500'>
                 <Trash2 className='w-4 h-4' />
               </button>
             </div>

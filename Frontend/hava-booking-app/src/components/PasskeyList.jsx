@@ -43,8 +43,8 @@ const PasskeyList = ({
 }) => {
   if (isLoading) {
     return (
-      <div className='mt-8 border-t border-gray-100 pt-6 flex items-center gap-2 text-sm text-gray-500'>
-        <Loader2 className='w-4 h-4 animate-spin text-emerald-600' />
+      <div className='mt-8 border-t border-stone-100 pt-6 flex items-center gap-2 text-sm text-stone-500'>
+        <Loader2 className='w-4 h-4 animate-spin text-stone-800' />
         Loading registered passkeys...
       </div>
     );
@@ -54,7 +54,7 @@ const PasskeyList = ({
     return (
       <div
         role='alert'
-        className='mt-8 border-t border-gray-100 pt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
+        className='mt-8 border-t border-stone-100 pt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
         <p className='text-sm text-red-600'>{error}</p>
         <button
           type='button'
@@ -68,7 +68,7 @@ const PasskeyList = ({
   }
 
   return (
-    <div className='mt-8 border-t border-gray-100 pt-6'>
+    <div className='mt-8 border-t border-stone-100 pt-6'>
       {error && (
         <div
           role='alert'
@@ -84,19 +84,19 @@ const PasskeyList = ({
         </div>
       )}
       <div className='flex items-center justify-between gap-3 mb-4'>
-        <h4 className='text-sm font-bold text-gray-900'>Registered passkeys</h4>
-        <span className='text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full'>
+        <h4 className='text-sm font-bold text-stone-900'>Registered passkeys</h4>
+        <span className='text-xs font-bold text-stone-500 bg-stone-100 px-2.5 py-1 rounded-full'>
           {passkeys.length}
         </span>
       </div>
 
       {passkeys.length === 0 ? (
-        <div className='rounded-xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center'>
-          <Fingerprint className='w-6 h-6 text-gray-400 mx-auto mb-2' />
-          <p className='text-sm font-semibold text-gray-700'>
+        <div className='rounded-xl border border-dashed border-stone-200 bg-stone-50 p-5 text-center'>
+          <Fingerprint className='w-6 h-6 text-stone-400 mx-auto mb-2' />
+          <p className='text-sm font-semibold text-stone-700'>
             No passkeys registered yet
           </p>
-          <p className='text-xs text-gray-500 mt-1'>
+          <p className='text-xs text-stone-500 mt-1'>
             Register one to sign in using your device's screen lock or
             biometrics.
           </p>
@@ -120,15 +120,15 @@ const PasskeyList = ({
             return (
               <div
                 key={passkeyId || `${passkeyName}-${index}`}
-                className='rounded-xl border border-gray-200 p-4 flex items-start gap-3'>
-                <div className='p-2 bg-emerald-50 rounded-lg shrink-0'>
-                  <Fingerprint className='w-4 h-4 text-emerald-700' />
+                className='rounded-xl border border-stone-200 p-4 flex items-start gap-3'>
+                <div className='p-2 bg-stone-100 rounded-lg shrink-0'>
+                  <Fingerprint className='w-4 h-4 text-stone-800' />
                 </div>
                 <div className='min-w-0 flex-1'>
-                  <p className='text-sm font-bold text-gray-900 truncate'>
+                  <p className='text-sm font-bold text-stone-900 truncate'>
                     {passkeyName}
                   </p>
-                  <div className='mt-1 space-y-0.5 text-xs text-gray-500'>
+                  <div className='mt-1 space-y-0.5 text-xs text-stone-500'>
                     {createdAt && <p>Added {createdAt}</p>}
                     <p>
                       {lastUsedAt
@@ -149,7 +149,7 @@ const PasskeyList = ({
                   onClick={() => onDelete(passkey)}
                   disabled={!passkeyId || Boolean(deletingPasskeyId)}
                   aria-label={`Delete ${passkeyName}`}
-                  className='p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0'>
+                  className='p-2 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0'>
                   {isDeleting ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (

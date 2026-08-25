@@ -1,9 +1,48 @@
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 const PackagePurchase = require("../../models/StudioData/PackagePurchase");
 const UserPasses = require("../../models/UserData/User_Passes");
+const User = require("../../models/UserData/User");
 const Packages = require("../../models/StudioData/Packages");
 const CashierTransaction = require("../../models/StudioData/CashierTransaction");
 const Promo = require("../../models/StudioData/Promo");
+const {
+  canManageStudio,
+  idsEqual,
+  isDevTeam,
+  isStudioStaff,
+} = require("../../helper/authorization");
+const {
+  normalizePrivateUploadPath,
+  withSignedProofUrl,
+} = require("../../helper/privateUpload");
+const {
+  consumeOneTimeEntitlement,
+  releaseOneTimeReservation,
+  reserveOneTimeEntitlement,
+} = require("../../helper/oneTimePackageEntitlement");
+
+const forbidden = (
+  message = "You are not authorized to manage this purchase.",
+) => {
+  const error = new Error(message);
+  error.status = 403;
+  return error;
+};
+
+const isTransactionConflict = (error) =>
+  error?.code === 112 ||
+  error?.code === 251 ||
+  error?.hasErrorLabel?.("TransientTransactionError") === true;
+
+const sendPurchaseError = (res, error, defaultStatus = 400) => {
+  if (isTransactionConflict(error)) {
+    return res.status(409).json({
+      error: "This purchase changed while it was being processed. Please retry.",
+    });
+  }
+  return res.status(error.status || defaultStatus).json({ error: error.message });
+};
 
 // --- HELPER: CHECK EXPIRY ---
 const checkAndExpire = async (purchase) => {
@@ -13,6 +52,7 @@ const checkAndExpire = async (purchase) => {
   if (now > purchase.paymentWindowExpiry) {
     purchase.status = "expired";
     await purchase.save();
+    await releaseOneTimeReservation({ purchaseId: purchase._id });
   }
   return purchase;
 };
@@ -25,33 +65,171 @@ const calculateTotalCredits = (pkg) => {
   return pkg.credits || 0;
 };
 
+const isStudentPackage = (pkg) =>
+  pkg?.isStudentPackage === true || pkg?.packageCategory?.includes("Student");
+
+const ensureStudentEligibility = async (pkg, userId, session) => {
+  if (!isStudentPackage(pkg)) return;
+
+  const user = await User.findById(userId)
+    .select("isStudent")
+    .session(session);
+  if (!user) throw new Error("User not found.");
+  if (user.isStudent !== true) {
+    throw forbidden("This package is restricted to verified students.");
+  }
+};
+
+const ensureStaffCanManageRecipient = async (
+  actor,
+  userId,
+  studioId,
+  session,
+) => {
+  const recipient = await User.findById(userId)
+    .select("role preferredStudioId")
+    .session(session);
+  if (!recipient) throw new Error("User not found.");
+  if (isDevTeam(actor)) return;
+  if (
+    recipient.role !== "client" ||
+    !idsEqual(recipient.preferredStudioId, studioId)
+  ) {
+    throw forbidden("You can only manage clients affiliated with your studio.");
+  }
+};
+
 // --- HELPER: CONSUME PROMO ---
-const consumePromoCode = async (code, studioId, userId, session) => {
-  if (!code) return;
+const consumePromoCode = async (
+  code,
+  studioId,
+  userId,
+  session,
+  allowAdminPromo = false,
+  shouldConsume = true,
+) => {
+  if (!code) return null;
   const upperCode = code.toUpperCase().trim();
 
   const promo = await Promo.findOne({
     studioLocation: studioId,
+    isActive: true,
     $or: [{ staticCode: upperCode }, { "codes.code": upperCode }],
   }).session(session);
 
-  if (!promo) return;
+  if (!promo) throw new Error("Promo code is invalid or inactive.");
+  if (promo.validUntil && new Date(promo.validUntil) < new Date()) {
+    throw new Error("Promo code has expired.");
+  }
+  if (promo.promoType === "admin" && !allowAdminPromo) {
+    throw forbidden("This promo is restricted to studio staff.");
+  }
+  if (
+    promo.promoType !== "admin" &&
+    (promo.usedBy || []).some((usedUserId) => idsEqual(usedUserId, userId))
+  ) {
+    throw new Error("This promo has already been used by this account.");
+  }
 
   if (promo.promoType === "bulk") {
     const voucherIndex = promo.codes.findIndex((c) => c.code === upperCode);
-    if (voucherIndex !== -1 && !promo.codes[voucherIndex].isUsed) {
-      promo.codes[voucherIndex].isUsed = true;
-      promo.codes[voucherIndex].usedAt = new Date();
-      promo.currentUsageCount += 1;
-      if (!promo.usedBy.includes(userId)) promo.usedBy.push(userId);
-      promo.markModified("codes"); // Crucial for Mongoose to save array changes
+    if (voucherIndex === -1 || promo.codes[voucherIndex].isUsed) {
+      throw new Error("Promo code has already been used.");
     }
   } else if (promo.promoType === "static" || promo.promoType === "admin") {
-    promo.currentUsageCount += 1;
-    if (!promo.usedBy.includes(userId)) promo.usedBy.push(userId);
+    if (
+      promo.maxUsageLimit &&
+      promo.currentUsageCount >= promo.maxUsageLimit
+    ) {
+      throw new Error("Promo code has reached its usage limit.");
+    }
   }
 
-  await promo.save({ session });
+  if (!shouldConsume) return promo;
+
+  const now = new Date();
+  const constraints = [
+    {
+      $or: [
+        { validUntil: { $exists: false } },
+        { validUntil: null },
+        { validUntil: { $gte: now } },
+      ],
+    },
+  ];
+  if (promo.promoType !== "admin") {
+    constraints.push({ usedBy: { $nin: [userId] } });
+  }
+
+  let update;
+  let options = { new: true, session };
+  if (promo.promoType === "bulk") {
+    constraints.push({
+      codes: { $elemMatch: { code: upperCode, isUsed: { $ne: true } } },
+    });
+    update = {
+      $set: {
+        "codes.$[voucher].isUsed": true,
+        "codes.$[voucher].usedAt": now,
+      },
+      $inc: { currentUsageCount: 1 },
+      $addToSet: { usedBy: userId },
+    };
+    options = {
+      ...options,
+      arrayFilters: [
+        { "voucher.code": upperCode, "voucher.isUsed": { $ne: true } },
+      ],
+    };
+  } else {
+    constraints.push({
+      $or: [
+        { maxUsageLimit: { $exists: false } },
+        { maxUsageLimit: null },
+        { maxUsageLimit: { $lte: 0 } },
+        {
+          $expr: {
+            $lt: [
+              { $ifNull: ["$currentUsageCount", 0] },
+              "$maxUsageLimit",
+            ],
+          },
+        },
+      ],
+    });
+    update = {
+      $inc: { currentUsageCount: 1 },
+      $addToSet: { usedBy: userId },
+    };
+  }
+
+  // The availability predicates and mutation are one MongoDB operation. This
+  // prevents concurrent approvals from oversubscribing a static promo or
+  // redeeming the same bulk voucher twice.
+  const consumedPromo = await Promo.findOneAndUpdate(
+    {
+      _id: promo._id,
+      isActive: true,
+      $and: constraints,
+    },
+    update,
+    options,
+  );
+  if (!consumedPromo) {
+    throw new Error("Promo code is no longer available.");
+  }
+  return consumedPromo;
+};
+
+const calculatePromoDiscount = (basePrice, promo) => {
+  if (!promo) return 0;
+  if (promo.discountType === "percentage") {
+    return basePrice * (Math.min(100, Math.max(0, promo.discountValue)) / 100);
+  }
+  if (promo.discountType === "fixed") {
+    return Math.min(basePrice, Math.max(0, promo.discountValue));
+  }
+  return 0;
 };
 
 // --- 1. CASHIER BULK PURCHASE ---
@@ -69,27 +247,68 @@ exports.createCashierBulkPurchase = async (req, res) => {
       discountAmount,
       promoCode,
       notes,
+      issuingStudio: requestedStudio,
     } = req.body;
 
-    const issuingStudio = req.user.adminStudioLocation;
+    const issuingStudio = req.user.adminStudioLocation || requestedStudio;
     const cashierId = req.user._id;
 
-    if (!userIds || userIds.length === 0)
+    if (!issuingStudio || !canManageStudio(req.user, issuingStudio)) {
+      throw forbidden();
+    }
+
+    if (!Array.isArray(userIds) || userIds.length === 0)
       throw new Error("Please select at least one client.");
-    if (!purchasedPackages || purchasedPackages.length === 0)
+    if (userIds.length > 100)
+      throw new Error("Too many clients were selected for one transaction.");
+    if (!Array.isArray(purchasedPackages) || purchasedPackages.length === 0)
       throw new Error("Cart is empty.");
+    if (purchasedPackages.length > 50)
+      throw new Error("Too many packages were selected for one transaction.");
+
+    const uniqueUserIds = [...new Set(userIds.map((id) => id?.toString()))];
+    if (uniqueUserIds.some((id) => !id)) throw new Error("Invalid client.");
+    for (const userId of uniqueUserIds) {
+      await ensureStaffCanManageRecipient(
+        req.user,
+        userId,
+        issuingStudio,
+        session,
+      );
+    }
+
+    for (const item of purchasedPackages) {
+      if (!Number.isInteger(item.qty) || item.qty < 1 || item.qty > 100) {
+        throw new Error("Package quantity must be a positive integer.");
+      }
+      const pkg = await Packages.findById(item.packageId).session(session);
+      if (!pkg) throw new Error("Package not found.");
+      if (pkg.isActive === false) throw new Error("Package is not available.");
+      if (!idsEqual(pkg.studioLocation, issuingStudio)) {
+        throw forbidden("A package does not belong to your studio.");
+      }
+      for (const userId of uniqueUserIds) {
+        await ensureStudentEligibility(pkg, userId, session);
+      }
+    }
 
     // 1. Consume Promo if exists
     if (promoCode) {
-      await consumePromoCode(promoCode, issuingStudio, userIds[0], session);
+      await consumePromoCode(
+        promoCode,
+        issuingStudio,
+        uniqueUserIds[0],
+        session,
+        true,
+      );
     }
 
     // 2. Create the Master Cashier Transaction (The Receipt)
     const cashierTrx = new CashierTransaction({
-      transactionId: `CASH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      transactionId: `CASH-${crypto.randomUUID()}`,
       issuingStudio,
       cashierId,
-      userIds,
+      userIds: uniqueUserIds,
       packages: purchasedPackages.map((p) => ({
         packageId: p.packageId,
         priceAtPurchase: p.priceAtPurchase,
@@ -105,30 +324,35 @@ exports.createCashierBulkPurchase = async (req, res) => {
     await cashierTrx.save({ session });
 
     // 3. Create INDIVIDUAL isolated passes for EACH user
-    for (const uid of userIds) {
+    for (const uid of uniqueUserIds) {
       for (const item of purchasedPackages) {
         // Fetch the package
         const pkg = await Packages.findById(item.packageId).session(session);
         if (!pkg) throw new Error(`Package not found.`);
+        if (pkg.isActive === false) throw new Error("Package is not available.");
 
         // Protect One-Time Purchases
         if (pkg.isOneTimePurchase) {
-          const existingPass = await UserPasses.findOne({
+          if (item.qty !== 1) {
+            throw new Error(
+              `The one-time package ${pkg.packageName} can only be assigned once.`,
+            );
+          }
+          await consumeOneTimeEntitlement({
             userId: uid,
             packageId: pkg._id,
-          }).session(session);
-          if (existingPass)
-            throw new Error(
-              `One of the users already owns the 1-Time package: ${pkg.packageName}`,
-            );
+            source: "cashier",
+            session,
+          });
         }
 
         // Create the individual Order History record for the client
         const newPurchase = new PackagePurchase({
-          transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+          transactionId: `TRX-${crypto.randomUUID()}`,
           userId: uid, // STRICTLY ASSIGNED TO THIS SPECIFIC USER
           packageId: pkg._id,
           packageNameSnapshot: pkg.packageName,
+          isOneTimePurchaseSnapshot: pkg.isOneTimePurchase === true,
           paymentWindowExpiry: new Date(),
           creditsPurchased: calculateTotalCredits(pkg) * item.qty,
           totalAmount: item.priceAtPurchase * item.qty,
@@ -153,6 +377,7 @@ exports.createCashierBulkPurchase = async (req, res) => {
               packageId: pkg._id,
               packageNameSnapshot: pkg.packageName,
               packageCategorySnapshot: pkg.packageCategory,
+              isStudentRestrictedSnapshot: isStudentPackage(pkg),
               purchaseDate: new Date(),
               expiryDate: passExpiry,
               remainingCredits: combo.credits,
@@ -172,6 +397,7 @@ exports.createCashierBulkPurchase = async (req, res) => {
                 packageId: pkg._id,
                 packageNameSnapshot: pkg.packageName,
                 packageCategorySnapshot: pkg.packageCategory,
+                isStudentRestrictedSnapshot: isStudentPackage(pkg),
                 purchaseDate: new Date(),
                 expiryDate: passExpiry,
                 remainingCredits: pkg.credits,
@@ -200,7 +426,7 @@ exports.createCashierBulkPurchase = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ error: error.message });
+    sendPurchaseError(res, error);
   } finally {
     session.endSession();
   }
@@ -217,93 +443,148 @@ exports.createPurchase = async (req, res) => {
       totalAmount,
       paymentMethod,
       paymentIssuer,
-      issuingStudio,
       proofOfPayment,
       userId,
       promoCodeApplied,
       discountAmount,
     } = req.body;
 
-    const finalUserId = userId || req.user._id;
-
     const packageInfo = await Packages.findById(packageId).session(session);
     if (!packageInfo) throw new Error("Package not found");
-
-    if (packageInfo.isOneTimePurchase) {
-      const existingPurchases = await PackagePurchase.findOne({
-        userId: finalUserId,
-        packageId: packageId,
-        status: { $nin: ["payment_rejected", "expired"] },
-      }).session(session);
-
-      const existingPasses = await UserPasses.findOne({
-        userId: finalUserId,
-        packageId: packageId,
-      }).session(session);
-
-      if (existingPurchases || existingPasses) {
-        throw new Error(
-          "You have already purchased this One-Time package in the past.",
-        );
-      }
+    if (packageInfo.isActive === false) {
+      throw new Error("Package is not available.");
     }
 
-    if (promoCodeApplied) {
-      await consumePromoCode(
-        promoCodeApplied,
-        issuingStudio,
+    const adminPurchase = isStudioStaff(req.user);
+    const finalUserId = adminPurchase && userId ? userId : req.user._id;
+    const issuingStudio = packageInfo.studioLocation;
+    if (!issuingStudio) throw new Error("Package has no issuing studio.");
+
+    if (adminPurchase && !canManageStudio(req.user, issuingStudio)) {
+      throw forbidden("You cannot assign packages from another studio.");
+    }
+    if (adminPurchase) {
+      await ensureStaffCanManageRecipient(
+        req.user,
         finalUserId,
+        issuingStudio,
         session,
       );
     }
+    if (
+      !adminPurchase &&
+      ["direct_payment", "manual_admin"].includes(paymentMethod)
+    ) {
+      throw forbidden("This payment method is restricted to studio staff.");
+    }
+
+    const normalizedProof = proofOfPayment
+      ? normalizePrivateUploadPath(proofOfPayment)
+      : null;
+    if (proofOfPayment && !normalizedProof) {
+      throw new Error("Invalid payment proof URL.");
+    }
+    if (
+      normalizedProof &&
+      !normalizedProof.startsWith(
+        `/uploads/ProofOfPurchase/${req.user._id.toString()}/`,
+      )
+    ) {
+      throw forbidden("You cannot attach another user's payment proof.");
+    }
+    await ensureStudentEligibility(packageInfo, finalUserId, session);
 
     let paymentStatus;
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    if (paymentMethod === "pay_at_studio" || paymentMethod === "manual_admin") {
-      paymentStatus = req.body.status || "pending";
-    } else if (paymentMethod === "direct_payment") {
+    if (paymentMethod === "direct_payment" && adminPurchase) {
       paymentStatus = "confirmed";
+    } else if (
+      paymentMethod === "pay_at_studio" ||
+      paymentMethod === "manual_admin"
+    ) {
+      paymentStatus = "pending";
     } else {
       paymentStatus = "waiting_confirmation";
     }
 
+    let appliedPromo = null;
+    if (promoCodeApplied) {
+      appliedPromo = await consumePromoCode(
+        promoCodeApplied,
+        issuingStudio,
+        finalUserId,
+        session,
+        adminPurchase,
+        paymentStatus === "confirmed",
+      );
+    }
+
     const totalCredits = calculateTotalCredits(packageInfo);
+    const basePrice =
+      packageInfo.isPromo && packageInfo.promoPrice !== undefined
+        ? packageInfo.promoPrice
+        : packageInfo.packagePrice;
+    const serverDiscount = calculatePromoDiscount(basePrice, appliedPromo);
+    const serverTotal = Math.max(0, basePrice - serverDiscount);
+    const finalTotal = adminPurchase ? Number(totalAmount) : serverTotal;
+    const finalDiscount = adminPurchase
+      ? Number(discountAmount || 0)
+      : serverDiscount;
+    if (!Number.isFinite(finalTotal) || finalTotal < 0) {
+      throw new Error("Invalid purchase total.");
+    }
 
     const newPurchase = new PackagePurchase({
-      transactionId: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      transactionId: `TRX-${crypto.randomUUID()}`,
       userId: finalUserId,
       packageId,
       packageNameSnapshot: packageInfo.packageName,
+      isOneTimePurchaseSnapshot: packageInfo.isOneTimePurchase === true,
       paymentWindowExpiry: paymentDeadline,
       creditsPurchased: totalCredits,
-      totalAmount, // Ensure the frontend sends the discounted amount!
+      totalAmount: finalTotal,
       promoCodeApplied: promoCodeApplied || null,
-      discountAmount: discountAmount || 0,
+      discountAmount: finalDiscount,
       paymentMethod,
       paymentIssuer,
-      proofOfPayment,
+      proofOfPayment: normalizedProof,
       issuingStudio,
       status: paymentStatus,
     });
 
-    await newPurchase.save({ session });
+    if (packageInfo.isOneTimePurchase) {
+      if (paymentStatus === "confirmed") {
+        await consumeOneTimeEntitlement({
+          userId: finalUserId,
+          packageId,
+          purchaseId: newPurchase._id,
+          source: "purchase",
+          session,
+        });
+      } else {
+        await reserveOneTimeEntitlement({
+          userId: finalUserId,
+          packageId,
+          purchaseId: newPurchase._id,
+          releaseAt: paymentDeadline,
+          session,
+        });
+      }
+    }
 
-    const notificationData = await PackagePurchase.findById(newPurchase._id)
-      .populate("userId", "fullName")
-      .populate("packageId", "packageName")
-      .session(session);
+    await newPurchase.save({ session });
 
     const sendNotification = () => {
       const io = req.app.get("io");
       if (io) {
-        io.to(issuingStudio._id?.toString() || issuingStudio).emit(
+        io.to(issuingStudio.toString()).emit(
           "purchase_notification",
           {
             role: "admin",
             type: "NEW_PURCHASE",
-            message: `New purchase initiated by ${notificationData.userId?.fullName || "Client"}`,
-            data: notificationData,
+            message: "A purchase requires review.",
+            data: { purchaseId: newPurchase._id.toString() },
           },
         );
       }
@@ -326,6 +607,7 @@ exports.createPurchase = async (req, res) => {
           packageId: packageId,
           packageNameSnapshot: packageInfo.packageName,
           packageCategorySnapshot: packageInfo.packageCategory,
+          isStudentRestrictedSnapshot: isStudentPackage(packageInfo),
           purchaseDate: new Date(),
           expiryDate: passExpiry,
           remainingCredits: item.credits,
@@ -343,6 +625,7 @@ exports.createPurchase = async (req, res) => {
             packageId: packageId,
             packageNameSnapshot: packageInfo.packageName,
             packageCategorySnapshot: packageInfo.packageCategory,
+            isStudentRestrictedSnapshot: isStudentPackage(packageInfo),
             purchaseDate: new Date(),
             expiryDate: passExpiry,
             remainingCredits: packageInfo.credits,
@@ -361,7 +644,7 @@ exports.createPurchase = async (req, res) => {
 
       return res.status(200).json({
         message: "Purchase confirmed & Pass created.",
-        purchase: newPurchase,
+        purchase: withSignedProofUrl(newPurchase, req),
       });
     }
 
@@ -370,11 +653,11 @@ exports.createPurchase = async (req, res) => {
     res.status(201).json({
       message: "Purchase initiated.",
       purchaseId: newPurchase._id,
-      purchase: newPurchase,
+      purchase: withSignedProofUrl(newPurchase, req),
     });
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ error: error.message });
+    sendPurchaseError(res, error);
   } finally {
     session.endSession();
   }
@@ -385,9 +668,22 @@ exports.uploadProof = async (req, res) => {
   try {
     const { purchaseId } = req.params;
     const { proofUrl } = req.body;
+    const normalizedProof = normalizePrivateUploadPath(proofUrl);
+    if (
+      !normalizedProof ||
+      !normalizedProof.startsWith(
+        `/uploads/ProofOfPurchase/${req.user._id.toString()}/`,
+      )
+    ) {
+      return res.status(400).json({ error: "Invalid payment proof URL." });
+    }
 
     let purchase = await PackagePurchase.findById(purchaseId);
     if (!purchase) throw new Error("Purchase not found");
+
+    const ownsPurchase = idsEqual(purchase.userId, req.user._id);
+    const managesPurchase = canManageStudio(req.user, purchase.issuingStudio);
+    if (!ownsPurchase && !managesPurchase) throw forbidden();
 
     purchase = await checkAndExpire(purchase);
 
@@ -398,7 +694,7 @@ exports.uploadProof = async (req, res) => {
       return res.status(400).json({ error: "Payment already confirmed." });
     }
 
-    purchase.proofOfPayment = proofUrl;
+    purchase.proofOfPayment = normalizedProof;
     purchase.status = "waiting_confirmation";
     purchase.rejectionReason = null;
 
@@ -406,18 +702,20 @@ exports.uploadProof = async (req, res) => {
 
     const io = req.app.get("io");
     if (io) {
-      await purchase.populate("userId", "fullName");
       io.to(purchase.issuingStudio.toString()).emit("purchase_notification", {
         role: "admin",
         type: "PROOF_UPLOADED",
-        message: `Payment proof uploaded by ${purchase.userId?.fullName}`,
-        data: purchase,
+        message: "A payment proof requires review.",
+        data: { purchaseId: purchase._id.toString() },
       });
     }
 
-    res.status(200).json({ message: "Proof uploaded.", purchase });
+    res.status(200).json({
+      message: "Proof uploaded.",
+      purchase: withSignedProofUrl(purchase, req),
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   }
 };
 
@@ -432,13 +730,57 @@ exports.adminReviewPayment = async (req, res) => {
 
     let purchase = await PackagePurchase.findById(purchaseId).session(session);
     if (!purchase) throw new Error("Purchase record not found.");
+    if (!canManageStudio(req.user, purchase.issuingStudio)) throw forbidden();
+    if (purchase.status === "confirmed") throw new Error("Already confirmed");
 
     if (action === "approve") {
-      if (purchase.status === "confirmed") throw new Error("Already confirmed");
+      if (
+        purchase.paymentWindowExpiry &&
+        new Date(purchase.paymentWindowExpiry) < new Date()
+      ) {
+        purchase.status = "expired";
+        await purchase.save({ session });
+        await releaseOneTimeReservation({ purchaseId: purchase._id, session });
+        await session.commitTransaction();
+        return res.status(400).json({ error: "Payment window has expired." });
+      }
 
       const packageDetails = await Packages.findById(
         purchase.packageId,
       ).session(session);
+      if (!packageDetails) throw new Error("Package not found.");
+      if (packageDetails.isActive === false) {
+        throw new Error("Package is not available.");
+      }
+
+      if (purchase.promoCodeApplied) {
+        await consumePromoCode(
+          purchase.promoCodeApplied,
+          purchase.issuingStudio,
+          purchase.userId,
+          session,
+          true,
+          true,
+        );
+      }
+      await ensureStudentEligibility(
+        packageDetails,
+        purchase.userId,
+        session,
+      );
+
+      if (
+        purchase.isOneTimePurchaseSnapshot === true ||
+        packageDetails.isOneTimePurchase === true
+      ) {
+        await consumeOneTimeEntitlement({
+          userId: purchase.userId,
+          packageId: purchase.packageId,
+          purchaseId: purchase._id,
+          source: "purchase",
+          session,
+        });
+      }
 
       const passExpiry = new Date();
       passExpiry.setDate(
@@ -458,6 +800,7 @@ exports.adminReviewPayment = async (req, res) => {
           packageId: purchase.packageId,
           packageNameSnapshot: packageDetails.packageName,
           packageCategorySnapshot: packageDetails.packageCategory,
+          isStudentRestrictedSnapshot: isStudentPackage(packageDetails),
           purchaseDate: originalPurchaseTime,
           createdAt: originalPurchaseTime,
           expiryDate: passExpiry,
@@ -476,6 +819,7 @@ exports.adminReviewPayment = async (req, res) => {
             packageId: purchase.packageId,
             packageNameSnapshot: packageDetails.packageName,
             packageCategorySnapshot: packageDetails.packageCategory,
+            isStudentRestrictedSnapshot: isStudentPackage(packageDetails),
             purchaseDate: originalPurchaseTime,
             createdAt: originalPurchaseTime,
             expiryDate: passExpiry,
@@ -514,6 +858,7 @@ exports.adminReviewPayment = async (req, res) => {
       purchase.status = "payment_rejected";
       purchase.rejectionReason = rejectionReason || "Proof rejected.";
       await purchase.save({ session });
+      await releaseOneTimeReservation({ purchaseId: purchase._id, session });
 
       const io = req.app.get("io");
       if (io) {
@@ -528,10 +873,12 @@ exports.adminReviewPayment = async (req, res) => {
       return res
         .status(200)
         .json({ message: "Payment rejected.", status: purchase.status });
+    } else {
+      throw new Error("Action must be either approve or reject.");
     }
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ error: error.message });
+    sendPurchaseError(res, error);
   } finally {
     session.endSession();
   }
@@ -541,9 +888,19 @@ exports.adminReviewPayment = async (req, res) => {
 exports.getMyPurchases = async (req, res) => {
   try {
     const { userId } = req.params;
+    const requestingOwnHistory = idsEqual(req.user._id, userId);
+    if (!requestingOwnHistory && !isStudioStaff(req.user)) {
+      return res.status(403).json({ error: "Unauthorized." });
+    }
+
+    const query = { userId };
+    if (!requestingOwnHistory && !isDevTeam(req.user)) {
+      query.issuingStudio = req.user.adminStudioLocation;
+    }
+
     await PackagePurchase.updateMany(
       {
-        userId: userId,
+        ...query,
         status: { $in: ["pending", "payment_rejected"] },
         paymentWindowExpiry: { $lt: new Date() },
       },
@@ -552,13 +909,15 @@ exports.getMyPurchases = async (req, res) => {
       },
     );
 
-    const history = await PackagePurchase.find({ userId })
+    const history = await PackagePurchase.find(query)
       .populate("issuingStudio", "studioName")
       .populate("userId", "fullName")
       .populate("packageId", "packageName price")
       .sort({ createdAt: -1 });
 
-    res.status(200).json(history);
+    res.status(200).json(
+      history.map((purchase) => withSignedProofUrl(purchase, req)),
+    );
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -568,6 +927,9 @@ exports.getMyPurchases = async (req, res) => {
 exports.getStudioPurchasesHistory = async (req, res) => {
   try {
     const { studioId } = req.params;
+    if (!canManageStudio(req.user, studioId)) {
+      return res.status(403).json({ error: "Unauthorized." });
+    }
     await PackagePurchase.updateMany(
       {
         issuingStudio: studioId,
@@ -580,11 +942,13 @@ exports.getStudioPurchasesHistory = async (req, res) => {
     );
 
     const history = await PackagePurchase.find({ issuingStudio: studioId })
-      .populate("userId", "-password -authenticators")
+      .populate("userId", "fullName email phoneNumber avatar isStudent")
       .populate("packageId", "packageName price")
       .sort({ createdAt: -1 });
 
-    res.status(200).json(history);
+    res.status(200).json(
+      history.map((purchase) => withSignedProofUrl(purchase, req)),
+    );
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -605,7 +969,19 @@ exports.verifyTransaction = async (req, res) => {
         .json({ success: false, message: "Transaction not found." });
     }
 
-    res.status(200).json({ success: true, data: transaction });
+    const ownsPurchase = idsEqual(transaction.userId, req.user._id);
+    const managesPurchase = canManageStudio(
+      req.user,
+      transaction.issuingStudio,
+    );
+    if (!ownsPurchase && !managesPurchase) {
+      return res.status(403).json({ success: false, message: "Unauthorized." });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: withSignedProofUrl(transaction, req),
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -618,10 +994,15 @@ exports.verifyTransaction = async (req, res) => {
 // --- 8. GET ALL PURCHASES ---
 exports.getAllPurchases = async (req, res) => {
   try {
+    if (!isDevTeam(req.user)) {
+      return res.status(403).json({ error: "Unauthorized." });
+    }
     const purchases = await PackagePurchase.find()
       .populate("userId", "fullName email")
       .populate("packageId", "packageName price");
-    res.status(200).json(purchases);
+    res.status(200).json(
+      purchases.map((purchase) => withSignedProofUrl(purchase, req)),
+    );
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -634,7 +1015,12 @@ exports.getPurchaseById = async (req, res) => {
       .populate("userId", "fullName email")
       .populate("packageId", "packageName price");
     if (!purchase) return res.status(404).json({ message: "Not found" });
-    res.status(200).json(purchase);
+    const ownsPurchase = idsEqual(purchase.userId, req.user._id);
+    const managesPurchase = canManageStudio(req.user, purchase.issuingStudio);
+    if (!ownsPurchase && !managesPurchase) {
+      return res.status(403).json({ error: "Unauthorized." });
+    }
+    res.status(200).json(withSignedProofUrl(purchase, req));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -643,8 +1029,16 @@ exports.getPurchaseById = async (req, res) => {
 // --- 10. DELETE PURCHASE ---
 exports.deletePurchase = async (req, res) => {
   try {
+    const existing = await PackagePurchase.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (!canManageStudio(req.user, existing.issuingStudio)) {
+      return res.status(403).json({ error: "Unauthorized." });
+    }
     const purchase = await PackagePurchase.findByIdAndDelete(req.params.id);
     if (!purchase) return res.status(404).json({ message: "Not found" });
+    if (purchase.status !== "confirmed") {
+      await releaseOneTimeReservation({ purchaseId: purchase._id });
+    }
     res.status(200).json({ message: "Deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });

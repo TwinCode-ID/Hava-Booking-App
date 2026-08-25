@@ -65,10 +65,10 @@ const Hero = () => {
 
                   <div className='mb-8'>
                     {/* FIX 1: Reserved height for Title (approx 2 lines) */}
-                    <h2 className='text-xl font-bold text-gray-900 tracking-tight leading-tight flex items-center'>
+                    <h2 className='text-xl font-bold text-stone-900 tracking-tight leading-tight flex items-center'>
                       {studio.studioName}
                     </h2>
-                    <p className='text-gray-400 text-lg font-medium mt-1'>
+                    <p className='text-stone-400 text-lg font-medium mt-1'>
                       {studio.address.city}
                     </p>
                   </div>
@@ -76,9 +76,9 @@ const Hero = () => {
                   {/* Phone Section */}
                   <div className='flex items-start gap-4 mb-4'>
                     <div className='w-6 shrink-0 flex justify-center'>
-                      <Phone className='w-5 h-5 text-gray-400 rotate-90' />
+                      <Phone className='w-5 h-5 text-stone-400 rotate-90' />
                     </div>
-                    <span className='font-semibold text-lg text-gray-700 break-all'>
+                    <span className='font-semibold text-lg text-stone-700 break-all'>
                       {studio.contactNumber || "N/A"}
                     </span>
                   </div>
@@ -86,10 +86,10 @@ const Hero = () => {
                   {/* Address Section */}
                   <div className='flex items-start gap-4 mb-4'>
                     <div className='w-6 shrink-0 flex justify-center mt-1'>
-                      <MapPin className='w-5 h-5 text-gray-400' />
+                      <MapPin className='w-5 h-5 text-stone-400' />
                     </div>
                     {/* FIX 2: Reserved height for Address (approx 3 lines) + block + line-clamp */}
-                    <span className='font-light text-sm tracking-wide text-gray-700 leading-relaxed block min-h-18 line-clamp-3'>
+                    <span className='font-light text-sm tracking-wide text-stone-700 leading-relaxed block min-h-18 line-clamp-3'>
                       {studio.address.street}
                     </span>
                   </div>
@@ -98,13 +98,14 @@ const Hero = () => {
                   <div className='grid grid-cols-2 gap-2 mx-auto w-full justify-center'>
                     {/* WhatsApp Button: Added 'flex items-center justify-center gap-2' */}
                     <button
-                      className='w-full bg-emerald-900 text-white text-lg font-medium py-4 rounded-3xl hover:bg-emerald-800 transition-colors shadow-lg flex items-center justify-center gap-2'
+                      className='w-full bg-stone-600 text-white text-lg font-medium py-4 rounded-3xl hover:bg-stone-700 transition-colors shadow-lg flex items-center justify-center gap-2'
                       onClick={() => {
                         // FIX 1: Use window.open for external links
                         // FIX 2: Corrected the URL (use 'https' and removed double slash)
                         window.open(
                           `https://wa.me/${studio.contactNumber}`,
                           "_blank",
+                          "noopener,noreferrer",
                         );
                       }}>
                       {/* Removed the extra div wrapper and margins to fix alignment */}
@@ -115,7 +116,7 @@ const Hero = () => {
                     </button>
 
                     <button
-                      className='w-full text-emerald-900 text-lg font-medium py-4 rounded-3xl hover:text-emerald-800 transition-colors'
+                      className='w-full text-stone-900 text-lg font-medium py-4 rounded-3xl hover:text-stone-600 transition-colors'
                       onClick={() =>
                         navigate(`/studio-details?id=${studio._id}`)
                       }>

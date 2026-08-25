@@ -1,9 +1,13 @@
 import { io } from "socket.io-client";
+import { getAccessToken } from "./authToken";
+import { BASE_URL } from "./apiPath";
 
-const SOCKET_URL = import.meta.env.VITE_BASE_URL;
-
-const socket = io(SOCKET_URL, {
-  autoConnect: true,
+const socket = io(BASE_URL, {
+  autoConnect: false,
+  auth: (callback) => {
+    const token = getAccessToken();
+    callback(token ? { token } : {});
+  },
 });
 
 export default socket;

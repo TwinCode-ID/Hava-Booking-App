@@ -210,23 +210,23 @@ const MarketplaceModal = ({
       {/* Modal Container */}
       <div className='bg-white w-full max-w-6xl h-[90vh] md:h-[85vh] rounded-t-[2rem] md:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 md:zoom-in-95 duration-200'>
         {/* Mobile Drag Handle Indicator */}
-        <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
+        <div className='w-12 h-1.5 bg-stone-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
 
         {/* =========================================================
             HEADER (Adapts based on view)
         ========================================================= */}
-        <div className='p-4 md:p-6 border-b border-gray-100 flex justify-between items-start md:items-center bg-white shrink-0 shadow-sm z-10'>
+        <div className='p-4 md:p-6 border-b border-stone-100 flex justify-between items-start md:items-center bg-white shrink-0 shadow-sm z-10'>
           {!selectedPackage ? (
             <div>
-              <h2 className='text-lg md:text-xl font-bold text-gray-900 flex items-center gap-2'>
-                <ShoppingBag className='w-5 h-5 text-emerald-600' /> Buy Credits
+              <h2 className='text-lg md:text-xl font-bold text-stone-900 flex items-center gap-2'>
+                <ShoppingBag className='w-5 h-5 text-stone-800' /> Buy Credits
               </h2>
               <div className='flex flex-wrap gap-2 mt-1.5 md:mt-1'>
-                <span className='text-[11px] md:text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200'>
+                <span className='text-[11px] md:text-xs bg-stone-200 text-stone-900 px-2 py-0.5 rounded border border-stone-300'>
                   Filter: {requiredInstructorType || "All"}
                 </span>
                 {requiredClassType && (
-                  <span className='text-[11px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-200'>
+                  <span className='text-[11px] md:text-xs bg-stone-100 text-stone-700 px-2 py-0.5 rounded border border-stone-200'>
                     {requiredClassType}
                   </span>
                 )}
@@ -236,18 +236,18 @@ const MarketplaceModal = ({
             <div className='flex items-center gap-3 md:gap-4'>
               <button
                 onClick={handleBackToList}
-                className='p-2 md:p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full transition-colors'>
-                <ChevronLeft className='w-5 h-5 text-gray-600' />
+                className='p-2 md:p-2.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-full transition-colors'>
+                <ChevronLeft className='w-5 h-5 text-stone-600' />
               </button>
-              <h2 className='text-lg md:text-xl font-bold text-gray-900 line-clamp-1 pr-2'>
+              <h2 className='text-lg md:text-xl font-bold text-stone-900 line-clamp-1 pr-2'>
                 Package Details & Checkout
               </h2>
             </div>
           )}
           <button
             onClick={onClose}
-            className='p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0'>
-            <X className='w-6 h-6 md:w-5 md:h-5 text-gray-500' />
+            className='p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0'>
+            <X className='w-6 h-6 md:w-5 md:h-5 text-stone-500' />
           </button>
         </div>
 
@@ -260,8 +260,8 @@ const MarketplaceModal = ({
             <div className='p-4 md:p-6'>
               {loading ? (
                 <div className='h-full flex items-center justify-center flex-col gap-3 pt-20'>
-                  <Loader2 className='w-8 h-8 animate-spin text-emerald-600' />
-                  <p className='text-sm text-gray-400'>Loading packages...</p>
+                  <Loader2 className='w-8 h-8 animate-spin text-stone-800' />
+                  <p className='text-sm text-stone-400'>Loading packages...</p>
                 </div>
               ) : filteredPackages.length > 0 ? (
                 <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6'>
@@ -269,32 +269,32 @@ const MarketplaceModal = ({
                     <div
                       key={pkg._id}
                       onClick={() => handleSelectPackage(pkg)}
-                      className='bg-white border border-gray-200 rounded-2xl p-4 md:p-5 cursor-pointer hover:border-emerald-500 hover:shadow-lg transition-all group relative overflow-hidden flex flex-col h-full'>
-                      <div className='absolute top-0 left-0 w-1.5 h-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity' />
+                      className='bg-white border border-stone-200 rounded-2xl p-4 md:p-5 cursor-pointer hover:border-stone-500 hover:shadow-lg transition-all group relative overflow-hidden flex flex-col h-full'>
+                      <div className='absolute top-0 left-0 w-1.5 h-full bg-stone-500 opacity-0 group-hover:opacity-100 transition-opacity' />
                       <div className='flex-1'>
-                        <h3 className='font-bold text-gray-900 text-lg md:text-lg mb-1'>
+                        <h3 className='font-bold text-stone-900 text-lg md:text-lg mb-1'>
                           {pkg.packageName}
                         </h3>
-                        <p className='text-xs text-gray-500 mb-4 line-clamp-2 md:line-clamp-3'>
+                        <p className='text-xs text-stone-500 mb-4 line-clamp-2 md:line-clamp-3'>
                           {pkg.packageDescription}
                         </p>
                         <div className='flex flex-wrap gap-2 mb-4'>
-                          <span className='text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded font-bold uppercase border border-emerald-100'>
+                          <span className='text-[10px] bg-stone-100 text-stone-800 px-2 py-1 rounded font-bold uppercase border border-stone-200'>
                             {pkg.isCombo
                               ? "Combo Package"
                               : `${pkg.credits} Sessions`}
                           </span>
-                          <span className='text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded font-bold uppercase border border-gray-200'>
+                          <span className='text-[10px] bg-stone-100 text-stone-600 px-2 py-1 rounded font-bold uppercase border border-stone-200'>
                             {pkg.validityDays} Days Validity
                           </span>
                         </div>
                       </div>
-                      <div className='mt-auto pt-4 border-t border-gray-50'>
-                        <p className='text-lg md:text-xl font-mono font-bold text-gray-900'>
+                      <div className='mt-auto pt-4 border-t border-stone-50'>
+                        <p className='text-lg md:text-xl font-mono font-bold text-stone-900'>
                           IDR{" "}
                           {parseInt(pkg.packagePrice).toLocaleString("id-ID")}
                         </p>
-                        <button className='mt-3 w-full py-3 md:py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold md:group-hover:bg-emerald-600 transition-colors shadow-lg shadow-gray-200 active:scale-[0.98] md:active:scale-100'>
+                        <button className='mt-3 w-full py-3 md:py-2.5 bg-stone-700 text-white rounded-xl text-sm font-bold md:group-hover:bg-stone-600 transition-colors shadow-lg shadow-stone-200 active:scale-[0.98] md:active:scale-100'>
                           Select Package
                         </button>
                       </div>
@@ -303,20 +303,20 @@ const MarketplaceModal = ({
                 </div>
               ) : (
                 <div className='h-full flex flex-col items-center justify-center text-center pt-20 px-4'>
-                  <div className='w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4'>
-                    <ShoppingBag className='w-8 h-8 text-gray-300' />
+                  <div className='w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4'>
+                    <ShoppingBag className='w-8 h-8 text-stone-300' />
                   </div>
-                  <h3 className='text-lg md:text-xl font-bold text-gray-900'>
+                  <h3 className='text-lg md:text-xl font-bold text-stone-900'>
                     No matching packages found
                   </h3>
-                  <p className='text-sm md:text-base text-gray-500 max-w-sm mt-2'>
+                  <p className='text-sm md:text-base text-stone-500 max-w-sm mt-2'>
                     We couldn't find a package specifically for{" "}
                     <strong>{requiredInstructorType}</strong> in this studio.
                     Please contact the studio.
                   </p>
                   <button
                     onClick={onClose}
-                    className='mt-6 text-sm md:text-base text-emerald-600 font-bold hover:underline p-2'>
+                    className='mt-6 text-sm md:text-base text-stone-800 font-bold hover:underline p-2'>
                     Go Back
                   </button>
                 </div>
@@ -330,14 +330,14 @@ const MarketplaceModal = ({
               <div className='flex flex-col lg:flex-row gap-6 md:gap-8 max-w-6xl mx-auto items-start'>
                 {/* LEFT COLUMN: Package Details */}
                 <div className='flex-1 flex flex-col gap-6 w-full'>
-                  <div className='bg-white p-5 md:p-8 border border-gray-100 rounded-2xl md:rounded-3xl shadow-sm'>
-                    <h3 className='text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-5 border-b border-gray-100 pb-3'>
+                  <div className='bg-white p-5 md:p-8 border border-stone-100 rounded-2xl md:rounded-3xl shadow-sm'>
+                    <h3 className='text-base md:text-lg font-bold text-stone-900 mb-4 md:mb-5 border-b border-stone-100 pb-3'>
                       Package Details
                     </h3>
 
                     <div className='flex flex-wrap gap-2 mb-4 md:mb-6'>
                       {selectedPackage.isActive && (
-                        <span className='inline-flex items-center gap-1.5 bg-[#E8F5EE] text-[#1E5D40] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
+                        <span className='inline-flex items-center gap-1.5 bg-stone-100 text-stone-800 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded'>
                           Active
                         </span>
                       )}
@@ -369,7 +369,7 @@ const MarketplaceModal = ({
                     </div>
 
                     <h3
-                      className={`font-semibold text-2xl md:text-[28px] leading-tight tracking-tight mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-[#1D3D36]"}`}>
+                      className={`font-semibold text-2xl md:text-[28px] leading-tight tracking-tight mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-stone-800"}`}>
                       {selectedPackage.packageName}
                     </h3>
 
@@ -379,7 +379,7 @@ const MarketplaceModal = ({
                           {originalPriceFormattedModal} IDR
                         </span>
                       )}
-                      <span className='font-semibold text-[#1D3D36] text-3xl md:text-[32px] tracking-tight'>
+                      <span className='font-semibold text-stone-800 text-3xl md:text-[32px] tracking-tight'>
                         {parseInt(modalDisplayPrice).toLocaleString("id-ID")}{" "}
                         IDR
                       </span>
@@ -402,7 +402,7 @@ const MarketplaceModal = ({
                                 <li
                                   key={idx}
                                   className='flex items-start gap-3'>
-                                  <CheckCircle2 className='w-5 h-5 text-[#2D8A60] shrink-0 mt-[2px]' />
+                                  <CheckCircle2 className='w-5 h-5 text-stone-700 shrink-0 mt-[2px]' />
                                   <span className='leading-relaxed font-medium'>
                                     {part}
                                   </span>
@@ -413,7 +413,7 @@ const MarketplaceModal = ({
                         }
                         return (
                           <div className='flex items-start gap-3'>
-                            <CheckCircle2 className='w-5 h-5 text-[#2D8A60] shrink-0 mt-[2px]' />
+                            <CheckCircle2 className='w-5 h-5 text-stone-700 shrink-0 mt-[2px]' />
                             <span className='leading-relaxed font-medium'>
                               {desc}
                             </span>
@@ -422,14 +422,14 @@ const MarketplaceModal = ({
                       })()}
                     </div>
 
-                    <div className='flex items-start gap-3 md:gap-4 mb-6 md:mb-8 bg-[#F9FAFB] p-4 md:p-5 rounded-2xl border border-gray-100'>
-                      <CalendarDays className='w-5 h-5 md:w-[22px] md:h-[22px] text-gray-400 shrink-0 mt-0.5' />
+                    <div className='flex items-start gap-3 md:gap-4 mb-6 md:mb-8 bg-[#F9FAFB] p-4 md:p-5 rounded-2xl border border-stone-100'>
+                      <CalendarDays className='w-5 h-5 md:w-[22px] md:h-[22px] text-stone-400 shrink-0 mt-0.5' />
                       <div>
-                        <p className='text-sm md:text-[15px] font-bold text-gray-900'>
+                        <p className='text-sm md:text-[15px] font-bold text-stone-900'>
                           Valid for {selectedPackage.validityDays} days from
                           date of first class booking
                         </p>
-                        <p className='text-xs text-gray-500 mt-1.5 md:mt-1 font-medium'>
+                        <p className='text-xs text-stone-500 mt-1.5 md:mt-1 font-medium'>
                           *Must activate first class within{" "}
                           {selectedPackage.activationPeriodDays || 30} days of
                           purchase
@@ -441,8 +441,8 @@ const MarketplaceModal = ({
                       {!isSelectedCombo ? (
                         <div className='flex flex-col sm:flex-row gap-x-8 gap-y-4 pt-2'>
                           <div className='flex items-center gap-3'>
-                            <Layers className='w-[20px] h-[20px] text-[#2D8A60] shrink-0' />
-                            <span className='text-[15px] md:text-[16px] font-bold text-gray-900'>
+                            <Layers className='w-[20px] h-[20px] text-stone-700 shrink-0' />
+                            <span className='text-[15px] md:text-[16px] font-bold text-stone-900'>
                               {modalTotalCredits} Credits
                             </span>
                           </div>
@@ -464,7 +464,7 @@ const MarketplaceModal = ({
                           </div>
                         </div>
                       ) : (
-                        <div className='bg-[#F9FAFB] rounded-2xl p-4 md:p-6 border border-gray-100'>
+                        <div className='bg-[#F9FAFB] rounded-2xl p-4 md:p-6 border border-stone-100'>
                           <p className='text-[10px] md:text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-4 md:mb-5'>
                             Combo Includes
                           </p>
@@ -472,7 +472,7 @@ const MarketplaceModal = ({
                             {selectedPackage.comboItems?.map((item, idx) => (
                               <div
                                 key={idx}
-                                className='bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 md:gap-6'>
+                                className='bg-white rounded-2xl p-4 md:p-5 border border-stone-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 md:gap-6'>
                                 <p className='font-bold text-[#111827] text-[15px] md:text-[16px] sm:w-24 shrink-0'>
                                   {item.credits} Credits
                                 </p>
@@ -499,9 +499,9 @@ const MarketplaceModal = ({
                   </div>
 
                   {/* Promo Section directly below Details */}
-                  <div className='bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 shadow-sm'>
-                    <h4 className='text-[12px] md:text-[13px] font-bold text-gray-900 mb-3 md:mb-4 uppercase tracking-wider flex items-center gap-2'>
-                      <Tag className='w-4 h-4 text-[#2D8A60]' /> Promo / Voucher
+                  <div className='bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-stone-100 shadow-sm'>
+                    <h4 className='text-[12px] md:text-[13px] font-bold text-stone-900 mb-3 md:mb-4 uppercase tracking-wider flex items-center gap-2'>
+                      <Tag className='w-4 h-4 text-stone-700' /> Promo / Voucher
                       Code
                     </h4>
                     <div className='flex flex-col sm:flex-row gap-3'>
@@ -513,13 +513,13 @@ const MarketplaceModal = ({
                           setPromoCode(e.target.value.toUpperCase())
                         }
                         disabled={appliedPromo !== null}
-                        className='flex-1 px-4 py-3 md:py-3.5 bg-[#F9FAFB] border border-gray-200 rounded-xl text-sm md:text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#2D8A60] focus:border-[#2D8A60] disabled:opacity-70 disabled:cursor-not-allowed'
+                        className='flex-1 px-4 py-3 md:py-3.5 bg-[#F9FAFB] border border-stone-200 rounded-xl text-sm md:text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-stone-500 focus:border-stone-500 disabled:opacity-70 disabled:cursor-not-allowed'
                       />
                       {!appliedPromo ? (
                         <button
                           onClick={handleApplyPromo}
                           disabled={!promoCode.trim() || promoLoading}
-                          className='w-full sm:w-auto px-6 py-3.5 bg-[#1D3D36] hover:bg-[#0F2922] text-white text-[14px] md:text-[15px] font-bold rounded-xl transition-colors disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center min-w-[120px] shadow-sm'>
+                          className='w-full sm:w-auto px-6 py-3.5 bg-stone-600 hover:bg-[#0F2922] text-white text-[14px] md:text-[15px] font-bold rounded-xl transition-colors disabled:bg-stone-300 disabled:text-stone-500 flex items-center justify-center min-w-[120px] shadow-sm'>
                           {promoLoading ? (
                             <Loader2 className='w-4 h-4 animate-spin' />
                           ) : (
@@ -544,7 +544,7 @@ const MarketplaceModal = ({
                         animate={{ opacity: 1, y: 0 }}
                         className={`mt-3 text-[12px] md:text-[13px] font-bold flex items-center gap-1.5 ${
                           promoMessage.type === "success"
-                            ? "text-[#2D8A60]"
+                            ? "text-stone-700"
                             : "text-red-500"
                         }`}>
                         {promoMessage.type === "success" ? (
@@ -560,8 +560,8 @@ const MarketplaceModal = ({
 
                 {/* RIGHT COLUMN: Checkout Form */}
                 <div className='w-full lg:w-[420px] xl:w-[480px] shrink-0'>
-                  <div className='bg-white p-5 md:p-8 border border-gray-100 rounded-2xl md:rounded-3xl shadow-sm lg:sticky lg:top-6'>
-                    <h3 className='font-bold text-xl md:text-[22px] text-gray-900 mb-5 md:mb-6'>
+                  <div className='bg-white p-5 md:p-8 border border-stone-100 rounded-2xl md:rounded-3xl shadow-sm lg:sticky lg:top-6'>
+                    <h3 className='font-bold text-xl md:text-[22px] text-stone-900 mb-5 md:mb-6'>
                       Checkout
                     </h3>
                     <PurchaseForm
@@ -593,10 +593,10 @@ const MarketplaceModal = ({
               <div className='relative z-10 w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-amber-50 to-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 md:mb-6 shadow-inner border border-amber-200/50'>
                 <Activity className='w-8 h-8 md:w-10 md:h-10' />
               </div>
-              <h3 className='relative z-10 text-xl md:text-2xl font-extrabold text-gray-900 mb-2 md:mb-3 tracking-tight'>
+              <h3 className='relative z-10 text-xl md:text-2xl font-extrabold text-stone-900 mb-2 md:mb-3 tracking-tight'>
                 Health & Safety First
               </h3>
-              <p className='relative z-10 text-gray-500 mb-6 md:mb-8 leading-relaxed text-sm md:text-[15px]'>
+              <p className='relative z-10 text-stone-500 mb-6 md:mb-8 leading-relaxed text-sm md:text-[15px]'>
                 To ensure your safety during sessions, we require all members to
                 complete their <strong>Medical Profile</strong> and accept the{" "}
                 <strong>Terms & Conditions</strong> before purchasing packages.
@@ -608,12 +608,12 @@ const MarketplaceModal = ({
                     onClose();
                     navigate("/client-account-settings");
                   }}
-                  className='w-full py-3.5 bg-[#1D3D36] text-white text-sm md:text-base font-bold rounded-xl hover:bg-[#0F2922] shadow-lg shadow-[#1D3D36]/20 transition-all active:scale-[0.98]'>
+                  className='w-full py-3.5 bg-stone-600 text-white text-sm md:text-base font-bold rounded-xl hover:bg-[#0F2922] shadow-lg shadow-stone-600/20 transition-all active:scale-[0.98]'>
                   Complete Medical Profile
                 </button>
                 <button
                   onClick={() => setShowMedicalWarning(false)}
-                  className='w-full py-3.5 bg-gray-50 text-gray-600 text-sm md:text-base font-bold rounded-xl hover:bg-gray-100 transition-colors'>
+                  className='w-full py-3.5 bg-stone-50 text-stone-600 text-sm md:text-base font-bold rounded-xl hover:bg-stone-100 transition-colors'>
                   Maybe Later
                 </button>
               </div>

@@ -29,7 +29,7 @@ const CustomSelect = ({
   return (
     <div className='relative' ref={containerRef}>
       {/* Label */}
-      <label className='block text-sm font-medium text-gray-700 mb-1'>
+      <label className='block text-sm font-medium text-stone-700 mb-1'>
         {label}
       </label>
 
@@ -39,17 +39,17 @@ const CustomSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full h-11.5 p-3 rounded-xl border bg-white flex items-center justify-between transition-all outline-none ${
           isOpen
-            ? "border-emerald-500 ring-2 ring-emerald-500/20"
-            : "border-gray-200 hover:border-emerald-300"
+            ? "border-stone-500 ring-2 ring-stone-500/20"
+            : "border-stone-200 hover:border-stone-400"
         }`}>
         <span
           className={`block truncate ${
-            value ? "text-gray-900" : "text-gray-400"
+            value ? "text-stone-900" : "text-stone-400"
           }`}>
           {value || placeholder}
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+          className={`w-4 h-4 text-stone-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -62,7 +62,7 @@ const CustomSelect = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className='absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto'>
+            className='absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden max-h-60 overflow-y-auto'>
             {options.map((option) => (
               <div
                 key={option}
@@ -72,12 +72,12 @@ const CustomSelect = ({
                 }}
                 className={`px-4 py-3 text-sm cursor-pointer flex items-center justify-between transition-colors ${
                   value === option
-                    ? "bg-emerald-50 text-emerald-900 font-medium"
-                    : "text-gray-700 hover:bg-gray-50 hover:text-emerald-800"
+                    ? "bg-stone-100 text-stone-900 font-medium"
+                    : "text-stone-700 hover:bg-stone-50 hover:text-stone-900"
                 }`}>
                 {option}
                 {value === option && (
-                  <Check className='w-4 h-4 text-emerald-600' />
+                  <Check className='w-4 h-4 text-stone-800' />
                 )}
               </div>
             ))}

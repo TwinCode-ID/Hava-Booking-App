@@ -8,8 +8,8 @@ const voucherSchema = new mongoose.Schema({
 
 const promoSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    description: { type: String },
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    description: { type: String, maxlength: 1000 },
 
     // ADDED "admin" to the enum
     promoType: {
@@ -19,13 +19,25 @@ const promoSchema = new mongoose.Schema(
     },
 
     // FOR BULK PROMOS
-    prefix: { type: String, uppercase: true, trim: true },
+    prefix: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      maxlength: 20,
+      match: /^[A-Z0-9_-]*$/,
+    },
     codes: [voucherSchema],
 
     // FOR STATIC & ADMIN PROMOS
-    staticCode: { type: String, uppercase: true, trim: true },
-    maxUsageLimit: { type: Number, default: 0 },
-    currentUsageCount: { type: Number, default: 0 },
+    staticCode: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      maxlength: 64,
+      match: /^[A-Z0-9_-]*$/,
+    },
+    maxUsageLimit: { type: Number, min: 1, max: 1_000_000, default: 100 },
+    currentUsageCount: { type: Number, min: 0, default: 0 },
     usedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "Users" }],
 
     discountType: {
@@ -33,10 +45,10 @@ const promoSchema = new mongoose.Schema(
       enum: ["percentage", "fixed", "buy_x_get_y"],
       required: true,
     },
-    discountValue: { type: Number, default: 0 },
-    buyX: { type: Number, default: 0 },
-    getY: { type: Number, default: 0 },
-    minItemsRequired: { type: Number, default: 1 },
+    discountValue: { type: Number, min: 0, max: 1_000_000_000_000, default: 0 },
+    buyX: { type: Number, min: 0, max: 1000, default: 0 },
+    getY: { type: Number, min: 0, max: 1000, default: 0 },
+    minItemsRequired: { type: Number, min: 1, max: 1000, default: 1 },
     isActive: { type: Boolean, default: true },
     studioLocation: {
       type: mongoose.Schema.Types.ObjectId,

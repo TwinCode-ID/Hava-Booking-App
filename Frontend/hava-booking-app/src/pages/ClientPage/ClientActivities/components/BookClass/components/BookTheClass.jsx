@@ -157,19 +157,19 @@ const BookTheClass = () => {
 
   // Reusable Calendar Widget for both Mobile (top) and Desktop (sidebar)
   const renderCalendar = () => (
-    <div className='bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-gray-100 shrink-0 w-full'>
+    <div className='bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-stone-100 shrink-0 w-full'>
       <div className='flex items-center justify-between mb-4 md:mb-6'>
         <button
           onClick={handlePrevMonth}
-          className='p-2 -ml-2 text-gray-400 hover:text-gray-900 transition-colors rounded-full'>
+          className='p-2 -ml-2 text-stone-400 hover:text-stone-900 transition-colors rounded-full'>
           <ChevronLeft className='w-6 h-6 md:w-5 md:h-5' />
         </button>
-        <h2 className='text-base md:text-lg font-bold text-gray-900'>
+        <h2 className='text-base md:text-lg font-bold text-stone-900'>
           {format(currentMonth, "MMMM yyyy")}
         </h2>
         <button
           onClick={handleNextMonth}
-          className='p-2 -mr-2 text-gray-400 hover:text-gray-900 transition-colors rounded-full'>
+          className='p-2 -mr-2 text-stone-400 hover:text-stone-900 transition-colors rounded-full'>
           <ChevronRight className='w-6 h-6 md:w-5 md:h-5' />
         </button>
       </div>
@@ -177,7 +177,7 @@ const BookTheClass = () => {
         {weekDays.map((day) => (
           <div
             key={day}
-            className='h-8 md:h-10 flex items-center justify-center text-[10px] md:text-xs font-bold text-gray-400'>
+            className='h-8 md:h-10 flex items-center justify-center text-[10px] md:text-xs font-bold text-stone-400'>
             {day}
           </div>
         ))}
@@ -191,7 +191,7 @@ const BookTheClass = () => {
             <div key={idx} className='flex justify-center'>
               <button
                 onClick={() => setSelectedDate(day)}
-                className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-sm font-medium transition-all ${isSelected ? "bg-emerald-900 text-white shadow-lg shadow-emerald-900/20" : isTodayDate ? "bg-emerald-50 text-emerald-700 font-bold" : "hover:bg-gray-50 text-gray-700"} ${!isCurrentMonth && "text-gray-300"}`}>
+                className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-sm font-medium transition-all ${isSelected ? "bg-stone-600 text-white shadow-lg shadow-stone-600/20" : isTodayDate ? "bg-stone-100 text-stone-800 font-bold" : "hover:bg-stone-50 text-stone-700"} ${!isCurrentMonth && "text-stone-300"}`}>
                 {format(day, "d")}
               </button>
             </div>
@@ -204,19 +204,19 @@ const BookTheClass = () => {
   // STUDIO SELECTION VIEW
   if (!selectedStudio) {
     return (
-      <div className='min-h-screen bg-gray-50 font-sans p-4 md:p-6 lg:p-10 pb-safe'>
+      <div className='min-h-screen bg-stone-50 font-sans p-4 md:p-6 lg:p-10 pb-safe'>
         <div className='max-w-6xl mx-auto'>
           <div className='flex items-center gap-3 md:gap-4 mb-6 md:mb-8'>
             <button
               onClick={() => navigate(-1)}
-              className='p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors shadow-sm'>
+              className='p-2.5 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 text-stone-600 transition-colors shadow-sm'>
               <ArrowLeft className='w-6 h-6 md:w-5 md:h-5' />
             </button>
             <div>
-              <h1 className='text-2xl md:text-3xl font-bold text-gray-900 tracking-tight'>
+              <h1 className='text-2xl md:text-3xl font-bold text-stone-900 tracking-tight'>
                 Select a Studio
               </h1>
-              <p className='text-sm md:text-base text-gray-500 mt-0.5 md:mt-1'>
+              <p className='text-sm md:text-base text-stone-500 mt-0.5 md:mt-1'>
                 Where would you like to practice today?
               </p>
             </div>
@@ -230,9 +230,9 @@ const BookTheClass = () => {
               {/* ALL LOCATIONS CARD */}
               <div
                 onClick={() => setSelectedStudio("ALL")}
-                className='bg-gray-900 rounded-3xl border border-gray-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group'>
-                <div className='relative h-48 md:h-56 w-full bg-gray-800 overflow-hidden flex flex-col items-center justify-center'>
-                  <Globe className='w-14 h-14 md:w-16 md:h-16 text-emerald-400 group-hover:scale-110 transition-transform duration-500 mb-2' />
+                className='bg-stone-700 rounded-3xl border border-stone-600 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group'>
+                <div className='relative h-48 md:h-56 w-full bg-stone-600 overflow-hidden flex flex-col items-center justify-center'>
+                  <Globe className='w-14 h-14 md:w-16 md:h-16 text-stone-600 group-hover:scale-110 transition-transform duration-500 mb-2' />
                   <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent'></div>
                   <div className='absolute bottom-5 left-5 right-5 text-white'>
                     <h3 className='text-lg md:text-xl font-bold leading-tight shadow-sm'>
@@ -241,7 +241,7 @@ const BookTheClass = () => {
                   </div>
                 </div>
                 <div className='p-5 md:p-6 flex-1 flex flex-col justify-center'>
-                  <p className='text-gray-400 text-xs md:text-sm leading-relaxed font-medium'>
+                  <p className='text-stone-400 text-xs md:text-sm leading-relaxed font-medium'>
                     View the complete schedule and all available classes across
                     every studio location.
                   </p>
@@ -255,8 +255,8 @@ const BookTheClass = () => {
                   <div
                     key={studio._id}
                     onClick={() => setSelectedStudio(studio)}
-                    className='bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group'>
-                    <div className='relative h-48 md:h-56 w-full bg-gray-100 overflow-hidden'>
+                    className='bg-white rounded-3xl border border-stone-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group'>
+                    <div className='relative h-48 md:h-56 w-full bg-stone-100 overflow-hidden'>
                       {firstImage ? (
                         <img
                           src={firstImage}
@@ -264,8 +264,8 @@ const BookTheClass = () => {
                           className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-500'
                         />
                       ) : (
-                        <div className='w-full h-full flex flex-col items-center justify-center text-gray-400 bg-emerald-50/50'>
-                          <Building2 className='w-12 h-12 mb-2 text-emerald-600/50' />
+                        <div className='w-full h-full flex flex-col items-center justify-center text-stone-400 bg-stone-100/50'>
+                          <Building2 className='w-12 h-12 mb-2 text-stone-800/50' />
                         </div>
                       )}
                       <div className='absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent'></div>
@@ -276,17 +276,17 @@ const BookTheClass = () => {
                       </div>
                     </div>
                     <div className='p-5 md:p-6 flex-1 flex flex-col'>
-                      <div className='flex items-start gap-3 text-sm text-gray-600 mb-4 md:mb-6'>
-                        <div className='p-2 bg-emerald-50 rounded-lg text-emerald-600 shrink-0 mt-0.5'>
+                      <div className='flex items-start gap-3 text-sm text-stone-600 mb-4 md:mb-6'>
+                        <div className='p-2 bg-stone-100 rounded-lg text-stone-800 shrink-0 mt-0.5'>
                           <MapPin className='w-4 h-4' />
                         </div>
                         <p className='leading-relaxed'>
                           {studio.address?.street ? (
                             <>
-                              <span className='block font-medium text-gray-900'>
+                              <span className='block font-medium text-stone-900'>
                                 {studio.address.city}
                               </span>
-                              <span className='text-gray-500 text-xs mt-0.5 block'>
+                              <span className='text-stone-500 text-xs mt-0.5 block'>
                                 {studio.address.street}
                               </span>
                             </>
@@ -296,14 +296,14 @@ const BookTheClass = () => {
                         </p>
                       </div>
                       {studio.contactNumber && (
-                        <div className='flex items-center gap-3 text-sm text-gray-600 mt-auto'>
-                          <div className='p-2 bg-emerald-50 rounded-lg text-emerald-600 shrink-0'>
+                        <div className='flex items-center gap-3 text-sm text-stone-600 mt-auto'>
+                          <div className='p-2 bg-stone-100 rounded-lg text-stone-800 shrink-0'>
                             <Phone className='w-4 h-4' />
                           </div>
                           <a
                             href={`tel:+${studio.contactNumber}`}
                             onClick={(e) => e.stopPropagation()}
-                            className='font-bold text-gray-900 hover:text-emerald-600 transition-colors p-1'>
+                            className='font-bold text-stone-900 hover:text-stone-800 transition-colors p-1'>
                             +{studio.contactNumber}
                           </a>
                         </div>
@@ -322,7 +322,7 @@ const BookTheClass = () => {
   // BOOKING VIEW
   return (
     <>
-      <div className='min-h-screen bg-gray-50 font-sans p-4 md:p-6 lg:p-10 pb-40 md:pb-32 relative'>
+      <div className='min-h-screen bg-stone-50 font-sans p-4 md:p-6 lg:p-10 pb-40 md:pb-32 relative'>
         <div className='max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 md:gap-8 items-start'>
           {/* --- LEFT: MAIN CONTENT --- */}
           <div className='flex-1 w-full min-w-0'>
@@ -330,16 +330,16 @@ const BookTheClass = () => {
             <div className='flex items-center gap-3 md:gap-4 mb-6'>
               <button
                 onClick={() => setSelectedStudio(null)}
-                className='p-2 md:p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 transition-colors shadow-sm'>
+                className='p-2 md:p-2.5 bg-white border border-stone-200 rounded-xl hover:bg-stone-50 text-stone-600 transition-colors shadow-sm'>
                 <ArrowLeft className='w-6 h-6 md:w-5 md:h-5' />
               </button>
               <div>
-                <h1 className='text-xl md:text-2xl font-bold text-gray-900 line-clamp-1'>
+                <h1 className='text-xl md:text-2xl font-bold text-stone-900 line-clamp-1'>
                   {selectedStudio === "ALL"
                     ? "All Locations"
                     : selectedStudio.studioName}
                 </h1>
-                <p className='text-xs md:text-sm text-gray-500 font-medium'>
+                <p className='text-xs md:text-sm text-stone-500 font-medium'>
                   {format(selectedDate, "EEEE, MMMM do, yyyy")}
                 </p>
               </div>
@@ -366,14 +366,14 @@ const BookTheClass = () => {
                     return (
                       <div
                         key={cls._id}
-                        className={`bg-white rounded-2xl p-4 md:p-5 border shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 ${isExpired ? "border-gray-100 opacity-60 grayscale-[0.5]" : "border-gray-100 hover:shadow-md"} ${inCart ? "ring-2 ring-emerald-500 bg-emerald-50/20" : ""}`}>
+                        className={`bg-white rounded-2xl p-4 md:p-5 border shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 ${isExpired ? "border-stone-100 opacity-60 grayscale-[0.5]" : "border-stone-100 hover:shadow-md"} ${inCart ? "ring-2 ring-stone-500 bg-stone-100/20" : ""}`}>
                         {/* Time Badge */}
                         <div
-                          className={`flex flex-row md:flex-col items-center justify-between md:justify-center rounded-xl p-3 md:p-4 w-full md:min-w-[90px] md:w-auto md:h-full border transition-colors ${isExpired ? "bg-gray-100 border-gray-200 text-gray-400" : "bg-gray-50 border-gray-100 text-gray-900"}`}>
+                          className={`flex flex-row md:flex-col items-center justify-between md:justify-center rounded-xl p-3 md:p-4 w-full md:min-w-[90px] md:w-auto md:h-full border transition-colors ${isExpired ? "bg-stone-100 border-stone-200 text-stone-400" : "bg-stone-50 border-stone-100 text-stone-900"}`}>
                           <span className='text-base md:text-lg font-bold'>
                             {formatTime(cls.startTime)}
                           </span>
-                          <span className='text-[10px] md:text-[10px] font-bold text-gray-400 md:text-gray-400 uppercase tracking-wider mt-0 md:mt-1'>
+                          <span className='text-[10px] md:text-[10px] font-bold text-stone-400 md:text-stone-400 uppercase tracking-wider mt-0 md:mt-1'>
                             {cls.duration} min
                           </span>
                         </div>
@@ -385,22 +385,22 @@ const BookTheClass = () => {
                               className={`text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border ${cls.classType === "Private" ? "bg-purple-50 text-purple-700 border-purple-100" : "bg-blue-50 text-blue-700 border-blue-100"}`}>
                               {cls.classType}
                             </span>
-                            <span className='text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wider'>
+                            <span className='text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 border border-stone-200 uppercase tracking-wider'>
                               {cls.instructorType}
                             </span>
                             {selectedStudio === "ALL" && (
-                              <span className='text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 border border-gray-200 uppercase tracking-wider flex items-center gap-1'>
+                              <span className='text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 border border-stone-200 uppercase tracking-wider flex items-center gap-1'>
                                 <MapPin className='w-3 h-3' />{" "}
                                 {cls.studioId?.studioName}
                               </span>
                             )}
                           </div>
                           <h3
-                            className={`text-base md:text-lg font-bold mb-1 ${isExpired ? "text-gray-500" : "text-gray-900"}`}>
+                            className={`text-base md:text-lg font-bold mb-1 ${isExpired ? "text-stone-500" : "text-stone-900"}`}>
                             {cls.className}
                           </h3>
-                          <div className='flex items-center gap-1.5 text-xs md:text-sm text-gray-500 mt-2'>
-                            <User className='w-4 h-4 text-gray-400 shrink-0' />
+                          <div className='flex items-center gap-1.5 text-xs md:text-sm text-stone-500 mt-2'>
+                            <User className='w-4 h-4 text-stone-400 shrink-0' />
                             <span className='truncate'>
                               {cls.instructorId?.fullName || "Instructor"}
                             </span>
@@ -409,7 +409,7 @@ const BookTheClass = () => {
 
                         {/* Action Container */}
                         <div className='flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center w-full md:w-auto gap-3 mt-1 md:mt-0'>
-                          <div className='flex items-center gap-1.5 text-[11px] md:text-xs font-bold text-gray-500 bg-gray-50 px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg'>
+                          <div className='flex items-center gap-1.5 text-[11px] md:text-xs font-bold text-stone-500 bg-stone-50 px-2.5 py-1.5 md:px-3 md:py-1.5 rounded-lg'>
                             <Users className='w-3.5 h-3.5' />
                             <span>
                               {cls.capacity - cls.currentEnrollment} left
@@ -420,7 +420,7 @@ const BookTheClass = () => {
                               !isExpired && !isFull && toggleCart(cls)
                             }
                             disabled={isFull || isExpired}
-                            className={`flex-1 md:flex-none md:w-full py-2.5 md:py-3 px-4 font-bold rounded-xl transition-all text-xs md:text-sm flex items-center justify-center gap-2 ${isExpired || isFull ? "bg-gray-100 text-gray-400 cursor-not-allowed" : inCart ? "bg-emerald-100 text-emerald-800 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-emerald-200 group" : "bg-gray-900 text-white hover:bg-emerald-600 shadow-md active:scale-95"}`}>
+                            className={`flex-1 md:flex-none md:w-full py-2.5 md:py-3 px-4 font-bold rounded-xl transition-all text-xs md:text-sm flex items-center justify-center gap-2 ${isExpired || isFull ? "bg-stone-100 text-stone-400 cursor-not-allowed" : inCart ? "bg-stone-200 text-stone-900 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-stone-300 group" : "bg-stone-700 text-white hover:bg-stone-600 shadow-md active:scale-95"}`}>
                             {isExpired ? (
                               "Closed"
                             ) : isFull ? (
@@ -449,14 +449,14 @@ const BookTheClass = () => {
                     );
                   })
                 ) : (
-                  <div className='flex flex-col items-center justify-center py-16 md:py-20 bg-white rounded-3xl border border-dashed border-gray-200 mx-auto'>
-                    <div className='bg-gray-50 w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-4 md:mb-6'>
-                      <CalendarIcon className='w-6 h-6 md:w-8 md:h-8 text-gray-300' />
+                  <div className='flex flex-col items-center justify-center py-16 md:py-20 bg-white rounded-3xl border border-dashed border-stone-200 mx-auto'>
+                    <div className='bg-stone-50 w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-4 md:mb-6'>
+                      <CalendarIcon className='w-6 h-6 md:w-8 md:h-8 text-stone-300' />
                     </div>
-                    <h3 className='text-gray-900 font-bold text-lg md:text-xl'>
+                    <h3 className='text-stone-900 font-bold text-lg md:text-xl'>
                       No classes scheduled
                     </h3>
-                    <p className='text-gray-500 text-xs md:text-sm mt-2 max-w-[250px] md:max-w-xs text-center leading-relaxed'>
+                    <p className='text-stone-500 text-xs md:text-sm mt-2 max-w-[250px] md:max-w-xs text-center leading-relaxed'>
                       No classes available on {format(selectedDate, "MMMM do")}{" "}
                       at this location.
                     </p>
@@ -472,8 +472,8 @@ const BookTheClass = () => {
             <div className='hidden lg:block'>{renderCalendar()}</div>
 
             {/* All Upcoming Classes */}
-            <div className='bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-gray-100 flex-1 flex flex-col min-h-[400px] lg:min-h-0'>
-              <h3 className='text-base md:text-lg font-bold text-gray-900 mb-4 shrink-0'>
+            <div className='bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-stone-100 flex-1 flex flex-col min-h-[400px] lg:min-h-0'>
+              <h3 className='text-base md:text-lg font-bold text-stone-900 mb-4 shrink-0'>
                 All Upcoming Classes
               </h3>
               <div className='overflow-y-auto pr-2 space-y-3 custom-scrollbar flex-1'>
@@ -485,15 +485,15 @@ const BookTheClass = () => {
                     return (
                       <div
                         key={cls._id}
-                        className={`p-3.5 md:p-4 rounded-2xl border transition-all ${inCart ? "border-emerald-500 bg-emerald-50/20" : "border-gray-100 hover:border-emerald-200"}`}>
+                        className={`p-3.5 md:p-4 rounded-2xl border transition-all ${inCart ? "border-stone-500 bg-stone-100/20" : "border-stone-100 hover:border-stone-300"}`}>
                         <div className='flex justify-between items-start mb-2'>
                           <div>
                             <h4
-                              className='font-bold text-gray-900 text-sm line-clamp-1 pr-2'
+                              className='font-bold text-stone-900 text-sm line-clamp-1 pr-2'
                               title={cls.className}>
                               {cls.className}
                             </h4>
-                            <p className='text-xs text-emerald-600 font-bold mt-0.5'>
+                            <p className='text-xs text-stone-800 font-bold mt-0.5'>
                               {format(
                                 new Date(cls.startTime),
                                 "MMM do, h:mm a",
@@ -507,7 +507,7 @@ const BookTheClass = () => {
                         </div>
 
                         {selectedStudio === "ALL" && (
-                          <div className='flex items-center gap-1 text-[10px] text-gray-500 mb-2'>
+                          <div className='flex items-center gap-1 text-[10px] text-stone-500 mb-2'>
                             <MapPin className='w-3 h-3' />
                             <span className='truncate'>
                               {cls.studioId?.studioName}
@@ -515,9 +515,9 @@ const BookTheClass = () => {
                           </div>
                         )}
 
-                        <div className='flex items-center justify-between mt-3 pt-3 border-t border-gray-50'>
-                          <div className='flex items-center gap-1.5 text-xs text-gray-500'>
-                            <User className='w-3.5 h-3.5 text-gray-400 shrink-0' />{" "}
+                        <div className='flex items-center justify-between mt-3 pt-3 border-t border-stone-50'>
+                          <div className='flex items-center gap-1.5 text-xs text-stone-500'>
+                            <User className='w-3.5 h-3.5 text-stone-400 shrink-0' />{" "}
                             <span className='truncate max-w-[140px]'>
                               {cls.instructorId?.fullName || "Instructor"}
                             </span>
@@ -527,10 +527,10 @@ const BookTheClass = () => {
                             disabled={isFull}
                             className={`p-2 rounded-xl transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center ${
                               isFull
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                ? "bg-stone-100 text-stone-400 cursor-not-allowed"
                                 : inCart
                                   ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                  : "bg-gray-900 text-white hover:bg-emerald-600"
+                                  : "bg-stone-700 text-white hover:bg-stone-600"
                             }`}
                             title={
                               isFull
@@ -553,8 +553,8 @@ const BookTheClass = () => {
                   })
                 ) : (
                   <div className='flex flex-col items-center justify-center py-10 h-full text-center'>
-                    <CalendarIcon className='w-8 h-8 text-gray-200 mb-3' />
-                    <p className='text-sm font-medium text-gray-500'>
+                    <CalendarIcon className='w-8 h-8 text-stone-200 mb-3' />
+                    <p className='text-sm font-medium text-stone-500'>
                       No upcoming classes available.
                     </p>
                   </div>
@@ -567,10 +567,10 @@ const BookTheClass = () => {
         {/* --- BOTTOM FLOATING CART --- */}
         {cart.length > 0 && (
           <div className='fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-full max-w-2xl z-40 animate-in slide-in-from-bottom-6 duration-300 pb-[env(safe-area-inset-bottom)]'>
-            <div className='bg-gray-900 text-white p-3 md:p-4 rounded-2xl shadow-2xl shadow-gray-900/30 flex items-center justify-between border border-gray-800'>
+            <div className='bg-stone-700 text-white p-3 md:p-4 rounded-2xl shadow-2xl shadow-stone-700/30 flex items-center justify-between border border-stone-600'>
               <div className='flex items-center gap-3 md:gap-4'>
                 <div className='relative shrink-0'>
-                  <div className='bg-emerald-500 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white'>
+                  <div className='bg-stone-500 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white'>
                     <ShoppingCart className='w-4 h-4 md:w-5 md:h-5' />
                   </div>
                   <div className='absolute -top-1.5 -right-1.5 md:-top-2 md:-right-2 bg-red-500 text-white text-[9px] md:text-[10px] font-bold w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center shadow-sm'>
@@ -581,7 +581,7 @@ const BookTheClass = () => {
                   <p className='font-bold text-sm md:text-base'>
                     Ready to Checkout?
                   </p>
-                  <p className='text-[11px] md:text-xs text-gray-400'>
+                  <p className='text-[11px] md:text-xs text-stone-400'>
                     {cart.length} {cart.length === 1 ? "class" : "classes"}{" "}
                     selected
                   </p>
@@ -589,7 +589,7 @@ const BookTheClass = () => {
               </div>
               <button
                 onClick={() => setShowBookingModal(true)}
-                className='bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 md:px-6 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-colors shadow-lg active:scale-95 shrink-0'>
+                className='bg-stone-500 hover:bg-stone-400 text-white px-4 py-2.5 md:px-6 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-colors shadow-lg active:scale-95 shrink-0'>
                 Review & Book
               </button>
             </div>
@@ -617,17 +617,17 @@ const BookTheClass = () => {
             <div className='w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5'>
               <Activity className='w-8 h-8' />
             </div>
-            <h3 className='text-xl md:text-2xl font-bold text-gray-900 mb-2'>
+            <h3 className='text-xl md:text-2xl font-bold text-stone-900 mb-2'>
               Action Required
             </h3>
-            <p className='text-sm md:text-base text-gray-600 mb-6 md:mb-8 leading-relaxed'>
+            <p className='text-sm md:text-base text-stone-600 mb-6 md:mb-8 leading-relaxed'>
               Before booking a class, you must complete your Medical Profile and
               accept our Terms & Conditions for your safety.
             </p>
             <div className='flex flex-col-reverse sm:flex-row gap-3'>
               <button
                 onClick={() => setShowMedicalWarning(false)}
-                className='flex-1 py-3.5 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm md:text-base'>
+                className='flex-1 py-3.5 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition-colors text-sm md:text-base'>
                 Cancel
               </button>
               <button
@@ -635,7 +635,7 @@ const BookTheClass = () => {
                   setShowMedicalWarning(false);
                   navigate("/client-account-settings");
                 }}
-                className='flex-1 py-3.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg transition-colors text-sm md:text-base'>
+                className='flex-1 py-3.5 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 shadow-lg transition-colors text-sm md:text-base'>
                 Go to Profile
               </button>
             </div>

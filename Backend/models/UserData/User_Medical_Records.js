@@ -8,10 +8,14 @@ const UserMedicalRecordsSchema = new mongoose.Schema(
       require: true,
     },
     dateOfBirth: { type: Date, require: true },
-    sex: { type: String, enum: ["Male", "Female"], require: true },
+    sex: {
+      type: String,
+      enum: ["Male", "Female", "Prefer not to say"],
+      require: true,
+    },
     maritalStatus: {
       type: String,
-      enum: ["Single", "Married", "Others"],
+      enum: ["Single", "Married", "Divorced", "Widowed", "Others"],
       require: true,
     },
     occupation: { type: String, require: true },

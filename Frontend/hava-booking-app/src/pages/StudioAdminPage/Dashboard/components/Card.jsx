@@ -3,15 +3,15 @@ import { TrendingUp } from "lucide-react";
 const Card = ({ title, headerAction, subtitle, className, children }) => {
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200 ${className}`}>
+      className={`bg-white rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow duration-200 ${className}`}>
       {(title || headerAction) && (
         <div className='flex items-center justify-between p-6 pb-4'>
           <div>
             {title && (
-              <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
+              <h3 className='text-lg font-semibold text-stone-900'>{title}</h3>
             )}
             {subtitle && (
-              <p className='text-sm text-gray-500 mt-1'>{subtitle}</p>
+              <p className='text-sm text-stone-500 mt-1'>{subtitle}</p>
             )}
           </div>
           {headerAction}
@@ -33,7 +33,7 @@ const StatCard = ({
   const colorClasses = {
     blue: "from-blue-500 to-blue-600",
     red: "from-red-500 to-red-600",
-    green: "from-emerald-500 to-emerald-600",
+    green: "from-stone-500 to-stone-600",
     orange: "from-orange-500 to-orange-600",
   };
 

@@ -173,25 +173,25 @@ const BookingList = () => {
   };
 
   return (
-    <div className='bg-gray-50 min-h-screen p-4 md:p-6 lg:p-8 font-sans flex flex-col items-center pb-safe'>
+    <div className='bg-stone-50 min-h-screen p-4 md:p-6 lg:p-8 font-sans flex flex-col items-center pb-safe'>
       <div className='w-full max-w-7xl flex flex-col lg:flex-row gap-6 md:gap-8'>
         {/* --- LEFT SIDE: MAIN LIST CONTENT --- */}
-        <div className='flex-1 bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[500px] order-2 lg:order-1'>
+        <div className='flex-1 bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-stone-200 overflow-hidden flex flex-col min-h-[500px] order-2 lg:order-1'>
           <div className='p-5 md:p-8 pb-0 flex flex-col gap-5 md:gap-6'>
             {/* Header */}
             <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
               <div>
-                <h1 className='text-2xl font-bold text-gray-900'>
+                <h1 className='text-2xl font-bold text-stone-900'>
                   Class Schedule
                 </h1>
-                <p className='text-gray-500 text-sm mt-0.5'>
+                <p className='text-stone-500 text-sm mt-0.5'>
                   Manage bookings and check-ins.
                 </p>
               </div>
               <div className='flex gap-3'>
                 <button
                   onClick={handleGeneratePDF}
-                  className='w-full sm:w-auto px-5 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors shadow-sm'>
+                  className='w-full sm:w-auto px-5 py-2.5 bg-white border border-stone-200 text-stone-700 text-sm font-bold rounded-xl hover:bg-stone-50 flex items-center justify-center gap-2 transition-colors shadow-sm'>
                   <Printer className='w-4 h-4' /> Export
                 </button>
               </div>
@@ -204,14 +204,14 @@ const BookingList = () => {
                 placeholder='Search class, instructor, or studio...'
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className='w-full pl-11 pr-10 py-3.5 md:py-4 rounded-xl md:rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all text-sm font-medium'
+                className='w-full pl-11 pr-10 py-3.5 md:py-4 rounded-xl md:rounded-2xl bg-stone-50 border border-transparent focus:bg-white focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 outline-none transition-all text-sm font-medium'
               />
-              <Search className='w-[18px] h-[18px] md:w-5 md:h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2' />
+              <Search className='w-[18px] h-[18px] md:w-5 md:h-5 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2' />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm("")}
-                  className='absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-200 rounded-full transition-colors'>
-                  <X className='w-4 h-4 text-gray-500' />
+                  className='absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-stone-200 rounded-full transition-colors'>
+                  <X className='w-4 h-4 text-stone-500' />
                 </button>
               )}
             </div>
@@ -220,19 +220,19 @@ const BookingList = () => {
             <div className='flex items-center justify-between pt-1 md:pt-2'>
               <div className='flex items-center gap-2'>
                 {searchTerm ? (
-                  <h3 className='font-bold text-gray-900 text-sm md:text-base'>
+                  <h3 className='font-bold text-stone-900 text-sm md:text-base'>
                     Search results for{" "}
-                    <span className='text-emerald-700'>"{searchTerm}"</span>
+                    <span className='text-stone-800'>"{searchTerm}"</span>
                   </h3>
                 ) : (
-                  <h3 className='font-bold text-gray-900 text-sm md:text-base'>
+                  <h3 className='font-bold text-stone-900 text-sm md:text-base'>
                     Classes for{" "}
-                    <span className='text-emerald-700 underline decoration-emerald-200 underline-offset-4'>
+                    <span className='text-stone-800 underline decoration-stone-300 underline-offset-4'>
                       {format(currentDate, "MMMM do, yyyy")}
                     </span>
                   </h3>
                 )}
-                <span className='bg-gray-100 text-gray-600 text-[10px] md:text-xs font-bold px-2 py-0.5 md:py-1 rounded-md'>
+                <span className='bg-stone-100 text-stone-600 text-[10px] md:text-xs font-bold px-2 py-0.5 md:py-1 rounded-md'>
                   {filteredBookings.length}
                 </span>
               </div>
@@ -242,7 +242,7 @@ const BookingList = () => {
           {/* List Content */}
           <div className='flex-1 p-4 md:p-8 pt-4 overflow-y-auto custom-scrollbar'>
             {/* Desktop Grid Header (Hidden on Mobile) */}
-            <div className='hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-2'>
+            <div className='hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[10px] font-bold text-stone-400 uppercase tracking-wider border-b border-stone-100 mb-2'>
               <div className='col-span-2'>Time</div>
               <div className='col-span-4'>Class Details</div>
               <div className='col-span-3'>Location</div>
@@ -279,7 +279,7 @@ const BookingList = () => {
         {/* --- RIGHT SIDE: SIDEBAR --- */}
         <div className='w-full lg:w-[320px] shrink-0 space-y-6 order-1 lg:order-2'>
           {/* Calendar Widget */}
-          <div className='bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-gray-200'>
+          <div className='bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-stone-200'>
             <SideCalendar
               selectedDate={currentDate}
               onChange={(date) => {
@@ -290,10 +290,10 @@ const BookingList = () => {
           </div>
 
           {/* Activity Widget (Hidden on small screens to save space, visible on tablet/desktop) */}
-          <div className='hidden md:block bg-white rounded-3xl p-6 shadow-sm border border-gray-200'>
+          <div className='hidden md:block bg-white rounded-3xl p-6 shadow-sm border border-stone-200'>
             <div className='flex items-center justify-between mb-4'>
-              <h3 className='font-bold text-gray-900'>Your Activity</h3>
-              <History className='w-4 h-4 text-gray-400' />
+              <h3 className='font-bold text-stone-900'>Your Activity</h3>
+              <History className='w-4 h-4 text-stone-400' />
             </div>
             <RecentActivityList bookings={bookings} />
           </div>
@@ -354,8 +354,8 @@ const SideCalendar = ({ selectedDate, onChange }) => {
                 w-10 h-10 md:w-8 md:h-8 flex items-center justify-center text-sm md:text-xs rounded-full transition-all relative
                 ${
                   !isCurrentMonth
-                    ? "text-gray-300"
-                    : "text-gray-700 hover:bg-gray-100 font-medium"
+                    ? "text-stone-300"
+                    : "text-stone-700 hover:bg-stone-100 font-medium"
                 }
                 ${
                   isSelected
@@ -364,7 +364,7 @@ const SideCalendar = ({ selectedDate, onChange }) => {
                 }
                 ${
                   isToday && !isSelected
-                    ? "text-emerald-600 font-bold bg-emerald-50"
+                    ? "text-stone-800 font-bold bg-stone-100"
                     : ""
                 }
             `}>
@@ -387,20 +387,20 @@ const SideCalendar = ({ selectedDate, onChange }) => {
       <div className='flex items-center justify-between mb-4 md:mb-6 px-1'>
         <button
           onClick={() => setViewDate(subMonths(viewDate, 1))}
-          className='p-1.5 md:p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors'>
+          className='p-1.5 md:p-1 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors'>
           <ChevronLeft className='w-5 h-5' />
         </button>
         <div className='flex items-center gap-1.5'>
-          <span className='text-base font-bold text-gray-900'>
+          <span className='text-base font-bold text-stone-900'>
             {format(viewDate, "MMMM")}
           </span>
-          <span className='text-base font-bold text-gray-900'>
+          <span className='text-base font-bold text-stone-900'>
             {format(viewDate, "yyyy")}
           </span>
         </div>
         <button
           onClick={() => setViewDate(addMonths(viewDate, 1))}
-          className='p-1.5 md:p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors'>
+          className='p-1.5 md:p-1 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors'>
           <ChevronRight className='w-5 h-5' />
         </button>
       </div>
@@ -408,7 +408,7 @@ const SideCalendar = ({ selectedDate, onChange }) => {
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
           <span
             key={i}
-            className='text-[10px] md:text-xs font-bold text-gray-400'>
+            className='text-[10px] md:text-xs font-bold text-stone-400'>
             {d}
           </span>
         ))}
@@ -425,7 +425,7 @@ const RecentActivityList = ({ bookings = [] }) => {
 
   if (sortedActivities.length === 0) {
     return (
-      <div className='text-gray-400 text-sm text-center py-4'>
+      <div className='text-stone-400 text-sm text-center py-4'>
         No recent activity
       </div>
     );
@@ -435,7 +435,7 @@ const RecentActivityList = ({ bookings = [] }) => {
     <div className='space-y-4'>
       {sortedActivities.map((booking) => {
         let action = "booked";
-        let colorClass = "bg-emerald-100 text-emerald-700";
+        let colorClass = "bg-stone-200 text-stone-800";
 
         if (booking.status === "Cancelled") {
           action = "cancelled";
@@ -458,17 +458,17 @@ const RecentActivityList = ({ bookings = [] }) => {
               Me
             </div>
             <div>
-              <p className='text-gray-900 leading-tight'>
+              <p className='text-stone-900 leading-tight'>
                 You <span className='font-bold'>{action}</span>
-                <span className='text-gray-500'> </span>
-                <span className='font-medium text-gray-800'>
+                <span className='text-stone-500'> </span>
+                <span className='font-medium text-stone-800'>
                   {booking.classId?.className || "Class"}
                 </span>
-                <span className='text-[11px] md:text-xs text-gray-400 block mt-0.5'>
+                <span className='text-[11px] md:text-xs text-stone-400 block mt-0.5'>
                   with {instructorName}
                 </span>
               </p>
-              <p className='text-[10px] text-gray-400 mt-1'>{timeAgo}</p>
+              <p className='text-[10px] text-stone-400 mt-1'>{timeAgo}</p>
             </div>
           </div>
         );
@@ -500,16 +500,16 @@ const BookingRow = ({ booking, onClick }) => {
   } else if (booking.isAttend) {
     status = {
       label: "Checked In",
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      border: "border-emerald-100",
+      bg: "bg-stone-100",
+      text: "text-stone-800",
+      border: "border-stone-200",
     };
   } else if (isCompleted) {
     status = {
       label: "Completed",
-      bg: "bg-gray-50",
-      text: "text-gray-500",
-      border: "border-gray-200",
+      bg: "bg-stone-50",
+      text: "text-stone-500",
+      border: "border-stone-200",
     };
   }
 
@@ -520,7 +520,7 @@ const BookingRow = ({ booking, onClick }) => {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.005, backgroundColor: "#fff" }}
       onClick={onClick}
-      className='bg-white rounded-2xl border border-gray-100 p-4 md:p-5 flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center cursor-pointer shadow-sm hover:shadow-md transition-all group relative overflow-hidden active:scale-[0.99] md:active:scale-100'>
+      className='bg-white rounded-2xl border border-stone-100 p-4 md:p-5 flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center cursor-pointer shadow-sm hover:shadow-md transition-all group relative overflow-hidden active:scale-[0.99] md:active:scale-100'>
       {/* Accent Strip */}
       <div
         className={`absolute left-0 top-0 bottom-0 w-1.5 md:w-1 ${status.text
@@ -530,7 +530,7 @@ const BookingRow = ({ booking, onClick }) => {
 
       {/* Mobile Top Row (Time & Badge) / Desktop Time Col */}
       <div className='flex justify-between items-center w-full md:hidden pl-2'>
-        <div className='font-bold text-gray-900 text-sm'>
+        <div className='font-bold text-stone-900 text-sm'>
           {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
         </div>
         <span
@@ -539,20 +539,20 @@ const BookingRow = ({ booking, onClick }) => {
         </span>
       </div>
 
-      <div className='hidden md:flex col-span-2 font-medium text-gray-900 text-sm flex-col'>
+      <div className='hidden md:flex col-span-2 font-medium text-stone-900 text-sm flex-col'>
         <span>{format(startTime, "HH:mm")}</span>
-        <span className='text-xs text-gray-400'>
+        <span className='text-xs text-stone-400'>
           {format(endTime, "HH:mm")}
         </span>
       </div>
 
       {/* Class Details */}
       <div className='md:col-span-4 pl-2 md:pl-0'>
-        <h4 className='font-bold text-gray-900 text-base md:text-sm group-hover:text-emerald-700 transition-colors line-clamp-1'>
+        <h4 className='font-bold text-stone-900 text-base md:text-sm group-hover:text-stone-800 transition-colors line-clamp-1'>
           {booking.classId?.className || "Unknown Class"}
         </h4>
-        <div className='flex items-center gap-1.5 text-xs text-gray-500 mt-1 md:mt-0.5'>
-          <User className='w-3.5 h-3.5 md:w-3 md:h-3 text-gray-400 shrink-0' />
+        <div className='flex items-center gap-1.5 text-xs text-stone-500 mt-1 md:mt-0.5'>
+          <User className='w-3.5 h-3.5 md:w-3 md:h-3 text-stone-400 shrink-0' />
           <span className='truncate'>
             {booking.instructorId?.fullName || "Unassigned"}
           </span>
@@ -560,15 +560,15 @@ const BookingRow = ({ booking, onClick }) => {
       </div>
 
       {/* Location */}
-      <div className='md:col-span-3 text-xs md:text-sm text-gray-600 truncate flex items-center gap-1.5 pl-2 md:pl-0'>
-        <MapPin className='w-3.5 h-3.5 md:w-3 md:h-3 text-gray-400 shrink-0' />
+      <div className='md:col-span-3 text-xs md:text-sm text-stone-600 truncate flex items-center gap-1.5 pl-2 md:pl-0'>
+        <MapPin className='w-3.5 h-3.5 md:w-3 md:h-3 text-stone-400 shrink-0' />
         <span className='truncate'>
           {booking.studioId?.studioName || "Unknown Location"}
         </span>
       </div>
 
       {/* Date */}
-      <div className='hidden md:block col-span-2 text-sm text-gray-600'>
+      <div className='hidden md:block col-span-2 text-sm text-stone-600'>
         {format(startTime, "d MMM yyyy")}
       </div>
 
@@ -597,8 +597,8 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
     !booking.isAttend && !isCancelled && !isCompleted && hoursUntil >= 24;
 
   let statusBadge = {
-    bg: "bg-emerald-100",
-    text: "text-emerald-700",
+    bg: "bg-stone-200",
+    text: "text-stone-800",
     label: "Active",
     desc: "This booking is confirmed.",
   };
@@ -618,8 +618,8 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
     };
   else if (isCompleted)
     statusBadge = {
-      bg: "bg-gray-100",
-      text: "text-gray-500",
+      bg: "bg-stone-100",
+      text: "text-stone-500",
       label: "Completed",
       desc: "This class has ended.",
     };
@@ -640,27 +640,27 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className='relative bg-white w-full max-w-lg rounded-t-[2rem] md:rounded-3xl shadow-xl overflow-hidden pb-safe md:pb-0'>
         {/* Mobile Drag Handle */}
-        <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
+        <div className='w-12 h-1.5 bg-stone-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
 
         {/* Header Section */}
-        <div className='p-5 md:p-6 border-b border-gray-100'>
+        <div className='p-5 md:p-6 border-b border-stone-100'>
           <div className='flex justify-between items-start mb-1'>
             <div>
               <span
                 className={`inline-block px-2 py-1 rounded text-[9px] md:text-[10px] font-bold uppercase mb-2 md:mb-2 border border-white ${statusBadge.bg} ${statusBadge.text}`}>
                 {statusBadge.label}
               </span>
-              <h2 className='text-xl md:text-2xl font-bold text-gray-900 pr-4'>
+              <h2 className='text-xl md:text-2xl font-bold text-stone-900 pr-4'>
                 {booking.classId?.className || "Unknown Class"}
               </h2>
-              <p className='text-[11px] md:text-xs text-gray-500 mt-1 md:mt-1.5'>
+              <p className='text-[11px] md:text-xs text-stone-500 mt-1 md:mt-1.5'>
                 {statusBadge.desc}
               </p>
             </div>
             <button
               onClick={onClose}
-              className='p-1.5 hover:bg-gray-100 rounded-full transition-colors shrink-0'>
-              <XCircle className='w-6 h-6 text-gray-400 hover:text-gray-600' />
+              className='p-1.5 hover:bg-stone-100 rounded-full transition-colors shrink-0'>
+              <XCircle className='w-6 h-6 text-stone-400 hover:text-stone-600' />
             </button>
           </div>
         </div>
@@ -670,13 +670,13 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
           {/* Main Info Grid */}
           <div className='grid grid-cols-2 gap-y-6 gap-x-4'>
             <div>
-              <p className='text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 md:mb-1'>
+              <p className='text-[10px] md:text-xs font-bold text-stone-400 uppercase tracking-wider mb-1.5 md:mb-1'>
                 Date & Time
               </p>
-              <div className='flex gap-2 items-start text-[13px] md:text-sm text-gray-700'>
-                <Clock className='w-4 h-4 text-emerald-600 mt-0.5 shrink-0' />
+              <div className='flex gap-2 items-start text-[13px] md:text-sm text-stone-700'>
+                <Clock className='w-4 h-4 text-stone-800 mt-0.5 shrink-0' />
                 <span>
-                  <span className='font-bold block text-gray-900'>
+                  <span className='font-bold block text-stone-900'>
                     {format(startTime, "EEEE, MMM do")}
                   </span>
                   {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
@@ -685,23 +685,23 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
             </div>
 
             <div>
-              <p className='text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 md:mb-1'>
+              <p className='text-[10px] md:text-xs font-bold text-stone-400 uppercase tracking-wider mb-1.5 md:mb-1'>
                 Instructor
               </p>
-              <div className='flex gap-2 items-start text-[13px] md:text-sm text-gray-700'>
-                <User className='w-4 h-4 text-emerald-600 mt-0.5 shrink-0' />
-                <span className='font-bold text-gray-900'>
+              <div className='flex gap-2 items-start text-[13px] md:text-sm text-stone-700'>
+                <User className='w-4 h-4 text-stone-800 mt-0.5 shrink-0' />
+                <span className='font-bold text-stone-900'>
                   {booking.instructorId?.fullName || "Unassigned"}
                 </span>
               </div>
             </div>
 
             <div className='col-span-2'>
-              <p className='text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 md:mb-1'>
+              <p className='text-[10px] md:text-xs font-bold text-stone-400 uppercase tracking-wider mb-1.5 md:mb-1'>
                 Location
               </p>
-              <div className='flex gap-2 items-start text-[13px] md:text-sm text-gray-700'>
-                <MapPin className='w-4 h-4 text-emerald-600 mt-0.5 shrink-0' />
+              <div className='flex gap-2 items-start text-[13px] md:text-sm text-stone-700'>
+                <MapPin className='w-4 h-4 text-stone-800 mt-0.5 shrink-0' />
                 <span>
                   {booking.studioId?.studioName || "Unknown Location"}
                 </span>
@@ -710,22 +710,22 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
           </div>
 
           {/* Additional Meta Data */}
-          <div className='bg-gray-50 rounded-2xl p-4 md:p-4 grid grid-cols-2 gap-4 border border-gray-100'>
+          <div className='bg-stone-50 rounded-2xl p-4 md:p-4 grid grid-cols-2 gap-4 border border-stone-100'>
             <div>
-              <p className='text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1'>
+              <p className='text-[9px] md:text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1'>
                 Ref ID
               </p>
-              <div className='flex items-center gap-1.5 text-[11px] md:text-xs text-gray-700 font-mono'>
-                <Ticket className='w-3 h-3 text-gray-400 shrink-0' />#
+              <div className='flex items-center gap-1.5 text-[11px] md:text-xs text-stone-700 font-mono'>
+                <Ticket className='w-3 h-3 text-stone-400 shrink-0' />#
                 {booking._id.slice(-8).toUpperCase()}
               </div>
             </div>
             <div>
-              <p className='text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1'>
+              <p className='text-[9px] md:text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1'>
                 Booked On
               </p>
-              <div className='flex items-center gap-1.5 text-[11px] md:text-xs text-gray-700'>
-                <Calendar className='w-3 h-3 text-gray-400 shrink-0' />
+              <div className='flex items-center gap-1.5 text-[11px] md:text-xs text-stone-700'>
+                <Calendar className='w-3 h-3 text-stone-400 shrink-0' />
                 {format(new Date(booking.createdAt), "dd MMM yy, HH:mm")}
               </div>
             </div>
@@ -757,7 +757,7 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
 
             <button
               onClick={onClose}
-              className='w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/10 text-sm md:text-sm active:scale-[0.98] md:active:scale-100'>
+              className='w-full py-3.5 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-all shadow-lg shadow-stone-700/10 text-sm md:text-sm active:scale-[0.98] md:active:scale-100'>
               Close Details
             </button>
           </div>
@@ -784,19 +784,19 @@ const PdfPreviewModal = ({ pdfUrl, onClose }) => (
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
       className='relative bg-white w-full max-w-4xl h-[90vh] md:h-[85vh] rounded-t-[2rem] md:rounded-3xl shadow-2xl overflow-hidden flex flex-col pb-safe md:pb-0'>
       {/* Mobile Drag Handle */}
-      <div className='w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
+      <div className='w-12 h-1.5 bg-stone-200 rounded-full mx-auto mt-3 hidden max-md:block shrink-0' />
 
-      <div className='flex items-center justify-between px-5 md:px-6 py-4 border-b border-gray-200 shrink-0'>
+      <div className='flex items-center justify-between px-5 md:px-6 py-4 border-b border-stone-200 shrink-0'>
         <h3 className='text-base md:text-lg font-bold flex items-center gap-2'>
-          <FileText className='w-5 h-5 text-emerald-600' /> Export Preview
+          <FileText className='w-5 h-5 text-stone-800' /> Export Preview
         </h3>
         <button
           onClick={onClose}
-          className='p-1.5 hover:bg-gray-100 rounded-full transition-colors'>
-          <XCircle className='w-6 h-6 text-gray-400 hover:text-gray-600' />
+          className='p-1.5 hover:bg-stone-100 rounded-full transition-colors'>
+          <XCircle className='w-6 h-6 text-stone-400 hover:text-stone-600' />
         </button>
       </div>
-      <div className='flex-1 bg-gray-100 p-4'>
+      <div className='flex-1 bg-stone-100 p-4'>
         <iframe
           src={pdfUrl}
           className='w-full h-full rounded-xl shadow-inner bg-white border-0'
@@ -807,12 +807,12 @@ const PdfPreviewModal = ({ pdfUrl, onClose }) => (
 );
 
 const EmptyState = ({ isSearch }) => (
-  <div className='flex flex-col items-center justify-center py-24 text-center bg-white rounded-3xl border border-dashed border-gray-200'>
-    <div className='w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 text-gray-300'>
+  <div className='flex flex-col items-center justify-center py-24 text-center bg-white rounded-3xl border border-dashed border-stone-200'>
+    <div className='w-16 h-16 bg-stone-50 rounded-2xl flex items-center justify-center mb-4 text-stone-300'>
       <Filter className='w-8 h-8' />
     </div>
-    <h3 className='text-gray-900 font-bold text-lg'>No bookings found</h3>
-    <p className='text-gray-500 text-sm mt-1 max-w-[200px]'>
+    <h3 className='text-stone-900 font-bold text-lg'>No bookings found</h3>
+    <p className='text-stone-500 text-sm mt-1 max-w-[200px]'>
       {isSearch
         ? "Try adjusting your search terms."
         : "Try selecting a different date."}

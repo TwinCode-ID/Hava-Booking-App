@@ -4,7 +4,6 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import LandingPage from "./pages/LandingPage/LandingPage";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Auth/LogIn";
 import SignUp from "./pages/Auth/SignUp";
@@ -36,12 +35,13 @@ const App = () => {
       <Router>
         <Routes>
           {/*Public Routes */}
-          <Route path='/' element={<LandingPage />} />
+          <Route path='/' element={<Login />} />
           <Route path='/login' element={<Login />} />
           <Route path='/signup' element={<SignUp />} />
           <Route path='/book-now' element={<Login />} />
           <Route path='/studio-location' element={<StudioLocation />} />
           <Route path='/studio-details' element={<StudioDetails />} />
+          <Route path='/shared-pass/:code' element={<AcceptSharedPass />} />
           {/*Protected Routes */}
           <Route element={<ProtectedRoute requiredRole='client' />}>
             <Route element={<ClientDashboardLayout />}>
@@ -49,7 +49,6 @@ const App = () => {
               <Route path='/book-the-class' element={<BookTheClass />} />
               <Route path='/client-activities' element={<ManageClient />} />
               <Route path='/client-inbox' element={<ClientInbox />} />
-              <Route path='/shared-pass/:code' element={<AcceptSharedPass />} />
               <Route
                 path='/client-account-settings'
                 element={<ClientAccountSettings />}

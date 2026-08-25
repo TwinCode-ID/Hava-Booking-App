@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -21,8 +27,10 @@ import {
   Image as ImageIcon,
   FileIcon,
   Loader2,
+  Lock,
   Printer,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import axiosInstance from "../../../../../utils/axiosInstance";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { useAuth } from "../../../../../context/AuthContext";
@@ -32,6 +40,10 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeCanvas } from "qrcode.react";
 import uploadProof from "../../../../../utils/uploadProof";
+import useFinancialStepUp, {
+  FINANCIAL_READ_SCOPE,
+  isFinancialStepUpError,
+} from "../../../../../utils/useFinancialStepUp";
 
 // --- Helpers ---
 const STATUS_STYLES = {
@@ -48,8 +60,8 @@ const STATUS_STYLES = {
     label: "Pending Verification",
   },
   confirmed: {
-    color: "text-[#1E5D40]",
-    bg: "bg-[#E8F5EE]",
+    color: "text-stone-800",
+    bg: "bg-stone-100",
     icon: CheckCircle2,
     label: "Confirmed",
   },
@@ -60,8 +72,8 @@ const STATUS_STYLES = {
     label: "Rejected",
   },
   expired: {
-    color: "text-gray-600",
-    bg: "bg-gray-100",
+    color: "text-stone-600",
+    bg: "bg-stone-100",
     icon: X,
     label: "Pass Expired",
   },
@@ -87,6 +99,104 @@ const formatDate = (dateString) => {
     .replace(/ /g, "-");
 };
 
+const PaymentPasswordGate = ({ onUnlock, error, setError }) => {
+  const { user } = useAuth();
+  const [password, setPassword] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setVerifying(true);
+    setError("");
+
+    try {
+      const response = await axiosInstance.post(
+        API_PATHS.AUTH.VERIFY_PASSWORD,
+        { password, scope: FINANCIAL_READ_SCOPE },
+      );
+      if (
+        response.data.success &&
+        onUnlock(
+          response.data.stepUpToken,
+          response.data.stepUpExpiresIn,
+        )
+      ) {
+        setPassword("");
+      } else {
+        setError("Verification did not return a valid authorization.");
+      }
+    } catch (requestError) {
+      if (requestError.response?.data?.code === "PASSWORD_NOT_SET") {
+        setError("Create a password in Account Settings first.");
+      } else if (requestError.response?.status === 401) {
+        setError("Incorrect password. Please try again.");
+      } else {
+        setError("Verification failed. Please try again.");
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  if (!user?.hasPassword) {
+    return (
+      <div className='flex min-h-[60vh] items-center justify-center p-6 text-center'>
+        <div className='w-full max-w-md rounded-2xl border border-stone-100 bg-white p-8 shadow-sm'>
+          <div className='mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50'>
+            <Lock className='h-8 w-8 text-amber-600' />
+          </div>
+          <h2 className='mb-2 text-xl font-bold text-stone-900'>
+            Create a Password First
+          </h2>
+          <p className='mb-6 text-sm text-stone-500'>
+            Create a password before accessing payment and revenue data.
+          </p>
+          <Link
+            to='/admin-account-settings'
+            className='flex w-full items-center justify-center rounded-xl bg-stone-600 py-3 font-semibold text-white transition-colors hover:bg-stone-700'>
+            Create Password
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='flex min-h-[60vh] items-center justify-center p-6 text-center'>
+      <div className='w-full max-w-md rounded-2xl border border-stone-100 bg-white p-8 shadow-sm'>
+        <div className='mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-stone-100'>
+          <Lock className='h-8 w-8 text-stone-800' />
+        </div>
+        <h2 className='mb-2 text-xl font-bold text-stone-900'>
+          Unlock Payment Data
+        </h2>
+        <p className='mb-6 text-sm text-stone-500'>
+          Confirm your admin password to review financial transactions.
+        </p>
+        <form onSubmit={handleSubmit} className='space-y-4'>
+          <input
+            type='password'
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder='Admin Password'
+            autoComplete='current-password'
+            autoFocus
+            required
+            className='w-full rounded-xl border border-stone-200 px-4 py-3 outline-none transition-all focus:border-stone-500 focus:ring-2 focus:ring-stone-300'
+          />
+          {error && <p className='text-xs text-red-500'>{error}</p>}
+          <button
+            disabled={verifying || !password}
+            type='submit'
+            className='flex w-full items-center justify-center rounded-xl bg-stone-600 py-3 font-semibold text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60'>
+            {verifying ? "Verifying..." : "Unlock Payment Data"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const AdminPaymentManager = ({ isEmbedded = false }) => {
   const { user } = useAuth();
   const [purchases, setPurchases] = useState([]);
@@ -106,22 +216,56 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
 
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [financialPasswordError, setFinancialPasswordError] = useState("");
+  const {
+    isUnlocked: isFinancialDataUnlocked,
+    lock: lockFinancialData,
+    requestHeaders: financialRequestHeaders,
+    unlock: unlockFinancialData,
+  } = useFinancialStepUp();
 
-  const fetchPurchases = async () => {
+  const fetchPurchases = useCallback(async () => {
     try {
-      if (!user?.adminStudioLocation) return;
+      if (!user?.adminStudioLocation || !isFinancialDataUnlocked) return;
+      setLoading(true);
       const response = await axiosInstance.get(
         API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
+        { headers: financialRequestHeaders },
       );
       setPurchases(response.data);
     } catch (error) {
-      console.error("Error fetching purchases:", error);
+      if (isFinancialStepUpError(error)) {
+        setFinancialPasswordError(
+          "Authorization expired. Verify your password again.",
+        );
+        lockFinancialData();
+      } else {
+        console.error("Error fetching purchases:", error);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    financialRequestHeaders,
+    isFinancialDataUnlocked,
+    lockFinancialData,
+    user?.adminStudioLocation,
+  ]);
 
   useEffect(() => {
+    lockFinancialData();
+  }, [lockFinancialData, user?._id, user?.adminStudioLocation]);
+
+  useEffect(() => {
+    if (!isFinancialDataUnlocked) {
+      setPurchases([]);
+      setSelectedPurchase(null);
+      setShowPdfPreview(false);
+      setPdfUrl(null);
+      setLoading(false);
+      return undefined;
+    }
+
     fetchPurchases();
 
     const handleAdminUpdate = () => {
@@ -132,7 +276,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     return () => {
       window.removeEventListener("admin-data-updated", handleAdminUpdate);
     };
-  }, [fetchPurchases]);
+  }, [fetchPurchases, isFinancialDataUnlocked]);
 
   const filteredData = useMemo(() => {
     let data = purchases.filter((p) => {
@@ -202,6 +346,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
           rejectionReason: action === "reject" ? rejectionReason : null,
           ...extraData,
         },
+        { headers: financialRequestHeaders },
       );
 
       setPurchases((prev) =>
@@ -218,7 +363,14 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
       setSelectedPurchase(null);
       setRejectionReason("");
     } catch (error) {
-      alert(error.response?.data?.error || "Action failed");
+      if (isFinancialStepUpError(error)) {
+        setFinancialPasswordError(
+          "Authorization expired. Verify your password again.",
+        );
+        lockFinancialData();
+      } else {
+        alert(error.response?.data?.error || "Action failed");
+      }
     } finally {
       setProcessingId(null);
     }
@@ -318,15 +470,24 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     doc.save(`Transactions_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
+  if (!isFinancialDataUnlocked) {
+    return (
+      <PaymentPasswordGate
+        onUnlock={unlockFinancialData}
+        error={financialPasswordError}
+        setError={setFinancialPasswordError}
+      />
+    );
+  }
   if (loading) return <LoadingSpinner />;
 
   return (
     <div
-      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 min-h-screen relative`}>
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-stone-50 min-h-screen relative`}>
       {!isEmbedded && (
         <div className='mb-8'>
-          <h1 className='text-2xl font-bold text-gray-900'>Payment Reviews</h1>
-          <p className='text-gray-500 text-sm mt-1'>
+          <h1 className='text-2xl font-bold text-stone-900'>Payment Reviews</h1>
+          <p className='text-stone-500 text-sm mt-1'>
             Manage incoming package purchases.
           </p>
         </div>
@@ -334,20 +495,20 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
 
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-20'>
         <div className='relative w-full md:w-96'>
-          <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
+          <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4' />
           <input
             type='text'
             placeholder='Search transaction or client...'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className='w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:border-2 transition-all shadow-sm'
+            className='w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-xl text-sm outline-none focus:border-stone-500 focus:border-2 transition-all shadow-sm'
           />
         </div>
 
         <div className='flex items-center justify-end gap-3 w-full md:w-auto'>
-          <span className='text-sm text-gray-500 font-medium whitespace-nowrap hidden md:block mr-2'>
+          <span className='text-sm text-stone-500 font-medium whitespace-nowrap hidden md:block mr-2'>
             Showing{" "}
-            <span className='text-gray-900 font-bold'>
+            <span className='text-stone-900 font-bold'>
               {filteredData.length}
             </span>{" "}
             transactions
@@ -355,21 +516,21 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
 
           <button
             onClick={handlePreviewReport}
-            className='flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 transition-colors whitespace-nowrap'>
+            className='flex items-center gap-2 bg-white border border-stone-200 text-stone-700 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-stone-50 transition-colors whitespace-nowrap'>
             <Eye className='w-4 h-4' /> Export
           </button>
 
           {isFilterOpen && (
             <div className='overflow-hidden origin-right animate-in slide-in-from-right-2 duration-200'>
-              <div className='flex gap-1 bg-white p-1 rounded-lg border border-gray-200 shadow-sm whitespace-nowrap'>
+              <div className='flex gap-1 bg-white p-1 rounded-lg border border-stone-200 shadow-sm whitespace-nowrap'>
                 {issuerOptions.map((opt) => (
                   <button
                     key={opt.id}
                     onClick={() => setFilterIssuer(opt.id)}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
                       filterIssuer === opt.id
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "text-gray-500 hover:bg-gray-50"
+                        ? "bg-stone-200 text-stone-900"
+                        : "text-stone-500 hover:bg-stone-50"
                     }`}>
                     {opt.label}
                   </button>
@@ -380,7 +541,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
 
           <button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors shadow-sm border border-transparent shrink-0 ${isFilterOpen ? "bg-gray-800 text-white" : "bg-emerald-900 text-white hover:bg-emerald-800"}`}>
+            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors shadow-sm border border-transparent shrink-0 ${isFilterOpen ? "bg-stone-600 text-white" : "bg-stone-600 text-white hover:bg-stone-700"}`}>
             {isFilterOpen ? (
               <X className='w-5 h-5' />
             ) : (
@@ -390,66 +551,66 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
+      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
         <div className='overflow-x-auto'>
           <table className='w-full text-left border-collapse'>
-            <thead className='bg-gray-50 border-b border-gray-100'>
+            <thead className='bg-stone-50 border-b border-stone-100'>
               <tr>
                 <th
                   onClick={() => handleSort("clientName")}
-                  className='py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors'>
+                  className='py-4 px-6 text-xs font-bold text-stone-500 uppercase tracking-wider cursor-pointer hover:bg-stone-100 transition-colors'>
                   <div className='flex items-center gap-2'>
                     Client Name
                     <ArrowUpDown
-                      className={`w-3.5 h-3.5 ${sortConfig.key === "clientName" ? "text-emerald-600" : "text-gray-400"}`}
+                      className={`w-3.5 h-3.5 ${sortConfig.key === "clientName" ? "text-stone-800" : "text-stone-400"}`}
                     />
                   </div>
                 </th>
-                <th className='py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider'>
+                <th className='py-4 px-6 text-xs font-bold text-stone-500 uppercase tracking-wider'>
                   Package
                 </th>
                 <th
                   onClick={() => handleSort("amount")}
-                  className='py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors'>
+                  className='py-4 px-6 text-xs font-bold text-stone-500 uppercase tracking-wider cursor-pointer hover:bg-stone-100 transition-colors'>
                   <div className='flex items-center gap-2'>
                     Amount
                     <ArrowUpDown
-                      className={`w-3.5 h-3.5 ${sortConfig.key === "amount" ? "text-emerald-600" : "text-gray-400"}`}
+                      className={`w-3.5 h-3.5 ${sortConfig.key === "amount" ? "text-stone-800" : "text-stone-400"}`}
                     />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort("date")}
-                  className='py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors'>
+                  className='py-4 px-6 text-xs font-bold text-stone-500 uppercase tracking-wider cursor-pointer hover:bg-stone-100 transition-colors'>
                   <div className='flex items-center gap-2'>
                     Date
                     <ArrowUpDown
-                      className={`w-3.5 h-3.5 ${sortConfig.key === "date" ? "text-emerald-600" : "text-gray-400"}`}
+                      className={`w-3.5 h-3.5 ${sortConfig.key === "date" ? "text-stone-800" : "text-stone-400"}`}
                     />
                   </div>
                 </th>
-                <th className='py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider'>
+                <th className='py-4 px-6 text-xs font-bold text-stone-500 uppercase tracking-wider'>
                   Status
                 </th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-gray-50'>
+            <tbody className='divide-y divide-stone-50'>
               {filteredData.length > 0 ? (
                 filteredData.map((item) => (
                   <tr
                     key={item._id}
                     onClick={() => setSelectedPurchase(item)}
-                    className='hover:bg-emerald-50/50 transition-colors cursor-pointer group'>
+                    className='hover:bg-stone-100/50 transition-colors cursor-pointer group'>
                     <td className='py-4 px-6'>
                       <div className='flex items-center gap-3'>
-                        <div className='w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0'>
+                        <div className='w-9 h-9 rounded-full bg-stone-200 text-stone-800 flex items-center justify-center font-bold text-xs shrink-0'>
                           {item.userId?.fullName?.charAt(0) || "?"}
                         </div>
                         <div className='flex flex-col'>
-                          <span className='text-sm font-bold text-gray-900 leading-none mb-1'>
+                          <span className='text-sm font-bold text-stone-900 leading-none mb-1'>
                             {item.userId?.fullName || "Unknown"}
                           </span>
-                          <span className='text-[10px] text-gray-400 font-mono leading-none'>
+                          <span className='text-[10px] text-stone-400 font-mono leading-none'>
                             {item.transactionId}
                           </span>
                         </div>
@@ -457,7 +618,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
                     </td>
                     <td className='py-4 px-6'>
                       <div className='flex flex-col gap-1'>
-                        <span className='text-sm font-medium text-gray-900'>
+                        <span className='text-sm font-medium text-stone-900'>
                           {item.packageId?.packageName ||
                             item.packageNameSnapshot ||
                             "Deleted Package"}
@@ -470,16 +631,16 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
                       </div>
                     </td>
                     <td className='py-4 px-6'>
-                      <span className='text-sm font-bold text-gray-900'>
+                      <span className='text-sm font-bold text-stone-900'>
                         {formatCurrency(item.totalAmount)}
                       </span>
                     </td>
-                    <td className='py-4 px-6 text-sm text-gray-500'>
+                    <td className='py-4 px-6 text-sm text-stone-500'>
                       {formatDate(item.createdAt)}
                     </td>
                     <td className='py-4 px-6'>
                       {item.status === "confirmed" && (
-                        <span className='inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100'>
+                        <span className='inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-stone-100 text-stone-800 border border-stone-200'>
                           <CheckCircle2 className='w-3 h-3' /> Confirmed
                         </span>
                       )}
@@ -505,7 +666,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
                 <tr>
                   <td
                     colSpan='5'
-                    className='py-12 text-center text-gray-400 text-sm'>
+                    className='py-12 text-center text-stone-400 text-sm'>
                     No transactions found.
                   </td>
                 </tr>
@@ -518,20 +679,20 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
       {showPdfPreview && pdfUrl && (
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200'>
           <div className='bg-white w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200'>
-            <div className='flex items-center justify-between px-6 py-4 border-b border-gray-200'>
-              <h2 className='text-lg font-bold text-gray-900'>
+            <div className='flex items-center justify-between px-6 py-4 border-b border-stone-200'>
+              <h2 className='text-lg font-bold text-stone-900'>
                 Report Preview
               </h2>
               <div className='flex gap-2'>
                 <button
                   onClick={handleDownloadReport}
-                  className='px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold flex gap-2 items-center hover:bg-emerald-700'>
+                  className='px-4 py-2 bg-stone-600 text-white rounded-lg text-sm font-bold flex gap-2 items-center hover:bg-stone-700'>
                   <Download className='w-4 h-4' /> Download
                 </button>
                 <button
                   onClick={() => setShowPdfPreview(false)}
-                  className='p-2 hover:bg-gray-100 rounded-lg'>
-                  <X className='w-5 h-5 text-gray-500' />
+                  className='p-2 hover:bg-stone-100 rounded-lg'>
+                  <X className='w-5 h-5 text-stone-500' />
                 </button>
               </div>
             </div>

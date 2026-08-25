@@ -1,4 +1,26 @@
 const Package = require("../../models/StudioData/Packages");
+const Studio = require("../../models/StudioData/Studios");
+const {
+  canManageStudio,
+  isDevTeam,
+  isStudioStaff,
+} = require("../../helper/authorization");
+const {
+  toPaymentInstructionsDto,
+} = require("../../helper/paymentInstructions");
+
+const toPublicPackageDto = (pkg) => {
+  const output = typeof pkg.toObject === "function" ? pkg.toObject() : { ...pkg };
+  if (
+    output.studioLocation &&
+    typeof output.studioLocation === "object" &&
+    !Array.isArray(output.studioLocation)
+  ) {
+    const { bankDetails: _bankDetails, ...publicStudio } = output.studioLocation;
+    output.studioLocation = publicStudio;
+  }
+  return output;
+};
 
 exports.createPackage = async (req, res) => {
   try {
@@ -22,13 +44,19 @@ exports.createPackage = async (req, res) => {
       isAvailableToFreeze,
       enableExpiryReminder,
       reminderDaysBefore,
+      studioLocation: requestedStudio,
     } = req.body;
 
     if (!packageName) {
       return res.status(400).json({ message: "Package name is required" });
     }
 
-    const studioLocation = req.user.adminStudioLocation;
+    const studioLocation = isDevTeam(req.user)
+      ? requestedStudio
+      : req.user.adminStudioLocation;
+    if (!studioLocation || !canManageStudio(req.user, studioLocation)) {
+      return res.status(403).json({ message: "Unauthorized user" });
+    }
 
     const newPackage = await Package.create({
       packageName,
@@ -74,7 +102,7 @@ exports.getPackageByStudio = async (req, res) => {
     const { studioLocation } = req.params;
     const packages = await Package.find({ studioLocation }).populate(
       "studioLocation",
-      "studioName bankDetails",
+      "studioName",
     );
 
     if (!packages || packages.length === 0) {
@@ -82,7 +110,7 @@ exports.getPackageByStudio = async (req, res) => {
         .status(404)
         .json({ message: "No packages found for this studio." });
     }
-    res.status(200).json(packages);
+    res.status(200).json(packages.map(toPublicPackageDto));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -92,11 +120,54 @@ exports.getAllPackages = async (req, res) => {
   try {
     const packages = await Package.find().populate(
       "studioLocation",
-      "studioName bankDetails",
+      "studioName",
     );
-    res.json(packages);
+    res.json(packages.map(toPublicPackageDto));
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getPackagePaymentInstructions = async (req, res) => {
+  try {
+    const pkg = await Package.findById(req.params.id).select(
+      "_id studioLocation isActive isStudentPackage packageCategory",
+    );
+    if (!pkg) {
+      return res.status(404).json({ message: "Package not found" });
+    }
+
+    if (isStudioStaff(req.user)) {
+      if (!canManageStudio(req.user, pkg.studioLocation)) {
+        return res.status(403).json({ message: "Unauthorized user" });
+      }
+    } else {
+      const isEligibleClient =
+        req.user?.role === "client" &&
+        pkg.isActive === true &&
+        (!pkg.isStudentPackage || req.user.isStudent === true) &&
+        (!pkg.packageCategory?.includes("Student") ||
+          req.user.isStudent === true);
+      if (!isEligibleClient) {
+        return res.status(403).json({ message: "Package is not available." });
+      }
+    }
+
+    const studio = await Studio.findById(pkg.studioLocation).select(
+      "_id studioName bankDetails",
+    );
+    if (!studio) {
+      return res.status(404).json({ message: "Studio not found" });
+    }
+
+    res.set("Cache-Control", "private, no-store");
+    return res
+      .status(200)
+      .json(toPaymentInstructionsDto(studio, pkg._id));
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Unable to load payment instructions." });
   }
 };
 
@@ -128,6 +199,9 @@ exports.updatePackage = async (req, res) => {
     const existingPackage = await Package.findById(req.params.id);
     if (!existingPackage)
       return res.status(404).json({ message: "Package not found" });
+    if (!canManageStudio(req.user, existingPackage.studioLocation)) {
+      return res.status(403).json({ message: "Unauthorized user" });
+    }
 
     existingPackage.packageName = packageName || existingPackage.packageName;
     existingPackage.packageDescription =
@@ -186,8 +260,12 @@ exports.updatePackage = async (req, res) => {
 
 exports.deletePackage = async (req, res) => {
   try {
-    const pkg = await Package.findByIdAndDelete(req.params.id);
+    const pkg = await Package.findById(req.params.id);
     if (!pkg) return res.status(404).json({ message: "Package not found" });
+    if (!canManageStudio(req.user, pkg.studioLocation)) {
+      return res.status(403).json({ message: "Unauthorized user" });
+    }
+    await pkg.deleteOne();
     res.json({ message: "Package deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -199,9 +277,7 @@ exports.packageStatus = async (req, res) => {
     const pkg = await Package.findById(req.params.id);
     if (!pkg) return res.status(404).json({ message: "Package not found" });
 
-    if (
-      pkg.studioLocation.toString() !== req.user.adminStudioLocation.toString()
-    ) {
+    if (!canManageStudio(req.user, pkg.studioLocation)) {
       return res.status(403).json({ message: "Unauthorized user" });
     }
 

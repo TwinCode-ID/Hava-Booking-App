@@ -189,30 +189,30 @@ const ClientInbox = () => {
 
   return (
     // FIXED: Removed "container mx-auto" and adjusted height to match Admin layout perfectly
-    <div className='h-[calc(100vh-64px)] md:h-screen bg-gray-50 flex p-4 md:p-6 gap-4 font-sans'>
+    <div className='h-[calc(100vh-64px)] md:h-screen bg-stone-50 flex p-4 md:p-6 gap-4 font-sans'>
       {/* --- LEFT PANEL: INBOX LIST --- */}
       <div
-        className={`bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col w-full md:w-80 lg:w-96 shrink-0 overflow-hidden ${selectedChat ? "hidden md:flex" : "flex"}`}>
+        className={`bg-white border border-stone-200 rounded-2xl shadow-sm flex flex-col w-full md:w-80 lg:w-96 shrink-0 overflow-hidden ${selectedChat ? "hidden md:flex" : "flex"}`}>
         {/* Header & Search */}
-        <div className='p-4 border-b border-gray-100 flex flex-col gap-4'>
+        <div className='p-4 border-b border-stone-100 flex flex-col gap-4'>
           <div className='flex items-center justify-between'>
-            <h2 className='text-xl font-bold text-gray-900'>Messages</h2>
+            <h2 className='text-xl font-bold text-stone-900'>Messages</h2>
             <button
               onClick={() => setShowNewChatModal(true)}
-              className='p-2 bg-emerald-50 text-emerald-600 rounded-full hover:bg-emerald-100 transition-colors shadow-sm'
+              className='p-2 bg-stone-100 text-stone-800 rounded-full hover:bg-stone-200 transition-colors shadow-sm'
               title='New Chat'>
               <Plus className='w-5 h-5' />
             </button>
           </div>
           {/* FIXED: Added Search Bar to match Admin Layout */}
           <div className='relative'>
-            <Search className='w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2' />
+            <Search className='w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2' />
             <input
               type='text'
               placeholder='Search studios...'
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className='w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all'
+              className='w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-500/20 focus:border-stone-500 transition-all'
             />
           </div>
         </div>
@@ -220,9 +220,9 @@ const ClientInbox = () => {
         {/* Conversation List */}
         <div className='flex-1 overflow-y-auto custom-scrollbar'>
           {loadingInbox ? (
-            <div className='flex justify-center flex-col items-center h-full text-gray-400'>
+            <div className='flex justify-center flex-col items-center h-full text-stone-400'>
               <LoadingSpinner />
-              <p className='text-gray-600 font-medium mt-4'>
+              <p className='text-stone-600 font-medium mt-4'>
                 Loading conversations, please wait...
               </p>
             </div>
@@ -231,8 +231,8 @@ const ClientInbox = () => {
               <div
                 key={conv._id}
                 onClick={() => setSelectedChat(conv)}
-                className={`p-4 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors flex gap-3 ${selectedChat?._id === conv._id ? "bg-emerald-50/50 hover:bg-emerald-50/50" : ""}`}>
-                <div className='w-12 h-12 rounded-full bg-emerald-100 border-2 border-white shadow-sm flex items-center justify-center text-emerald-700 font-bold shrink-0 overflow-hidden'>
+                className={`p-4 border-b border-stone-50 cursor-pointer hover:bg-stone-50 transition-colors flex gap-3 ${selectedChat?._id === conv._id ? "bg-stone-100/50 hover:bg-stone-100/50" : ""}`}>
+                <div className='w-12 h-12 rounded-full bg-stone-200 border-2 border-white shadow-sm flex items-center justify-center text-stone-800 font-bold shrink-0 overflow-hidden'>
                   {conv.studio?.studioPictures?.[0] ? (
                     <img
                       src={fetchImage(conv.studio.studioPictures[0])}
@@ -245,30 +245,30 @@ const ClientInbox = () => {
                 </div>
                 <div className='flex-1 min-w-0 flex flex-col justify-center'>
                   <div className='flex justify-between items-baseline mb-0.5'>
-                    <h3 className='font-bold text-gray-900 text-sm truncate'>
+                    <h3 className='font-bold text-stone-900 text-sm truncate'>
                       {conv.studio?.studioName}
                     </h3>
-                    <span className='text-[10px] text-gray-400 font-medium whitespace-nowrap ml-2'>
+                    <span className='text-[10px] text-stone-400 font-medium whitespace-nowrap ml-2'>
                       {new Date(conv.lastMessageAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </span>
                   </div>
-                  <p className='text-xs text-gray-500 truncate'>
+                  <p className='text-xs text-stone-500 truncate'>
                     {conv.lastMessage || "Start chatting..."}
                   </p>
                 </div>
 
                 {conv.unreadCountClient > 0 && (
-                  <div className='flex items-center justify-center self-center shrink-0 w-5 h-5 bg-emerald-500 rounded-full text-[10px] font-bold text-white shadow-sm'>
+                  <div className='flex items-center justify-center self-center shrink-0 w-5 h-5 bg-stone-500 rounded-full text-[10px] font-bold text-white shadow-sm'>
                     {conv.unreadCountClient}
                   </div>
                 )}
               </div>
             ))
           ) : (
-            <div className='p-8 text-center text-gray-400 flex flex-col items-center'>
+            <div className='p-8 text-center text-stone-400 flex flex-col items-center'>
               <MessageCircle className='w-10 h-10 mb-3 opacity-20' />
               <p className='text-sm font-medium'>No conversations found.</p>
             </div>
@@ -278,18 +278,18 @@ const ClientInbox = () => {
 
       {/* --- RIGHT PANEL: ACTIVE CHAT --- */}
       <div
-        className={`bg-white border border-gray-200 rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden relative ${!selectedChat ? "hidden md:flex" : "flex"}`}>
+        className={`bg-white border border-stone-200 rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden relative ${!selectedChat ? "hidden md:flex" : "flex"}`}>
         {selectedChat ? (
           <>
             {/* Chat Header */}
-            <div className='h-16 px-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0 shadow-sm z-10'>
+            <div className='h-16 px-6 border-b border-stone-100 flex items-center justify-between bg-white shrink-0 shadow-sm z-10'>
               <div className='flex items-center gap-3'>
                 <button
                   onClick={() => setSelectedChat(null)}
-                  className='md:hidden p-1.5 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full'>
+                  className='md:hidden p-1.5 -ml-2 text-stone-500 hover:bg-stone-100 rounded-full'>
                   <ArrowLeft className='w-5 h-5' />
                 </button>
-                <div className='w-12 h-12 rounded-full bg-emerald-100 border-2 border-white shadow-sm flex items-center justify-center text-emerald-700 font-bold shrink-0 overflow-hidden'>
+                <div className='w-12 h-12 rounded-full bg-stone-200 border-2 border-white shadow-sm flex items-center justify-center text-stone-800 font-bold shrink-0 overflow-hidden'>
                   {selectedChat.studio?.studioPictures?.[0] ? (
                     <img
                       src={fetchImage(selectedChat.studio.studioPictures[0])}
@@ -301,10 +301,10 @@ const ClientInbox = () => {
                   )}
                 </div>
                 <div>
-                  <h3 className='font-bold text-gray-900 text-sm leading-tight'>
+                  <h3 className='font-bold text-stone-900 text-sm leading-tight'>
                     {selectedChat.studio?.studioName}
                   </h3>
-                  <p className='text-[10px] text-gray-500 uppercase tracking-wider font-bold'>
+                  <p className='text-[10px] text-stone-500 uppercase tracking-wider font-bold'>
                     Official Studio
                   </p>
                 </div>
@@ -330,12 +330,12 @@ const ClientInbox = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className={`max-w-[75%] md:max-w-[65%] rounded-2xl p-3.5 shadow-sm relative ${
                           isClient
-                            ? "bg-emerald-700 text-white rounded-tr-sm"
-                            : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
+                            ? "bg-stone-600 text-white rounded-tr-sm"
+                            : "bg-white border border-stone-200 text-stone-800 rounded-tl-sm"
                         }`}>
                         <p className='text-sm leading-relaxed'>{msg.text}</p>
                         <div
-                          className={`flex items-center gap-1 mt-1 justify-end ${isClient ? "text-emerald-200" : "text-gray-400"}`}>
+                          className={`flex items-center gap-1 mt-1 justify-end ${isClient ? "text-stone-300" : "text-stone-400"}`}>
                           <span className='text-[10px] font-medium'>
                             {new Date(msg.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
@@ -349,9 +349,9 @@ const ClientInbox = () => {
                   );
                 })
               ) : (
-                <div className='h-full flex flex-col items-center justify-center text-gray-400'>
-                  <div className='w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3'>
-                    <MessageCircle className='w-8 h-8 text-gray-300' />
+                <div className='h-full flex flex-col items-center justify-center text-stone-400'>
+                  <div className='w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-3'>
+                    <MessageCircle className='w-8 h-8 text-stone-300' />
                   </div>
                   <p className='text-sm font-medium'>
                     Start a conversation with {selectedChat.studio?.studioName}
@@ -362,7 +362,7 @@ const ClientInbox = () => {
             </div>
 
             {/* Input Area */}
-            <div className='p-4 bg-white border-t border-gray-100 shrink-0'>
+            <div className='p-4 bg-white border-t border-stone-100 shrink-0'>
               <form
                 onSubmit={handleSendMessage}
                 className='flex items-center gap-3'>
@@ -371,12 +371,12 @@ const ClientInbox = () => {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder='Type a message...'
-                  className='flex-1 bg-gray-50 border border-gray-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white transition-all'
+                  className='flex-1 bg-stone-50 border border-stone-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-stone-500 focus:bg-white transition-all'
                 />
                 <button
                   type='submit'
                   disabled={!newMessage.trim() || sending}
-                  className='w-12 h-12 shrink-0 bg-emerald-900 text-white rounded-full flex items-center justify-center hover:bg-emerald-800 disabled:opacity-50 disabled:hover:bg-emerald-900 transition-all shadow-md'>
+                  className='w-12 h-12 shrink-0 bg-stone-600 text-white rounded-full flex items-center justify-center hover:bg-stone-700 disabled:opacity-50 disabled:hover:bg-stone-700 transition-all shadow-md'>
                   {sending ? (
                     <Loader2 className='w-5 h-5 animate-spin' />
                   ) : (
@@ -387,11 +387,11 @@ const ClientInbox = () => {
             </div>
           </>
         ) : (
-          <div className='hidden md:flex h-full flex-col items-center justify-center text-gray-400 bg-gray-50/50'>
-            <div className='w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 mb-4'>
-              <MessageCircle className='w-10 h-10 text-emerald-200' />
+          <div className='hidden md:flex h-full flex-col items-center justify-center text-stone-400 bg-stone-50/50'>
+            <div className='w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-stone-100 mb-4'>
+              <MessageCircle className='w-10 h-10 text-stone-300' />
             </div>
-            <h3 className='text-lg font-bold text-gray-900 mb-1'>Your Inbox</h3>
+            <h3 className='text-lg font-bold text-stone-900 mb-1'>Your Inbox</h3>
             <p className='text-sm'>
               Select a studio from the left to start chatting.
             </p>
@@ -451,24 +451,24 @@ const NewChatModal = ({ onClose, onSelectStudio }) => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className='relative bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden'>
-        <div className='p-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0'>
-          <h3 className='text-lg font-bold text-gray-900'>Start New Chat</h3>
+        <div className='p-5 border-b border-stone-100 flex justify-between items-center bg-white shrink-0'>
+          <h3 className='text-lg font-bold text-stone-900'>Start New Chat</h3>
           <button
             onClick={onClose}
-            className='p-1.5 text-gray-400 hover:bg-gray-100 rounded-full transition-colors'>
+            className='p-1.5 text-stone-400 hover:bg-stone-100 rounded-full transition-colors'>
             <X className='w-5 h-5' />
           </button>
         </div>
 
-        <div className='p-4 border-b border-gray-100 bg-gray-50 shrink-0'>
+        <div className='p-4 border-b border-stone-100 bg-stone-50 shrink-0'>
           <div className='relative'>
-            <Search className='w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2' />
+            <Search className='w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2' />
             <input
               type='text'
               placeholder='Search studios...'
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className='w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all'
+              className='w-full bg-white border border-stone-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-500/20 focus:border-stone-500 transition-all'
             />
           </div>
         </div>
@@ -483,8 +483,8 @@ const NewChatModal = ({ onClose, onSelectStudio }) => {
               <div
                 key={studio._id}
                 onClick={() => onSelectStudio(studio._id)}
-                className='flex items-center gap-3 p-3 rounded-xl hover:bg-emerald-50 cursor-pointer transition-colors border border-transparent hover:border-emerald-100'>
-                <div className='w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200 overflow-hidden'>
+                className='flex items-center gap-3 p-3 rounded-xl hover:bg-stone-100 cursor-pointer transition-colors border border-transparent hover:border-stone-200'>
+                <div className='w-10 h-10 rounded-full bg-stone-200 text-stone-800 flex items-center justify-center shrink-0 border border-stone-300 overflow-hidden'>
                   {studio.studioPictures?.[0] ? (
                     <img
                       src={fetchImage(studio.studioPictures[0])}
@@ -496,17 +496,17 @@ const NewChatModal = ({ onClose, onSelectStudio }) => {
                   )}
                 </div>
                 <div>
-                  <h4 className='font-bold text-sm text-gray-900 leading-tight'>
+                  <h4 className='font-bold text-sm text-stone-900 leading-tight'>
                     {studio.studioName}
                   </h4>
-                  <p className='text-xs text-gray-500'>
+                  <p className='text-xs text-stone-500'>
                     {studio.address?.city || "Pilates Studio"}
                   </p>
                 </div>
               </div>
             ))
           ) : (
-            <div className='p-8 text-center text-gray-400'>
+            <div className='p-8 text-center text-stone-400'>
               <p className='text-sm'>No studios found.</p>
             </div>
           )}

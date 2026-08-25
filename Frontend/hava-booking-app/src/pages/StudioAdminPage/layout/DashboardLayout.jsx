@@ -23,9 +23,9 @@ const DashboardLayout = () => {
   }, []);
 
   return (
-    <div className='flex h-screen bg-gray-50 font-sans overflow-hidden'>
+    <div className='flex h-screen bg-stone-50 font-sans overflow-hidden'>
       {/* --- MOBILE HEADER --- */}
-      <div className='md:hidden fixed top-0 left-0 right-0 h-16 bg-emerald-900 z-50 flex items-center justify-between px-4 text-white shadow-md'>
+      <div className='md:hidden fixed top-0 left-0 right-0 h-16 bg-stone-600 z-50 flex items-center justify-between px-4 text-white shadow-md'>
         <div className='font-bold text-lg'>Admin Panel</div>
         <button onClick={() => setIsMobileOpen(!isMobileOpen)}>
           {isMobileOpen ? <X /> : <Menu />}
@@ -36,7 +36,7 @@ const DashboardLayout = () => {
       <aside
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
-        className={`fixed inset-y-0 left-0 z-50 bg-emerald-900 text-white transition-all duration-300 ease-in-out flex flex-col shadow-xl
+        className={`fixed inset-y-0 left-0 z-50 bg-stone-600 text-white transition-all duration-300 ease-in-out flex flex-col shadow-xl
           ${
             isMobile
               ? isMobileOpen
@@ -53,13 +53,13 @@ const DashboardLayout = () => {
             navigate("/admin-account-settings"); // <--- Navigate to page
             setIsMobileOpen(false);
           }}
-          className='h-24 flex items-center px-4 border-b border-emerald-800/50 whitespace-nowrap overflow-hidden shrink-0 cursor-pointer hover:bg-emerald-800 transition-colors group'>
+          className='h-24 flex items-center px-4 border-b border-stone-700/50 whitespace-nowrap overflow-hidden shrink-0 cursor-pointer hover:bg-stone-600 transition-colors group'>
           <div className='flex items-center gap-3'>
             <div className='relative'>
               <div
                 className={`w-10 h-10 rounded-full ${
-                  user?.avatar ? "" : "bg-emerald-100"
-                }  flex items-center justify-center text-emerald-900 font-bold shrink-0 overflow-hidden border-2 border-transparent group-hover:border-emerald-400 transition-all`}>
+                  user?.avatar ? "" : "bg-stone-200"
+                }  flex items-center justify-center text-stone-900 font-bold shrink-0 overflow-hidden border-2 border-transparent group-hover:border-stone-400 transition-all`}>
                 {user?.avatar ? (
                   <img
                     src={fetchImage(user.avatar)}
@@ -70,7 +70,7 @@ const DashboardLayout = () => {
                   user?.fullName?.charAt(0) || "A"
                 )}
               </div>
-              <div className='absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
+              <div className='absolute -bottom-1 -right-1 bg-stone-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity'>
                 <User className='w-2 h-2 text-white' />
               </div>
             </div>
@@ -82,7 +82,7 @@ const DashboardLayout = () => {
               <p className='font-bold text-sm truncate w-40'>
                 {user?.fullName}
               </p>
-              <p className='text-xs text-emerald-300 truncate w-40'>
+              <p className='text-xs text-stone-400 truncate w-40'>
                 Edit Profile
               </p>
             </div>
@@ -105,18 +105,18 @@ const DashboardLayout = () => {
                 className={`w-full flex items-center p-3.5 rounded-2xl transition-all duration-300 ease-out group whitespace-nowrap relative
           ${
             isActive
-              ? "bg-white text-emerald-900 shadow-xl shadow-emerald-900/10 scale-[1.02] font-bold"
-              : "text-emerald-100 hover:bg-white/10 hover:text-white hover:shadow-inner"
+              ? "bg-white text-stone-900 shadow-xl shadow-stone-600/10 scale-[1.02] font-bold"
+              : "text-stone-200 hover:bg-white/10 hover:text-white hover:shadow-inner"
           }`}>
                 {isActive && (
-                  <div className='absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-emerald-500 rounded-r-full opacity-0 md:opacity-100 transition-opacity' />
+                  <div className='absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-stone-500 rounded-r-full opacity-0 md:opacity-100 transition-opacity' />
                 )}
 
                 <Icon
                   className={`w-6 h-6 shrink-0 transition-colors duration-300 ${
                     isActive
-                      ? "text-emerald-600"
-                      : "text-emerald-300 group-hover:text-white"
+                      ? "text-stone-800"
+                      : "text-stone-400 group-hover:text-white"
                   }`}
                 />
                 <span
@@ -134,10 +134,10 @@ const DashboardLayout = () => {
         </nav>
 
         {/* Logout */}
-        <div className='p-4 border-t border-emerald-800/50 shrink-0'>
+        <div className='p-4 border-t border-stone-700/50 shrink-0'>
           <button
             onClick={logout}
-            className='w-full flex items-center p-3 rounded-xl text-emerald-200 hover:bg-emerald-800 hover:text-red-300 transition-colors whitespace-nowrap'>
+            className='w-full flex items-center p-3 rounded-xl text-stone-300 hover:bg-stone-600 hover:text-red-300 transition-colors whitespace-nowrap'>
             <LogOut className='w-6 h-6 shrink-0' />
             <span
               className={`ml-4 font-medium transition-all duration-200 
@@ -161,7 +161,7 @@ const DashboardLayout = () => {
         className={`flex-1 transition-all duration-300 h-screen overflow-hidden flex flex-col 
           ${isMobile ? "ml-0 pt-16" : isHovered ? "ml-64" : "ml-20"}
         `}>
-        <div className='flex-1 overflow-auto bg-gray-50'>
+        <div className='flex-1 overflow-auto bg-stone-50'>
           <div className='w-full h-full'>
             <Outlet />
           </div>

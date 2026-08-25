@@ -1,10 +1,6 @@
 export const fetchImage = (url) => {
-  if (!url) {
-    return null;
-  }
-  const separator = url.includes("?") ? "&" : "?";
-  const finalUrl = `${url}${separator}x-api-key=${import.meta.env.VITE_INTERNAL_API_KEY}`;
-  return finalUrl;
+  if (!url) return null;
+  return url;
 };
 
 //Validate Email
@@ -19,6 +15,8 @@ export const validateEmail = (email) => {
 export const validatePassword = (password) => {
   if (!password) return "password is required";
   if (password.length < 8) return "Password must be at least 8 characters";
+  if (password.length > 128)
+    return "Password must be no more than 128 characters";
   if (!/(?=.*[a-z])/.test(password))
     return "Password must be at least one lowercase letter";
   if (!/(?=.*[A-Z])/.test(password))
@@ -51,29 +49,7 @@ export const validatePhoneNumber = (phone) => {
   return "";
 };
 
-export const validateAvatar = (file) => {
-  if (!file) return ""; // Optional
-
-  // 1. Allow ANY image type (including image/heic, image/webp, etc.)
-  if (!file.type.startsWith("image/")) {
-    // Some phones don't pass the mime type correctly for HEIC,
-    // so we can also check the extension as a fallback
-    const extension = file.name.split(".").pop().toLowerCase();
-    const validExtensions = ["jpg", "jpeg", "png", "heic", "heif", "webp"];
-
-    if (!validExtensions.includes(extension)) {
-      return "File must be a valid image format.";
-    }
-  }
-
-  // 2. Increase limit to 50MB (Backend will compress it anyway)
-  const maxSize = 50 * 1024 * 1024; // 50MB
-  if (file.size > maxSize) {
-    return "Image is too large. Must be less than 50MB.";
-  }
-
-  return "";
-};
+export { validateImageUpload as validateAvatar } from "./imageUploadValidation";
 
 export const pad = (number) => {
   return number < 10 ? "0" + number : number.toString();

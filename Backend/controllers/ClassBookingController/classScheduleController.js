@@ -1,6 +1,34 @@
 const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
+const ClassBooking = require("../../models/ClassBooking/ClassBooking");
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
+const {
+  canManageStudio,
+  isDevTeam,
+} = require("../../helper/authorization");
+
+const CLASS_UPDATE_FIELDS = [
+  "className",
+  "description",
+  "instructorId",
+  "instructorType",
+  "classType",
+  "startTime",
+  "duration",
+  "capacity",
+  "isActive",
+  "recurrenceRule",
+];
+
+const pickClassUpdates = (body = {}) =>
+  Object.fromEntries(
+    CLASS_UPDATE_FIELDS.filter((field) => body[field] !== undefined).map(
+      (field) => [field, body[field]],
+    ),
+  );
+
+const forbiddenError = () =>
+  Object.assign(new Error("Not authorized for this studio"), { status: 403 });
 
 const getLocalTimeParts = (dateObj) => {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -113,7 +141,7 @@ exports.createClass = async (req, res) => {
       className,
       description,
       instructorId,
-      studioId,
+      studioId: requestedStudioId,
       instructorType,
       classType,
       startTime,
@@ -124,6 +152,12 @@ exports.createClass = async (req, res) => {
       recurrenceCount,
       scheduleDates,
     } = req.body;
+    const studioId = isDevTeam(req.user)
+      ? requestedStudioId
+      : req.user.adminStudioLocation;
+    if (!studioId || !canManageStudio(req.user, studioId)) {
+      throw forbiddenError();
+    }
     const classesToCreate = [];
     const batchId = isRecurring ? uuidv4() : null;
     const datesToProcess =
@@ -169,7 +203,7 @@ exports.createClass = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   } finally {
     session.endSession();
   }
@@ -210,9 +244,13 @@ exports.updateClass = async (req, res) => {
   session.startTransaction();
   try {
     const { id } = req.params;
-    const { updateMode, ...updateData } = req.body;
+    const { updateMode } = req.body;
+    const updateData = pickClassUpdates(req.body);
     const targetClass = await ClassSchedule.findById(id).session(session);
     if (!targetClass) throw new Error("Class not found");
+    if (!canManageStudio(req.user, targetClass.studioId)) {
+      throw forbiddenError();
+    }
 
     if (!updateMode || updateMode === "single") {
       if (
@@ -259,6 +297,7 @@ exports.updateClass = async (req, res) => {
       ) {
         const classesInSeries = await ClassSchedule.find({
           recurrenceGroupId: targetClass.recurrenceGroupId,
+          studioId: targetClass.studioId,
         }).session(session);
 
         for (let cls of classesInSeries) {
@@ -306,7 +345,7 @@ exports.updateClass = async (req, res) => {
     res.status(200).json({ message: "Series updated successfully" });
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   } finally {
     session.endSession();
   }
@@ -318,6 +357,9 @@ exports.toggleClass = async (req, res) => {
     const { toggleMode } = req.body;
     const targetClass = await ClassSchedule.findById(id);
     if (!targetClass) throw new Error("Class not found");
+    if (!canManageStudio(req.user, targetClass.studioId)) {
+      return res.status(403).json({ error: "Not authorized for this studio" });
+    }
 
     const willBeActive = !targetClass.isActive;
 
@@ -326,6 +368,7 @@ exports.toggleClass = async (req, res) => {
       if (toggleMode === "all" && targetClass.recurrenceGroupId) {
         const seriesClasses = await ClassSchedule.find({
           recurrenceGroupId: targetClass.recurrenceGroupId,
+          studioId: targetClass.studioId,
         });
         for (let cls of seriesClasses) {
           const conflictMsg = await localCheckConflicts(
@@ -342,7 +385,10 @@ exports.toggleClass = async (req, res) => {
           }
         }
         await ClassSchedule.updateMany(
-          { recurrenceGroupId: targetClass.recurrenceGroupId },
+          {
+            recurrenceGroupId: targetClass.recurrenceGroupId,
+            studioId: targetClass.studioId,
+          },
           { $set: { isActive: true } },
         );
       } else {
@@ -362,7 +408,10 @@ exports.toggleClass = async (req, res) => {
       // Deactivating
       if (toggleMode === "all" && targetClass.recurrenceGroupId) {
         await ClassSchedule.updateMany(
-          { recurrenceGroupId: targetClass.recurrenceGroupId },
+          {
+            recurrenceGroupId: targetClass.recurrenceGroupId,
+            studioId: targetClass.studioId,
+          },
           { $set: { isActive: false } },
         );
       } else {
@@ -381,20 +430,54 @@ exports.toggleClass = async (req, res) => {
 };
 
 exports.deleteClass = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { deleteMode } = req.body;
-    const targetClass = await ClassSchedule.findById(req.params.id);
-    if (!targetClass) throw new Error("Class not found");
-
-    if (deleteMode === "all" && targetClass.recurrenceGroupId) {
-      await ClassSchedule.deleteMany({
-        recurrenceGroupId: targetClass.recurrenceGroupId,
-      });
-    } else {
-      await ClassSchedule.deleteOne({ _id: req.params.id });
+    const targetClass = await ClassSchedule.findById(req.params.id).session(
+      session,
+    );
+    if (!targetClass) {
+      const notFoundError = new Error("Class not found");
+      notFoundError.status = 404;
+      throw notFoundError;
     }
+    if (!canManageStudio(req.user, targetClass.studioId)) {
+      throw forbiddenError();
+    }
+
+    const deleteFilter =
+      deleteMode === "all" && targetClass.recurrenceGroupId
+        ? {
+            recurrenceGroupId: targetClass.recurrenceGroupId,
+            studioId: targetClass.studioId,
+          }
+        : { _id: targetClass._id };
+
+    const classesToDelete = await ClassSchedule.find(deleteFilter)
+      .select("_id")
+      .session(session);
+    const classIds = classesToDelete.map((classRecord) => classRecord._id);
+    const bookingHistory = await ClassBooking.exists({
+      classId: { $in: classIds },
+    }).session(session);
+
+    if (bookingHistory) {
+      const conflictError = new Error(
+        "Classes with booking history cannot be deleted. Deactivate the class instead.",
+      );
+      conflictError.status = 409;
+      throw conflictError;
+    }
+
+    await ClassSchedule.deleteMany(deleteFilter, { session });
+    await session.commitTransaction();
     res.status(200).json({ message: "Class deleted" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    await session.abortTransaction();
+    res.status(error.status || 500).json({ error: error.message });
+  } finally {
+    session.endSession();
   }
 };

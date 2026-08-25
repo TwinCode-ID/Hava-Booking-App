@@ -1,6 +1,29 @@
 const nodemailer = require("nodemailer");
 
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (character) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
+
+const sanitizeHeaderText = (value, fallback) => {
+  const sanitized = String(value ?? "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  return sanitized || fallback;
+};
+
 const sendEmail = async (userName, email, otp) => {
+  const safeUserName = escapeHtml(sanitizeHeaderText(userName, "User"));
+  const safeOtp = escapeHtml(String(otp).slice(0, 12));
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -59,7 +82,7 @@ const sendEmail = async (userName, email, otp) => {
         </div>
 
         <div class="content">
-          <div class="greeting">Hi ${userName},</div>
+          <div class="greeting">Hi ${safeUserName},</div>
           
           <p>Thank you for using Pilates Booking Service.</p>
           
@@ -69,7 +92,7 @@ const sendEmail = async (userName, email, otp) => {
           </div>
 
           <div class="otp-box">
-            <div class="otp-code">${otp}</div>
+            <div class="otp-code">${safeOtp}</div>
           </div>
           <div class="timer">This code expires in 5 minutes.</div>
 
@@ -96,6 +119,12 @@ const sendEmail = async (userName, email, otp) => {
 };
 
 const sendShareEmail = async (senderName, email, shareLink, packageName) => {
+  const cleanSenderName = sanitizeHeaderText(senderName, "A member");
+  const safeSenderName = escapeHtml(cleanSenderName);
+  const safePackageName = escapeHtml(
+    sanitizeHeaderText(packageName, "a package"),
+  );
+  const safeShareLink = escapeHtml(shareLink);
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -141,16 +170,16 @@ const sendShareEmail = async (senderName, email, shareLink, packageName) => {
         <div class="content">
           <div class="greeting">Hello!</div>
           <div class="message">
-            <strong>${senderName}</strong> has shared a Pilates package with you: <br><br>
-            <span style="font-size: 18px; color: #1B5E20; font-weight: bold;">${packageName}</span><br><br>
+            <strong>${safeSenderName}</strong> has shared a Pilates package with you: <br><br>
+            <span style="font-size: 18px; color: #1B5E20; font-weight: bold;">${safePackageName}</span><br><br>
             Click the button below to accept and add this pass to your account. You will need to log in or create an account to claim it.
           </div>
           <div class="btn-container">
-            <a href="${shareLink}" class="btn">Accept Package Pass</a>
+            <a href="${safeShareLink}" class="btn">Accept Package Pass</a>
           </div>
           <div class="link-text">
             Or copy and paste this link into your browser:<br>
-            <a href="${shareLink}" style="color: #1B5E20;">${shareLink}</a>
+            <a href="${safeShareLink}" style="color: #1B5E20;">${safeShareLink}</a>
           </div>
         </div>
         <div class="footer">
@@ -164,7 +193,7 @@ const sendShareEmail = async (senderName, email, shareLink, packageName) => {
   await transporter.sendMail({
     from: '"Pilates Studio Indonesia" <info@pilatesstudioindonesia.com>',
     to: email,
-    subject: `${senderName} shared a Pilates pass with you!`,
+    subject: `${cleanSenderName} shared a Pilates pass with you!`,
     html: htmlTemplate,
   });
 };

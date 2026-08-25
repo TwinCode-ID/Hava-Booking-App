@@ -8,13 +8,13 @@ const {
   toggleClass,
   getStudioClasses,
 } = require("../../controllers/ClassBookingController/classScheduleController");
-const { protect } = require("../../middlewares/authMiddleware");
+const { protect, studioAdmin } = require("../../middlewares/authMiddleware");
 
 router.get("/", getClasses);
-router.post("/", protect, createClass);
+router.post("/", protect, studioAdmin, createClass);
 router.get("/:id", protect, getStudioClasses);
-router.put("/:id", protect, updateClass);
-router.put("/toggle/:id", protect, toggleClass);
-router.delete("/:id", protect, deleteClass);
+router.put("/:id", protect, studioAdmin, updateClass);
+router.put("/toggle/:id", protect, studioAdmin, toggleClass);
+router.delete("/:id", protect, studioAdmin, deleteClass);
 
 module.exports = router;

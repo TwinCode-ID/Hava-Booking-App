@@ -1,7 +1,10 @@
 import { API_PATHS } from "./apiPath";
 import axiosInstance from "./axiosInstance";
+import { validateImageUpload } from "./imageUploadValidation";
 
 const uploadProof = async (imageFile, userId) => {
+  const validationError = validateImageUpload(imageFile);
+  if (validationError) throw new Error(validationError);
   const formData = new FormData();
 
   formData.append("userId", userId);
@@ -19,7 +22,7 @@ const uploadProof = async (imageFile, userId) => {
     );
     return response.data;
   } catch (error) {
-    console.error("Error uploading the image:", error);
+    console.error("Proof image upload failed.");
     throw error;
   }
 };

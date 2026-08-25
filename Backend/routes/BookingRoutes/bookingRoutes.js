@@ -9,15 +9,15 @@ const {
   getClassBookings,
   getUserBookings,
 } = require("../../controllers/ClassBookingController/classBookingController");
-const { protect } = require("../../middlewares/authMiddleware");
+const { protect, studioAdmin } = require("../../middlewares/authMiddleware");
 
 // POST /api/bookings - User books a class
 router.get("/", protect, getMyBooking);
-router.get("/studio", protect, getStudioBooking);
+router.get("/studio", protect, studioAdmin, getStudioBooking);
 router.post("/", protect, createBooking);
-router.post("/bookings", protect, getUserBookings);
+router.post("/bookings", protect, studioAdmin, getUserBookings);
 router.post("/cancel", protect, cancelBooking);
-router.put("/:bookingId", protect, studentCheckIn);
-router.get("/class/:classId", protect, getClassBookings);
+router.put("/:bookingId", protect, studioAdmin, studentCheckIn);
+router.get("/class/:classId", protect, studioAdmin, getClassBookings);
 
 module.exports = router;

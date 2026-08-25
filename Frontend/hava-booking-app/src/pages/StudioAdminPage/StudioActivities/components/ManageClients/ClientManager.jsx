@@ -38,6 +38,10 @@ import { API_PATHS } from "../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { useAuth } from "../../../../../context/AuthContext";
 import CustomSelect from "../Layout/CustomSelect";
+import FinancialAccessGate from "../../../../../components/FinancialAccessGate";
+import useFinancialStepUp, {
+  isFinancialStepUpError,
+} from "../../../../../utils/useFinancialStepUp";
 
 // --- Safe Data Getters ---
 const getSafeClientData = (user) => ({
@@ -174,14 +178,38 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   const [editingTarget, setEditingTarget] = useState(null);
   const [config, setConfig] = useState({ classTypes: [], instructorTypes: [] });
+  const [financialPasswordError, setFinancialPasswordError] = useState("");
+  const [pendingFinancialAction, setPendingFinancialAction] = useState(null);
+  const {
+    isUnlocked: isFinancialDataUnlocked,
+    lock: lockFinancialData,
+    requestHeaders: financialRequestHeaders,
+    unlock: unlockFinancialData,
+  } = useFinancialStepUp();
+
+  useEffect(() => {
+    lockFinancialData();
+  }, [lockFinancialData, user?._id, user?.adminStudioLocation]);
+
+  useEffect(() => {
+    if (isFinancialDataUnlocked) return;
+    setPurchaseHistory([]);
+    setViewingCombinedItem(null);
+    setEditingTarget(null);
+    setShowAssignModal(false);
+    setShowDirectAssignModal(false);
+  }, [isFinancialDataUnlocked]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const [res, configRes] = await Promise.allSettled([
-        axiosInstance.get(
-          API_PATHS.PASSES.GET_ALL_ADMIN(user.adminStudioLocation),
-        ),
+        isFinancialDataUnlocked
+          ? axiosInstance.get(
+              API_PATHS.PASSES.GET_ALL_ADMIN(user.adminStudioLocation),
+              { headers: financialRequestHeaders },
+            )
+          : Promise.resolve({ data: [] }),
         axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
       ]);
 
@@ -206,15 +234,27 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   useEffect(() => {
     fetchData();
-  }, [user.adminStudioLocation]);
+  }, [
+    financialRequestHeaders,
+    isFinancialDataUnlocked,
+    user.adminStudioLocation,
+  ]);
 
   const fetchClientDetails = async () => {
-    if (!selectedClient) return;
+    if (!selectedClient || !isFinancialDataUnlocked) {
+      setPurchaseHistory([]);
+      return;
+    }
     setLoadingDetails(true);
     try {
       const [medRes, purRes] = await Promise.allSettled([
-        axiosInstance.get(API_PATHS.AUTH.MEDICAL_INFO(selectedClient._id)),
-        axiosInstance.get(API_PATHS.PURCHASES.GET_ALL_USER(selectedClient._id)),
+        axiosInstance.get(API_PATHS.AUTH.MEDICAL_INFO(selectedClient._id), {
+          headers: financialRequestHeaders,
+        }),
+        axiosInstance.get(
+          API_PATHS.PURCHASES.GET_ALL_USER(selectedClient._id),
+          { headers: financialRequestHeaders },
+        ),
       ]);
 
       if (medRes.status === "fulfilled" && medRes.value.data) {
@@ -227,6 +267,15 @@ const ClientManager = ({ isEmbedded = false }) => {
         setPurchaseHistory(purRes.value.data.map(getSafePurchaseData));
       } else {
         setPurchaseHistory([]);
+        if (
+          purRes.status === "rejected" &&
+          isFinancialStepUpError(purRes.reason)
+        ) {
+          setFinancialPasswordError(
+            "Authorization expired. Verify your password again.",
+          );
+          lockFinancialData();
+        }
       }
     } catch (e) {
       console.error("Error fetching client details", e);
@@ -237,7 +286,11 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   useEffect(() => {
     fetchClientDetails();
-  }, [selectedClient]);
+  }, [
+    financialRequestHeaders,
+    isFinancialDataUnlocked,
+    selectedClient,
+  ]);
 
   const handleToggleStudent = async () => {
     if (!selectedClient) return;
@@ -245,7 +298,11 @@ const ClientManager = ({ isEmbedded = false }) => {
       const newStatus = !selectedClient.isStudent;
       setSelectedClient((prev) => ({ ...prev, isStudent: newStatus }));
       const endpoint = API_PATHS.AUTH.UPDATE_PROFILE_ADMIN(selectedClient._id);
-      await axiosInstance.put(endpoint, { isStudent: newStatus });
+      await axiosInstance.put(
+        endpoint,
+        { isStudent: newStatus },
+        { headers: financialRequestHeaders },
+      );
       fetchData();
     } catch (e) {
       console.error("Failed to update student status", e);
@@ -452,9 +509,9 @@ const ClientManager = ({ isEmbedded = false }) => {
     if (activeConfig.key !== columnKey)
       return <ArrowUpDown className='w-3 h-3 ml-1.5 opacity-30 inline-block' />;
     return activeConfig.direction === "asc" ? (
-      <ArrowUp className='w-3 h-3 ml-1.5 inline-block text-emerald-600' />
+      <ArrowUp className='w-3 h-3 ml-1.5 inline-block text-stone-800' />
     ) : (
-      <ArrowDown className='w-3 h-3 ml-1.5 inline-block text-emerald-600' />
+      <ArrowDown className='w-3 h-3 ml-1.5 inline-block text-stone-800' />
     );
   };
 
@@ -466,11 +523,15 @@ const ClientManager = ({ isEmbedded = false }) => {
       // Handle New Client Registration OR Existing Clients
       // If we allowed an array, we could map. For now, assuming single assign logic based on formData
       if (formData.isNewClient) {
-        const userRes = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
-          ...formData.newClientData,
-          role: "client",
-          password: "",
-        });
+        const userRes = await axiosInstance.post(
+          API_PATHS.AUTH.REGISTER,
+          {
+            ...formData.newClientData,
+            role: "client",
+            password: "",
+          },
+          { headers: financialRequestHeaders },
+        );
         targetUserIds = [userRes.data.user?._id || userRes.data._id];
       } else {
         targetUserIds = [formData.userId];
@@ -480,17 +541,20 @@ const ClientManager = ({ isEmbedded = false }) => {
       // iterate and create independent purchases per user.
       await Promise.all(
         targetUserIds.map((userId) =>
-          axiosInstance.post(API_PATHS.PURCHASES.CREATE, {
-            userId: userId,
-            targetUserId: userId,
-            packageId: formData.packageId,
-            paymentMethod: "direct_payment",
-            totalAmount: formData.totalAmount,
-            paymentIssuer: formData.paymentIssuer,
-            proofOfPayment: "Manual Assignment",
-            issuingStudio: user.adminStudioLocation,
-            status: "confirmed",
-          }),
+          axiosInstance.post(
+            API_PATHS.PURCHASES.CREATE,
+            {
+              userId: userId,
+              targetUserId: userId,
+              packageId: formData.packageId,
+              paymentMethod: "direct_payment",
+              totalAmount: formData.totalAmount,
+              paymentIssuer: formData.paymentIssuer,
+              issuingStudio: user.adminStudioLocation,
+              status: "confirmed",
+            },
+            { headers: financialRequestHeaders },
+          ),
         ),
       );
 
@@ -499,8 +563,15 @@ const ClientManager = ({ isEmbedded = false }) => {
       fetchData();
       if (selectedClient) fetchClientDetails();
     } catch (error) {
-      console.error("Assign failed", error);
-      alert(error.response?.data?.message || "Failed to assign pass");
+      if (isFinancialStepUpError(error)) {
+        setFinancialPasswordError(
+          "Authorization expired. Verify your password again.",
+        );
+        lockFinancialData();
+      } else {
+        console.error("Assign failed", error);
+        alert(error.response?.data?.message || "Failed to assign pass");
+      }
     } finally {
       setLoading(false);
     }
@@ -512,6 +583,7 @@ const ClientManager = ({ isEmbedded = false }) => {
       await axiosInstance.post(
         API_PATHS.AUTH.MEDICAL_INFO(selectedClient._id),
         { ...formData },
+        { headers: financialRequestHeaders },
       );
       setShowAddMedicalModal(false);
       fetchClientDetails();
@@ -525,11 +597,15 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   const handleManageFreeze = async (passId, action, data) => {
     try {
-      const response = await axiosInstance.put(`/api/passes/freeze/${passId}`, {
-        action,
-        startDate: data?.startDate,
-        endDate: data?.endDate,
-      });
+      const response = await axiosInstance.put(
+        `/api/passes/freeze/${passId}`,
+        {
+          action,
+          startDate: data?.startDate,
+          endDate: data?.endDate,
+        },
+        { headers: financialRequestHeaders },
+      );
 
       if (viewingCombinedItem) {
         setViewingCombinedItem((prev) => ({
@@ -543,8 +619,15 @@ const ClientManager = ({ isEmbedded = false }) => {
       fetchData();
       fetchClientDetails();
     } catch (error) {
-      console.error(error);
-      alert(error.response?.data?.message || "Failed to manage freeze");
+      if (isFinancialStepUpError(error)) {
+        setFinancialPasswordError(
+          "Authorization expired. Verify your password again.",
+        );
+        lockFinancialData();
+      } else {
+        console.error(error);
+        alert(error.response?.data?.message || "Failed to manage freeze");
+      }
     }
   };
 
@@ -734,7 +817,7 @@ const ClientManager = ({ isEmbedded = false }) => {
     }
     if (status === "confirmed" || status === "active") {
       return (
-        <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-wide border border-emerald-100'>
+        <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-stone-100 text-stone-800 uppercase tracking-wide border border-stone-200'>
           <CheckCircle2 className='w-3 h-3' /> Active
         </span>
       );
@@ -747,7 +830,7 @@ const ClientManager = ({ isEmbedded = false }) => {
       );
     }
     return (
-      <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-gray-50 text-gray-500 uppercase tracking-wide border border-gray-200'>
+      <span className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-stone-50 text-stone-500 uppercase tracking-wide border border-stone-200'>
         <XCircle className='w-3 h-3' /> Inactive
       </span>
     );
@@ -755,12 +838,42 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   if (loading && !purchases.length) return <LoadingSpinner />;
 
+  if ((selectedClient || pendingFinancialAction) && !isFinancialDataUnlocked) {
+    return (
+      <div className='min-h-screen bg-[#F8FAFC] p-4 md:p-8'>
+        <button
+          type='button'
+          onClick={() => {
+            setSelectedClient(null);
+            setPendingFinancialAction(null);
+          }}
+          className='flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-stone-600 hover:bg-white'>
+          <ArrowLeft className='h-4 w-4' /> Back to clients
+        </button>
+        <FinancialAccessGate
+          title='Unlock Client Financial History'
+          description='Confirm your admin password before viewing a client purchase history or assigning a paid package.'
+          error={financialPasswordError}
+          onUnlock={(token, expiresIn) => {
+            const unlocked = unlockFinancialData(token, expiresIn);
+            if (unlocked && pendingFinancialAction === "assign") {
+              setPendingFinancialAction(null);
+              setShowAssignModal(true);
+            }
+            return unlocked;
+          }}
+          setError={setFinancialPasswordError}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`p-4 md:p-8 lg:p-10 ${isEmbedded ? "pt-8" : ""} bg-[#F8FAFC] relative min-h-screen font-sans w-full`}>
       {!isEmbedded && !selectedClient && (
         <div className='flex justify-between items-center mb-6 md:mb-8'>
-          <h1 className='text-2xl md:text-[24px] font-extrabold text-gray-900 tracking-tight'>
+          <h1 className='text-2xl md:text-[24px] font-extrabold text-stone-900 tracking-tight'>
             Client Management
           </h1>
         </div>
@@ -770,30 +883,33 @@ const ClientManager = ({ isEmbedded = false }) => {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className='flex flex-col md:flex-row justify-between items-stretch md:items-center mb-6 gap-4'>
             <div className='relative w-full md:w-96'>
-              <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
+              <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4' />
               <input
                 type='text'
                 placeholder='Search by name, email, or phone...'
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className='w-full pl-11 pr-4 py-3 bg-white border border-gray-200/80 rounded-[14px] text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]'
+                className='w-full pl-11 pr-4 py-3 bg-white border border-stone-200/80 rounded-[14px] text-sm outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]'
               />
             </div>
             <button
-              onClick={() => setShowAssignModal(true)}
-              className='w-full md:w-auto justify-center px-5 py-3 bg-[#1a4d3e] text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all active:scale-[0.98]'>
+              onClick={() => {
+                if (isFinancialDataUnlocked) setShowAssignModal(true);
+                else setPendingFinancialAction("assign");
+              }}
+              className='w-full md:w-auto justify-center px-5 py-3 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
               <Plus className='w-4 h-4' /> Assign Pass
             </button>
           </div>
 
-          <div className='bg-white rounded-[20px] border border-gray-100 shadow-sm overflow-hidden'>
+          <div className='bg-white rounded-[20px] border border-stone-100 shadow-sm overflow-hidden'>
             <div className='overflow-x-hidden md:overflow-x-auto w-full custom-scrollbar'>
               <table className='w-full text-left border-collapse hidden md:table'>
-                <thead className='bg-slate-50/50 border-b border-gray-100'>
+                <thead className='bg-stone-50/50 border-b border-stone-100'>
                   <tr>
                     <th
                       onClick={() => handleSort("fullName")}
-                      className='py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap'>
+                      className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider cursor-pointer hover:bg-stone-100 transition-colors select-none whitespace-nowrap'>
                       <div className='flex items-center'>
                         Client Profile
                         <SortIcon
@@ -804,7 +920,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                     </th>
                     <th
                       onClick={() => handleSort("email")}
-                      className='py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap'>
+                      className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider cursor-pointer hover:bg-stone-100 transition-colors select-none whitespace-nowrap'>
                       <div className='flex items-center'>
                         Contact Info
                         <SortIcon columnKey='email' activeConfig={sortConfig} />
@@ -812,7 +928,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                     </th>
                     <th
                       onClick={() => handleSort("activePassesCount")}
-                      className='py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap'>
+                      className='py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider cursor-pointer hover:bg-stone-100 transition-colors select-none whitespace-nowrap'>
                       <div className='flex items-center'>
                         Activity
                         <SortIcon
@@ -823,22 +939,22 @@ const ClientManager = ({ isEmbedded = false }) => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className='divide-y divide-gray-50'>
+                <tbody className='divide-y divide-stone-50'>
                   {filteredClients.map((client) => (
                     <tr
                       key={client._id}
                       onClick={() => setSelectedClient(client)}
-                      className='hover:bg-slate-50/80 transition-colors cursor-pointer group'>
+                      className='hover:bg-stone-50/80 transition-colors cursor-pointer group'>
                       <td className='py-4 px-6'>
                         <div className='flex items-center gap-4'>
-                          <div className='w-10 h-10 shrink-0 rounded-[12px] bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm uppercase shadow-sm border border-emerald-200/50'>
+                          <div className='w-10 h-10 shrink-0 rounded-[12px] bg-gradient-to-br from-stone-100 to-stone-200 text-stone-900 flex items-center justify-center font-bold text-sm uppercase shadow-sm border border-stone-300/50'>
                             {client.fullName.charAt(0)}
                           </div>
                           <div>
-                            <span className='font-bold text-gray-900 text-sm group-hover:text-emerald-700 transition-colors flex items-center gap-1.5'>
+                            <span className='font-bold text-stone-900 text-sm group-hover:text-stone-800 transition-colors flex items-center gap-1.5'>
                               {client.fullName}
                               {client.isStudent && (
-                                <GraduationCap className='w-4 h-4 text-emerald-600' />
+                                <GraduationCap className='w-4 h-4 text-stone-800' />
                               )}
                             </span>
                           </div>
@@ -846,10 +962,10 @@ const ClientManager = ({ isEmbedded = false }) => {
                       </td>
                       <td className='py-4 px-6'>
                         <div className='flex flex-col gap-1 text-xs'>
-                          <span className='text-gray-600 font-medium'>
+                          <span className='text-stone-600 font-medium'>
                             {client.email || "—"}
                           </span>
-                          <span className='text-gray-400'>
+                          <span className='text-stone-400'>
                             {client.phoneNumber || "—"}
                           </span>
                         </div>
@@ -863,25 +979,25 @@ const ClientManager = ({ isEmbedded = false }) => {
                   ))}
                 </tbody>
               </table>
-              <div className='block md:hidden divide-y divide-gray-50'>
+              <div className='block md:hidden divide-y divide-stone-50'>
                 {filteredClients.map((client) => (
                   <div
                     key={client._id}
                     onClick={() => setSelectedClient(client)}
-                    className='p-4 hover:bg-slate-50 transition-colors cursor-pointer flex flex-col gap-3 group'>
+                    className='p-4 hover:bg-stone-50 transition-colors cursor-pointer flex flex-col gap-3 group'>
                     <div className='flex items-center justify-between'>
                       <div className='flex items-center gap-3'>
-                        <div className='w-10 h-10 shrink-0 rounded-[12px] bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm uppercase shadow-sm border border-emerald-200/50'>
+                        <div className='w-10 h-10 shrink-0 rounded-[12px] bg-gradient-to-br from-stone-100 to-stone-200 text-stone-900 flex items-center justify-center font-bold text-sm uppercase shadow-sm border border-stone-300/50'>
                           {client.fullName.charAt(0)}
                         </div>
                         <div>
-                          <span className='font-bold text-gray-900 text-sm mb-0.5 group-hover:text-emerald-700 transition-colors flex items-center gap-1.5'>
+                          <span className='font-bold text-stone-900 text-sm mb-0.5 group-hover:text-stone-800 transition-colors flex items-center gap-1.5'>
                             {client.fullName}
                             {client.isStudent && (
-                              <GraduationCap className='w-3.5 h-3.5 text-emerald-600' />
+                              <GraduationCap className='w-3.5 h-3.5 text-stone-800' />
                             )}
                           </span>
-                          <span className='text-xs text-gray-500 font-medium block'>
+                          <span className='text-xs text-stone-500 font-medium block'>
                             {client.phoneNumber || "—"}
                           </span>
                         </div>
@@ -891,8 +1007,8 @@ const ClientManager = ({ isEmbedded = false }) => {
                       </span>
                     </div>
                     {client.email && (
-                      <div className='flex items-center gap-2 text-xs text-gray-600 bg-slate-50/80 p-2.5 rounded-lg border border-slate-100/50 mt-1'>
-                        <Mail className='w-3.5 h-3.5 text-gray-400 shrink-0' />
+                      <div className='flex items-center gap-2 text-xs text-stone-600 bg-stone-50/80 p-2.5 rounded-lg border border-stone-100/50 mt-1'>
+                        <Mail className='w-3.5 h-3.5 text-stone-400 shrink-0' />
                         <span className='truncate'>{client.email}</span>
                       </div>
                     )}
@@ -902,8 +1018,8 @@ const ClientManager = ({ isEmbedded = false }) => {
             </div>
             {filteredClients.length === 0 && (
               <div className='py-20 text-center flex flex-col items-center'>
-                <UserIcon className='w-12 h-12 text-gray-200 mb-3' />
-                <p className='text-gray-500 font-medium'>No clients found.</p>
+                <UserIcon className='w-12 h-12 text-stone-200 mb-3' />
+                <p className='text-stone-500 font-medium'>No clients found.</p>
               </div>
             )}
           </div>
@@ -920,52 +1036,52 @@ const ClientManager = ({ isEmbedded = false }) => {
                 setMedicalData(null);
                 setPurchaseHistory([]);
               }}
-              className='flex justify-center items-center gap-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition-all bg-white px-5 py-2.5 rounded-xl border border-gray-200 shadow-sm hover:shadow w-full sm:w-auto'>
+              className='flex justify-center items-center gap-2 text-sm font-bold text-stone-600 hover:text-stone-900 transition-all bg-white px-5 py-2.5 rounded-xl border border-stone-200 shadow-sm hover:shadow w-full sm:w-auto'>
               <ArrowLeft className='w-4 h-4' /> Back to Clients
             </button>
             <button
               onClick={() => setShowDirectAssignModal(true)}
-              className='w-full sm:w-auto justify-center px-5 py-2.5 bg-[#1a4d3e] text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] active:scale-95 transition-all'>
+              className='w-full sm:w-auto justify-center px-5 py-2.5 bg-stone-600 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-stone-700 active:scale-95 transition-all'>
               <Plus className='w-4 h-4' /> Assign New Pass
             </button>
           </div>
 
           <div className='grid grid-cols-1 lg:grid-cols-12 gap-6 items-start'>
             <div className='flex flex-col gap-6 lg:col-span-4 xl:col-span-3 w-full min-w-0'>
-              <div className='bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm'>
+              <div className='bg-white p-5 md:p-6 rounded-2xl border border-stone-100 shadow-sm'>
                 <div className='flex items-center gap-4 mb-6'>
-                  <div className='w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-2xl uppercase shadow-sm border border-emerald-200/50'>
+                  <div className='w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-stone-100 to-stone-200 text-stone-900 flex items-center justify-center font-bold text-2xl uppercase shadow-sm border border-stone-300/50'>
                     {selectedClient.fullName.charAt(0)}
                   </div>
                   <div className='overflow-hidden'>
-                    <h2 className='text-lg font-extrabold text-gray-900 truncate'>
+                    <h2 className='text-lg font-extrabold text-stone-900 truncate'>
                       {selectedClient.fullName}
                     </h2>
-                    <span className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5 block'>
+                    <span className='text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-0.5 block'>
                       Client Profile
                     </span>
                   </div>
                 </div>
                 <div className='space-y-2.5'>
-                  <div className='flex items-center gap-3 text-sm font-medium text-gray-600 bg-slate-50/80 px-4 py-3 rounded-xl border border-slate-100/50 truncate w-full'>
-                    <Mail className='w-4 h-4 text-gray-400 shrink-0' />{" "}
+                  <div className='flex items-center gap-3 text-sm font-medium text-stone-600 bg-stone-50/80 px-4 py-3 rounded-xl border border-stone-100/50 truncate w-full'>
+                    <Mail className='w-4 h-4 text-stone-400 shrink-0' />{" "}
                     {selectedClient.email || (
-                      <span className='italic text-gray-400 font-normal'>
+                      <span className='italic text-stone-400 font-normal'>
                         No email provided
                       </span>
                     )}
                   </div>
-                  <div className='flex items-center gap-3 text-sm font-medium text-gray-600 bg-slate-50/80 px-4 py-3 rounded-xl border border-slate-100/50 w-full'>
-                    <Phone className='w-4 h-4 text-gray-400 shrink-0' />{" "}
+                  <div className='flex items-center gap-3 text-sm font-medium text-stone-600 bg-stone-50/80 px-4 py-3 rounded-xl border border-stone-100/50 w-full'>
+                    <Phone className='w-4 h-4 text-stone-400 shrink-0' />{" "}
                     {selectedClient.phoneNumber || (
-                      <span className='italic text-gray-400 font-normal'>
+                      <span className='italic text-stone-400 font-normal'>
                         No phone provided
                       </span>
                     )}
                   </div>
-                  <div className='flex items-center justify-between text-sm font-medium text-gray-600 bg-slate-50/80 px-4 py-3 rounded-xl border border-slate-100/50 w-full'>
+                  <div className='flex items-center justify-between text-sm font-medium text-stone-600 bg-stone-50/80 px-4 py-3 rounded-xl border border-stone-100/50 w-full'>
                     <div className='flex items-center gap-3'>
-                      <GraduationCap className='w-4 h-4 text-gray-400 shrink-0' />
+                      <GraduationCap className='w-4 h-4 text-stone-400 shrink-0' />
                       <span>Student Status</span>
                     </div>
                     <button
@@ -973,8 +1089,8 @@ const ClientManager = ({ isEmbedded = false }) => {
                       onClick={handleToggleStudent}
                       className={`w-10 h-6 rounded-full p-1 transition-colors ${
                         selectedClient.isStudent
-                          ? "bg-emerald-500"
-                          : "bg-slate-300"
+                          ? "bg-stone-500"
+                          : "bg-stone-300"
                       }`}>
                       <div
                         className={`w-4 h-4 rounded-full bg-white transition-transform ${
@@ -988,35 +1104,35 @@ const ClientManager = ({ isEmbedded = false }) => {
                 </div>
               </div>
 
-              <div className='bg-white p-5 md:p-6 rounded-2xl border border-gray-100 shadow-sm'>
+              <div className='bg-white p-5 md:p-6 rounded-2xl border border-stone-100 shadow-sm'>
                 <div className='flex items-center gap-2.5 mb-2'>
                   <Activity className='w-5 h-5 text-rose-500 shrink-0' />
-                  <h3 className='font-extrabold text-gray-900 text-[15px]'>
+                  <h3 className='font-extrabold text-stone-900 text-[15px]'>
                     Medical Profile
                   </h3>
                 </div>
 
                 {medicalData ? (
-                  <div className='flex flex-col items-center justify-center py-5 bg-emerald-50/30 rounded-2xl border border-emerald-100/50 mt-4'>
-                    <CheckCircle2 className='w-8 h-8 text-emerald-500 mb-2' />
-                    <p className='text-sm font-bold text-emerald-900 mb-4'>
+                  <div className='flex flex-col items-center justify-center py-5 bg-stone-100/30 rounded-2xl border border-stone-200/50 mt-4'>
+                    <CheckCircle2 className='w-8 h-8 text-stone-700 mb-2' />
+                    <p className='text-sm font-bold text-stone-900 mb-4'>
                       Record on file
                     </p>
                     <button
                       onClick={() => setShowViewMedicalModal(true)}
-                      className='inline-flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-700 shadow-sm border border-emerald-200 text-sm font-bold rounded-xl hover:bg-emerald-50 transition-all active:scale-95'>
+                      className='inline-flex items-center gap-2 px-5 py-2.5 bg-white text-stone-800 shadow-sm border border-stone-300 text-sm font-bold rounded-xl hover:bg-stone-100 transition-all active:scale-95'>
                       View Details
                     </button>
                   </div>
                 ) : (
-                  <div className='text-center py-6 bg-slate-50/50 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center mt-4'>
-                    <FileText className='w-8 h-8 text-gray-300 mb-3' />
-                    <p className='text-sm font-medium text-gray-500 mb-4'>
+                  <div className='text-center py-6 bg-stone-50/50 rounded-2xl border border-dashed border-stone-200 flex flex-col items-center justify-center mt-4'>
+                    <FileText className='w-8 h-8 text-stone-300 mb-3' />
+                    <p className='text-sm font-medium text-stone-500 mb-4'>
                       No medical records yet.
                     </p>
                     <button
                       onClick={() => setShowAddMedicalModal(true)}
-                      className='inline-flex items-center gap-2 px-5 py-2 bg-white text-emerald-700 shadow-sm border border-emerald-100 text-xs font-bold rounded-xl hover:bg-emerald-50 transition-all active:scale-95'>
+                      className='inline-flex items-center gap-2 px-5 py-2 bg-white text-stone-800 shadow-sm border border-stone-200 text-xs font-bold rounded-xl hover:bg-stone-100 transition-all active:scale-95'>
                       <Plus className='w-3.5 h-3.5' /> Add Record
                     </button>
                   </div>
@@ -1025,26 +1141,26 @@ const ClientManager = ({ isEmbedded = false }) => {
             </div>
 
             <div className='lg:col-span-8 xl:col-span-9 w-full min-w-0'>
-              <section className='bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden w-full'>
-                <div className='px-5 md:px-6 py-5 border-b border-gray-50 flex flex-wrap gap-2 items-center justify-between'>
+              <section className='bg-white rounded-2xl border border-stone-100 shadow-sm flex flex-col overflow-hidden w-full'>
+                <div className='px-5 md:px-6 py-5 border-b border-stone-50 flex flex-wrap gap-2 items-center justify-between'>
                   <div className='flex items-center gap-2'>
-                    <ShoppingBag className='w-5 h-5 text-gray-700 shrink-0' />
-                    <h3 className='text-[15px] md:text-[16px] font-extrabold text-gray-900'>
+                    <ShoppingBag className='w-5 h-5 text-stone-700 shrink-0' />
+                    <h3 className='text-[15px] md:text-[16px] font-extrabold text-stone-900'>
                       Purchase & Pass History
                     </h3>
                   </div>
-                  <span className='text-[10px] md:text-[11px] font-extrabold tracking-wider bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg'>
+                  <span className='text-[10px] md:text-[11px] font-extrabold tracking-wider bg-stone-100 text-stone-500 px-3 py-1.5 rounded-lg'>
                     {combinedHistory.length} RECORDS
                   </span>
                 </div>
 
                 <div className='overflow-x-hidden md:overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar w-full'>
                   <table className='w-full text-left border-collapse hidden md:table'>
-                    <thead className='bg-[#F8FAFC] sticky top-0 z-10 border-b border-gray-100'>
+                    <thead className='bg-[#F8FAFC] sticky top-0 z-10 border-b border-stone-100'>
                       <tr>
                         <th
                           onClick={() => handleHistorySort("createdAt")}
-                          className='py-4 px-4 md:px-6 text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap'>
+                          className='py-4 px-4 md:px-6 text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer hover:bg-stone-100 transition-colors select-none whitespace-nowrap'>
                           <div className='flex items-center'>
                             Date & ID
                             <SortIcon
@@ -1055,7 +1171,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                         </th>
                         <th
                           onClick={() => handleHistorySort("packageName")}
-                          className='py-4 px-4 md:px-6 text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap'>
+                          className='py-4 px-4 md:px-6 text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer hover:bg-stone-100 transition-colors select-none whitespace-nowrap'>
                           <div className='flex items-center'>
                             Package Details
                             <SortIcon
@@ -1066,7 +1182,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                         </th>
                         <th
                           onClick={() => handleHistorySort("totalAmount")}
-                          className='py-4 px-4 md:px-6 text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap'>
+                          className='py-4 px-4 md:px-6 text-[10px] font-bold text-stone-400 uppercase tracking-widest cursor-pointer hover:bg-stone-100 transition-colors select-none whitespace-nowrap'>
                           <div className='flex items-center'>
                             Payment
                             <SortIcon
@@ -1075,12 +1191,12 @@ const ClientManager = ({ isEmbedded = false }) => {
                             />
                           </div>
                         </th>
-                        <th className='py-4 px-4 md:px-6 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap'>
+                        <th className='py-4 px-4 md:px-6 text-[10px] font-bold text-stone-400 uppercase tracking-widest whitespace-nowrap'>
                           Status
                         </th>
                       </tr>
                     </thead>
-                    <tbody className='divide-y divide-slate-50'>
+                    <tbody className='divide-y divide-stone-50'>
                       {combinedHistory.map((item, idx) => {
                         const isCombo = item.passes && item.passes.length > 1;
                         const packageObj =
@@ -1135,10 +1251,10 @@ const ClientManager = ({ isEmbedded = false }) => {
                           <tr
                             key={item._id + idx}
                             onClick={() => setViewingCombinedItem(item)}
-                            className='hover:bg-slate-50/80 transition-colors cursor-pointer group'>
+                            className='hover:bg-stone-50/80 transition-colors cursor-pointer group'>
                             <td className='py-5 px-4 md:px-6'>
                               <div className='flex items-center gap-2 mb-0.5 whitespace-nowrap'>
-                                <div className='text-[13px] font-extrabold text-gray-900'>
+                                <div className='text-[13px] font-extrabold text-stone-900'>
                                   {formatDate(item.createdAt)}
                                 </div>
                                 {isSharedToMe ? (
@@ -1154,7 +1270,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 ) : null}
                               </div>
                               <div
-                                className='text-[10px] text-gray-400 font-mono truncate max-w-[100px] md:max-w-[150px]'
+                                className='text-[10px] text-stone-400 font-mono truncate max-w-[100px] md:max-w-[150px]'
                                 title={
                                   item.isTxn
                                     ? `TRX: ${item.txnData.transactionId}`
@@ -1166,7 +1282,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                               </div>
                               {item.passes[0] && (
                                 <div
-                                  className='text-[10px] text-gray-400 font-mono truncate max-w-[100px] md:max-w-[150px] mt-0.5'
+                                  className='text-[10px] text-stone-400 font-mono truncate max-w-[100px] md:max-w-[150px] mt-0.5'
                                   title={`Pass ID: ${item.passes[0]._id}`}>
                                   Pass: {item.passes[0]._id}
                                 </div>
@@ -1176,12 +1292,12 @@ const ClientManager = ({ isEmbedded = false }) => {
                             <td className='py-5 px-4 md:px-6 w-56'>
                               <div className='flex items-center gap-2 mb-1'>
                                 <div
-                                  className='text-[13px] font-extrabold text-gray-900 truncate max-w-[150px] md:max-w-[180px]'
+                                  className='text-[13px] font-extrabold text-stone-900 truncate max-w-[150px] md:max-w-[180px]'
                                   title={snapshotName}>
                                   {snapshotName}
                                 </div>
                                 {isCombo && (
-                                  <span className='px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
+                                  <span className='px-1.5 py-0.5 bg-stone-100 border border-stone-200 text-stone-800 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
                                     <Layers className='w-3 h-3' /> Combo
                                   </span>
                                 )}
@@ -1192,7 +1308,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                   {snapshotCategory.map((cat, i) => (
                                     <span
                                       key={i}
-                                      className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                                      className='px-1.5 py-0.5 bg-stone-100 text-stone-500 rounded text-[9px] font-bold uppercase tracking-wider'>
                                       {cat}
                                     </span>
                                   ))}
@@ -1205,19 +1321,19 @@ const ClientManager = ({ isEmbedded = false }) => {
                                     <span
                                       className={
                                         totalRemaining > 0
-                                          ? "text-emerald-600"
-                                          : "text-gray-400"
+                                          ? "text-stone-800"
+                                          : "text-stone-400"
                                       }>
                                       {totalRemaining} left
                                     </span>
-                                    <span className='text-gray-400'>
+                                    <span className='text-stone-400'>
                                       / {totalPurchased} total{" "}
                                       {isCombo && "across combo"}
                                     </span>
                                   </div>
-                                  <div className='w-full bg-slate-100 rounded-full h-1.5 overflow-hidden'>
+                                  <div className='w-full bg-stone-100 rounded-full h-1.5 overflow-hidden'>
                                     <div
-                                      className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-slate-300" : "bg-emerald-500"}`}
+                                      className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-stone-300" : "bg-stone-500"}`}
                                       style={{
                                         width: `${Math.min(100, (totalRemaining / Math.max(1, totalPurchased)) * 100)}%`,
                                       }}></div>
@@ -1225,7 +1341,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 </div>
                               ) : (
                                 item.isTxn && (
-                                  <div className='text-[11px] font-medium text-gray-500 mt-1 whitespace-nowrap'>
+                                  <div className='text-[11px] font-medium text-stone-500 mt-1 whitespace-nowrap'>
                                     {item.txnData.creditsPurchased} Credits
                                   </div>
                                 )
@@ -1235,11 +1351,11 @@ const ClientManager = ({ isEmbedded = false }) => {
                             <td className='py-5 px-4 md:px-6'>
                               {item.isTxn ? (
                                 <div>
-                                  <span className='font-mono font-bold text-gray-900 text-[13px] block mb-1 whitespace-nowrap'>
+                                  <span className='font-mono font-bold text-stone-900 text-[13px] block mb-1 whitespace-nowrap'>
                                     {formatCurrency(item.txnData.totalAmount)}
                                   </span>
-                                  <div className='flex items-center gap-1.5 text-[10px] font-medium text-gray-500'>
-                                    <CreditCard className='w-3 h-3 text-gray-400 shrink-0' />
+                                  <div className='flex items-center gap-1.5 text-[10px] font-medium text-stone-500'>
+                                    <CreditCard className='w-3 h-3 text-stone-400 shrink-0' />
                                     <span
                                       className='truncate max-w-[100px] md:max-w-[150px]'
                                       title={formatPaymentMethod(
@@ -1261,7 +1377,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                   )}
                                 </div>
                               ) : (
-                                <span className='text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                                <span className='text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                                   N/A
                                 </span>
                               )}
@@ -1279,7 +1395,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                         <tr>
                           <td
                             colSpan='4'
-                            className='py-16 text-center text-gray-400 text-sm font-medium'>
+                            className='py-16 text-center text-stone-400 text-sm font-medium'>
                             No history found for this client.
                           </td>
                         </tr>
@@ -1287,7 +1403,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                     </tbody>
                   </table>
 
-                  <div className='block md:hidden divide-y divide-gray-50'>
+                  <div className='block md:hidden divide-y divide-stone-50'>
                     {combinedHistory.map((item, idx) => {
                       const isCombo = item.passes && item.passes.length > 1;
                       const packageObj =
@@ -1339,11 +1455,11 @@ const ClientManager = ({ isEmbedded = false }) => {
                         <div
                           key={item._id + idx}
                           onClick={() => setViewingCombinedItem(item)}
-                          className='p-4 hover:bg-slate-50 transition-colors cursor-pointer flex flex-col gap-3 group'>
+                          className='p-4 hover:bg-stone-50 transition-colors cursor-pointer flex flex-col gap-3 group'>
                           <div className='flex justify-between items-start'>
                             <div>
                               <div className='flex items-center gap-2 mb-0.5'>
-                                <div className='text-[13px] font-extrabold text-gray-900'>
+                                <div className='text-[13px] font-extrabold text-stone-900'>
                                   {formatDate(item.createdAt)}
                                 </div>
                                 {isSharedToMe ? (
@@ -1358,13 +1474,13 @@ const ClientManager = ({ isEmbedded = false }) => {
                                   </span>
                                 ) : null}
                               </div>
-                              <div className='text-[10px] text-gray-400 font-mono'>
+                              <div className='text-[10px] text-stone-400 font-mono'>
                                 {item.isTxn
                                   ? `TRX: ${item.txnData.transactionId}`
                                   : "Manual Assign"}
                               </div>
                               {item.passes[0] && (
-                                <div className='text-[10px] text-gray-400 font-mono mt-0.5'>
+                                <div className='text-[10px] text-stone-400 font-mono mt-0.5'>
                                   Pass: {item.passes[0]._id}
                                 </div>
                               )}
@@ -1382,11 +1498,11 @@ const ClientManager = ({ isEmbedded = false }) => {
 
                           <div>
                             <div className='flex items-center gap-2 mb-1'>
-                              <div className='text-[14px] font-extrabold text-gray-900'>
+                              <div className='text-[14px] font-extrabold text-stone-900'>
                                 {snapshotName}
                               </div>
                               {isCombo && (
-                                <span className='px-1.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
+                                <span className='px-1.5 py-0.5 bg-stone-100 border border-stone-200 text-stone-800 rounded text-[9px] font-bold uppercase whitespace-nowrap flex items-center gap-1'>
                                   <Layers className='w-3 h-3' /> Combo
                                 </span>
                               )}
@@ -1397,7 +1513,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 {snapshotCategory.map((cat, i) => (
                                   <span
                                     key={i}
-                                    className='px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                                    className='px-1.5 py-0.5 bg-stone-100 text-stone-500 rounded text-[9px] font-bold uppercase tracking-wider'>
                                     {cat}
                                   </span>
                                 ))}
@@ -1410,18 +1526,18 @@ const ClientManager = ({ isEmbedded = false }) => {
                                   <span
                                     className={
                                       totalRemaining > 0
-                                        ? "text-emerald-600"
-                                        : "text-gray-400"
+                                        ? "text-stone-800"
+                                        : "text-stone-400"
                                     }>
                                     {totalRemaining} left
                                   </span>
-                                  <span className='text-gray-400'>
+                                  <span className='text-stone-400'>
                                     / {totalPurchased} total
                                   </span>
                                 </div>
-                                <div className='w-full bg-slate-100 rounded-full h-1.5 overflow-hidden'>
+                                <div className='w-full bg-stone-100 rounded-full h-1.5 overflow-hidden'>
                                   <div
-                                    className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-slate-300" : "bg-emerald-500"}`}
+                                    className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-stone-300" : "bg-stone-500"}`}
                                     style={{
                                       width: `${Math.min(100, (totalRemaining / Math.max(1, totalPurchased)) * 100)}%`,
                                     }}></div>
@@ -1429,7 +1545,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                               </div>
                             ) : (
                               item.isTxn && (
-                                <div className='text-[11px] font-medium text-gray-500'>
+                                <div className='text-[11px] font-medium text-stone-500'>
                                   {item.txnData.creditsPurchased} Credits
                                 </div>
                               )
@@ -1437,10 +1553,10 @@ const ClientManager = ({ isEmbedded = false }) => {
                           </div>
 
                           {item.isTxn && (
-                            <div className='flex items-center justify-between mt-1 pt-3 border-t border-dashed border-gray-100'>
-                              <div className='flex flex-col gap-1 text-[11px] font-medium text-gray-500'>
+                            <div className='flex items-center justify-between mt-1 pt-3 border-t border-dashed border-stone-100'>
+                              <div className='flex flex-col gap-1 text-[11px] font-medium text-stone-500'>
                                 <div className='flex items-center gap-1.5'>
-                                  <CreditCard className='w-3.5 h-3.5 text-gray-400 shrink-0' />
+                                  <CreditCard className='w-3.5 h-3.5 text-stone-400 shrink-0' />
                                   <span className='truncate max-w-[150px]'>
                                     {formatPaymentMethod(
                                       item.txnData.paymentMethod,
@@ -1454,7 +1570,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                   </span>
                                 )}
                               </div>
-                              <span className='font-mono font-bold text-gray-900 text-[13px]'>
+                              <span className='font-mono font-bold text-stone-900 text-[13px]'>
                                 {formatCurrency(item.txnData.totalAmount)}
                               </span>
                             </div>
@@ -1463,7 +1579,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                       );
                     })}
                     {combinedHistory.length === 0 && (
-                      <div className='py-16 text-center text-gray-400 text-sm font-medium'>
+                      <div className='py-16 text-center text-stone-400 text-sm font-medium'>
                         No history found for this client.
                       </div>
                     )}
@@ -1531,6 +1647,13 @@ const ClientManager = ({ isEmbedded = false }) => {
           <EditPassModal
             target={editingTarget}
             config={config}
+            financialRequestHeaders={financialRequestHeaders}
+            onFinancialAuthorizationError={() => {
+              setFinancialPasswordError(
+                "Authorization expired. Verify your password again.",
+              );
+              lockFinancialData();
+            }}
             onClose={() => setEditingTarget(null)}
             onSubmit={() => {
               setEditingTarget(null);
@@ -1563,34 +1686,34 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
 
   // Unified input styling for perfect consistency across inputs, selects, and textareas
   const inputClasses =
-    "w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-900 outline-none focus:border-[#10b981] focus:ring-4 focus:ring-[#10b981]/10 transition-all shadow-sm appearance-none";
+    "w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm appearance-none";
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white w-full max-w-[500px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/20'>
         {/* Header */}
-        <div className='px-6 py-5 flex justify-between items-center border-b border-gray-100 bg-white z-10 shrink-0'>
-          <h3 className='text-lg font-extrabold text-gray-900'>
+        <div className='px-6 py-5 flex justify-between items-center border-b border-stone-100 bg-white z-10 shrink-0'>
+          <h3 className='text-lg font-extrabold text-stone-900'>
             Add Medical Record
           </h3>
           <button
             type='button'
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-500' />
+            className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+            <X className='w-5 h-5 text-stone-500' />
           </button>
         </div>
 
         {/* Scrollable Form */}
         <form
           onSubmit={handleSubmit}
-          className='p-6 overflow-y-auto custom-scrollbar space-y-5 bg-slate-50/30'>
+          className='p-6 overflow-y-auto custom-scrollbar space-y-5 bg-stone-50/30'>
           <div className='grid grid-cols-2 gap-4'>
             <div>
-              <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              <label className='block text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                 Date of Birth
               </label>
               <div className='relative'>
@@ -1606,7 +1729,7 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
             </div>
 
             <div>
-              <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              <label className='block text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                 Sex
               </label>
               <div className='relative'>
@@ -1623,13 +1746,13 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
                   <option value='Male'>Male</option>
                   <option value='Female'>Female</option>
                 </select>
-                <ChevronDown className='w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
+                <ChevronDown className='w-4 h-4 text-stone-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
               </div>
             </div>
           </div>
 
           <div>
-            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+            <label className='block text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
               Occupation
             </label>
             <input
@@ -1642,7 +1765,7 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
           </div>
 
           <div>
-            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+            <label className='block text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
               Marital Status
             </label>
             <div className='relative'>
@@ -1661,12 +1784,12 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
                 <option value='Divorced'>Divorced</option>
                 <option value='Widowed'>Widowed</option>
               </select>
-              <ChevronDown className='w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
+              <ChevronDown className='w-4 h-4 text-stone-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none' />
             </div>
           </div>
 
           <div>
-            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+            <label className='block text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
               Physical Concerns / Injuries
             </label>
             <textarea
@@ -1678,7 +1801,7 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
           </div>
 
           <div>
-            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+            <label className='block text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
               Daily Activity
             </label>
             <textarea
@@ -1690,7 +1813,7 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
           </div>
 
           <div>
-            <label className='block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+            <label className='block text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
               Address
             </label>
             <input
@@ -1706,7 +1829,7 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
             <button
               type='submit'
               disabled={isLoading}
-              className='w-full py-4 bg-[#10b981] text-white text-[15px] font-bold rounded-xl hover:bg-[#059669] transition-all shadow-[0_4px_14px_-4px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:shadow-none'>
+              className='w-full py-4 bg-stone-500 text-white text-[15px] font-bold rounded-xl hover:bg-stone-600 transition-all shadow-[0_4px_14px_-4px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:shadow-none'>
               {isLoading ? "Saving..." : "Save Record"}
             </button>
           </div>
@@ -1851,28 +1974,28 @@ const UnifiedDetailModal = ({
   };
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         className='bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]'>
-        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 flex justify-between items-center bg-white z-10 shrink-0'>
-          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900 flex items-center gap-2'>
+        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-stone-100 flex justify-between items-center bg-white z-10 shrink-0'>
+          <h3 className='text-lg sm:text-xl font-extrabold text-stone-900 flex items-center gap-2'>
             {isCombo ? "Combo Package Details" : "Package & Transaction"}
-            {isCombo && <Layers className='w-5 h-5 text-emerald-600' />}
+            {isCombo && <Layers className='w-5 h-5 text-stone-800' />}
           </h3>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-500' />
+            className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+            <X className='w-5 h-5 text-stone-500' />
           </button>
         </div>
 
-        <div className='overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50 p-5 sm:p-8 space-y-6'>
+        <div className='overflow-y-auto custom-scrollbar flex-1 bg-stone-50/50 p-5 sm:p-8 space-y-6'>
           <div className='text-center space-y-3 mb-4'>
             {isTxn && (
-              <p className='text-[32px] sm:text-[38px] font-extrabold font-mono text-gray-900 tracking-tight leading-none'>
+              <p className='text-[32px] sm:text-[38px] font-extrabold font-mono text-stone-900 tracking-tight leading-none'>
                 {formatCurrency(txnData.totalAmount)}
               </p>
             )}
@@ -1883,12 +2006,12 @@ const UnifiedDetailModal = ({
             </div>
             <div className='flex flex-col items-center gap-0.5 mt-2'>
               {isTxn && (
-                <p className='text-[11px] sm:text-[12px] text-gray-400 font-mono tracking-wide select-all break-all px-4'>
+                <p className='text-[11px] sm:text-[12px] text-stone-400 font-mono tracking-wide select-all break-all px-4'>
                   TRX: {txnData.transactionId}
                 </p>
               )}
               {basePass && (
-                <p className='text-[11px] sm:text-[12px] text-gray-400 font-mono tracking-wide select-all break-all px-4'>
+                <p className='text-[11px] sm:text-[12px] text-stone-400 font-mono tracking-wide select-all break-all px-4'>
                   Pass ID: {basePass._id}
                 </p>
               )}
@@ -1898,16 +2021,16 @@ const UnifiedDetailModal = ({
           {basePass && (
             <>
               {isCombo && (
-                <div className='bg-emerald-50 border border-emerald-100 text-emerald-800 p-4 rounded-xl text-sm font-medium leading-relaxed'>
+                <div className='bg-stone-100 border border-stone-200 text-stone-900 p-4 rounded-xl text-sm font-medium leading-relaxed'>
                   This is a <strong>Combo Package</strong> containing{" "}
                   {passes.length} passes.
                 </div>
               )}
 
               {/* 1. Global Package Configuration */}
-              <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60'>
-                <div className='flex items-center justify-between mb-5 border-b border-gray-100 pb-4'>
-                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
+              <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-stone-200/60'>
+                <div className='flex items-center justify-between mb-5 border-b border-stone-100 pb-4'>
+                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-stone-900'>
                     Package Configuration
                   </h4>
                   <div className='flex items-center gap-2'>
@@ -1920,7 +2043,7 @@ const UnifiedDetailModal = ({
                     </button>
                     <button
                       onClick={() => onEditTarget({ type: "global", passes })}
-                      className='text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5'>
+                      className='text-[11px] font-bold text-stone-800 bg-stone-100 px-3 py-1.5 rounded-lg hover:bg-stone-200 transition-colors flex items-center gap-1.5'>
                       <Edit2 className='w-3 h-3' /> Edit Expiry
                     </button>
                   </div>
@@ -1928,10 +2051,10 @@ const UnifiedDetailModal = ({
 
                 <div className='grid grid-cols-2 gap-y-6 gap-x-4'>
                   <div>
-                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+                    <p className='text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1'>
                       Package
                     </p>
-                    <p className='text-sm font-bold text-gray-900 mb-1.5'>
+                    <p className='text-sm font-bold text-stone-900 mb-1.5'>
                       {basePass?.snapshotName &&
                       basePass.snapshotName !== "Unknown Package" &&
                       basePass.snapshotName !== "Deleted Package"
@@ -1946,17 +2069,17 @@ const UnifiedDetailModal = ({
                       ).map((cat, i) => (
                         <span
                           key={i}
-                          className='px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider'>
+                          className='px-1.5 py-0.5 bg-stone-100 border border-stone-200 text-stone-500 rounded text-[9px] font-bold uppercase tracking-wider'>
                           {cat}
                         </span>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+                    <p className='text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1'>
                       Expiry Date
                     </p>
-                    <p className='text-sm font-bold text-gray-900'>
+                    <p className='text-sm font-bold text-stone-900'>
                       {basePass.expiryDate
                         ? formatDate(basePass.expiryDate)
                         : "None"}
@@ -1968,21 +2091,21 @@ const UnifiedDetailModal = ({
               {/* 2. Sub-Passes Config (Credits & Classes) */}
               <div className='space-y-4'>
                 {isCombo && (
-                  <h4 className='text-[14px] font-extrabold text-gray-900 px-1 mt-2'>
+                  <h4 className='text-[14px] font-extrabold text-stone-900 px-1 mt-2'>
                     Included Passes
                   </h4>
                 )}
                 {passes.map((pass, index) => (
                   <div
                     key={pass._id}
-                    className='bg-slate-50 border border-gray-200/60 p-5 rounded-xl'>
+                    className='bg-stone-50 border border-stone-200/60 p-5 rounded-xl'>
                     <div className='flex items-center justify-between mb-5'>
-                      <span className='font-extrabold text-gray-700 text-sm'>
+                      <span className='font-extrabold text-stone-700 text-sm'>
                         {isCombo ? `Pass ${index + 1}` : "Pass Limits"}
                       </span>
                       <button
                         onClick={() => onEditTarget({ type: "single", pass })}
-                        className='text-[10px] font-bold text-emerald-700 bg-emerald-100/50 px-2.5 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors flex items-center gap-1.5'>
+                        className='text-[10px] font-bold text-stone-800 bg-stone-200/50 px-2.5 py-1.5 rounded-lg hover:bg-stone-300 transition-colors flex items-center gap-1.5'>
                         <Edit2 className='w-3 h-3' /> Edit Limits
                       </button>
                     </div>
@@ -1990,57 +2113,57 @@ const UnifiedDetailModal = ({
                     <div className='mb-6'>
                       <div className='flex items-center gap-2 mb-1.5 font-medium'>
                         <span
-                          className={`text-lg font-bold ${pass.remainingCredits > 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                          className={`text-lg font-bold ${pass.remainingCredits > 0 ? "text-stone-800" : "text-rose-500"}`}>
                           {pass.remainingCredits}
                         </span>
-                        <span className='text-gray-400 text-xs'>
+                        <span className='text-stone-400 text-xs'>
                           / {pass.creditsPurchased} remaining
                         </span>
                       </div>
-                      <div className='w-full bg-slate-200 rounded-full h-2 overflow-hidden'>
+                      <div className='w-full bg-stone-200 rounded-full h-2 overflow-hidden'>
                         <div
-                          className={`h-2 rounded-full transition-all duration-500 ${pass.remainingCredits === 0 ? "bg-rose-400" : "bg-emerald-500"}`}
+                          className={`h-2 rounded-full transition-all duration-500 ${pass.remainingCredits === 0 ? "bg-rose-400" : "bg-stone-500"}`}
                           style={{
                             width: `${Math.min(100, (pass.remainingCredits / Math.max(1, pass.creditsPurchased)) * 100)}%`,
                           }}></div>
                       </div>
                     </div>
 
-                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200/60'>
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-stone-200/60'>
                       <div>
-                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>
+                        <p className='text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2'>
                           Allowed Classes
                         </p>
                         <div className='flex flex-wrap gap-2'>
                           {(!pass.classType || pass.classType.length === 0) && (
-                            <span className='text-[12px] text-gray-400 font-medium italic'>
+                            <span className='text-[12px] text-stone-400 font-medium italic'>
                               No restrictions
                             </span>
                           )}
                           {pass.classType?.map((t) => (
                             <span
                               key={t}
-                              className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
+                              className='px-3 py-1 bg-white text-stone-700 text-[11px] font-bold rounded-md border border-stone-200/60 shadow-sm'>
                               {t}
                             </span>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <p className='text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2'>
+                        <p className='text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2'>
                           Allowed Instructors
                         </p>
                         <div className='flex flex-wrap gap-2'>
                           {(!pass.instructorType ||
                             pass.instructorType.length === 0) && (
-                            <span className='text-[12px] text-gray-400 font-medium italic'>
+                            <span className='text-[12px] text-stone-400 font-medium italic'>
                               No restrictions
                             </span>
                           )}
                           {pass.instructorType?.map((t) => (
                             <span
                               key={t}
-                              className='px-3 py-1 bg-white text-gray-700 text-[11px] font-bold rounded-md border border-gray-200/60 shadow-sm'>
+                              className='px-3 py-1 bg-white text-stone-700 text-[11px] font-bold rounded-md border border-stone-200/60 shadow-sm'>
                               {t}
                             </span>
                           ))}
@@ -2052,10 +2175,10 @@ const UnifiedDetailModal = ({
               </div>
 
               {/* 4. Global Freeze Configuration */}
-              <div className='p-5 sm:p-6 border border-gray-200/60 rounded-xl bg-white'>
-                <div className='flex items-center gap-2 mb-4 border-b border-gray-100 pb-4'>
+              <div className='p-5 sm:p-6 border border-stone-200/60 rounded-xl bg-white'>
+                <div className='flex items-center gap-2 mb-4 border-b border-stone-100 pb-4'>
                   <Snowflake className='w-4 h-4 text-blue-500' />
-                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900'>
+                  <h4 className='text-[14px] sm:text-[15px] font-extrabold text-stone-900'>
                     Freeze Management
                   </h4>
                 </div>
@@ -2110,7 +2233,7 @@ const UnifiedDetailModal = ({
                       </button>
                     ) : (
                       <div className='mt-3 p-3 bg-white rounded-lg border border-blue-100 shadow-sm animate-in fade-in slide-in-from-top-1'>
-                        <p className='text-[11px] text-gray-600 font-medium mb-3 leading-relaxed'>
+                        <p className='text-[11px] text-stone-600 font-medium mb-3 leading-relaxed'>
                           Are you sure you want to unfreeze this package now?
                           The expiration date will be recalculated to reflect
                           the actual frozen duration.
@@ -2118,7 +2241,7 @@ const UnifiedDetailModal = ({
                         <div className='flex gap-2'>
                           <button
                             onClick={() => setShowUnfreezeConfirm(false)}
-                            className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 rounded-md transition-colors'>
+                            className='flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-bold py-2 rounded-md transition-colors'>
                             Cancel
                           </button>
                           <button
@@ -2132,16 +2255,16 @@ const UnifiedDetailModal = ({
                     )}
                   </div>
                 ) : hasBeenFrozen ? (
-                  <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl text-center'>
-                    <p className='text-sm font-bold text-slate-700'>
+                  <div className='p-4 bg-stone-50 border border-stone-200 rounded-xl text-center'>
+                    <p className='text-sm font-bold text-stone-700'>
                       Freeze Allowance Used
                     </p>
-                    <p className='text-xs text-slate-500 mt-1'>
+                    <p className='text-xs text-stone-500 mt-1'>
                       This package was already frozen once. It cannot be frozen
                       again.
                     </p>
                     {basePass.freeze?.startDate && (
-                      <p className='text-[11px] text-slate-400 mt-2 font-mono'>
+                      <p className='text-[11px] text-stone-400 mt-2 font-mono'>
                         {formatDate(basePass.freeze.startDate)} —{" "}
                         {formatDate(basePass.freeze.endDate)}
                       </p>
@@ -2151,7 +2274,7 @@ const UnifiedDetailModal = ({
                   <div>
                     {!showFreezeForm ? (
                       <div className='flex items-center justify-between'>
-                        <p className='text-xs text-gray-500 font-medium'>
+                        <p className='text-xs text-stone-500 font-medium'>
                           Temporarily pause package and extend expiry.
                         </p>
                         <button
@@ -2162,16 +2285,16 @@ const UnifiedDetailModal = ({
                       </div>
                     ) : (
                       <div className='space-y-4 animate-in fade-in slide-in-from-top-2'>
-                        <p className='text-xs text-gray-500 font-medium'>
+                        <p className='text-xs text-stone-500 font-medium'>
                           Select freeze duration.{" "}
-                          <span className='font-bold text-gray-700'>
+                          <span className='font-bold text-stone-700'>
                             Client can only freeze once.
                           </span>
                         </p>
 
                         <div className='grid grid-cols-2 gap-3'>
                           <div>
-                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
+                            <label className='block text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5'>
                               Start Date
                             </label>
                             <input
@@ -2183,11 +2306,11 @@ const UnifiedDetailModal = ({
                                   startDate: e.target.value,
                                 })
                               }
-                              className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
+                              className='w-full p-2 bg-stone-50 border border-stone-200 rounded-lg text-[13px] font-bold text-stone-900 outline-none focus:border-blue-500'
                             />
                           </div>
                           <div>
-                            <label className='block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'>
+                            <label className='block text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5'>
                               End Date
                             </label>
                             <input
@@ -2199,7 +2322,7 @@ const UnifiedDetailModal = ({
                                   endDate: e.target.value,
                                 })
                               }
-                              className='w-full p-2 bg-slate-50 border border-gray-200 rounded-lg text-[13px] font-bold text-gray-900 outline-none focus:border-blue-500'
+                              className='w-full p-2 bg-stone-50 border border-stone-200 rounded-lg text-[13px] font-bold text-stone-900 outline-none focus:border-blue-500'
                             />
                           </div>
                         </div>
@@ -2208,19 +2331,19 @@ const UnifiedDetailModal = ({
                           <button
                             type='button'
                             onClick={() => applyPreset(1)}
-                            className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                            className='px-3 py-1.5 bg-stone-100 text-stone-600 hover:bg-stone-200 rounded-md text-[11px] font-bold transition-colors'>
                             1 Day
                           </button>
                           <button
                             type='button'
                             onClick={() => applyPreset(7)}
-                            className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                            className='px-3 py-1.5 bg-stone-100 text-stone-600 hover:bg-stone-200 rounded-md text-[11px] font-bold transition-colors'>
                             1 Week
                           </button>
                           <button
                             type='button'
                             onClick={() => applyPreset(30)}
-                            className='px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md text-[11px] font-bold transition-colors'>
+                            className='px-3 py-1.5 bg-stone-100 text-stone-600 hover:bg-stone-200 rounded-md text-[11px] font-bold transition-colors'>
                             1 Month
                           </button>
                         </div>
@@ -2228,7 +2351,7 @@ const UnifiedDetailModal = ({
                         <div className='flex gap-3 pt-2'>
                           <button
                             onClick={() => setShowFreezeForm(false)}
-                            className='flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[12px] font-bold py-2.5 rounded-lg transition-colors'>
+                            className='flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 text-[12px] font-bold py-2.5 rounded-lg transition-colors'>
                             Cancel
                           </button>
                           <button
@@ -2254,24 +2377,24 @@ const UnifiedDetailModal = ({
 
           {/* Payment Method Details if Transaction */}
           {isTxn && (
-            <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200/60 space-y-4'>
-              <h4 className='text-[14px] sm:text-[15px] font-extrabold text-gray-900 mb-2 border-b border-gray-100 pb-4'>
+            <div className='bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-stone-200/60 space-y-4'>
+              <h4 className='text-[14px] sm:text-[15px] font-extrabold text-stone-900 mb-2 border-b border-stone-100 pb-4'>
                 Payment Details
               </h4>
               <div className='flex justify-between items-center'>
-                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                <span className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                   Date
                 </span>
-                <span className='text-[12px] sm:text-[13px] font-bold text-gray-900'>
+                <span className='text-[12px] sm:text-[13px] font-bold text-stone-900'>
                   {formatDateTime(txnData.createdAt)}
                 </span>
               </div>
               <div className='flex justify-between items-center'>
-                <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                <span className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                   Payment Method
                 </span>
                 <span
-                  className='text-[12px] sm:text-[13px] font-bold text-gray-900 truncate max-w-[130px] sm:max-w-[150px]'
+                  className='text-[12px] sm:text-[13px] font-bold text-stone-900 truncate max-w-[130px] sm:max-w-[150px]'
                   title={formatPaymentMethod(
                     txnData.paymentMethod,
                     txnData.paymentIssuer,
@@ -2284,7 +2407,7 @@ const UnifiedDetailModal = ({
               </div>
               {txnData.promoCodeApplied && (
                 <div className='flex justify-between items-center pt-2'>
-                  <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                  <span className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                     Promo
                   </span>
                   <span className='text-[12px] sm:text-[13px] font-bold text-pink-600'>
@@ -2296,8 +2419,8 @@ const UnifiedDetailModal = ({
               {txnData.proofOfPayment &&
                 txnData.proofOfPayment !== "Manual Assignment" &&
                 txnData.proofOfPayment.startsWith("http") && (
-                  <div className='flex justify-between items-center pt-3 mt-1 border-t border-dashed border-gray-200'>
-                    <span className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest'>
+                  <div className='flex justify-between items-center pt-3 mt-1 border-t border-dashed border-stone-200'>
+                    <span className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest'>
                       Receipt
                     </span>
                     <a
@@ -2313,16 +2436,16 @@ const UnifiedDetailModal = ({
           )}
         </div>
 
-        <div className='p-5 sm:p-6 border-t border-gray-100 bg-white flex gap-4 shrink-0'>
+        <div className='p-5 sm:p-6 border-t border-stone-100 bg-white flex gap-4 shrink-0'>
           <button
             onClick={onClose}
-            className='flex-1 py-3.5 font-bold text-gray-600 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl transition-colors text-[14px]'>
+            className='flex-1 py-3.5 font-bold text-stone-600 bg-stone-50 hover:bg-stone-100 border border-stone-200/60 rounded-xl transition-colors text-[14px]'>
             Close
           </button>
           {isTxn && (
             <button
               onClick={onDownloadInvoice}
-              className='flex-1 py-3.5 bg-[#1a4d3e] text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-[#133d31] transition-all flex justify-center items-center gap-2 text-[15px]'>
+              className='flex-1 py-3.5 bg-stone-600 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-stone-700 transition-all flex justify-center items-center gap-2 text-[15px]'>
               <Download className='w-4 h-4' /> Invoice
             </button>
           )}
@@ -2332,7 +2455,14 @@ const UnifiedDetailModal = ({
   );
 };
 
-const EditPassModal = ({ target, config, onClose, onSubmit }) => {
+const EditPassModal = ({
+  target,
+  config,
+  financialRequestHeaders,
+  onClose,
+  onFinancialAuthorizationError,
+  onSubmit,
+}) => {
   const isGlobal = target.type === "global";
   const passesToEdit = isGlobal ? target.passes : [target.pass];
   const basePass = passesToEdit[0];
@@ -2378,23 +2508,33 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
         // Update ONLY Expiry Date across ALL passes in the combo
         await Promise.all(
           passesToEdit.map((p) =>
-            axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(p._id), {
-              expiryDate: formData.expiryDate,
-            }),
+            axiosInstance.put(
+              API_PATHS.PASSES.UPDATE_PASS(p._id),
+              { expiryDate: formData.expiryDate },
+              { headers: financialRequestHeaders },
+            ),
           ),
         );
       } else {
         // Update Specific Pass Limits
-        await axiosInstance.put(API_PATHS.PASSES.UPDATE_PASS(basePass._id), {
-          remainingCredits: formData.remainingCredits,
-          classType: formData.classType,
-          instructorType: formData.instructorType,
-        });
+        await axiosInstance.put(
+          API_PATHS.PASSES.UPDATE_PASS(basePass._id),
+          {
+            remainingCredits: formData.remainingCredits,
+            classType: formData.classType,
+            instructorType: formData.instructorType,
+          },
+          { headers: financialRequestHeaders },
+        );
       }
       onSubmit();
     } catch (error) {
-      console.error(error);
-      alert("Failed to update pass");
+      if (isFinancialStepUpError(error)) {
+        onFinancialAuthorizationError();
+      } else {
+        console.error(error);
+        alert("Failed to update pass");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -2403,38 +2543,38 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
   const SelectionItem = ({ label, isSelected, onClick }) => (
     <div
       onClick={onClick}
-      className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 shadow-sm ${isSelected ? "border-emerald-500 bg-emerald-50/30" : "border-gray-100 bg-white hover:border-emerald-200 hover:bg-emerald-50/10"}`}>
+      className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 shadow-sm ${isSelected ? "border-stone-500 bg-stone-100/30" : "border-stone-100 bg-white hover:border-stone-300 hover:bg-stone-100/10"}`}>
       <div
-        className={`w-5 h-5 shrink-0 rounded-[6px] flex items-center justify-center transition-colors border ${isSelected ? "bg-emerald-500 border-emerald-500" : "bg-white border-gray-300"}`}>
+        className={`w-5 h-5 shrink-0 rounded-[6px] flex items-center justify-center transition-colors border ${isSelected ? "bg-stone-500 border-stone-500" : "bg-white border-stone-300"}`}>
         {isSelected && (
           <Check size={14} className='text-white' strokeWidth={4} />
         )}
       </div>
       <span
-        className={`text-[12px] sm:text-[13px] font-bold ${isSelected ? "text-emerald-900" : "text-gray-600"}`}>
+        className={`text-[12px] sm:text-[13px] font-bold ${isSelected ? "text-stone-900" : "text-stone-600"}`}>
         {label}
       </span>
     </div>
   );
 
   return (
-    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-white/20'>
-        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100 bg-white flex justify-between items-center'>
-          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
+        <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-stone-100 bg-white flex justify-between items-center'>
+          <h3 className='text-lg sm:text-xl font-extrabold text-stone-900'>
             {isGlobal ? "Edit Package Expiry" : "Edit Pass Limits"}
           </h3>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-400' />
+            className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+            <X className='w-5 h-5 text-stone-400' />
           </button>
         </div>
 
-        <div className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-slate-50/30'>
+        <div className='flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar bg-stone-50/30'>
           <form
             id='edit-pass-form'
             onSubmit={handleSave}
@@ -2442,7 +2582,7 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
             {isGlobal ? (
               // GLOBAL MODE: Edit only Expiry Date
               <div>
-                <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                <label className='block text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                   New Expiry Date
                 </label>
                 <div className='relative group'>
@@ -2452,11 +2592,11 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
                     onChange={(e) =>
                       setFormData({ ...formData, expiryDate: e.target.value })
                     }
-                    className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-[14px] sm:text-[15px] font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm appearance-none relative z-10'
+                    className='w-full p-3.5 sm:p-4 bg-white border border-stone-200 rounded-xl text-[14px] sm:text-[15px] font-bold text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm appearance-none relative z-10'
                   />
-                  <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-0 pointer-events-none group-focus-within:text-emerald-600 transition-colors' />
+                  <CalendarIcon className='absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400 z-0 pointer-events-none group-focus-within:text-stone-800 transition-colors' />
                 </div>
-                <p className='text-xs text-gray-500 mt-3 px-1'>
+                <p className='text-xs text-stone-500 mt-3 px-1'>
                   This will apply the new expiry date to all passes included in
                   this package.
                 </p>
@@ -2465,7 +2605,7 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
               // SINGLE PASS MODE: Edit Limits Only
               <>
                 <div>
-                  <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+                  <label className='block text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                     Remaining Credits
                   </label>
                   <input
@@ -2477,12 +2617,12 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
                         remainingCredits: e.target.value,
                       })
                     }
-                    className='w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-xl text-base sm:text-lg font-mono font-bold text-gray-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+                    className='w-full p-3.5 sm:p-4 bg-white border border-stone-200 rounded-xl text-base sm:text-lg font-mono font-bold text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
                   />
                 </div>
 
                 <div>
-                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
+                  <p className='text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-3 pl-1'>
                     Allowed Class Types
                   </p>
                   <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
@@ -2498,7 +2638,7 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
                 </div>
 
                 <div>
-                  <p className='text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1'>
+                  <p className='text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-3 pl-1'>
                     Allowed Instructors
                   </p>
                   <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
@@ -2517,18 +2657,18 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
           </form>
         </div>
 
-        <div className='p-5 sm:p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row gap-3 sm:gap-4'>
+        <div className='p-5 sm:p-6 border-t border-stone-100 bg-white flex flex-col sm:flex-row gap-3 sm:gap-4'>
           <button
             type='button'
             onClick={onClose}
-            className='flex-1 py-3.5 sm:py-4 text-gray-600 font-bold hover:bg-slate-100 rounded-xl transition-colors text-[14px] sm:text-[15px] border border-transparent'>
+            className='flex-1 py-3.5 sm:py-4 text-stone-600 font-bold hover:bg-stone-100 rounded-xl transition-colors text-[14px] sm:text-[15px] border border-transparent'>
             Cancel
           </button>
           <button
             form='edit-pass-form'
             type='submit'
             disabled={isLoading}
-            className='flex-1 py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-emerald-800 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
+            className='flex-1 py-3.5 sm:py-4 bg-stone-600 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-stone-700 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
             {isLoading ? "Saving..." : "Save Changes"}
           </button>
         </div>
@@ -2538,59 +2678,59 @@ const EditPassModal = ({ target, config, onClose, onSubmit }) => {
 };
 
 const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
-  <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+  <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
     <motion.div
       initial={{ opacity: 0, scale: 0.95, y: 10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 10 }}
       className='bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-white/20'>
-      <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-gray-100/50 flex justify-between items-center bg-white'>
+      <div className='px-6 sm:px-8 py-5 sm:py-6 border-b border-stone-100/50 flex justify-between items-center bg-white'>
         <div className='flex items-center gap-3'>
           <Activity className='w-6 h-6 text-rose-500' />
-          <h3 className='text-lg sm:text-xl font-extrabold text-gray-900'>
+          <h3 className='text-lg sm:text-xl font-extrabold text-stone-900'>
             Medical Profile
           </h3>
         </div>
         <button
           onClick={onClose}
-          className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-          <X className='w-5 h-5 text-gray-500' />
+          className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+          <X className='w-5 h-5 text-stone-500' />
         </button>
       </div>
       <div className='p-6 sm:p-8 space-y-6 bg-white overflow-y-auto max-h-[70vh] custom-scrollbar'>
-        <div className='bg-[#F8FAFC] p-5 sm:p-6 rounded-2xl border border-slate-100'>
+        <div className='bg-[#F8FAFC] p-5 sm:p-6 rounded-2xl border border-stone-100'>
           <div className='grid grid-cols-2 gap-y-6 gap-x-4'>
             <div>
-              <p className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+              <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-1'>
                 Date of Birth
               </p>
-              <p className='text-[13px] sm:text-[14px] font-bold text-gray-900'>
+              <p className='text-[13px] sm:text-[14px] font-bold text-stone-900'>
                 {medicalData.dateOfBirth
                   ? formatDate(medicalData.dateOfBirth)
                   : "—"}
               </p>
             </div>
             <div>
-              <p className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+              <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-1'>
                 Sex
               </p>
-              <p className='text-[13px] sm:text-[14px] font-bold text-gray-900'>
+              <p className='text-[13px] sm:text-[14px] font-bold text-stone-900'>
                 {medicalData.sex || "—"}
               </p>
             </div>
             <div>
-              <p className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+              <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-1'>
                 Occupation
               </p>
-              <p className='text-[13px] sm:text-[14px] font-bold text-gray-900'>
+              <p className='text-[13px] sm:text-[14px] font-bold text-stone-900'>
                 {medicalData.occupation || "—"}
               </p>
             </div>
             <div>
-              <p className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1'>
+              <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-1'>
                 Marital Status
               </p>
-              <p className='text-[13px] sm:text-[14px] font-bold text-gray-900'>
+              <p className='text-[13px] sm:text-[14px] font-bold text-stone-900'>
                 {medicalData.maritalStatus || "—"}
               </p>
             </div>
@@ -2599,7 +2739,7 @@ const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
 
         <div className='space-y-5'>
           <div>
-            <p className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2.5 pl-1'>
+            <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-2.5 pl-1'>
               Physical Concerns
             </p>
             <div className='p-4 sm:p-5 bg-rose-50/50 text-rose-800 rounded-xl text-[13px] sm:text-[14px] font-medium border border-rose-100/50 leading-relaxed'>
@@ -2608,19 +2748,19 @@ const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
           </div>
 
           <div>
-            <p className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2.5 pl-1'>
+            <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-2.5 pl-1'>
               Daily Activity
             </p>
-            <div className='p-4 sm:p-5 bg-[#F8FAFC] text-gray-700 rounded-xl text-[13px] sm:text-[14px] font-medium border border-slate-100 leading-relaxed'>
+            <div className='p-4 sm:p-5 bg-[#F8FAFC] text-stone-700 rounded-xl text-[13px] sm:text-[14px] font-medium border border-stone-100 leading-relaxed'>
               {medicalData.dailyActivity || "No details provided."}
             </div>
           </div>
 
           <div>
-            <p className='text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 pl-1'>
+            <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-1.5 pl-1'>
               Address
             </p>
-            <p className='text-[13px] sm:text-[14px] font-medium text-gray-700 leading-relaxed pl-1'>
+            <p className='text-[13px] sm:text-[14px] font-medium text-stone-700 leading-relaxed pl-1'>
               {medicalData.address || "—"}
             </p>
           </div>
@@ -2629,7 +2769,7 @@ const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
       <div className='p-5 sm:p-6 pt-2 bg-white'>
         <button
           onClick={onClose}
-          className='w-full py-3.5 sm:py-4 text-gray-700 font-bold bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl transition-colors text-[13px] sm:text-[14px]'>
+          className='w-full py-3.5 sm:py-4 text-stone-700 font-bold bg-stone-50 hover:bg-stone-100 border border-stone-200/60 rounded-xl transition-colors text-[13px] sm:text-[14px]'>
           Close Details
         </button>
       </div>
@@ -2683,27 +2823,27 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
   });
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white w-full max-w-xl rounded-2xl p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-white/20 custom-scrollbar'>
         <div className='flex justify-between items-start mb-6 sm:mb-8'>
           <div>
-            <h2 className='text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight mb-1'>
+            <h2 className='text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight mb-1'>
               Assign Pass
             </h2>
-            <p className='text-xs sm:text-sm text-gray-500 font-medium'>
+            <p className='text-xs sm:text-sm text-stone-500 font-medium'>
               Assigning package directly to{" "}
-              <span className='font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md'>
+              <span className='font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded-md'>
                 {client.fullName}
               </span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-400' />
+            className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+            <X className='w-5 h-5 text-stone-400' />
           </button>
         </div>
         <form onSubmit={handleSubmit} className='space-y-5 sm:space-y-6'>
@@ -2729,18 +2869,18 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
           </div>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5'>
             <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              <label className='block text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                 Price (IDR)
               </label>
               <input
                 type='number'
                 disabled
                 value={formData.totalAmount}
-                className='w-full p-3.5 bg-slate-50 text-gray-500 rounded-xl border border-gray-200 font-mono font-bold text-sm'
+                className='w-full p-3.5 bg-stone-50 text-stone-500 rounded-xl border border-stone-200 font-mono font-bold text-sm'
               />
             </div>
             <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              <label className='block text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                 Payment Method
               </label>
               <input
@@ -2750,14 +2890,14 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
                 onChange={(e) =>
                   setFormData({ ...formData, paymentIssuer: e.target.value })
                 }
-                className='w-full p-3.5 bg-white border border-gray-200 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium text-sm'
+                className='w-full p-3.5 bg-white border border-stone-200 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all font-medium text-sm'
               />
             </div>
           </div>
           <button
             type='submit'
             disabled={!isFormValid}
-            className='w-full py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
+            className='w-full py-3.5 sm:py-4 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
             Confirm Assignment
           </button>
         </form>
@@ -2843,34 +2983,34 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
   });
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className='bg-white w-full max-w-xl rounded-2xl p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto border border-white/20 custom-scrollbar'>
         <div className='flex justify-between items-start mb-6'>
           <div>
-            <h2 className='text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight'>
+            <h2 className='text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight'>
               Assign Pass
             </h2>
-            <p className='text-xs sm:text-sm font-medium text-gray-500 mt-1'>
+            <p className='text-xs sm:text-sm font-medium text-stone-500 mt-1'>
               Select a user and assign a new pass package
             </p>
           </div>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-slate-100 transition-colors'>
-            <X className='w-5 h-5 text-gray-400' />
+            className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+            <X className='w-5 h-5 text-stone-400' />
           </button>
         </div>
-        <div className='flex p-1.5 bg-slate-100/80 rounded-xl mb-6 sm:mb-8 border border-slate-200/50'>
+        <div className='flex p-1.5 bg-stone-100/80 rounded-xl mb-6 sm:mb-8 border border-stone-200/50'>
           <button
             type='button'
             onClick={() => {
               setActiveTab("existing");
               setFormData({ ...formData, packageId: "", totalAmount: "" });
             }}
-            className={`flex-1 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-bold rounded-lg transition-all ${activeTab === "existing" ? "bg-white shadow-sm text-emerald-900 border border-black/5" : "text-gray-500 hover:text-gray-700"}`}>
+            className={`flex-1 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-bold rounded-lg transition-all ${activeTab === "existing" ? "bg-white shadow-sm text-stone-900 border border-black/5" : "text-stone-500 hover:text-stone-700"}`}>
             Existing Client
           </button>
           <button
@@ -2879,12 +3019,12 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
               setActiveTab("new");
               setFormData({ ...formData, packageId: "", totalAmount: "" });
             }}
-            className={`flex-1 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-bold rounded-lg transition-all ${activeTab === "new" ? "bg-white shadow-sm text-emerald-900 border border-black/5" : "text-gray-500 hover:text-gray-700"}`}>
+            className={`flex-1 py-2.5 sm:py-3 text-[12px] sm:text-[13px] font-bold rounded-lg transition-all ${activeTab === "new" ? "bg-white shadow-sm text-stone-900 border border-black/5" : "text-stone-500 hover:text-stone-700"}`}>
             New Client
           </button>
         </div>
         <form onSubmit={handleSubmit} className='space-y-5 sm:space-y-6'>
-          <div className='pb-5 border-b border-gray-100'>
+          <div className='pb-5 border-b border-stone-100'>
             {activeTab === "existing" ? (
               <CustomSelect
                 label='Select Client'
@@ -2906,14 +3046,14 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                 }
               />
             ) : (
-              <div className='space-y-4 sm:space-y-5 bg-slate-50/50 p-5 sm:p-6 rounded-2xl border border-slate-100'>
-                <p className='text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-widest'>
+              <div className='space-y-4 sm:space-y-5 bg-stone-50/50 p-5 sm:p-6 rounded-2xl border border-stone-100'>
+                <p className='text-[10px] sm:text-[11px] font-bold text-stone-800 uppercase tracking-widest'>
                   New Client Details
                 </p>
                 <input
                   name='fullName'
                   placeholder='Full Name'
-                  className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+                  className='w-full p-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -2927,7 +3067,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                 <input
                   name='email'
                   placeholder='Email Address'
-                  className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+                  className='w-full p-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -2941,7 +3081,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                 <input
                   name='phone'
                   placeholder='Phone Number (Optional)'
-                  className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+                  className='w-full p-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -2952,8 +3092,8 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                     })
                   }
                 />
-                <div className='flex items-center justify-between p-3.5 bg-white border border-gray-200 rounded-xl shadow-sm mt-2'>
-                  <span className='text-sm font-medium text-gray-600'>
+                <div className='flex items-center justify-between p-3.5 bg-white border border-stone-200 rounded-xl shadow-sm mt-2'>
+                  <span className='text-sm font-medium text-stone-600'>
                     Is this client a student?
                   </span>
                   <button
@@ -2969,7 +3109,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                         },
                       })
                     }
-                    className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.newClientData.isStudent ? "bg-emerald-500" : "bg-slate-300"}`}>
+                    className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.newClientData.isStudent ? "bg-stone-500" : "bg-stone-300"}`}>
                     <div
                       className={`w-4 h-4 rounded-full bg-white transition-transform ${formData.newClientData.isStudent ? "translate-x-4" : "translate-x-0"}`}
                     />
@@ -3000,18 +3140,18 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
           </div>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5'>
             <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              <label className='block text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                 Price (IDR)
               </label>
               <input
                 type='number'
                 disabled
                 value={formData.totalAmount}
-                className='w-full p-3.5 bg-slate-50 text-gray-500 rounded-xl border border-gray-200 font-mono font-bold text-sm'
+                className='w-full p-3.5 bg-stone-50 text-stone-500 rounded-xl border border-stone-200 font-mono font-bold text-sm'
               />
             </div>
             <div>
-              <label className='block text-[10px] sm:text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-1'>
+              <label className='block text-[10px] sm:text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-2 pl-1'>
                 Payment Method
               </label>
               <input
@@ -3021,14 +3161,14 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                 onChange={(e) =>
                   setFormData({ ...formData, paymentIssuer: e.target.value })
                 }
-                className='w-full p-3.5 bg-white border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm'
+                className='w-full p-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
               />
             </div>
           </div>
           <button
             type='submit'
             disabled={!isFormValid}
-            className='w-full py-3.5 sm:py-4 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
+            className='w-full py-3.5 sm:py-4 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
             Confirm Assignment
           </button>
         </form>

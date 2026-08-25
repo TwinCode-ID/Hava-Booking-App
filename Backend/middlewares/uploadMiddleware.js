@@ -1,64 +1,117 @@
-const multer = require("multer");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const sharp = require("sharp"); // Requires 'npm install sharp'
+const multer = require("multer");
+const sharp = require("sharp");
+
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_INPUT_PIXELS = 40 * 1000 * 1000;
+const MAX_OUTPUT_DIMENSION = 2400;
+const DEFAULT_OWNER_STORAGE_BYTES = 250 * 1024 * 1024;
+const configuredOwnerStorageBytes = Number.parseInt(
+  process.env.UPLOAD_OWNER_QUOTA_BYTES || "",
+  10,
+);
+const MAX_OWNER_STORAGE_BYTES =
+  Number.isSafeInteger(configuredOwnerStorageBytes) &&
+  configuredOwnerStorageBytes >= MAX_UPLOAD_BYTES
+    ? configuredOwnerStorageBytes
+    : DEFAULT_OWNER_STORAGE_BYTES;
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/heic",
+  "image/heif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+const getDirectoryUsageBytes = (directory) => {
+  if (!fs.existsSync(directory)) return 0;
+
+  return fs
+    .readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .reduce((total, entry) => {
+      try {
+        return total + fs.statSync(path.join(directory, entry.name)).size;
+      } catch {
+        return total;
+      }
+    }, 0);
+};
+
+const getUploadOwnerId = (req, subfolderName) => {
+  if (!req.user?._id) throw new Error("Authenticated upload required.");
+
+  if (subfolderName !== "Studio") return req.user._id.toString();
+
+  const studioId =
+    req.user.role === "devTeam"
+      ? req.body.adminStudioLocation
+      : req.user.adminStudioLocation;
+  if (typeof studioId?.toString !== "function") {
+    throw new Error("A valid studio is required for this upload.");
+  }
+
+  const normalizedStudioId = studioId.toString();
+  if (!OBJECT_ID_PATTERN.test(normalizedStudioId)) {
+    throw new Error("A valid studio is required for this upload.");
+  }
+  return normalizedStudioId;
+};
 
 const createUploader = (subfolderName) => {
-  // 1. Use Memory Storage (saves to RAM temporarily instead of directly to disk)
-  const storage = multer.memoryStorage();
-
-  // 2. Allow ALL image types (starts with "image/")
-  const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only image files are allowed!"), false);
-    }
-  };
-
-  // 3. Initialize Multer with a generous file size limit (e.g., 50MB)
   const upload = multer({
-    storage,
-    fileFilter,
-    limits: { fileSize: 50 * 1024 * 1024 },
+    storage: multer.memoryStorage(),
+    fileFilter: (_req, file, callback) => {
+      if (ALLOWED_IMAGE_TYPES.has(file.mimetype)) return callback(null, true);
+      const error = new Error("Only JPEG, PNG, WebP, HEIC, or HEIF images are allowed.");
+      error.code = "INVALID_IMAGE_TYPE";
+      return callback(error, false);
+    },
+    limits: { fileSize: MAX_UPLOAD_BYTES, files: 8 },
   });
 
-  // 4. Custom Processing Function using Sharp
-  const processImage = async (req, file, subfolderName) => {
-    let userId = "unassigned";
-
-    // Because we use MemoryStorage, this runs AFTER the whole request is parsed.
-    // req.body.userId is NOW GUARANTEED to be here, regardless of frontend field order!
-    if (req.user && req.user._id) {
-      userId = req.user._id.toString();
-    } else if (req.body.userId) {
-      userId = req.body.userId;
-    } else if (req.body.adminStudioLocation) {
-      userId = req.body.adminStudioLocation;
-    }
-
-    const uploadPath = path.join("uploads", subfolderName, userId);
-
-    // Create folder if it doesn't exist
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-
-    // Standardize filename and force .jpeg extension for consistency & compression
-    const safeOriginalName = file.originalname
-      .replace(/\.[^/.]+$/, "")
-      .replace(/\s+/g, "-");
-    const filename = `${Date.now()}-${safeOriginalName}.jpeg`;
+  const processImage = async (req, file) => {
+    const ownerId = getUploadOwnerId(req, subfolderName);
+    const uploadPath = path.resolve(
+      __dirname,
+      "../uploads",
+      subfolderName,
+      ownerId,
+    );
+    const filename = `${crypto.randomUUID()}.jpeg`;
     const filePath = path.join(uploadPath, filename);
 
-    // Compress, resize, and convert the image
-    await sharp(file.buffer)
-      .resize({ width: 1920, withoutEnlargement: true }) // Max width 1920px (prevents 8K phone images from bloating the server)
-      .jpeg({ quality: 80 }) // Compress to 80% quality JPEG
-      .toFile(filePath);
+    fs.mkdirSync(uploadPath, { recursive: true, mode: 0o750 });
+    try {
+      await sharp(file.buffer, {
+        failOn: "warning",
+        limitInputPixels: MAX_INPUT_PIXELS,
+        sequentialRead: true,
+      })
+        .rotate()
+        .resize({
+          width: MAX_OUTPUT_DIMENSION,
+          height: MAX_OUTPUT_DIMENSION,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 80, mozjpeg: true })
+        .toFile(filePath);
 
-    // Attach the new file details back to the req.file object
-    // so your controllers can still use req.file.path seamlessly
+      if (getDirectoryUsageBytes(uploadPath) > MAX_OWNER_STORAGE_BYTES) {
+        const quotaError = new Error("Upload storage quota exceeded.");
+        quotaError.code = "UPLOAD_QUOTA_EXCEEDED";
+        throw quotaError;
+      }
+    } catch (error) {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      error.code ||= "INVALID_IMAGE_DATA";
+      throw error;
+    }
+
     file.filename = filename;
     file.path = filePath;
     file.destination = uploadPath;
@@ -66,42 +119,49 @@ const createUploader = (subfolderName) => {
     file.size = fs.statSync(filePath).size;
   };
 
-  // 5. Return an object that mimics Multer's syntax but adds the compression step
+  const processFiles = async (req, files, next) => {
+    const completedPaths = [];
+    try {
+      // Sequential processing bounds Sharp memory use and makes the per-owner
+      // disk quota deterministic within a request.
+      for (const file of files) {
+        await processImage(req, file);
+        completedPaths.push(file.path);
+      }
+      return next();
+    } catch (error) {
+      for (const completedPath of completedPaths) {
+        try {
+          if (fs.existsSync(completedPath)) fs.unlinkSync(completedPath);
+        } catch {
+          // The scheduled orphan cleanup is a final fallback if local cleanup
+          // is interrupted or the filesystem becomes temporarily unavailable.
+        }
+      }
+      return next(error);
+    }
+  };
+
   return {
-    single: (fieldName) => {
-      return [
-        upload.single(fieldName),
-        async (req, res, next) => {
-          if (!req.file) return next();
-          try {
-            await processImage(req, req.file, subfolderName);
-            next();
-          } catch (err) {
-            next(err);
-          }
-        },
-      ];
-    },
-    array: (fieldName, maxCount) => {
-      return [
-        upload.array(fieldName, maxCount),
-        async (req, res, next) => {
-          if (!req.files || req.files.length === 0) return next();
-          try {
-            await Promise.all(
-              req.files.map((f) => processImage(req, f, subfolderName)),
-            );
-            next();
-          } catch (err) {
-            next(err);
-          }
-        },
-      ];
-    },
+    single: (fieldName) => [
+      upload.single(fieldName),
+      (req, _res, next) =>
+        req.file ? processFiles(req, [req.file], next) : next(),
+    ],
+    array: (fieldName, maxCount) => [
+      upload.array(fieldName, Math.min(maxCount, 8)),
+      (req, _res, next) =>
+        req.files?.length ? processFiles(req, req.files, next) : next(),
+    ],
   };
 };
 
 module.exports = {
+  DEFAULT_OWNER_STORAGE_BYTES,
+  MAX_INPUT_PIXELS,
+  MAX_OWNER_STORAGE_BYTES,
+  MAX_UPLOAD_BYTES,
+  getDirectoryUsageBytes,
   uploadProfile: createUploader("UserProfile"),
   uploadProof: createUploader("ProofOfPurchase"),
   uploadStudio: createUploader("Studio"),

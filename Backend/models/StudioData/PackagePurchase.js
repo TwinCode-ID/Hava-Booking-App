@@ -16,6 +16,7 @@ const PackagePurchaseSchema = new mongoose.Schema(
 
     // NEW: Snapshot the name so it isn't lost if the package is deleted
     packageNameSnapshot: { type: String, required: true },
+    isOneTimePurchaseSnapshot: { type: Boolean, default: false },
 
     paymentWindowExpiry: { type: Date, required: true },
     status: { type: String, default: "pending" },

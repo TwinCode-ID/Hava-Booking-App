@@ -45,7 +45,7 @@ const StudioActivities = () => {
       id: "package",
       label: "Packages",
       icon: Package,
-      color: "text-emerald-600",
+      color: "text-stone-800",
     },
     {
       id: "promos",
@@ -104,8 +104,8 @@ const StudioActivities = () => {
         onClick={() => setActiveTab(tab.id)}
         className={`flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl transition-all duration-200 border whitespace-nowrap ${
           isActive
-            ? `bg-gray-900 text-white border-gray-900 shadow-md`
-            : "bg-white border-transparent hover:bg-gray-50 text-gray-500 hover:text-gray-900"
+            ? `bg-stone-700 text-white border-stone-700 shadow-md`
+            : "bg-white border-transparent hover:bg-stone-50 text-stone-500 hover:text-stone-900"
         }`}>
         <Icon className={`w-5 h-5 ${isActive ? "text-white" : tab.color}`} />
         <span className='text-sm font-bold'>{tab.label}</span>
@@ -114,17 +114,17 @@ const StudioActivities = () => {
   };
 
   return (
-    <div className='h-[100dvh] bg-gray-50 overflow-hidden flex flex-col'>
+    <div className='h-[100dvh] bg-stone-50 overflow-hidden flex flex-col'>
       {/* --- HEADER --- */}
       <div className='bg-white px-6 pt-6 pb-2 shrink-0'>
-        <h1 className='text-2xl font-bold text-gray-900'>Studio Management</h1>
-        <p className='text-gray-500 text-sm'>
+        <h1 className='text-2xl font-bold text-stone-900'>Studio Management</h1>
+        <p className='text-stone-500 text-sm'>
           Centralized control for your studio's operations.
         </p>
       </div>
 
       {/* --- NAVIGATION --- */}
-      <div className='bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center gap-3 relative z-20 shadow-sm shrink-0'>
+      <div className='bg-white border-b border-stone-200 px-4 md:px-6 py-3 flex items-center gap-3 relative z-20 shadow-sm shrink-0'>
         <div className='overflow-hidden min-w-0 flex-1'>
           <div className='flex gap-2 overflow-x-auto scrollbar-hide w-full'>
             <AnimatePresence>
@@ -136,8 +136,8 @@ const StudioActivities = () => {
         {isMobile && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`p-2.5 rounded-xl border border-gray-200 hover:bg-gray-100 text-gray-500 transition-colors shadow-sm bg-white shrink-0 ${
-              isExpanded ? "bg-gray-100 ring-2 ring-gray-200" : ""
+            className={`p-2.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-500 transition-colors shadow-sm bg-white shrink-0 ${
+              isExpanded ? "bg-stone-100 ring-2 ring-stone-200" : ""
             }`}>
             {isExpanded ? (
               <ChevronLeft className='w-5 h-5' />

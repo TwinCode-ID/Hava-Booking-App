@@ -32,6 +32,10 @@ import axiosInstance from "../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../context/AuthContext";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { API_PATHS } from "../../../../../utils/apiPath";
+import useFinancialStepUp, {
+  FINANCIAL_READ_SCOPE,
+  isFinancialStepUpError,
+} from "../../../../../utils/useFinancialStepUp";
 
 // --- Custom Select Component ---
 const CustomSelect = ({
@@ -63,15 +67,15 @@ const CustomSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full h-10.5 px-4 py-2.5 rounded-xl border bg-white flex items-center justify-between transition-all outline-none text-sm font-medium shadow-sm ${
           isOpen
-            ? "border-emerald-500 ring-2 ring-emerald-500/20"
-            : "border-gray-200 hover:border-emerald-500"
+            ? "border-stone-500 ring-2 ring-stone-500/20"
+            : "border-stone-200 hover:border-stone-500"
         }`}>
         <span
-          className={`block truncate ${value ? "text-gray-900" : "text-gray-400"}`}>
+          className={`block truncate ${value ? "text-stone-900" : "text-stone-400"}`}>
           {value || placeholder}
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-stone-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -81,7 +85,7 @@ const CustomSelect = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className='absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto'>
+            className='absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden max-h-60 overflow-y-auto'>
             {options.map((option) => (
               <div
                 key={option}
@@ -91,12 +95,12 @@ const CustomSelect = ({
                 }}
                 className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${
                   value === option
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
-                    : "text-gray-700 hover:bg-gray-50 hover:text-emerald-800"
+                    ? "bg-stone-100 text-stone-900 font-bold"
+                    : "text-stone-700 hover:bg-stone-50 hover:text-stone-900"
                 }`}>
                 {option}
                 {value === option && (
-                  <Check className='w-3.5 h-3.5 text-emerald-600' />
+                  <Check className='w-3.5 h-3.5 text-stone-800' />
                 )}
               </div>
             ))}
@@ -130,9 +134,19 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
     try {
       const response = await axiosInstance.post(
         API_PATHS.AUTH.VERIFY_PASSWORD,
-        { password },
+        { password, scope: FINANCIAL_READ_SCOPE },
       );
-      if (response.data.success || response.status === 200) onUnlock();
+      if (
+        response.data.success &&
+        onUnlock(
+          response.data.stepUpToken,
+          response.data.stepUpExpiresIn,
+        )
+      ) {
+        setPassword("");
+      } else {
+        setError("Verification did not return a valid authorization.");
+      }
     } catch (err) {
       if (err.response?.data?.code === "PASSWORD_NOT_SET")
         setError("Create a password in Account Settings first.");
@@ -146,19 +160,19 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
 
   if (!user?.hasPassword) {
     return (
-      <div className='bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center justify-center text-center py-16 group hover:border-emerald-200 transition-colors'>
+      <div className='bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors'>
         <div className='w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform'>
           <Lock className='w-8 h-8 text-amber-600' />
         </div>
-        <h2 className='text-xl font-bold text-gray-900 mb-2'>
+        <h2 className='text-xl font-bold text-stone-900 mb-2'>
           Create a Password First
         </h2>
-        <p className='text-gray-500 mb-6 text-sm max-w-sm'>
+        <p className='text-stone-500 mb-6 text-sm max-w-sm'>
           You need to create a password before you can unlock financial data.
         </p>
         <Link
           to='/admin-account-settings'
-          className='w-full max-w-sm py-3 bg-emerald-900 text-white rounded-xl font-semibold hover:bg-emerald-800 transition-colors flex justify-center items-center'>
+          className='w-full max-w-sm py-3 bg-stone-600 text-white rounded-xl font-semibold hover:bg-stone-700 transition-colors flex justify-center items-center'>
           Create Password
         </Link>
       </div>
@@ -166,14 +180,14 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
   }
 
   return (
-    <div className='bg-white p-8 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center justify-center text-center py-16 group hover:border-emerald-200 transition-colors'>
-      <div className='w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform'>
-        <Lock className='w-8 h-8 text-emerald-600' />
+    <div className='bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors'>
+      <div className='w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform'>
+        <Lock className='w-8 h-8 text-stone-800' />
       </div>
-      <h2 className='text-xl font-bold text-gray-900 mb-2'>
+      <h2 className='text-xl font-bold text-stone-900 mb-2'>
         Unlock Financial Data
       </h2>
-      <p className='text-gray-500 mb-6 text-sm max-w-sm'>
+      <p className='text-stone-500 mb-6 text-sm max-w-sm'>
         To view revenue details and include financial data in your PDF export,
         please confirm your admin password.
       </p>
@@ -185,13 +199,13 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
           placeholder='Admin Password'
           autoComplete='current-password'
           required
-          className='w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all'
+          className='w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-stone-500 focus:ring-2 focus:ring-stone-300 outline-none transition-all'
         />
         {error && <p className='text-red-500 text-xs'>{error}</p>}
         <button
           disabled={verifying || !password}
           type='submit'
-          className='w-full py-3 bg-emerald-900 text-white rounded-xl font-semibold hover:bg-emerald-800 transition-colors flex justify-center items-center gap-2'>
+          className='w-full py-3 bg-stone-600 text-white rounded-xl font-semibold hover:bg-stone-700 transition-colors flex justify-center items-center gap-2'>
           {verifying ? "Verifying..." : "Unlock Revenue"}
         </button>
       </form>
@@ -403,18 +417,18 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
                   {[...Array(9)].map((_, i) => (
                     <div
                       key={i}
-                      className='w-1.5 h-1.5 bg-gray-900 rounded-full'></div>
+                      className='w-1.5 h-1.5 bg-stone-700 rounded-full'></div>
                   ))}
                 </div>
-                <span className='font-bold text-gray-900 text-[20px] tracking-tight'>
+                <span className='font-bold text-stone-900 text-[20px] tracking-tight'>
                   Hava Studio
                 </span>
               </div>
               <div className='text-right'>
-                <p className='text-[10px] text-gray-500 font-bold tracking-wider uppercase'>
+                <p className='text-[10px] text-stone-500 font-bold tracking-wider uppercase'>
                   Receipt No. {getReceiptNo(transaction.transactionId)}
                 </p>
-                <p className='text-[11px] text-gray-400 font-medium mt-0.5'>
+                <p className='text-[11px] text-stone-400 font-medium mt-0.5'>
                   {new Date(transaction.createdAt).toLocaleString("en-GB", {
                     day: "2-digit",
                     month: "2-digit",
@@ -426,12 +440,12 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
               </div>
             </div>
 
-            <h2 className='text-[32px] font-extrabold text-gray-900 mb-3 leading-[1.1] tracking-tight'>
+            <h2 className='text-[32px] font-extrabold text-stone-900 mb-3 leading-[1.1] tracking-tight'>
               Thanks for
               <br />
               your purchase!
             </h2>
-            <p className='text-[14px] text-gray-500 font-medium leading-relaxed'>
+            <p className='text-[14px] text-stone-500 font-medium leading-relaxed'>
               Your order{" "}
               <span className='text-blue-600 font-bold'>
                 #{transaction.transactionId}
@@ -440,31 +454,31 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
             </p>
           </div>
 
-          <div className='w-full border-t-[2px] border-dashed border-gray-200'></div>
+          <div className='w-full border-t-[2px] border-dashed border-stone-200'></div>
 
           <div className='p-8 pt-8'>
             <div className='flex justify-between items-start mb-4'>
               <div className='flex gap-4 pr-4'>
-                <span className='font-bold text-lg text-gray-900'>1</span>
+                <span className='font-bold text-lg text-stone-900'>1</span>
                 <div>
-                  <p className='font-bold text-[16px] text-gray-900 leading-snug mb-1'>
+                  <p className='font-bold text-[16px] text-stone-900 leading-snug mb-1'>
                     {transaction.packageId?.packageName ||
                       transaction.packageNameSnapshot ||
                       "Custom Package"}
                   </p>
-                  <p className='text-[13px] text-gray-500 font-medium'>
+                  <p className='text-[13px] text-stone-500 font-medium'>
                     1 × {formatCurrency(preDiscountAmount)}
                   </p>
                 </div>
               </div>
-              <span className='font-bold text-[16px] text-gray-900 whitespace-nowrap'>
+              <span className='font-bold text-[16px] text-stone-900 whitespace-nowrap'>
                 {formatCurrency(preDiscountAmount)}
               </span>
             </div>
 
             {transaction.promoCodeApplied && (
               <div className='flex justify-between items-center mb-6 pl-10'>
-                <span className='text-[13px] text-gray-500 font-bold'>
+                <span className='text-[13px] text-stone-500 font-bold'>
                   Discount ({transaction.promoCodeApplied})
                 </span>
                 <span className='font-bold text-[15px] text-rose-500'>
@@ -475,31 +489,31 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
 
             <div className='bg-[#F3F4F6] p-6 rounded-[20px] mb-8 mt-2'>
               <div className='flex justify-between items-end mb-6'>
-                <span className='font-bold text-xl text-gray-800'>Total</span>
-                <span className='font-extrabold text-[26px] text-gray-900 tracking-tight leading-none'>
+                <span className='font-bold text-xl text-stone-800'>Total</span>
+                <span className='font-extrabold text-[26px] text-stone-900 tracking-tight leading-none'>
                   {formatCurrency(transaction.totalAmount)}
                 </span>
               </div>
               <div className='flex justify-between items-center text-[13px] font-bold mb-3'>
-                <span className='text-gray-500'>Payment Method</span>
-                <span className='text-gray-800 capitalize'>
+                <span className='text-stone-500'>Payment Method</span>
+                <span className='text-stone-800 capitalize'>
                   {transaction.paymentMethod?.replace(/_/g, " ")}
                 </span>
               </div>
               <div className='flex justify-between items-center text-[13px] font-bold'>
-                <span className='text-gray-500'>Status</span>
-                <span className='text-emerald-600 capitalize'>
+                <span className='text-stone-500'>Status</span>
+                <span className='text-stone-800 capitalize'>
                   {transaction.status || "Confirmed"}
                 </span>
               </div>
             </div>
 
-            <div className='flex items-center justify-between gap-4 bg-white rounded-[16px] p-4 border border-gray-200'>
+            <div className='flex items-center justify-between gap-4 bg-white rounded-[16px] p-4 border border-stone-200'>
               <div className='flex-1 pr-2'>
-                <h3 className='font-bold text-[14px] text-gray-900 mb-1'>
+                <h3 className='font-bold text-[14px] text-stone-900 mb-1'>
                   Verify Transaction
                 </h3>
-                <p className='text-[12px] text-gray-500 leading-relaxed'>
+                <p className='text-[12px] text-stone-500 leading-relaxed'>
                   Scan the QR code to securely view and verify these details
                   online.
                 </p>
@@ -519,13 +533,13 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
         <div className='flex gap-3 w-full max-w-[400px] mt-6'>
           <button
             onClick={onClose}
-            className='flex-1 py-3.5 bg-white text-gray-800 border border-gray-200 rounded-xl text-[15px] font-bold hover:bg-gray-50 transition-colors shadow-sm'>
+            className='flex-1 py-3.5 bg-white text-stone-800 border border-stone-200 rounded-xl text-[15px] font-bold hover:bg-stone-50 transition-colors shadow-sm'>
             Close
           </button>
           <button
             onClick={handleDownloadPDF}
             disabled={downloading}
-            className='flex-[2] flex justify-center items-center gap-2 py-3.5 bg-emerald-500 text-white rounded-xl text-[15px] font-bold hover:bg-emerald-400 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-500/20'>
+            className='flex-[2] flex justify-center items-center gap-2 py-3.5 bg-stone-500 text-white rounded-xl text-[15px] font-bold hover:bg-stone-400 transition-colors disabled:opacity-50 shadow-lg shadow-stone-500/20'>
             <Download className='w-4 h-4' />{" "}
             {downloading ? "Generating..." : "Download Invoice"}
           </button>
@@ -548,71 +562,71 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className='bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden'>
-        <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-white shrink-0'>
+        <div className='p-6 border-b border-stone-100 flex justify-between items-center bg-white shrink-0'>
           <div className='flex items-center gap-4'>
-            <div className='w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center'>
+            <div className='w-12 h-12 bg-stone-100 text-stone-800 rounded-full flex items-center justify-center'>
               <Wallet className='w-6 h-6' />
             </div>
             <div>
-              <h3 className='text-xl font-bold text-gray-900'>
+              <h3 className='text-xl font-bold text-stone-900'>
                 Transaction Details
               </h3>
-              <p className='text-sm font-medium text-gray-500 font-mono mt-0.5'>
+              <p className='text-sm font-medium text-stone-500 font-mono mt-0.5'>
                 ID: {transaction.transactionId || "N/A"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500'>
+            className='p-2 rounded-full hover:bg-stone-100 transition-colors text-stone-500'>
             <X className='w-6 h-6' />
           </button>
         </div>
 
         <div className='p-6 overflow-y-auto flex-1 space-y-6 bg-white'>
           <div className='grid grid-cols-2 gap-4'>
-            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-gray-100'>
-              <p className='text-xs font-bold text-gray-500 uppercase tracking-wider mb-2'>
+            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-stone-100'>
+              <p className='text-xs font-bold text-stone-500 uppercase tracking-wider mb-2'>
                 Amount Paid
               </p>
-              <p className='text-3xl font-extrabold text-emerald-600 tracking-tight'>
+              <p className='text-3xl font-extrabold text-stone-800 tracking-tight'>
                 {formatCurrency(transaction.totalAmount)}
               </p>
             </div>
-            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-gray-100'>
-              <p className='text-xs font-bold text-gray-500 uppercase tracking-wider mb-2'>
+            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-stone-100'>
+              <p className='text-xs font-bold text-stone-500 uppercase tracking-wider mb-2'>
                 Status
               </p>
               <div className='flex items-center gap-2'>
-                <CheckCircle className='w-6 h-6 text-emerald-500' />
-                <p className='text-xl font-bold text-gray-900 capitalize'>
+                <CheckCircle className='w-6 h-6 text-stone-700' />
+                <p className='text-xl font-bold text-stone-900 capitalize'>
                   {transaction.status || "Confirmed"}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className='bg-white border border-gray-200 rounded-2xl overflow-hidden'>
-            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-gray-200'>
-              <h4 className='text-[15px] font-bold text-gray-900'>
+          <div className='bg-white border border-stone-200 rounded-2xl overflow-hidden'>
+            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-stone-200'>
+              <h4 className='text-[15px] font-bold text-stone-900'>
                 Purchase Information
               </h4>
             </div>
-            <div className='divide-y divide-gray-100'>
+            <div className='divide-y divide-stone-100'>
               <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-gray-500'>
+                <span className='text-[15px] font-semibold text-stone-500'>
                   Client Name
                 </span>
-                <span className='text-[15px] font-bold text-gray-900 col-span-2'>
+                <span className='text-[15px] font-bold text-stone-900 col-span-2'>
                   {transaction.userId?.fullName || "N/A"}
                 </span>
               </div>
               <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-gray-500'>
+                <span className='text-[15px] font-semibold text-stone-500'>
                   Package
                 </span>
-                <span className='text-[15px] font-medium text-gray-900 col-span-2 flex'>
-                  <span className='bg-[#f1f3f5] px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-bold'>
+                <span className='text-[15px] font-medium text-stone-900 col-span-2 flex'>
+                  <span className='bg-[#f1f3f5] px-3 py-1.5 rounded-lg border border-stone-200 text-sm font-bold'>
                     {transaction.packageId?.packageName ||
                       transaction.packageNameSnapshot ||
                       "Deleted Package"}
@@ -621,7 +635,7 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
               </div>
               {transaction.promoCodeApplied && (
                 <div className='grid grid-cols-3 p-5 items-center'>
-                  <span className='text-[15px] font-semibold text-gray-500'>
+                  <span className='text-[15px] font-semibold text-stone-500'>
                     Promo Code
                   </span>
                   <span className='text-[15px] font-bold text-pink-600 col-span-2'>
@@ -631,18 +645,18 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
                 </div>
               )}
               <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-gray-500'>
+                <span className='text-[15px] font-semibold text-stone-500'>
                   Payment Method
                 </span>
-                <span className='text-[15px] font-bold text-gray-900 capitalize col-span-2'>
+                <span className='text-[15px] font-bold text-stone-900 capitalize col-span-2'>
                   {transaction.paymentMethod?.replace(/_/g, " ")}
                 </span>
               </div>
               <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-gray-500'>
+                <span className='text-[15px] font-semibold text-stone-500'>
                   Purchase Date
                 </span>
-                <span className='text-[15px] font-bold text-gray-900 col-span-2'>
+                <span className='text-[15px] font-bold text-stone-900 col-span-2'>
                   {new Date(transaction.createdAt).toLocaleString("en-GB", {
                     day: "2-digit",
                     month: "2-digit",
@@ -656,25 +670,25 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
             </div>
           </div>
 
-          <div className='bg-white border border-gray-200 rounded-2xl overflow-hidden'>
-            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-gray-200'>
-              <h4 className='text-[15px] font-bold text-gray-900'>
+          <div className='bg-white border border-stone-200 rounded-2xl overflow-hidden'>
+            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-stone-200'>
+              <h4 className='text-[15px] font-bold text-stone-900'>
                 Package Lifecycle & Credits
               </h4>
             </div>
-            <div className='divide-y divide-gray-100'>
+            <div className='divide-y divide-stone-100'>
               <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-gray-500'>
+                <span className='text-[15px] font-semibold text-stone-500'>
                   Credits
                 </span>
-                <span className='text-[15px] font-bold text-gray-900 col-span-2'>
+                <span className='text-[15px] font-bold text-stone-900 col-span-2'>
                   {transaction.remainingCredits} Remaining /{" "}
                   {transaction.creditsPurchased} Total
                 </span>
               </div>
               {transaction.mustActivateBy && (
                 <div className='grid grid-cols-3 p-5 items-center'>
-                  <span className='text-[15px] font-semibold text-gray-500'>
+                  <span className='text-[15px] font-semibold text-stone-500'>
                     Must Activate By
                   </span>
                   <span className='text-[15px] font-bold text-amber-700 col-span-2'>
@@ -686,7 +700,7 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
               )}
               {transaction.expiryDate && (
                 <div className='grid grid-cols-3 p-5 items-center'>
-                  <span className='text-[15px] font-semibold text-gray-500'>
+                  <span className='text-[15px] font-semibold text-stone-500'>
                     Expiry Date
                   </span>
                   <span className='text-[15px] font-bold text-red-600 col-span-2'>
@@ -702,7 +716,7 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
         <div className='p-6 bg-white shrink-0'>
           <button
             onClick={() => onOpenReceipt(transaction)}
-            className='w-full py-4 bg-[#0f172a] text-white rounded-xl font-bold hover:bg-gray-800 transition-colors flex justify-center items-center gap-2 shadow-md'>
+            className='w-full py-4 bg-stone-700 text-white rounded-xl font-bold hover:bg-stone-600 transition-colors flex justify-center items-center gap-2 shadow-md'>
             <FileText className='w-5 h-5' /> Generate Stylized Receipt
           </button>
         </div>
@@ -753,25 +767,25 @@ const RevenueSection = ({
   return (
     <div className='space-y-6'>
       <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
-        <h3 className='text-lg font-bold text-gray-900 flex items-center gap-2'>
-          <Wallet className='w-5 h-5 text-emerald-600' /> Financial Overview
+        <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
+          <Wallet className='w-5 h-5 text-stone-800' /> Financial Overview
         </h3>
         <div className='relative w-full md:w-80'>
-          <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' />
+          <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4' />
           <input
             type='text'
             placeholder='Search transactions...'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className='w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 transition-all shadow-sm'
+            className='w-full pl-10 pr-4 py-2 bg-white border border-stone-200 rounded-xl text-sm outline-none focus:border-stone-500 transition-all shadow-sm'
           />
         </div>
       </div>
 
       <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-        <div className='bg-gradient-to-br from-emerald-800 to-emerald-950 text-white p-6 rounded-2xl shadow-md relative overflow-hidden'>
+        <div className='bg-gradient-to-br from-stone-700 to-stone-950 text-white p-6 rounded-2xl shadow-md relative overflow-hidden'>
           <div className='relative z-10'>
-            <p className='text-emerald-200 text-sm font-medium mb-1'>
+            <p className='text-stone-300 text-sm font-medium mb-1'>
               Total Confirmed Revenue
             </p>
             <h3 className='text-3xl font-extrabold'>
@@ -780,28 +794,28 @@ const RevenueSection = ({
           </div>
           <Wallet className='absolute right-4 bottom-4 w-24 h-24 text-white opacity-10' />
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex flex-col justify-center'>
           <div className='flex items-center gap-4'>
             <div className='p-3 bg-blue-50 text-blue-600 rounded-lg'>
               <TrendingUp className='w-6 h-6' />
             </div>
             <div>
-              <p className='text-gray-500 text-xs uppercase tracking-wider font-semibold'>
+              <p className='text-stone-500 text-xs uppercase tracking-wider font-semibold'>
                 Transactions
               </p>
-              <p className='text-xl font-bold text-gray-900'>
+              <p className='text-xl font-bold text-stone-900'>
                 {stats.totalTransactions}{" "}
-                <span className='text-sm font-normal text-gray-400'>
+                <span className='text-sm font-normal text-stone-400'>
                   orders
                 </span>
               </p>
             </div>
           </div>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
           <div className='flex justify-between items-center mb-4'>
-            <h4 className='text-gray-900 font-bold flex items-center gap-2 text-sm'>
-              <CreditCard className='w-4 h-4 text-gray-400' /> Payment Methods
+            <h4 className='text-stone-900 font-bold flex items-center gap-2 text-sm'>
+              <CreditCard className='w-4 h-4 text-stone-400' /> Payment Methods
             </h4>
             {methodFilter !== "All" && (
               <button
@@ -816,14 +830,14 @@ const RevenueSection = ({
               <div
                 key={item.name}
                 onClick={() => setMethodFilter(item.name)}
-                className={`cursor-pointer rounded-lg p-2 transition-colors border ${methodFilter === item.name ? "bg-gray-50 border-emerald-200" : "border-transparent hover:bg-gray-50"}`}>
+                className={`cursor-pointer rounded-lg p-2 transition-colors border ${methodFilter === item.name ? "bg-stone-50 border-stone-300" : "border-transparent hover:bg-stone-50"}`}>
                 <div className='flex justify-between text-xs mb-1'>
-                  <span className='text-gray-600'>{item.name}</span>
-                  <span className='font-semibold text-gray-900'>
+                  <span className='text-stone-600'>{item.name}</span>
+                  <span className='font-semibold text-stone-900'>
                     {item.percentage}%
                   </span>
                 </div>
-                <div className='w-full bg-gray-100 rounded-full h-1.5'>
+                <div className='w-full bg-stone-100 rounded-full h-1.5'>
                   <div
                     className={`h-full rounded-full ${item.color}`}
                     style={{ width: `${item.percentage}%` }}
@@ -835,11 +849,11 @@ const RevenueSection = ({
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
+      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
         <div className='overflow-x-auto'>
           <table className='w-full text-left border-collapse'>
             <thead>
-              <tr className='border-b border-gray-100 text-xs uppercase tracking-wider text-gray-400 bg-gray-50/50'>
+              <tr className='border-b border-stone-100 text-xs uppercase tracking-wider text-stone-400 bg-stone-50/50'>
                 <th className='px-6 py-4 font-bold'>Date</th>
                 <th className='px-6 py-4 font-bold'>Client</th>
                 <th className='px-6 py-4 font-bold'>Package</th>
@@ -847,30 +861,30 @@ const RevenueSection = ({
                 <th className='px-6 py-4 font-bold text-right'>Amount</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-gray-50'>
+            <tbody className='divide-y divide-stone-50'>
               {filteredData.length > 0 ? (
                 filteredData.map((trx) => (
                   <tr
                     key={trx._id}
                     onClick={() => onRowSelected(trx)}
-                    className='hover:bg-emerald-50/80 cursor-pointer transition-colors group'>
-                    <td className='px-6 py-4 text-sm text-gray-500 group-hover:text-emerald-700 transition-colors'>
+                    className='hover:bg-stone-100/80 cursor-pointer transition-colors group'>
+                    <td className='px-6 py-4 text-sm text-stone-500 group-hover:text-stone-800 transition-colors'>
                       {new Date(trx.createdAt).toLocaleDateString()}
                     </td>
-                    <td className='px-6 py-4 text-sm font-semibold text-gray-900 group-hover:text-emerald-800 transition-colors'>
+                    <td className='px-6 py-4 text-sm font-semibold text-stone-900 group-hover:text-stone-900 transition-colors'>
                       {trx.userId?.fullName}
                     </td>
                     <td className='px-6 py-4 text-sm'>
-                      <span className='px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200 group-hover:bg-white transition-colors'>
+                      <span className='px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200 group-hover:bg-white transition-colors'>
                         {trx.packageId?.packageName ||
                           trx.packageNameSnapshot ||
                           "Deleted Package"}
                       </span>
                     </td>
-                    <td className='px-6 py-4 text-sm capitalize text-gray-600'>
+                    <td className='px-6 py-4 text-sm capitalize text-stone-600'>
                       {trx.paymentMethod?.replace(/_/g, " ")}
                     </td>
-                    <td className='px-6 py-4 text-sm text-right font-bold text-gray-900'>
+                    <td className='px-6 py-4 text-sm text-right font-bold text-stone-900'>
                       {formatCurrency(trx.totalAmount)}
                     </td>
                   </tr>
@@ -879,7 +893,7 @@ const RevenueSection = ({
                 <tr>
                   <td
                     colSpan='5'
-                    className='px-6 py-8 text-center text-gray-400'>
+                    className='px-6 py-8 text-center text-stone-400'>
                     No successful transactions found for this period.
                   </td>
                 </tr>
@@ -901,7 +915,7 @@ const AttendanceSection = ({
   return (
     <div className='space-y-6'>
       <div className='flex justify-between items-center'>
-        <h3 className='text-lg font-bold text-gray-900 flex items-center gap-2'>
+        <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
           <ClipboardList className='w-5 h-5 text-blue-600' /> Class Attendance
         </h3>
         {selectedStudentName && (
@@ -918,35 +932,35 @@ const AttendanceSection = ({
         )}
       </div>
       <div className='grid grid-cols-1 md:grid-cols-4 gap-6'>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:border-emerald-200 transition-colors'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-stone-300 transition-colors'>
           <div className='flex justify-between items-start mb-4'>
-            <p className='text-gray-500 text-xs font-bold tracking-wider uppercase'>
+            <p className='text-stone-500 text-xs font-bold tracking-wider uppercase'>
               Total Bookings
             </p>
-            <div className='p-2 bg-gray-50 rounded-lg text-gray-400 group-hover:text-gray-600 transition-colors'>
+            <div className='p-2 bg-stone-50 rounded-lg text-stone-400 group-hover:text-stone-600 transition-colors'>
               <Ticket className='w-5 h-5' />
             </div>
           </div>
-          <h3 className='text-3xl font-extrabold text-gray-900'>
+          <h3 className='text-3xl font-extrabold text-stone-900'>
             {stats.total}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:border-emerald-200 transition-colors'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-stone-300 transition-colors'>
           <div className='flex justify-between items-start mb-4'>
-            <p className='text-gray-500 text-xs font-bold tracking-wider uppercase'>
+            <p className='text-stone-500 text-xs font-bold tracking-wider uppercase'>
               Total Attended
             </p>
-            <div className='p-2 bg-emerald-50 rounded-lg text-emerald-500'>
+            <div className='p-2 bg-stone-100 rounded-lg text-stone-700'>
               <CheckCircle className='w-5 h-5' />
             </div>
           </div>
-          <h3 className='text-3xl font-extrabold text-emerald-600'>
+          <h3 className='text-3xl font-extrabold text-stone-800'>
             {stats.attended}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:border-red-200 transition-colors'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-red-200 transition-colors'>
           <div className='flex justify-between items-start mb-4'>
-            <p className='text-gray-500 text-xs font-bold tracking-wider uppercase'>
+            <p className='text-stone-500 text-xs font-bold tracking-wider uppercase'>
               Cancellations
             </p>
             <div className='p-2 bg-red-50 rounded-lg text-red-500'>
@@ -972,9 +986,9 @@ const AttendanceSection = ({
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
-        <div className='px-6 py-4 border-b border-gray-100 bg-gray-50/50'>
-          <h3 className='font-bold text-gray-800 text-sm'>
+      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
+        <div className='px-6 py-4 border-b border-stone-100 bg-stone-50/50'>
+          <h3 className='font-bold text-stone-800 text-sm'>
             {selectedStudentName
               ? "Student Attendance Details"
               : "Recent Class Bookings"}
@@ -983,7 +997,7 @@ const AttendanceSection = ({
         <div className='overflow-x-auto'>
           <table className='w-full text-left border-collapse'>
             <thead>
-              <tr className='border-b border-gray-100 text-xs font-bold tracking-wider text-gray-400 bg-gray-50/30 uppercase'>
+              <tr className='border-b border-stone-100 text-xs font-bold tracking-wider text-stone-400 bg-stone-50/30 uppercase'>
                 <th className='px-6 py-4'>Date</th>
                 {!selectedStudentName && (
                   <th className='px-6 py-4'>Client Name</th>
@@ -993,25 +1007,25 @@ const AttendanceSection = ({
                 <th className='px-6 py-4'>Status</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-gray-50'>
+            <tbody className='divide-y divide-stone-50'>
               {bookings.slice(0, 30).map((b) => (
                 <tr
                   key={b._id}
-                  className='hover:bg-gray-50/80 transition-colors'>
-                  <td className='px-6 py-4 text-sm text-gray-500'>
+                  className='hover:bg-stone-50/80 transition-colors'>
+                  <td className='px-6 py-4 text-sm text-stone-500'>
                     {new Date(b.bookingDate).toLocaleDateString()}
                   </td>
                   {!selectedStudentName && (
-                    <td className='px-6 py-4 text-sm font-semibold text-gray-900'>
+                    <td className='px-6 py-4 text-sm font-semibold text-stone-900'>
                       {b.userId?.fullName || "N/A"}
                     </td>
                   )}
-                  <td className='px-6 py-4 text-sm text-gray-600'>
-                    <span className='px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200'>
+                  <td className='px-6 py-4 text-sm text-stone-600'>
+                    <span className='px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200'>
                       {b.classId?.className || "Class Removed"}
                     </span>
                   </td>
-                  <td className='px-6 py-4 text-sm text-gray-600'>
+                  <td className='px-6 py-4 text-sm text-stone-600'>
                     {b.instructorId?.fullName || "-"}
                   </td>
                   <td className='px-6 py-4 text-sm'>
@@ -1020,7 +1034,7 @@ const AttendanceSection = ({
                         Cancelled
                       </span>
                     ) : b.isAttend ? (
-                      <span className='px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-100'>
+                      <span className='px-3 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-semibold border border-stone-200'>
                         Checked In
                       </span>
                     ) : (
@@ -1034,11 +1048,11 @@ const AttendanceSection = ({
               {bookings.length === 0 && (
                 <tr>
                   <td colSpan='5' className='px-6 py-16 text-center'>
-                    <div className='flex flex-col items-center justify-center text-gray-400'>
-                      <div className='bg-gray-50 p-4 rounded-full mb-3 border border-gray-100'>
-                        <CalendarX className='w-8 h-8 text-gray-300' />
+                    <div className='flex flex-col items-center justify-center text-stone-400'>
+                      <div className='bg-stone-50 p-4 rounded-full mb-3 border border-stone-100'>
+                        <CalendarX className='w-8 h-8 text-stone-300' />
                       </div>
-                      <p className='text-gray-900 font-medium text-base'>
+                      <p className='text-stone-900 font-medium text-base'>
                         No bookings yet
                       </p>
                       <p className='text-sm mt-1'>
@@ -1059,46 +1073,46 @@ const AttendanceSection = ({
 const InstructorSection = ({ stats, classesCount }) => {
   return (
     <div className='space-y-6'>
-      <h3 className='text-lg font-bold text-gray-900 flex items-center gap-2'>
+      <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
         <Briefcase className='w-5 h-5 text-orange-600' /> Instructor Workload
       </h3>
       <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
-          <p className='text-gray-500 text-xs uppercase font-bold tracking-wider mb-1'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
+          <p className='text-stone-500 text-xs uppercase font-bold tracking-wider mb-1'>
             Active Instructors
           </p>
-          <h3 className='text-3xl font-extrabold text-gray-900'>
+          <h3 className='text-3xl font-extrabold text-stone-900'>
             {stats.length}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
-          <p className='text-gray-500 text-xs uppercase font-bold tracking-wider mb-1'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
+          <p className='text-stone-500 text-xs uppercase font-bold tracking-wider mb-1'>
             Classes Scheduled
           </p>
-          <h3 className='text-3xl font-extrabold text-gray-900'>
+          <h3 className='text-3xl font-extrabold text-stone-900'>
             {classesCount}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
-          <p className='text-gray-500 text-xs uppercase font-bold tracking-wider mb-1'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
+          <p className='text-stone-500 text-xs uppercase font-bold tracking-wider mb-1'>
             Total Students Enrolled
           </p>
-          <h3 className='text-3xl font-extrabold text-gray-900'>
+          <h3 className='text-3xl font-extrabold text-stone-900'>
             {stats.reduce((acc, curr) => acc + curr.students, 0)}
           </h3>
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
-        <div className='px-6 py-4 border-b border-gray-100 bg-gray-50/50'>
-          <h3 className='font-bold text-gray-800 text-sm'>
+      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
+        <div className='px-6 py-4 border-b border-stone-100 bg-stone-50/50'>
+          <h3 className='font-bold text-stone-800 text-sm'>
             Instructor Workload Details
           </h3>
         </div>
         <div className='overflow-x-auto'>
           <table className='w-full text-left border-collapse'>
             <thead>
-              <tr className='border-b border-gray-100 text-xs font-bold tracking-wider text-gray-500 bg-gray-50/30 uppercase'>
+              <tr className='border-b border-stone-100 text-xs font-bold tracking-wider text-stone-500 bg-stone-50/30 uppercase'>
                 <th className='px-6 py-4'>Instructor Name</th>
                 <th className='px-6 py-4'>Type</th>
                 <th className='px-6 py-4 text-center'>Classes Taught</th>
@@ -1106,22 +1120,22 @@ const InstructorSection = ({ stats, classesCount }) => {
                 <th className='px-6 py-4 text-right'>Total Hours</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-gray-50'>
+            <tbody className='divide-y divide-stone-50'>
               {stats.map((inst, idx) => (
-                <tr key={idx} className='hover:bg-gray-50/80 transition-colors'>
-                  <td className='px-6 py-4 text-sm font-semibold text-gray-900'>
+                <tr key={idx} className='hover:bg-stone-50/80 transition-colors'>
+                  <td className='px-6 py-4 text-sm font-semibold text-stone-900'>
                     {inst.name}
                   </td>
-                  <td className='px-6 py-4 text-sm text-gray-600'>
+                  <td className='px-6 py-4 text-sm text-stone-600'>
                     {inst.type || "N/A"}
                   </td>
-                  <td className='px-6 py-4 text-sm text-center font-bold text-gray-700'>
+                  <td className='px-6 py-4 text-sm text-center font-bold text-stone-700'>
                     {inst.classCount}
                   </td>
-                  <td className='px-6 py-4 text-sm text-center text-gray-700'>
+                  <td className='px-6 py-4 text-sm text-center text-stone-700'>
                     {inst.students}
                   </td>
-                  <td className='px-6 py-4 text-sm text-right font-bold text-emerald-600'>
+                  <td className='px-6 py-4 text-sm text-right font-bold text-stone-800'>
                     {(inst.totalDuration / 60).toFixed(1)} hrs
                   </td>
                 </tr>
@@ -1130,7 +1144,7 @@ const InstructorSection = ({ stats, classesCount }) => {
                 <tr>
                   <td
                     colSpan='5'
-                    className='px-6 py-8 text-center text-gray-400'>
+                    className='px-6 py-8 text-center text-stone-400'>
                     No instructor data found.
                   </td>
                 </tr>
@@ -1146,23 +1160,23 @@ const InstructorSection = ({ stats, classesCount }) => {
 const PackageUsageSection = ({ passes, onRowClick }) => {
   return (
     <div className='space-y-6'>
-      <h3 className='text-lg font-bold text-gray-900 flex items-center gap-2'>
+      <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
         <Ticket className='w-5 h-5 text-purple-600' /> Package Distribution &
         Usage
       </h3>
-      <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
-        <div className='px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center'>
-          <h3 className='font-bold text-gray-800 text-sm'>
+      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
+        <div className='px-6 py-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center'>
+          <h3 className='font-bold text-stone-800 text-sm'>
             Issued Passes & Credits Summary
           </h3>
-          <span className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md'>
+          <span className='text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded-md'>
             Click a row to view student history
           </span>
         </div>
         <div className='overflow-x-auto'>
           <table className='w-full text-left border-collapse'>
             <thead>
-              <tr className='border-b border-gray-100 text-xs font-bold tracking-wider text-gray-400 bg-gray-50/50 uppercase'>
+              <tr className='border-b border-stone-100 text-xs font-bold tracking-wider text-stone-400 bg-stone-50/50 uppercase'>
                 <th className='px-6 py-4'>Owner</th>
                 <th className='px-6 py-4'>Package Name</th>
                 <th className='px-6 py-4'>Credits Left</th>
@@ -1170,35 +1184,35 @@ const PackageUsageSection = ({ passes, onRowClick }) => {
                 <th className='px-6 py-4'>Status</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-gray-50'>
+            <tbody className='divide-y divide-stone-50'>
               {passes.slice(0, 50).map((pass) => (
                 <tr
                   key={pass._id}
                   onClick={() => pass.userId?._id && onRowClick(pass.userId)}
                   className='hover:bg-purple-50/50 cursor-pointer transition-colors group'>
-                  <td className='px-6 py-4 text-sm font-semibold text-gray-900 group-hover:text-purple-700 transition-colors'>
+                  <td className='px-6 py-4 text-sm font-semibold text-stone-900 group-hover:text-purple-700 transition-colors'>
                     {pass.userId?.fullName || "N/A"}
                   </td>
                   <td className='px-6 py-4 text-sm'>
-                    <span className='px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium border border-gray-200'>
+                    <span className='px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200'>
                       {pass.packageId?.packageName ||
                         pass.packageNameSnapshot ||
                         "Custom Pass"}
                     </span>
                   </td>
-                  <td className='px-6 py-4 text-sm font-extrabold text-gray-700'>
+                  <td className='px-6 py-4 text-sm font-extrabold text-stone-700'>
                     {pass.remainingCredits} / {pass.initialCredits}
                   </td>
-                  <td className='px-6 py-4 text-sm text-gray-600'>
+                  <td className='px-6 py-4 text-sm text-stone-600'>
                     {new Date(pass.expiryDate).toLocaleDateString()}
                   </td>
                   <td className='px-6 py-4 text-sm'>
                     {pass.isActive ? (
-                      <span className='px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-100'>
+                      <span className='px-3 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-semibold border border-stone-200'>
                         Active
                       </span>
                     ) : (
-                      <span className='px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold border border-gray-200'>
+                      <span className='px-3 py-1 bg-stone-100 text-stone-600 rounded-full text-xs font-semibold border border-stone-200'>
                         Inactive
                       </span>
                     )}
@@ -1209,7 +1223,7 @@ const PackageUsageSection = ({ passes, onRowClick }) => {
                 <tr>
                   <td
                     colSpan='5'
-                    className='px-6 py-8 text-center text-gray-400'>
+                    className='px-6 py-8 text-center text-stone-400'>
                     No pass data found.
                   </td>
                 </tr>
@@ -1302,41 +1316,41 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden'>
-        <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0'>
+        <div className='p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50 shrink-0'>
           <div className='flex items-center gap-3'>
             <div className='w-12 h-12 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-bold text-xl'>
               {student.fullName.charAt(0)}
             </div>
             <div>
-              <h3 className='text-xl font-bold text-gray-900'>
+              <h3 className='text-xl font-bold text-stone-900'>
                 {student.fullName}
               </h3>
-              <p className='text-sm text-gray-500'>
+              <p className='text-sm text-stone-500'>
                 Attendance History & Detail
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-gray-200 transition-colors text-gray-500'>
+            className='p-2 rounded-full hover:bg-stone-200 transition-colors text-stone-500'>
             <X className='w-6 h-6' />
           </button>
         </div>
         <div className='p-6 overflow-y-auto flex-1 space-y-6'>
           <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-            <div className='p-4 bg-gray-50 rounded-xl border border-gray-100 text-center'>
-              <p className='text-xs font-bold text-gray-500 uppercase tracking-wider mb-1'>
+            <div className='p-4 bg-stone-50 rounded-xl border border-stone-100 text-center'>
+              <p className='text-xs font-bold text-stone-500 uppercase tracking-wider mb-1'>
                 Total Booked
               </p>
-              <p className='text-2xl font-extrabold text-gray-900'>
+              <p className='text-2xl font-extrabold text-stone-900'>
                 {stats.total}
               </p>
             </div>
-            <div className='p-4 bg-emerald-50 rounded-xl border border-emerald-100 text-center'>
-              <p className='text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1'>
+            <div className='p-4 bg-stone-100 rounded-xl border border-stone-200 text-center'>
+              <p className='text-xs font-bold text-stone-800 uppercase tracking-wider mb-1'>
                 Attended
               </p>
-              <p className='text-2xl font-extrabold text-emerald-700'>
+              <p className='text-2xl font-extrabold text-stone-800'>
                 {stats.attended}
               </p>
             </div>
@@ -1357,17 +1371,17 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
               </p>
             </div>
           </div>
-          <div className='border border-gray-200 rounded-xl overflow-hidden'>
+          <div className='border border-stone-200 rounded-xl overflow-hidden'>
             <table className='w-full text-left border-collapse'>
               <thead>
-                <tr className='bg-gray-50/80 border-b border-gray-200 text-xs font-bold tracking-wider text-gray-500 uppercase'>
+                <tr className='bg-stone-50/80 border-b border-stone-200 text-xs font-bold tracking-wider text-stone-500 uppercase'>
                   <th className='px-4 py-3'>Date</th>
                   <th className='px-4 py-3'>Class Name</th>
                   <th className='px-4 py-3'>Instructor</th>
                   <th className='px-4 py-3'>Status</th>
                 </tr>
               </thead>
-              <tbody className='divide-y divide-gray-100'>
+              <tbody className='divide-y divide-stone-100'>
                 {studentBookings.map((b) => {
                   const isPast = new Date(b.bookingDate) < new Date();
                   const isAbsent =
@@ -1375,14 +1389,14 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
                   return (
                     <tr
                       key={b._id}
-                      className='hover:bg-gray-50 transition-colors'>
-                      <td className='px-4 py-3 text-sm text-gray-600'>
+                      className='hover:bg-stone-50 transition-colors'>
+                      <td className='px-4 py-3 text-sm text-stone-600'>
                         {new Date(b.bookingDate).toLocaleDateString()}
                       </td>
-                      <td className='px-4 py-3 text-sm font-semibold text-gray-900'>
+                      <td className='px-4 py-3 text-sm font-semibold text-stone-900'>
                         {b.classId?.className || "Removed"}
                       </td>
-                      <td className='px-4 py-3 text-sm text-gray-600'>
+                      <td className='px-4 py-3 text-sm text-stone-600'>
                         {b.instructorId?.fullName || "-"}
                       </td>
                       <td className='px-4 py-3 text-sm'>
@@ -1391,7 +1405,7 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
                             Cancelled
                           </span>
                         ) : b.isAttend ? (
-                          <span className='text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100'>
+                          <span className='text-xs font-semibold text-stone-800 bg-stone-100 px-2 py-1 rounded border border-stone-200'>
                             Checked In
                           </span>
                         ) : isAbsent ? (
@@ -1399,7 +1413,7 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
                             Absent
                           </span>
                         ) : (
-                          <span className='text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded border border-gray-200'>
+                          <span className='text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-1 rounded border border-stone-200'>
                             Upcoming
                           </span>
                         )}
@@ -1409,7 +1423,7 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
                 })}
                 {studentBookings.length === 0 && (
                   <tr>
-                    <td colSpan='4' className='text-center py-8 text-gray-400'>
+                    <td colSpan='4' className='text-center py-8 text-stone-400'>
                       No bookings recorded for this student.
                     </td>
                   </tr>
@@ -1418,7 +1432,7 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
             </table>
           </div>
         </div>
-        <div className='p-4 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0'>
+        <div className='p-4 border-t border-stone-100 bg-stone-50 flex justify-end shrink-0'>
           <button
             onClick={generateStudentPDF}
             className='flex items-center gap-2 px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl transition-colors shadow-sm'>
@@ -1448,9 +1462,15 @@ const StudioReports = () => {
   const [receiptTx, setReceiptTx] = useState(null);
 
   // --- Revenue State (Gated) ---
-  const [isRevenueLocked, setIsRevenueLocked] = useState(true);
   const [revenuePasswordError, setRevenuePasswordError] = useState("");
   const [transactions, setTransactions] = useState([]);
+  const {
+    isUnlocked: isRevenueUnlocked,
+    lock: lockRevenue,
+    requestHeaders: revenueRequestHeaders,
+    unlock: unlockRevenue,
+  } = useFinancialStepUp();
+  const isRevenueLocked = !isRevenueUnlocked;
 
   // --- Public Data State ---
   const [bookings, setBookings] = useState([]);
@@ -1494,14 +1514,12 @@ const StudioReports = () => {
     const fetchAllPublicData = async () => {
       setLoading(true);
       try {
-        const [bookRes, classRes, passRes] = await Promise.all([
+        const [bookRes, classRes] = await Promise.all([
           axiosInstance.get(`/api/bookings/studio`),
           axiosInstance.get(`/api/schedule/${user.adminStudioLocation}`),
-          axiosInstance.get(`/api/passes/history/${user.adminStudioLocation}`),
         ]);
         if (bookRes.data) setBookings(bookRes.data);
         if (classRes.data) setClasses(classRes.data);
-        if (passRes.data) setPasses(passRes.data);
       } catch (error) {
         console.error("Failed to fetch public report data:", error);
       } finally {
@@ -1512,19 +1530,49 @@ const StudioReports = () => {
   }, [user.adminStudioLocation]);
 
   useEffect(() => {
+    lockRevenue();
+  }, [lockRevenue, user?._id, user?.adminStudioLocation]);
+
+  useEffect(() => {
     const fetchRevenueData = async () => {
-      if (isRevenueLocked) return;
+      if (isRevenueLocked) {
+        setTransactions([]);
+        setPasses([]);
+        setSelectedTx(null);
+        setReceiptTx(null);
+        return;
+      }
       try {
-        const res = await axiosInstance.get(
-          API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
-        );
-        if (res.data) setTransactions(res.data);
+        const [purchaseResponse, passResponse] = await Promise.all([
+          axiosInstance.get(
+            API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
+            { headers: revenueRequestHeaders },
+          ),
+          axiosInstance.get(
+            `/api/passes/history/${user.adminStudioLocation}`,
+            { headers: revenueRequestHeaders },
+          ),
+        ]);
+        if (purchaseResponse.data) setTransactions(purchaseResponse.data);
+        if (passResponse.data) setPasses(passResponse.data);
       } catch (error) {
-        console.error("Failed to fetch revenue:", error);
+        if (isFinancialStepUpError(error)) {
+          setRevenuePasswordError(
+            "Authorization expired. Verify your password again.",
+          );
+          lockRevenue();
+        } else {
+          console.error("Failed to fetch revenue:", error);
+        }
       }
     };
     fetchRevenueData();
-  }, [isRevenueLocked, user.adminStudioLocation]);
+  }, [
+    isRevenueLocked,
+    lockRevenue,
+    revenueRequestHeaders,
+    user.adminStudioLocation,
+  ]);
 
   // --- Derived Stats Calculations ---
   const studentOptions = useMemo(() => {
@@ -1588,7 +1636,7 @@ const StudioReports = () => {
           : Math.round((methodStats[key] / totalRevenue) * 100),
       color:
         key === "Pay at Studio"
-          ? "bg-emerald-500"
+          ? "bg-stone-500"
           : key === "Transfer"
             ? "bg-blue-500"
             : "bg-purple-500",
@@ -1866,13 +1914,13 @@ const StudioReports = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className='p-6 md:p-10 bg-gray-50 h-full overflow-y-auto relative'>
-      <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-gray-200 pb-8 bg-white p-6 rounded-2xl shadow-sm'>
+    <div className='p-6 md:p-10 bg-stone-50 h-full overflow-y-auto relative'>
+      <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-stone-200 pb-8 bg-white p-6 rounded-2xl shadow-sm'>
         <div>
-          <h2 className='text-3xl font-extrabold text-gray-900 tracking-tight'>
+          <h2 className='text-3xl font-extrabold text-stone-900 tracking-tight'>
             Master Studio Report
           </h2>
-          <p className='text-gray-500 mt-1 max-w-lg'>
+          <p className='text-stone-500 mt-1 max-w-lg'>
             Comprehensive performance data across financials, attendance,
             instructors, and packages. Apply filters below to customize the
             view.
@@ -1908,7 +1956,7 @@ const StudioReports = () => {
           </div>
           <button
             onClick={generateMasterPDF}
-            className='flex items-center gap-2 bg-emerald-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-emerald-800 transition-colors w-full md:w-auto justify-center group'>
+            className='flex items-center gap-2 bg-stone-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-stone-700 transition-colors w-full md:w-auto justify-center group'>
             <FileDown className='w-4 h-4 group-hover:-translate-y-0.5 transition-transform' />{" "}
             Export Master PDF
           </button>
@@ -1916,10 +1964,10 @@ const StudioReports = () => {
       </div>
 
       <div className='space-y-12 pb-20'>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
           {isRevenueLocked ? (
             <PasswordGateInline
-              onUnlock={() => setIsRevenueLocked(false)}
+              onUnlock={unlockRevenue}
               error={revenuePasswordError}
               setError={setRevenuePasswordError}
             />
@@ -1933,7 +1981,7 @@ const StudioReports = () => {
             />
           )}
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
           <AttendanceSection
             bookings={attendanceStats.data}
             stats={attendanceStats.stats}
@@ -1941,13 +1989,13 @@ const StudioReports = () => {
             selectedStudentName={selectedStudentName}
           />
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
           <InstructorSection
             stats={instructorStats.data}
             classesCount={instructorStats.totalClasses}
           />
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-gray-100'>
+        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
           <PackageUsageSection
             passes={packageFiltered}
             onRowClick={setModalStudent}

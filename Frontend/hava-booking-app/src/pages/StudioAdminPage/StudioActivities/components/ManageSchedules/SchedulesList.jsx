@@ -379,19 +379,19 @@ const SchedulesList = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-gray-50 min-h-screen relative`}>
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-stone-50 min-h-screen relative`}>
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-20'>
         <div className='flex items-center gap-4 relative w-full md:w-auto'>
           <div className='relative' ref={headerCalendarRef}>
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all border ${showDatePicker ? "bg-emerald-50 border-emerald-200 ring-2 ring-emerald-100" : "bg-white border-transparent hover:bg-gray-100"}`}>
-              <div className='bg-emerald-100 text-emerald-700 p-2 rounded-lg'>
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all border ${showDatePicker ? "bg-stone-100 border-stone-300 ring-2 ring-stone-200" : "bg-white border-transparent hover:bg-stone-100"}`}>
+              <div className='bg-stone-200 text-stone-800 p-2 rounded-lg'>
                 <CalendarIcon className='w-5 h-5' />
               </div>
               <div className='text-left'>
                 <div className='flex items-center gap-2'>
-                  <h2 className='text-lg font-bold text-gray-900 leading-tight'>
+                  <h2 className='text-lg font-bold text-stone-900 leading-tight'>
                     {format(weekStart, "MMMM yyyy")}
                   </h2>
                   <div
@@ -399,17 +399,17 @@ const SchedulesList = ({ isEmbedded = false }) => {
                     onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
-                      className='p-1 hover:bg-gray-200 rounded-md text-gray-500 transition-colors'>
+                      className='p-1 hover:bg-stone-200 rounded-md text-stone-500 transition-colors'>
                       <ChevronLeft className='w-4 h-4' />
                     </button>
                     <button
                       onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
-                      className='p-1 hover:bg-gray-200 rounded-md text-gray-500 transition-colors'>
+                      className='p-1 hover:bg-stone-200 rounded-md text-stone-500 transition-colors'>
                       <ChevronRight className='w-4 h-4' />
                     </button>
                   </div>
                 </div>
-                <p className='text-xs text-gray-500 font-medium'>
+                <p className='text-xs text-stone-500 font-medium'>
                   Week: {format(weekStart, "d MMM")} -{" "}
                   {format(endOfWeek(currentDate, { weekStartsOn: 1 }), "d MMM")}
                 </p>
@@ -421,7 +421,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className='absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-[320px] z-50'>
+                  className='absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-xl border border-stone-200 p-4 w-[320px] z-50'>
                   <HeaderWeekCalendar
                     selectedDate={currentDate}
                     onChange={(date) => {
@@ -435,28 +435,28 @@ const SchedulesList = ({ isEmbedded = false }) => {
           </div>
           <button
             onClick={() => setCurrentDate(new Date())}
-            className='text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors ml-2 whitespace-nowrap hidden md:block'>
+            className='text-xs font-bold text-stone-800 bg-stone-100 px-3 py-1.5 rounded-lg hover:bg-stone-200 transition-colors ml-2 whitespace-nowrap hidden md:block'>
             Current Week
           </button>
         </div>
 
         <div className='flex items-center justify-end gap-3 w-full md:w-auto'>
-          <div className='flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm'>
+          <div className='flex bg-white p-1 rounded-xl border border-stone-200 shadow-sm'>
             <button
               onClick={() => setViewMode("ALL")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${viewMode === "ALL" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${viewMode === "ALL" ? "bg-stone-100 text-stone-900" : "text-stone-500 hover:text-stone-700"}`}>
               <Layers className='w-3.5 h-3.5' /> All
             </button>
             <button
               onClick={() => setViewMode("LOCAL")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${viewMode === "LOCAL" ? "bg-emerald-50 text-emerald-700" : "text-gray-500 hover:text-gray-700"}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${viewMode === "LOCAL" ? "bg-stone-100 text-stone-800" : "text-stone-500 hover:text-stone-700"}`}>
               <Building2 className='w-3.5 h-3.5' /> My Studio
             </button>
           </div>
           <button
             disabled={isPrinting}
             onClick={handleGenerateMasterPDF}
-            className='flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-wait whitespace-nowrap'>
+            className='flex items-center gap-2 bg-white text-stone-700 border border-stone-200 px-4 py-2.5 rounded-xl font-bold hover:bg-stone-50 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-wait whitespace-nowrap'>
             {isPrinting ? (
               <Loader2 className='w-5 h-5 animate-spin' />
             ) : (
@@ -468,27 +468,27 @@ const SchedulesList = ({ isEmbedded = false }) => {
           </button>
           <button
             onClick={openCreateModal}
-            className='flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-shadow shadow-lg shadow-gray-900/20 whitespace-nowrap'>
+            className='flex items-center gap-2 bg-stone-700 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-stone-600 transition-shadow shadow-lg shadow-stone-700/20 whitespace-nowrap'>
             <Plus className='w-5 h-5' /> Schedule
           </button>
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden'>
-        <div className='grid grid-cols-7 border-b border-gray-100 bg-gray-50/80'>
+      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
+        <div className='grid grid-cols-7 border-b border-stone-100 bg-stone-50/80'>
           {weekDays.map((day) => {
             const isToday = isSameDay(day, new Date());
             return (
               <div
                 key={day.toString()}
-                className={`py-4 text-center border-r border-gray-100 last:border-r-0 ${isToday ? "bg-emerald-50/50" : ""}`}>
+                className={`py-4 text-center border-r border-stone-100 last:border-r-0 ${isToday ? "bg-stone-100/50" : ""}`}>
                 <p
-                  className={`text-xs font-bold uppercase mb-1 ${isToday ? "text-emerald-600" : "text-gray-400"}`}>
+                  className={`text-xs font-bold uppercase mb-1 ${isToday ? "text-stone-800" : "text-stone-400"}`}>
                   {format(day, "EEE")}
                 </p>
                 <div className='flex justify-center'>
                   <span
-                    className={`text-sm font-bold px-2 py-1 rounded-full ${isToday ? "bg-emerald-500 text-white shadow-sm" : "text-gray-900"}`}>
+                    className={`text-sm font-bold px-2 py-1 rounded-full ${isToday ? "bg-stone-500 text-white shadow-sm" : "text-stone-900"}`}>
                     {format(day, "dd MMM")}
                   </span>
                 </div>
@@ -502,7 +502,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
             <LoadingSpinner />
           </div>
         ) : (
-          <div className='grid grid-cols-7 divide-x divide-gray-100 min-h-[500px]'>
+          <div className='grid grid-cols-7 divide-x divide-stone-100 min-h-[500px]'>
             {weekDays.map((day) => {
               const dayClasses = filteredClasses
                 .filter((c) => isSameDay(parseISO(c.startTime), day))
@@ -511,7 +511,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
               return (
                 <div
                   key={day.toString()}
-                  className={`p-2 space-y-3 ${isSameDay(day, new Date()) ? "bg-gray-50/30" : ""}`}>
+                  className={`p-2 space-y-3 ${isSameDay(day, new Date()) ? "bg-stone-50/30" : ""}`}>
                   {dayClasses.map((cls) => {
                     const clsStudioId =
                       typeof cls.studioId === "object"
@@ -526,35 +526,35 @@ const SchedulesList = ({ isEmbedded = false }) => {
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
                         whileHover={{ scale: 1.02, y: -2 }}
-                        className={`p-3 rounded-xl border border-l-4 shadow-sm transition-all relative group ${isExternal ? "bg-gray-50 border-gray-200 border-l-gray-400 opacity-80" : `cursor-pointer hover:shadow-md bg-white border-gray-200 ${!cls.isActive ? "opacity-60 bg-red-50/30 border-l-red-400" : "border-l-emerald-500"}`}`}>
+                        className={`p-3 rounded-xl border border-l-4 shadow-sm transition-all relative group ${isExternal ? "bg-stone-50 border-stone-200 border-l-stone-400 opacity-80" : `cursor-pointer hover:shadow-md bg-white border-stone-200 ${!cls.isActive ? "opacity-60 bg-red-50/30 border-l-red-400" : "border-l-stone-500"}`}`}>
                         <div className='flex justify-between items-start mb-1'>
                           <p
-                            className={`text-xs font-bold flex items-center gap-1 ${isExternal ? "text-gray-500" : !cls.isActive ? "text-red-700" : "text-emerald-700"}`}>
+                            className={`text-xs font-bold flex items-center gap-1 ${isExternal ? "text-stone-500" : !cls.isActive ? "text-red-700" : "text-stone-800"}`}>
                             <Clock className='w-3 h-3' />
                             {format(parseISO(cls.startTime), "HH:mm")}
                           </p>
                           {cls.isRecurring && !isExternal && (
-                            <Repeat className='w-3 h-3 text-gray-300' />
+                            <Repeat className='w-3 h-3 text-stone-300' />
                           )}
                           {isExternal && (
-                            <Lock className='w-3 h-3 text-gray-300' />
+                            <Lock className='w-3 h-3 text-stone-300' />
                           )}
                         </div>
                         <h4
-                          className={`font-bold text-sm leading-tight mb-1 ${isExternal || !cls.isActive ? "text-gray-500" : "text-gray-900"} ${!cls.isActive && !isExternal ? "line-through opacity-80" : ""}`}>
+                          className={`font-bold text-sm leading-tight mb-1 ${isExternal || !cls.isActive ? "text-stone-500" : "text-stone-900"} ${!cls.isActive && !isExternal ? "line-through opacity-80" : ""}`}>
                           {cls.className}
                         </h4>
-                        <p className='text-xs text-gray-500 mb-2 truncate'>
+                        <p className='text-xs text-stone-500 mb-2 truncate'>
                           {cls.instructorId?.fullName || "No Instructor"}
                         </p>
-                        <div className='flex items-center gap-1.5 pt-2 border-t border-gray-100'>
+                        <div className='flex items-center gap-1.5 pt-2 border-t border-stone-100'>
                           {!cls.isActive && !isExternal ? (
                             <span className='px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200'>
                               INACTIVE
                             </span>
                           ) : (
                             <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isExternal ? "bg-gray-200 text-gray-600" : cls.classType === "Private" ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isExternal ? "bg-stone-200 text-stone-600" : cls.classType === "Private" ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
                               {cls.classType}
                             </span>
                           )}
@@ -618,20 +618,20 @@ const GenericAlertModal = ({ title, message, type, onClose }) => {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className='bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center border border-gray-100'>
+        className='bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center border border-stone-100'>
         <div
-          className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${type === "error" ? "bg-red-100 text-red-600" : "bg-[#dcfce7] text-[#166534]"}`}>
+          className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${type === "error" ? "bg-red-100 text-red-600" : "bg-stone-100 text-stone-800"}`}>
           {type === "error" ? (
             <AlertCircle className='w-6 h-6' />
           ) : (
             <CheckCircle2 className='w-6 h-6' />
           )}
         </div>
-        <h3 className='text-lg font-bold text-gray-900 mb-2'>{title}</h3>
-        <p className='text-gray-500 text-sm mb-6'>{message}</p>
+        <h3 className='text-lg font-bold text-stone-900 mb-2'>{title}</h3>
+        <p className='text-stone-500 text-sm mb-6'>{message}</p>
         <button
           onClick={onClose}
-          className='w-full py-2.5 bg-[#111827] text-white font-bold rounded-xl hover:bg-gray-800 transition-all'>
+          className='w-full py-2.5 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-all'>
           Close
         </button>
       </motion.div>
@@ -663,9 +663,9 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
           key={day.toString()}
           type='button'
           onClick={() => onChange(cloneDay)}
-          className={`w-full h-9 flex items-center justify-center text-xs font-bold transition-all relative ${isWeekSelected ? "bg-emerald-50 text-emerald-900" : "hover:bg-gray-50 text-gray-700"} ${!isCurrentMonth && !isWeekSelected ? "text-gray-300" : ""} ${isWeekSelected && i === 0 ? "rounded-l-lg" : ""} ${isWeekSelected && i === 6 ? "rounded-r-lg" : ""}`}>
+          className={`w-full h-9 flex items-center justify-center text-xs font-bold transition-all relative ${isWeekSelected ? "bg-stone-100 text-stone-900" : "hover:bg-stone-50 text-stone-700"} ${!isCurrentMonth && !isWeekSelected ? "text-stone-300" : ""} ${isWeekSelected && i === 0 ? "rounded-l-lg" : ""} ${isWeekSelected && i === 6 ? "rounded-r-lg" : ""}`}>
           <span
-            className={`flex items-center justify-center w-7 h-7 rounded-full ${isSpecificDay ? "bg-emerald-600 text-white shadow-md" : ""}`}>
+            className={`flex items-center justify-center w-7 h-7 rounded-full ${isSpecificDay ? "bg-stone-600 text-white shadow-md" : ""}`}>
             {format(day, "d")}
           </span>
         </button>,
@@ -684,7 +684,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
   return (
     <div className='p-2'>
       <div className='flex justify-between items-center mb-4 px-1'>
-        <h3 className='font-bold text-gray-900'>
+        <h3 className='font-bold text-stone-900'>
           {format(currentMonth, "MMMM yyyy")}
         </h3>
         <div className='flex gap-1'>
@@ -694,7 +694,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
               e.stopPropagation();
               setCurrentMonth(subMonths(currentMonth, 1));
             }}
-            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            className='p-1 hover:bg-stone-100 rounded-lg text-stone-500'>
             <ChevronLeft className='w-4 h-4' />
           </button>
           <button
@@ -703,7 +703,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
               e.stopPropagation();
               setCurrentMonth(addMonths(currentMonth, 1));
             }}
-            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            className='p-1 hover:bg-stone-100 rounded-lg text-stone-500'>
             <ChevronRight className='w-4 h-4' />
           </button>
         </div>
@@ -712,7 +712,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
         {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
           <div
             key={d}
-            className='text-[10px] font-bold text-gray-400 uppercase'>
+            className='text-[10px] font-bold text-stone-400 uppercase'>
             {d}
           </div>
         ))}
@@ -748,7 +748,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
             e.preventDefault();
             onChange(cloneDay);
           }}
-          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all ${!isCurrentMonth ? "text-gray-300" : "text-gray-700 hover:bg-gray-100"} ${isSpecificDay ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700" : ""}`}>
+          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all ${!isCurrentMonth ? "text-stone-300" : "text-stone-700 hover:bg-stone-100"} ${isSpecificDay ? "bg-stone-600 text-white shadow-md hover:bg-stone-700" : ""}`}>
           {format(day, "d")}
         </button>,
       );
@@ -764,7 +764,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
   return (
     <div className='p-3'>
       <div className='flex justify-between items-center mb-4 px-1'>
-        <h3 className='font-bold text-gray-900 text-sm'>
+        <h3 className='font-bold text-stone-900 text-sm'>
           {format(currentMonth, "MMMM yyyy")}
         </h3>
         <div className='flex gap-1'>
@@ -774,7 +774,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
               e.stopPropagation();
               setCurrentMonth(subMonths(currentMonth, 1));
             }}
-            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            className='p-1 hover:bg-stone-100 rounded-lg text-stone-500'>
             <ChevronLeft className='w-4 h-4' />
           </button>
           <button
@@ -783,7 +783,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
               e.stopPropagation();
               setCurrentMonth(addMonths(currentMonth, 1));
             }}
-            className='p-1 hover:bg-gray-100 rounded-lg text-gray-500'>
+            className='p-1 hover:bg-stone-100 rounded-lg text-stone-500'>
             <ChevronRight className='w-4 h-4' />
           </button>
         </div>
@@ -792,7 +792,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
         {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
           <div
             key={d}
-            className='w-8 text-[10px] font-bold text-gray-400 uppercase'>
+            className='w-8 text-[10px] font-bold text-stone-400 uppercase'>
             {d}
           </div>
         ))}
@@ -815,15 +815,15 @@ const DateSelectPopover = ({ value, onChange, label }) => {
 
   return (
     <div className='relative' ref={ref}>
-      <label className='block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider'>
+      <label className='block text-xs font-bold text-stone-500 mb-1.5 uppercase tracking-wider'>
         {label}
       </label>
       <button
         type='button'
         onClick={() => setOpen(!open)}
-        className='w-full p-3.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all flex items-center justify-between bg-white shadow-sm hover:bg-gray-50'>
+        className='w-full p-3.5 border border-stone-200 rounded-xl text-sm font-bold text-stone-700 outline-none focus:border-stone-500 focus:ring-1 focus:ring-stone-500 transition-all flex items-center justify-between bg-white shadow-sm hover:bg-stone-50'>
         <div className='flex items-center gap-2'>
-          <CalendarDays className='w-4 h-4 text-emerald-600' />
+          <CalendarDays className='w-4 h-4 text-stone-800' />
           {value ? format(parseISO(value), "dd MMMM yyyy") : "Select Date"}
         </div>
       </button>
@@ -833,7 +833,7 @@ const DateSelectPopover = ({ value, onChange, label }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className='absolute z-[100] mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-2 w-[300px] left-1/2 -translate-x-1/2 bottom-full mb-2'>
+            className='absolute z-[100] mt-2 bg-white rounded-2xl shadow-xl border border-stone-200 p-2 w-[300px] left-1/2 -translate-x-1/2 bottom-full mb-2'>
             <InputDatePicker
               selectedDate={value ? parseISO(value) : new Date()}
               onChange={(d) => {
@@ -886,23 +886,23 @@ const RecurrenceActionCards = ({
           <div
             key={opt.id}
             onClick={() => setMode(opt.id)}
-            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${mode === opt.id ? "border-emerald-500 bg-emerald-50/50 shadow-sm" : "border-gray-100 bg-white hover:border-emerald-200"}`}>
+            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${mode === opt.id ? "border-stone-500 bg-stone-100/50 shadow-sm" : "border-stone-100 bg-white hover:border-stone-300"}`}>
             <div
-              className={`mt-0.5 ${mode === opt.id ? "text-emerald-600" : "text-gray-400"}`}>
+              className={`mt-0.5 ${mode === opt.id ? "text-stone-800" : "text-stone-400"}`}>
               {opt.icon}
             </div>
             <div>
               <h4
-                className={`text-sm font-bold ${mode === opt.id ? "text-emerald-900" : "text-gray-700"}`}>
+                className={`text-sm font-bold ${mode === opt.id ? "text-stone-900" : "text-stone-700"}`}>
                 {opt.title}
               </h4>
               <p
-                className={`text-xs mt-1 ${mode === opt.id ? "text-emerald-700" : "text-gray-500"}`}>
+                className={`text-xs mt-1 ${mode === opt.id ? "text-stone-800" : "text-stone-500"}`}>
                 {opt.desc}
               </p>
             </div>
             {mode === opt.id && (
-              <div className='ml-auto mt-0.5 text-emerald-600'>
+              <div className='ml-auto mt-0.5 text-stone-800'>
                 <CheckCircle2 className='w-5 h-5' />
               </div>
             )}
@@ -928,10 +928,10 @@ const RecurrenceActionCards = ({
         )}
       </AnimatePresence>
 
-      <div className='flex gap-3 pt-4 border-t border-gray-100'>
+      <div className='flex gap-3 pt-4 border-t border-stone-100'>
         <button
           onClick={onCancel}
-          className='flex-1 py-3 bg-white text-gray-600 border border-gray-200 font-bold rounded-xl hover:bg-gray-50 transition-colors'>
+          className='flex-1 py-3 bg-white text-stone-600 border border-stone-200 font-bold rounded-xl hover:bg-stone-50 transition-colors'>
           Cancel
         </button>
         <button
@@ -940,7 +940,7 @@ const RecurrenceActionCards = ({
             loading ||
             (mode === "single" && actionType === "toggle" && !targetDate)
           }
-          className={`flex-1 py-3 font-bold rounded-xl transition-all shadow-lg active:scale-95 text-white ${actionType === "delete" ? "bg-red-600 hover:bg-red-700 shadow-red-600/20" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"} disabled:opacity-50`}>
+          className={`flex-1 py-3 font-bold rounded-xl transition-all shadow-lg active:scale-95 text-white ${actionType === "delete" ? "bg-red-600 hover:bg-red-700 shadow-red-600/20" : "bg-stone-600 hover:bg-stone-700 shadow-stone-600/20"} disabled:opacity-50`}>
           {loading ? "Processing..." : `Confirm ${actionText}`}
         </button>
       </div>
@@ -1168,19 +1168,19 @@ const ClassDetailsModal = ({
           <div className='flex gap-4'>
             <button
               onClick={() => setActiveTab("details")}
-              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "details" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
+              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "details" ? "border-stone-500 text-stone-800" : "border-transparent text-stone-400"}`}>
               Details
             </button>
             <button
               onClick={() => setActiveTab("attendees")}
-              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "attendees" ? "border-emerald-500 text-emerald-700" : "border-transparent text-gray-400"}`}>
+              className={`font-bold text-sm pb-1 border-b-2 transition-colors ${activeTab === "attendees" ? "border-stone-500 text-stone-800" : "border-transparent text-stone-400"}`}>
               Attendees
             </button>
           </div>
           <button
             onClick={onClose}
-            className='p-1 hover:bg-gray-100 rounded-full'>
-            <X className='w-5 h-5 text-gray-400' />
+            className='p-1 hover:bg-stone-100 rounded-full'>
+            <X className='w-5 h-5 text-stone-400' />
           </button>
         </div>
 
@@ -1215,10 +1215,10 @@ const ClassDetailsModal = ({
                   <Clock className='w-5 h-5' />
                 </div>
                 <div>
-                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                  <p className='text-xs font-bold text-stone-400 uppercase'>
                     Time
                   </p>
-                  <p className='font-bold text-gray-900'>
+                  <p className='font-bold text-stone-900'>
                     {format(parseISO(classData.startTime), "EEEE, dd MMM")} •{" "}
                     {format(parseISO(classData.startTime), "HH:mm")}
                   </p>
@@ -1229,10 +1229,10 @@ const ClassDetailsModal = ({
                   <BadgeCheck className='w-5 h-5' />
                 </div>
                 <div>
-                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                  <p className='text-xs font-bold text-stone-400 uppercase'>
                     Instructor
                   </p>
-                  <p className='font-medium text-gray-900'>
+                  <p className='font-medium text-stone-900'>
                     {classData.instructorId?.fullName} - {displayInstructorType}
                   </p>
                 </div>
@@ -1242,23 +1242,23 @@ const ClassDetailsModal = ({
                   <Users className='w-5 h-5' />
                 </div>
                 <div>
-                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                  <p className='text-xs font-bold text-stone-400 uppercase'>
                     Capacity
                   </p>
-                  <p className='font-bold text-gray-900'>
+                  <p className='font-bold text-stone-900'>
                     {classData.currentEnrollment} / {classData.capacity}
                   </p>
                 </div>
               </div>
               <div className='flex items-center gap-3'>
-                <div className='bg-gray-100 p-2 rounded-lg text-gray-600'>
+                <div className='bg-stone-100 p-2 rounded-lg text-stone-600'>
                   <MapPin className='w-5 h-5' />
                 </div>
                 <div>
-                  <p className='text-xs font-bold text-gray-400 uppercase'>
+                  <p className='text-xs font-bold text-stone-400 uppercase'>
                     Location
                   </p>
-                  <p className='font-medium text-gray-900'>
+                  <p className='font-medium text-stone-900'>
                     {typeof classData.studioId === "object"
                       ? classData.studioId.studioName
                       : "External Studio"}
@@ -1270,7 +1270,7 @@ const ClassDetailsModal = ({
                 <div className='pt-6 border-t flex gap-2'>
                   <button
                     onClick={() => handleInitialClick("toggle")}
-                    className={`flex-1 py-3 font-bold rounded-xl ${classData.isActive ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                    className={`flex-1 py-3 font-bold rounded-xl ${classData.isActive ? "bg-amber-50 text-amber-700" : "bg-stone-100 text-stone-800"}`}>
                     {classData.isActive ? "Deactivate" : "Activate"}
                   </button>
                   <button
@@ -1300,12 +1300,12 @@ const ClassDetailsModal = ({
                           setShowAddStudent(true);
                           fetchUsers();
                         }}
-                        className='flex items-center gap-2 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold'>
+                        className='flex items-center gap-2 bg-stone-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold'>
                         <Plus className='w-3 h-3' /> Add Student
                       </button>
                     </div>
                   ) : (
-                    <div className='p-4 border-b bg-gray-50'>
+                    <div className='p-4 border-b bg-stone-50'>
                       <div className='flex justify-between mb-2'>
                         <h4 className='font-bold text-sm'>Add Booking</h4>
                         <button onClick={() => setShowAddStudent(false)}>
@@ -1332,17 +1332,17 @@ const ClassDetailsModal = ({
                                   <div
                                     key={p._id}
                                     onClick={() => setSelectedPass(p._id)}
-                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer group ${isSelected ? "border-emerald-500 bg-emerald-50/50 shadow-sm" : "border-gray-100 bg-white hover:border-emerald-200"}`}>
+                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer group ${isSelected ? "border-stone-500 bg-stone-100/50 shadow-sm" : "border-stone-100 bg-white hover:border-stone-300"}`}>
                                     <div className='flex justify-between items-start mb-2'>
                                       <div>
                                         <h5
-                                          className={`font-bold text-sm ${isSelected ? "text-emerald-900" : "text-gray-900"}`}>
+                                          className={`font-bold text-sm ${isSelected ? "text-stone-900" : "text-stone-900"}`}>
                                           {p.packageId?.packageName ||
                                             "Unnamed Pass"}
                                         </h5>
-                                        <p className='text-[10px] text-gray-500 mt-0.5'>
+                                        <p className='text-[10px] text-stone-500 mt-0.5'>
                                           Expires:{" "}
-                                          <span className='font-medium text-gray-700'>
+                                          <span className='font-medium text-stone-700'>
                                             {p.expiryDate
                                               ? format(
                                                   new Date(p.expiryDate),
@@ -1353,7 +1353,7 @@ const ClassDetailsModal = ({
                                         </p>
                                       </div>
                                       <div
-                                        className={`text-right ${isSelected ? "text-emerald-700" : "text-gray-600"}`}>
+                                        className={`text-right ${isSelected ? "text-stone-800" : "text-stone-600"}`}>
                                         <span className='text-xl font-bold'>
                                           {p.remainingCredits}
                                         </span>
@@ -1362,7 +1362,7 @@ const ClassDetailsModal = ({
                                         </span>
                                       </div>
                                     </div>
-                                    <div className='space-y-1.5 pt-2 border-t border-gray-100/50'>
+                                    <div className='space-y-1.5 pt-2 border-t border-stone-100/50'>
                                       <div className='flex flex-wrap gap-1'>
                                         {p.classType &&
                                           p.classType.map((type, i) => (
@@ -1385,7 +1385,7 @@ const ClassDetailsModal = ({
                                       </div>
                                     </div>
                                     {isSelected && (
-                                      <div className='absolute bottom-3 right-3 bg-emerald-500 text-white rounded-full p-0.5'>
+                                      <div className='absolute bottom-3 right-3 bg-stone-500 text-white rounded-full p-0.5'>
                                         <Check className='w-3 h-3' />
                                       </div>
                                     )}
@@ -1394,8 +1394,8 @@ const ClassDetailsModal = ({
                               })}
                             </div>
                           ) : (
-                            <div className='text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200'>
-                              <p className='text-gray-400 text-xs font-medium'>
+                            <div className='text-center py-6 bg-stone-50 rounded-xl border border-dashed border-stone-200'>
+                              <p className='text-stone-400 text-xs font-medium'>
                                 No valid passes available for this class.
                               </p>
                             </div>
@@ -1403,7 +1403,7 @@ const ClassDetailsModal = ({
                           <button
                             disabled={!selectedPass || bookingProcessing}
                             onClick={handleAddStudent}
-                            className='w-full py-2 bg-emerald-900 text-white rounded-lg text-xs font-bold mt-2'>
+                            className='w-full py-2 bg-stone-600 text-white rounded-lg text-xs font-bold mt-2'>
                             Confirm
                           </button>
                         </div>
@@ -1419,7 +1419,7 @@ const ClassDetailsModal = ({
                           <p className='font-bold text-sm'>
                             {b.userId?.fullName || "Unknown User"}
                           </p>
-                          <p className='text-xs text-gray-500'>
+                          <p className='text-xs text-stone-500'>
                             {b.passId?.packageId?.packageName ||
                               b.passId?.passName ||
                               "Unknown Pass"}
@@ -1428,27 +1428,27 @@ const ClassDetailsModal = ({
                         <div className='flex gap-2'>
                           <button
                             onClick={() => handleCheckIn(b._id)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold border ${b.isAttend ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-white border-gray-200"}`}>
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border ${b.isAttend ? "bg-stone-100 text-stone-800 border-stone-300" : "bg-white border-stone-200"}`}>
                             {b.isAttend ? "Present" : "Check In"}
                           </button>
                           <button
                             onClick={() => handleCancelBooking(b._id)}
-                            className='p-1 text-gray-400 hover:text-red-500'>
+                            className='p-1 text-stone-400 hover:text-red-500'>
                             <Trash2 className='w-4 h-4' />
                           </button>
                         </div>
                       </div>
                     ))}
                     {bookings.length === 0 && (
-                      <div className='text-center text-gray-400 py-10'>
+                      <div className='text-center text-stone-400 py-10'>
                         No bookings yet.
                       </div>
                     )}
                   </div>
                 </>
               ) : (
-                <div className='flex flex-col items-center justify-center h-full text-center p-8 text-gray-500'>
-                  <Lock className='w-8 h-8 mb-2 text-gray-300' />
+                <div className='flex flex-col items-center justify-center h-full text-center p-8 text-stone-500'>
+                  <Lock className='w-8 h-8 mb-2 text-stone-300' />
                   <p className='font-bold'>View Only</p>
                   <p className='text-xs'>
                     Attendee list is restricted for external studios.
@@ -1469,17 +1469,17 @@ const ClassDetailsModal = ({
               className='absolute inset-0 bg-white/95 z-[70] flex items-center justify-center backdrop-blur-sm'>
               <div className='text-center p-6 w-full max-w-sm'>
                 <div
-                  className={`mx-auto flex items-center justify-center w-12 h-12 rounded-full mb-4 ${confirmationData.type === "delete" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>
+                  className={`mx-auto flex items-center justify-center w-12 h-12 rounded-full mb-4 ${confirmationData.type === "delete" ? "bg-red-100 text-red-600" : "bg-stone-200 text-stone-800"}`}>
                   {confirmationData.type === "delete" ? (
                     <Trash2 className='w-6 h-6' />
                   ) : (
                     <Power className='w-6 h-6' />
                   )}
                 </div>
-                <h3 className='font-bold text-lg text-gray-900 mb-2'>
+                <h3 className='font-bold text-lg text-stone-900 mb-2'>
                   Are you sure?
                 </h3>
-                <p className='text-sm text-gray-500 mb-6'>
+                <p className='text-sm text-stone-500 mb-6'>
                   You are about to{" "}
                   {confirmationData.type === "delete"
                     ? "permanently delete"
@@ -1491,12 +1491,12 @@ const ClassDetailsModal = ({
                 <div className='flex gap-3 justify-center'>
                   <button
                     onClick={() => setConfirmationData(null)}
-                    className='flex-1 py-3 text-gray-600 border border-gray-200 rounded-xl font-bold hover:bg-gray-50'>
+                    className='flex-1 py-3 text-stone-600 border border-stone-200 rounded-xl font-bold hover:bg-stone-50'>
                     Cancel
                   </button>
                   <button
                     onClick={() => executeAction()}
-                    className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg ${confirmationData.type === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}>
+                    className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg ${confirmationData.type === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-stone-600 hover:bg-stone-700"}`}>
                     Confirm
                   </button>
                 </div>
@@ -1514,17 +1514,17 @@ const ClassDetailsModal = ({
               exit={{ opacity: 0 }}
               className='absolute inset-0 bg-white/95 z-[70] flex flex-col items-center justify-center p-6 backdrop-blur-sm'>
               <div
-                className={`flex items-center justify-center w-12 h-12 rounded-full mb-4 ${showRecurrenceOption === "delete" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>
+                className={`flex items-center justify-center w-12 h-12 rounded-full mb-4 ${showRecurrenceOption === "delete" ? "bg-red-100 text-red-600" : "bg-stone-200 text-stone-800"}`}>
                 {showRecurrenceOption === "delete" ? (
                   <Trash2 className='w-6 h-6' />
                 ) : (
                   <Power className='w-6 h-6' />
                 )}
               </div>
-              <h3 className='text-xl font-bold text-gray-900 mb-2'>
+              <h3 className='text-xl font-bold text-stone-900 mb-2'>
                 Recurring Class
               </h3>
-              <p className='text-sm text-gray-500 mb-2 text-center max-w-xs'>
+              <p className='text-sm text-stone-500 mb-2 text-center max-w-xs'>
                 This class is part of an ongoing series. How would you like to
                 apply this action?
               </p>
@@ -2028,14 +2028,14 @@ const CreateClassModal = ({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 20, opacity: 0 }}
         className='relative bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col'>
-        <div className='p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0'>
-          <h3 className='font-bold text-xl text-gray-900'>
+        <div className='p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50 shrink-0'>
+          <h3 className='font-bold text-xl text-stone-900'>
             {initialData ? "Edit Class" : "Schedule New Class"}
           </h3>
           <button
             onClick={onClose}
-            className='p-1 hover:bg-gray-200 rounded-full'>
-            <X className='w-5 h-5 text-gray-500' />
+            className='p-1 hover:bg-stone-200 rounded-full'>
+            <X className='w-5 h-5 text-stone-500' />
           </button>
         </div>
 
@@ -2043,17 +2043,17 @@ const CreateClassModal = ({
           <form onSubmit={handleSubmit} className='space-y-6'>
             {/* --- Schedule Type Selection --- */}
             {!initialData && (
-              <div className='flex gap-2 p-1.5 bg-gray-100 rounded-xl mb-4'>
+              <div className='flex gap-2 p-1.5 bg-stone-100 rounded-xl mb-4'>
                 <button
                   type='button'
                   onClick={() => setForm({ ...form, isRecurring: false })}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${!form.isRecurring ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${!form.isRecurring ? "bg-white shadow-sm text-stone-900" : "text-stone-500 hover:text-stone-700"}`}>
                   Single Class
                 </button>
                 <button
                   type='button'
                   onClick={() => setForm({ ...form, isRecurring: true })}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${form.isRecurring ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${form.isRecurring ? "bg-white shadow-sm text-stone-900" : "text-stone-500 hover:text-stone-700"}`}>
                   Recurring Series
                 </button>
               </div>
@@ -2061,11 +2061,11 @@ const CreateClassModal = ({
 
             <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
               <div className='col-span-2'>
-                <label className='block text-sm font-bold text-gray-700 mb-1'>
+                <label className='block text-sm font-bold text-stone-700 mb-1'>
                   Class Name
                 </label>
                 <input
-                  className='w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
+                  className='w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-stone-500'
                   placeholder='e.g. Master - Private Class'
                   value={form.className}
                   onChange={(e) =>
@@ -2075,11 +2075,11 @@ const CreateClassModal = ({
                 />
               </div>
               <div className='col-span-2'>
-                <label className='block text-sm font-bold text-gray-700 mb-1'>
+                <label className='block text-sm font-bold text-stone-700 mb-1'>
                   Description
                 </label>
                 <textarea
-                  className='w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 h-24 resize-none'
+                  className='w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-stone-500 h-24 resize-none'
                   placeholder='Details about the class...'
                   value={form.description}
                   onChange={(e) =>
@@ -2099,11 +2099,11 @@ const CreateClassModal = ({
                 />
               </div>
               <div>
-                <label className='block text-xs font-bold text-gray-700 mb-1'>
+                <label className='block text-xs font-bold text-stone-700 mb-1'>
                   Instructor Type
                 </label>
-                <div className='w-full h-[46px] px-3 border bg-gray-50 rounded-xl flex items-center gap-2 text-gray-500'>
-                  <BadgeCheck className='w-4 h-4 text-emerald-600' />
+                <div className='w-full h-[46px] px-3 border bg-stone-50 rounded-xl flex items-center gap-2 text-stone-500'>
+                  <BadgeCheck className='w-4 h-4 text-stone-800' />
                   <span className='text-sm font-medium'>
                     {form.instructorType || "Auto-detected"}
                   </span>
@@ -2121,12 +2121,12 @@ const CreateClassModal = ({
                 />
               </div>
               <div>
-                <label className='block text-xs font-bold text-gray-700 mb-1'>
+                <label className='block text-xs font-bold text-stone-700 mb-1'>
                   Capacity
                 </label>
                 <input
                   type='string'
-                  className='w-full h-[46px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
+                  className='w-full h-[46px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-stone-500'
                   value={form.capacity}
                   onChange={(e) =>
                     setForm({ ...form, capacity: e.target.value })
@@ -2136,15 +2136,15 @@ const CreateClassModal = ({
               </div>
 
               <div className='relative'>
-                <label className='block text-xs font-bold text-gray-700 mb-1'>
+                <label className='block text-xs font-bold text-stone-700 mb-1'>
                   Date
                 </label>
                 <div ref={calendarRef}>
                   <button
                     type='button'
                     onClick={() => setShowCalendarPopover(!showCalendarPopover)}
-                    className='w-full h-[46px] px-3 border rounded-xl text-left flex items-center gap-2 text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none'>
-                    <CalendarDays className='w-4 h-4 text-emerald-600' />
+                    className='w-full h-[46px] px-3 border rounded-xl text-left flex items-center gap-2 text-stone-700 hover:bg-stone-50 focus:ring-2 focus:ring-stone-500 outline-none'>
+                    <CalendarDays className='w-4 h-4 text-stone-800' />
                     {form.startTime
                       ? format(parseISO(form.startTime), "dd/MM/yyyy")
                       : "Select Date"}
@@ -2155,7 +2155,7 @@ const CreateClassModal = ({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
-                        className='absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-4 w-[320px] z-50'>
+                        className='absolute bottom-full left-0 mb-2 bg-white rounded-2xl shadow-xl border border-stone-200 p-4 w-[320px] z-50'>
                         <InputDatePicker
                           selectedDate={parseISO(form.startTime)}
                           onChange={handleDateChange}
@@ -2174,12 +2174,12 @@ const CreateClassModal = ({
                 />
               </div>
               <div className='col-span-1 md:col-span-2'>
-                <label className='block text-xs font-bold text-gray-700 mb-1'>
+                <label className='block text-xs font-bold text-stone-700 mb-1'>
                   Duration (minutes)
                 </label>
                 <input
                   type='string'
-                  className='w-full h-[46px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-500'
+                  className='w-full h-[46px] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-stone-500'
                   value={form.duration}
                   onChange={(e) =>
                     setForm({ ...form, duration: e.target.value })
@@ -2193,9 +2193,9 @@ const CreateClassModal = ({
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`p-4 rounded-2xl border flex items-start gap-4 ${isAvailable ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}`}>
+                className={`p-4 rounded-2xl border flex items-start gap-4 ${isAvailable ? "bg-stone-100 border-stone-200" : "bg-red-50 border-red-100"}`}>
                 <div
-                  className={`mt-0.5 p-1.5 rounded-full shrink-0 ${isAvailable ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}>
+                  className={`mt-0.5 p-1.5 rounded-full shrink-0 ${isAvailable ? "bg-stone-200 text-stone-800" : "bg-red-100 text-red-600"}`}>
                   {isAvailable ? (
                     <CheckCircle2 className='w-5 h-5' />
                   ) : (
@@ -2204,11 +2204,11 @@ const CreateClassModal = ({
                 </div>
                 <div>
                   <h4
-                    className={`font-bold text-base leading-tight ${isAvailable ? "text-emerald-900" : "text-red-900"}`}>
+                    className={`font-bold text-base leading-tight ${isAvailable ? "text-stone-900" : "text-red-900"}`}>
                     {isAvailable ? "Available" : "Unavailable"}
                   </h4>
                   <p
-                    className={`text-sm mt-1 font-medium leading-relaxed ${isAvailable ? "text-emerald-700" : "text-red-700"}`}>
+                    className={`text-sm mt-1 font-medium leading-relaxed ${isAvailable ? "text-stone-800" : "text-red-700"}`}>
                     {availabilityMessage}
                   </p>
                 </div>
@@ -2217,11 +2217,11 @@ const CreateClassModal = ({
 
             {showRecurringSection &&
               (form.isRecurring ? (
-                <div className='bg-gray-50 p-4 rounded-xl border border-gray-200 transition-all'>
+                <div className='bg-stone-50 p-4 rounded-xl border border-stone-200 transition-all'>
                   <div className='animate-in fade-in slide-in-from-top-2 duration-300'>
                     <div className='flex flex-col md:flex-row gap-6 items-start'>
                       <div className='flex-1'>
-                        <label className='block text-xs font-bold text-gray-500 mb-2'>
+                        <label className='block text-xs font-bold text-stone-500 mb-2'>
                           Select Days
                         </label>
                         <div className='flex flex-wrap gap-2'>
@@ -2234,7 +2234,7 @@ const CreateClassModal = ({
                                 key={day.value}
                                 type='button'
                                 onClick={() => toggleDay(day.value)}
-                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${isSelected ? "bg-emerald-600 text-white border-emerald-600 shadow-md" : "bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50"}`}>
+                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${isSelected ? "bg-stone-600 text-white border-stone-600 shadow-md" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400 hover:bg-stone-100"}`}>
                                 {day.label}
                               </button>
                             );
@@ -2244,7 +2244,7 @@ const CreateClassModal = ({
 
                       <div className='w-full md:w-48 shrink-0'>
                         <div className='flex justify-between items-end mb-2'>
-                          <label className='block text-xs font-bold text-gray-500'>
+                          <label className='block text-xs font-bold text-stone-500'>
                             Duration
                           </label>
                           <div className='flex items-center gap-1.5'>
@@ -2255,11 +2255,11 @@ const CreateClassModal = ({
                               onChange={(e) =>
                                 setForm({ ...form, isAlways: e.target.checked })
                               }
-                              className='w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500 accent-emerald-600'
+                              className='w-3.5 h-3.5 text-stone-800 rounded focus:ring-stone-500 accent-stone-600'
                             />
                             <label
                               htmlFor='isAlways'
-                              className='text-[10px] font-bold text-gray-600 cursor-pointer uppercase tracking-wider'>
+                              className='text-[10px] font-bold text-stone-600 cursor-pointer uppercase tracking-wider'>
                               Ongoing
                             </label>
                           </div>
@@ -2270,7 +2270,7 @@ const CreateClassModal = ({
                             <input
                               type='number'
                               min='1'
-                              className='w-full p-2.5 pr-14 border rounded-xl text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-emerald-500'
+                              className='w-full p-2.5 pr-14 border rounded-xl text-sm bg-white text-center font-bold outline-none focus:ring-2 focus:ring-stone-500'
                               value={form.recurrenceCount}
                               onChange={(e) =>
                                 setForm({
@@ -2280,18 +2280,18 @@ const CreateClassModal = ({
                               }
                               placeholder='1'
                             />
-                            <span className='absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-bold pointer-events-none'>
+                            <span className='absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 font-bold pointer-events-none'>
                               Weeks
                             </span>
                           </div>
                         ) : (
-                          <div className='w-full h-[42px] px-3 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2'>
+                          <div className='w-full h-[42px] px-3 border border-stone-300 bg-stone-100 text-stone-800 rounded-xl text-sm font-bold flex items-center justify-center gap-2'>
                             <Repeat className='w-4 h-4' /> Always
                           </div>
                         )}
                       </div>
                     </div>
-                    <p className='text-[10px] text-gray-400 mt-2'>
+                    <p className='text-[10px] text-stone-400 mt-2'>
                       {form.isAlways
                         ? "Class will repeat continuously (generated for 1 year ahead) on selected days."
                         : `Class will repeat for ${form.recurrenceCount || 1} week(s) on selected days.`}
@@ -2314,7 +2314,7 @@ const CreateClassModal = ({
               <button
                 type='button'
                 onClick={onClose}
-                className='flex-1 py-3 font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors'>
+                className='flex-1 py-3 font-bold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors'>
                 Cancel
               </button>
               <button
@@ -2324,7 +2324,7 @@ const CreateClassModal = ({
                   !isAvailable ||
                   (form.isRecurring && selectedRecurrenceDays.length === 0)
                 }
-                className={`flex-1 py-3 font-bold text-white rounded-xl shadow-lg transition-all ${isAvailable && (!form.isRecurring || selectedRecurrenceDays.length > 0) ? "bg-emerald-900 hover:bg-emerald-800" : "bg-gray-400 cursor-not-allowed"}`}>
+                className={`flex-1 py-3 font-bold text-white rounded-xl shadow-lg transition-all ${isAvailable && (!form.isRecurring || selectedRecurrenceDays.length > 0) ? "bg-stone-600 hover:bg-stone-700" : "bg-stone-400 cursor-not-allowed"}`}>
                 {loading
                   ? "Saving..."
                   : initialData
@@ -2346,10 +2346,10 @@ const CreateClassModal = ({
               <div className='bg-blue-50 p-4 rounded-full mb-4 shadow-sm text-blue-600'>
                 <FileEdit className='w-8 h-8' />
               </div>
-              <h3 className='font-bold text-xl text-gray-900 mb-2'>
+              <h3 className='font-bold text-xl text-stone-900 mb-2'>
                 Edit Recurring Class
               </h3>
-              <p className='text-sm text-gray-500 mb-6 max-w-xs mx-auto'>
+              <p className='text-sm text-stone-500 mb-6 max-w-xs mx-auto'>
                 This class is part of a series. How would you like to apply your
                 changes?
               </p>
@@ -2368,17 +2368,17 @@ const CreateClassModal = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className='absolute inset-0 bg-white/95 backdrop-blur-sm z-[70] flex flex-col items-center justify-center p-8 text-center'>
-              <div className='bg-emerald-50 p-4 rounded-full mb-4 shadow-sm'>
-                <Check className='w-8 h-8 text-emerald-600' />
+              <div className='bg-stone-100 p-4 rounded-full mb-4 shadow-sm'>
+                <Check className='w-8 h-8 text-stone-800' />
               </div>
-              <h3 className='font-bold text-xl text-gray-900 mb-2'>
+              <h3 className='font-bold text-xl text-stone-900 mb-2'>
                 {initialData ? "Confirm Update?" : "Confirm Class Creation?"}
               </h3>
               <div className='flex flex-col w-full max-w-xs gap-3 mt-4'>
                 <button
                   type='button'
                   onClick={handleConfirmCreate}
-                  className='w-full py-3.5 bg-emerald-900 text-white font-bold rounded-xl hover:bg-emerald-800 transition-all shadow-lg shadow-emerald-900/20 transform active:scale-95'>
+                  className='w-full py-3.5 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 transition-all shadow-lg shadow-stone-600/20 transform active:scale-95'>
                   {initialData ? "Yes, Update Class" : "Yes, Create Schedule"}
                 </button>
                 <button
@@ -2387,7 +2387,7 @@ const CreateClassModal = ({
                     setShowConfirmation(false);
                     setUpdateMode(null);
                   }}
-                  className='w-full py-3.5 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors'>
+                  className='w-full py-3.5 text-stone-500 font-bold hover:bg-stone-100 rounded-xl transition-colors'>
                   Back to Edit
                 </button>
               </div>

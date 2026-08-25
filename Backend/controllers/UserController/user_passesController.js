@@ -1,8 +1,67 @@
 const UserPasses = require("../../models/UserData/User_Passes");
 const Package = require("../../models/StudioData/Packages");
+const User = require("../../models/UserData/User");
 const admin = require("../../config/firebase");
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const { sendShareEmail } = require("../../helper/sendEmail");
+const { normalizeEmail } = require("../../helper/authSecurity");
+const {
+  canManageStudio,
+  idsEqual,
+  isDevTeam,
+  isStudioStaff,
+} = require("../../helper/authorization");
+const {
+  consumeOneTimeEntitlement,
+} = require("../../helper/oneTimePackageEntitlement");
+const {
+  isPassCurrentlyFrozen,
+  notCurrentlyFrozenFilter,
+} = require("../../helper/passState");
+
+const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const SHARE_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_FREEZE_DURATION_MS = 90 * 24 * 60 * 60 * 1000;
+const hashShareCode = (code) =>
+  crypto.createHash("sha256").update(code).digest("hex");
+const getPublicAppOrigin = () => {
+  const configured =
+    process.env.PUBLIC_APP_ORIGIN || "https://bookingservice.my.id";
+  const url = new URL(configured);
+  if (
+    (url.protocol !== "https:" &&
+      !(process.env.NODE_ENV !== "production" && url.hostname === "localhost")) ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("PUBLIC_APP_ORIGIN is not configured securely.");
+  }
+  return url.origin;
+};
+const getShareCodeFromClientLink = (shareLink) => {
+  if (typeof shareLink !== "string" || shareLink.length > 2048) return null;
+  try {
+    const url = new URL(shareLink);
+    if (
+      url.origin !== getPublicAppOrigin() ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      return null;
+    }
+    const match = url.pathname.match(/^\/shared-pass\/([^/]+)$/);
+    const code = match ? decodeURIComponent(match[1]) : null;
+    return code && SHARE_CODE_PATTERN.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+};
 
 exports.passReminder = async (req, res) => {
   try {
@@ -13,6 +72,9 @@ exports.passReminder = async (req, res) => {
       .populate("packageId", "packageName reminderDaysBefore");
 
     if (!pass) return res.status(404).json({ message: "Pass not found" });
+    if (!canManageStudio(req.user, pass.issuingStudio)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
 
     const user = pass.userId;
     const pkg = pass.packageId;
@@ -88,15 +150,71 @@ exports.passReminder = async (req, res) => {
 };
 
 exports.assignPassToUser = async (req, res) => {
-  try {
-    const { userId, packageId, durationInDays, issuingStudio } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-    const selectedPackage = await Package.findById(packageId);
+  try {
+    const { userId, packageId, durationInDays } = req.body;
+
+    const selectedPackage = await Package.findById(packageId).session(session);
     if (!selectedPackage) throw new Error("Package not found");
+    if (selectedPackage.isActive === false) {
+      const error = new Error("Package is not available");
+      error.status = 400;
+      throw error;
+    }
+    if (!canManageStudio(req.user, selectedPackage.studioLocation)) {
+      const error = new Error("Unauthorized");
+      error.status = 403;
+      throw error;
+    }
+    const recipient = await User.findById(userId)
+      .select("role preferredStudioId isStudent")
+      .session(session);
+    if (!recipient) {
+      const error = new Error("User not found");
+      error.status = 404;
+      throw error;
+    }
+    if (
+      !isDevTeam(req.user) &&
+      (recipient.role !== "client" ||
+        !idsEqual(
+          recipient.preferredStudioId,
+          selectedPackage.studioLocation,
+        ))
+    ) {
+      const error = new Error(
+        "You can only assign passes to clients affiliated with your studio.",
+      );
+      error.status = 403;
+      throw error;
+    }
+    const requiresStudentEligibility =
+      selectedPackage.isStudentPackage === true ||
+      selectedPackage.packageCategory?.includes("Student");
+    if (requiresStudentEligibility) {
+      if (recipient.isStudent !== true) {
+        const error = new Error(
+          "This package is restricted to verified students.",
+        );
+        error.status = 403;
+        throw error;
+      }
+    }
+
+    const validityDuration = Number(
+      durationInDays || selectedPackage.validityDays,
+    );
+    if (!Number.isFinite(validityDuration) || validityDuration <= 0) {
+      const error = new Error("Invalid pass duration");
+      error.status = 400;
+      throw error;
+    }
 
     const purchaseDate = new Date();
     const expiryDate = new Date(purchaseDate);
-    expiryDate.setDate(expiryDate.getDate() + durationInDays);
+    expiryDate.setDate(expiryDate.getDate() + validityDuration);
 
     let passesToCreate = [];
 
@@ -106,11 +224,12 @@ exports.assignPassToUser = async (req, res) => {
         packageId,
         packageNameSnapshot: selectedPackage.packageName,
         packageCategorySnapshot: selectedPackage.packageCategory,
+        isStudentRestrictedSnapshot: requiresStudentEligibility,
         purchaseDate,
         expiryDate,
-        validityDuration: durationInDays,
+        validityDuration,
         firstUsageDate: null,
-        issuingStudio: issuingStudio || selectedPackage.studioLocation,
+        issuingStudio: selectedPackage.studioLocation,
         isActive: true,
         remainingCredits: item.credits,
         initialCredits: item.credits,
@@ -124,10 +243,12 @@ exports.assignPassToUser = async (req, res) => {
           packageId,
           packageNameSnapshot: selectedPackage.packageName,
           packageCategorySnapshot: selectedPackage.packageCategory,
+          isStudentRestrictedSnapshot: requiresStudentEligibility,
           purchaseDate,
           expiryDate,
-          validityDuration: durationInDays,
+          validityDuration,
           firstUsageDate: null,
+          issuingStudio: selectedPackage.studioLocation,
           remainingCredits: req.body.credits || selectedPackage.credits,
           initialCredits: req.body.credits || selectedPackage.credits,
           instructorType:
@@ -138,7 +259,19 @@ exports.assignPassToUser = async (req, res) => {
       ];
     }
 
-    const savedPasses = await UserPasses.insertMany(passesToCreate);
+    if (selectedPackage.isOneTimePurchase === true) {
+      await consumeOneTimeEntitlement({
+        userId,
+        packageId,
+        source: "direct_assignment",
+        session,
+      });
+    }
+
+    const savedPasses = await UserPasses.insertMany(passesToCreate, {
+      session,
+    });
+    await session.commitTransaction();
 
     res.status(201).json({
       message: selectedPackage.isCombo
@@ -147,7 +280,10 @@ exports.assignPassToUser = async (req, res) => {
       passes: savedPasses,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    await session.abortTransaction();
+    res.status(error.status || 500).json({ error: error.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -158,13 +294,28 @@ exports.deductCredits = async (req, res) => {
   try {
     const { userId, passId, creditsToDeduct } = req.body;
 
-    const userPass = await UserPasses.findOne({
-      _id: passId,
-      $or: [{ userId: userId }, { sharedWith: userId }],
-    }).session(session);
+    const userPass = await UserPasses.findById(passId).session(session);
 
     if (!userPass) throw new Error("Pass not found or unauthorized.");
+    if (!canManageStudio(req.user, userPass.issuingStudio)) {
+      const error = new Error("Unauthorized.");
+      error.status = 403;
+      throw error;
+    }
+    const belongsToUser =
+      idsEqual(userPass.userId, userId) ||
+      userPass.sharedWith?.some((id) => idsEqual(id, userId));
+    if (!belongsToUser) throw new Error("Pass does not belong to this user.");
+    if (
+      !Number.isFinite(Number(creditsToDeduct)) ||
+      Number(creditsToDeduct) <= 0
+    ) {
+      throw new Error("Credits to deduct must be a positive number.");
+    }
     if (!userPass.isActive) throw new Error("This pass is inactive.");
+    if (isPassCurrentlyFrozen(userPass)) {
+      throw new Error("This pass is currently frozen.");
+    }
     if (new Date() > userPass.expiryDate)
       throw new Error("This pass has expired.");
     if (userPass.remainingCredits < creditsToDeduct)
@@ -178,7 +329,7 @@ exports.deductCredits = async (req, res) => {
       userPass.expiryDate = newExpiry;
     }
 
-    userPass.remainingCredits -= creditsToDeduct;
+    userPass.remainingCredits -= Number(creditsToDeduct);
     if (userPass.remainingCredits === 0) userPass.isActive = false;
 
     await userPass.save({ session });
@@ -192,7 +343,7 @@ exports.deductCredits = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   } finally {
     session.endSession();
   }
@@ -211,6 +362,9 @@ exports.updateUserPass = async (req, res) => {
 
     const pass = await UserPasses.findById(passId);
     if (!pass) return res.status(404).json({ error: "Pass not found" });
+    if (!canManageStudio(req.user, pass.issuingStudio)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
 
     if (remainingCredits !== undefined)
       pass.remainingCredits = Number(remainingCredits);
@@ -240,13 +394,23 @@ exports.getMyActivePasses = async (req, res) => {
   try {
     const { userId } = req.params;
     const now = new Date();
+    const requestingOwnPasses = idsEqual(req.user._id, userId);
+    if (!requestingOwnPasses && !isStudioStaff(req.user)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const ownershipFilter = { $or: [{ userId }, { sharedWith: userId }] };
+    const tenantFilter =
+      !requestingOwnPasses && !isDevTeam(req.user)
+        ? { issuingStudio: req.user.adminStudioLocation }
+        : {};
 
     // 1. Auto-Clean expired passes
     // (We also need to fix the duplicate $or here!)
     await UserPasses.updateMany(
       {
         $and: [
-          { $or: [{ userId: userId }, { sharedWith: userId }] },
+          ownershipFilter,
           {
             $or: [
               { remainingCredits: { $lte: 0 } },
@@ -255,6 +419,7 @@ exports.getMyActivePasses = async (req, res) => {
           },
         ],
         isActive: true,
+        ...tenantFilter,
       },
       { $set: { isActive: false } },
     );
@@ -262,10 +427,11 @@ exports.getMyActivePasses = async (req, res) => {
     // 2. STRICT FETCH: Safely combine multiple $or conditions
     const activePasses = await UserPasses.find({
       $and: [
-        { $or: [{ userId: userId }, { sharedWith: userId }] }, // Ownership check
+        ownershipFilter,
         { $or: [{ expiryDate: { $gte: now } }, { expiryDate: null }] }, // Expiry check
       ],
       remainingCredits: { $gt: 0 },
+      ...tenantFilter,
     })
       .populate("userId", "fullName avatar email")
       .populate("sharedWith", "fullName avatar email")
@@ -283,11 +449,15 @@ exports.getMyInactivePasses = async (req, res) => {
   try {
     const userId = req.user._id;
     const inactivePasses = await UserPasses.find({
-      $or: [{ userId: userId }, { sharedWith: userId }],
-      $or: [
-        { isActive: false },
-        { remainingCredits: 0 },
-        { expiryDate: { $lt: new Date() } },
+      $and: [
+        { $or: [{ userId }, { sharedWith: userId }] },
+        {
+          $or: [
+            { isActive: false },
+            { remainingCredits: 0 },
+            { expiryDate: { $lt: new Date() } },
+          ],
+        },
       ],
     })
       .populate("userId", "fullName avatar email")
@@ -304,6 +474,9 @@ exports.getMyInactivePasses = async (req, res) => {
 exports.getUserPassHistory = async (req, res) => {
   try {
     const { studioId } = req.params;
+    if (!canManageStudio(req.user, studioId)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
     const history = await UserPasses.find({ issuingStudio: studioId })
       .sort({ createdAt: -1 })
       .populate("packageId")
@@ -319,30 +492,38 @@ exports.detachSharedPass = async (req, res) => {
   try {
     const { passId } = req.params;
     const { userIdToDetach } = req.body;
-    const requesterId = req.user._id.toString();
-
-    const pass = await UserPasses.findById(passId);
-    if (!pass) return res.status(404).json({ message: "Pass not found" });
-
-    const ownerId = pass.userId._id
-      ? pass.userId._id.toString()
-      : pass.userId.toString();
-
-    if (requesterId !== ownerId && requesterId !== userIdToDetach) {
-      return res
-        .status(403)
-        .json({ message: "Unauthorized to detach this user." });
+    if (
+      !mongoose.isValidObjectId(passId) ||
+      !mongoose.isValidObjectId(userIdToDetach)
+    ) {
+      return res.status(400).json({ message: "Invalid pass or user ID." });
     }
 
-    pass.sharedWith = pass.sharedWith.filter(
-      (id) => id.toString() !== userIdToDetach,
+    const requesterId = req.user._id;
+    const requesterIsTarget = idsEqual(requesterId, userIdToDetach);
+    const authorizationFilter = requesterIsTarget
+      ? { $or: [{ userId: requesterId }, { sharedWith: requesterId }] }
+      : { userId: requesterId };
+
+    const detached = await UserPasses.findOneAndUpdate(
+      {
+        _id: passId,
+        sharedWith: userIdToDetach,
+        ...authorizationFilter,
+      },
+      { $pull: { sharedWith: userIdToDetach } },
+      { new: false, projection: { _id: 1 } },
     );
+    if (!detached) {
+      return res.status(404).json({
+        message: "Shared pass membership was not found.",
+      });
+    }
 
-    await pass.save();
-
-    res
-      .status(200)
-      .json({ message: "User successfully detached from pass.", pass });
+    return res.status(200).json({
+      message: "User successfully detached from pass.",
+      detachedUserId: userIdToDetach,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -365,14 +546,48 @@ exports.managePassFreeze = async (req, res) => {
         : pass.issuingStudio.toString()
       : null;
 
-    // ALLOW either the owner of the pass OR a studio admin to manage freezes
-    const isOwner = ownerId === req.user._id.toString();
-    const isAdmin = req.user.role === "admin" || req.user.adminStudioLocation;
+    const isOwner = idsEqual(ownerId, req.user._id);
+    const isAdmin = canManageStudio(req.user, studioId);
 
     if (!isOwner && !isAdmin) {
       return res
         .status(403)
         .json({ message: "Unauthorized to manage freeze requests." });
+    }
+
+    if (action === "request" && !isOwner) {
+      return res
+        .status(403)
+        .json({ message: "Only the pass owner can request a freeze." });
+    }
+    if (["approve", "reject", "admin_freeze"].includes(action) && !isAdmin) {
+      return res
+        .status(403)
+        .json({
+          message: "Only this studio's staff can perform this action.",
+        });
+    }
+
+    if (["request", "approve", "admin_freeze"].includes(action)) {
+      if (
+        pass.isActive !== true ||
+        pass.remainingCredits <= 0 ||
+        !pass.expiryDate ||
+        new Date(pass.expiryDate) <= new Date()
+      ) {
+        return res.status(400).json({
+          message: "Only an active, unexpired pass with credits can be frozen.",
+        });
+      }
+      const packageId = pass.packageId?._id || pass.packageId;
+      const sourcePackage = packageId
+        ? await Package.findById(packageId).select("isAvailableToFreeze")
+        : null;
+      if (!sourcePackage || sourcePackage.isAvailableToFreeze !== true) {
+        return res.status(400).json({
+          message: "This package is not eligible for freezing.",
+        });
+      }
     }
 
     // Initialize Socket
@@ -399,17 +614,25 @@ exports.managePassFreeze = async (req, res) => {
     };
 
     if (action === "unfreeze") {
+      if (pass.freeze?.status !== "approved") {
+        return res.status(400).json({
+          message: "This package does not have an active approved freeze.",
+        });
+      }
       const today = new Date();
-      const currentFreezeEnd = new Date(pass.freeze.endDate);
+      const currentFreezeStart = new Date(pass.freeze?.startDate);
+      const currentFreezeEnd = new Date(pass.freeze?.endDate);
 
-      if (today < currentFreezeEnd) {
-        const unusedTime = Math.abs(currentFreezeEnd - today);
-        const unusedDays = Math.ceil(unusedTime / (1000 * 60 * 60 * 24));
-
+      if (
+        !Number.isNaN(currentFreezeStart.getTime()) &&
+        !Number.isNaN(currentFreezeEnd.getTime()) &&
+        today < currentFreezeEnd
+      ) {
+        const unusedFrom =
+          today < currentFreezeStart ? currentFreezeStart : today;
+        const unusedTime = currentFreezeEnd.getTime() - unusedFrom.getTime();
         const currentExpiry = new Date(pass.expiryDate);
-        pass.expiryDate = new Date(
-          currentExpiry.setDate(currentExpiry.getDate() - unusedDays),
-        );
+        pass.expiryDate = new Date(currentExpiry.getTime() - unusedTime);
 
         pass.freeze.endDate = today;
         pass.freeze.status = "unfrozen"; // Ensure status is explicitly reset
@@ -462,6 +685,18 @@ exports.managePassFreeze = async (req, res) => {
       const end = new Date(
         endDate || new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000),
       );
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime()) ||
+        end <= start ||
+        end <= new Date() ||
+        end.getTime() - start.getTime() > MAX_FREEZE_DURATION_MS
+      ) {
+        return res.status(400).json({
+          message:
+            "Freeze dates must define a future period of no more than 90 days.",
+        });
+      }
 
       pass.freeze = {
         ...pass.freeze,
@@ -479,16 +714,32 @@ exports.managePassFreeze = async (req, res) => {
     }
 
     if (action === "approve" || action === "admin_freeze") {
-      const start = new Date(startDate || pass.freeze.startDate);
-      const end = new Date(endDate || pass.freeze.endDate);
+      if (action === "approve" && pass.freeze?.status !== "requested") {
+        return res.status(400).json({ message: "No freeze request is pending." });
+      }
+      const requestedStart = new Date(startDate || pass.freeze?.startDate);
+      const end = new Date(endDate || pass.freeze?.endDate);
+      const now = new Date();
+      const start = requestedStart > now ? requestedStart : now;
+      if (
+        Number.isNaN(requestedStart.getTime()) ||
+        Number.isNaN(end.getTime()) ||
+        end <= start ||
+        end.getTime() - start.getTime() > MAX_FREEZE_DURATION_MS
+      ) {
+        return res.status(400).json({
+          message:
+            "Freeze dates must define a future period of no more than 90 days.",
+        });
+      }
 
-      const diffTime = Math.abs(end - start);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const freezeDuration = end.getTime() - start.getTime();
 
       const currentExpiry = new Date(pass.expiryDate);
-      pass.expiryDate = new Date(
-        currentExpiry.setDate(currentExpiry.getDate() + diffDays),
-      );
+      if (Number.isNaN(currentExpiry.getTime())) {
+        return res.status(400).json({ message: "Pass expiry date is invalid." });
+      }
+      pass.expiryDate = new Date(currentExpiry.getTime() + freezeDuration);
 
       pass.freeze = {
         hasBeenFrozen: true,
@@ -526,13 +777,33 @@ exports.generateShareLink = async (req, res) => {
         .status(403)
         .json({ message: "Only the pass owner can generate a share link." });
     }
+    if (
+      pass.isActive !== true ||
+      !pass.expiryDate ||
+      pass.expiryDate <= new Date() ||
+      pass.remainingCredits <= 0
+    ) {
+      return res.status(400).json({
+        message: "Only an active, unexpired pass with credits can be shared.",
+      });
+    }
+    if (isPassCurrentlyFrozen(pass)) {
+      return res.status(400).json({
+        message: "A pass cannot be shared while it is frozen.",
+      });
+    }
 
-    pass.shareCode =
-      Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    const shareCode = crypto.randomBytes(32).toString("base64url");
+    pass.shareCode = null;
+    pass.shareCodeHash = hashShareCode(shareCode);
+    pass.shareExpiresAt = new Date(Date.now() + SHARE_LINK_TTL_MS);
     pass.isShared = true;
     await pass.save();
 
-    res.status(200).json({ message: "Share link generated", pass });
+    const safePass = pass.toObject();
+    delete safePass.shareCodeHash;
+    safePass.shareCode = shareCode;
+    res.status(200).json({ message: "Share link generated", pass: safePass });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -541,9 +812,16 @@ exports.generateShareLink = async (req, res) => {
 exports.sendShareLinkViaEmail = async (req, res) => {
   try {
     const { passId } = req.params;
-    const { email, shareLink } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const shareCode = getShareCodeFromClientLink(req.body.shareLink);
+    if (!email || !shareCode) {
+      return res
+        .status(400)
+        .json({ message: "A valid email and share link are required." });
+    }
 
     const pass = await UserPasses.findById(passId)
+      .select("+shareCodeHash")
       .populate("packageId", "packageName")
       .populate("userId", "fullName");
 
@@ -558,12 +836,23 @@ exports.sendShareLinkViaEmail = async (req, res) => {
         .json({ message: "Only the pass owner can email share links." });
     }
 
-    if (!pass.shareCode)
+    if (
+      !pass.shareCodeHash ||
+      !pass.shareExpiresAt ||
+      pass.shareExpiresAt <= new Date() ||
+      pass.isActive !== true ||
+      !pass.expiryDate ||
+      pass.expiryDate <= new Date() ||
+      pass.remainingCredits <= 0 ||
+      isPassCurrentlyFrozen(pass) ||
+      pass.shareCodeHash !== hashShareCode(shareCode)
+    )
       return res.status(400).json({ message: "Share code not generated yet." });
 
     const senderName = pass.userId?.fullName || "A member";
     const packageName = pass.packageId?.packageName || "a package";
 
+    const shareLink = `${getPublicAppOrigin()}/shared-pass/${encodeURIComponent(shareCode)}`;
     await sendShareEmail(senderName, email, shareLink, packageName);
 
     res.status(200).json({ message: "Invitation email sent successfully!" });
@@ -575,7 +864,18 @@ exports.sendShareLinkViaEmail = async (req, res) => {
 exports.getSharedPassDetails = async (req, res) => {
   try {
     const { code } = req.params;
-    const pass = await UserPasses.findOne({ shareCode: code, isShared: true })
+    if (!SHARE_CODE_PATTERN.test(code)) {
+      return res
+        .status(404)
+        .json({ message: "Invalid or expired share link." });
+    }
+    const shareCheckTime = new Date();
+    const pass = await UserPasses.findOne({
+      shareCodeHash: hashShareCode(code),
+      shareExpiresAt: { $gt: shareCheckTime },
+      isShared: true,
+      ...notCurrentlyFrozenFilter(shareCheckTime),
+    })
       .populate("packageId", "packageName packageDescription")
       .populate("userId", "fullName avatar")
       .populate("issuingStudio", "studioName");
@@ -588,6 +888,9 @@ exports.getSharedPassDetails = async (req, res) => {
       return res
         .status(400)
         .json({ message: "This pass is no longer active." });
+    if (isPassCurrentlyFrozen(pass)) {
+      return res.status(400).json({ message: "This pass is currently frozen." });
+    }
 
     res.status(200).json(pass);
   } catch (error) {
@@ -597,10 +900,99 @@ exports.getSharedPassDetails = async (req, res) => {
 
 exports.acceptSharedPass = async (req, res) => {
   try {
+    if (req.user?.role !== "client") {
+      return res.status(403).json({
+        code: "CLIENT_ACCOUNT_REQUIRED",
+        message: "Only client accounts can accept a shared pass.",
+      });
+    }
+
     const { code } = req.params;
     const acceptorId = req.user._id;
+    if (!SHARE_CODE_PATTERN.test(code)) {
+      return res
+        .status(404)
+        .json({ message: "Invalid or expired share link." });
+    }
 
-    const pass = await UserPasses.findOne({ shareCode: code, isShared: true });
+    const shareCheckTime = new Date();
+    const candidateFilter = {
+      shareCodeHash: hashShareCode(code),
+      shareExpiresAt: { $gt: shareCheckTime },
+      isShared: true,
+      isActive: true,
+      ...notCurrentlyFrozenFilter(shareCheckTime),
+    };
+    const candidate = await UserPasses.findOne(candidateFilter)
+      .select(
+        "_id packageId packageCategorySnapshot isStudentRestrictedSnapshot expiryDate remainingCredits",
+      )
+      .lean();
+    if (
+      !candidate ||
+      !candidate.expiryDate ||
+      candidate.expiryDate <= new Date() ||
+      candidate.remainingCredits <= 0
+    ) {
+      return res
+        .status(404)
+        .json({ message: "Invalid or expired share link." });
+    }
+
+    let studentRestricted = candidate.isStudentRestrictedSnapshot;
+    if (
+      typeof studentRestricted !== "boolean" &&
+      candidate.packageCategorySnapshot?.includes("Student")
+    ) {
+      studentRestricted = true;
+    }
+    if (typeof studentRestricted !== "boolean" && candidate.packageId) {
+      const pkg = await Package.findById(candidate.packageId)
+        .select("isStudentPackage packageCategory")
+        .lean();
+      if (pkg) {
+        studentRestricted = Boolean(
+          pkg.isStudentPackage || pkg.packageCategory?.includes("Student"),
+        );
+      }
+    }
+    if (typeof studentRestricted !== "boolean") {
+      return res.status(409).json({
+        code: "PASS_REVIEW_REQUIRED",
+        message:
+          "This legacy pass must be reviewed by the studio before it can be shared.",
+      });
+    }
+    if (
+      studentRestricted &&
+      !(await User.exists({ _id: acceptorId, isStudent: true }))
+    ) {
+      return res.status(403).json({
+        code: "STUDENT_VERIFICATION_REQUIRED",
+        message: "This pass can only be shared with a verified student.",
+      });
+    }
+
+    const pass = await UserPasses.findOneAndUpdate(
+      {
+        ...candidateFilter,
+        _id: candidate._id,
+        expiryDate: { $gt: new Date() },
+        remainingCredits: { $gt: 0 },
+        userId: { $ne: acceptorId },
+        sharedWith: { $ne: acceptorId },
+      },
+      {
+        $addToSet: { sharedWith: acceptorId },
+        $set: {
+          isShared: false,
+          shareCode: null,
+          shareExpiresAt: null,
+        },
+        $unset: { shareCodeHash: 1 },
+      },
+      { new: true },
+    );
     if (!pass)
       return res
         .status(404)
@@ -609,23 +1001,6 @@ exports.acceptSharedPass = async (req, res) => {
       return res
         .status(400)
         .json({ message: "This pass is no longer active." });
-
-    if (pass.userId.toString() === acceptorId.toString()) {
-      return res
-        .status(400)
-        .json({ message: "You are the owner of this pass." });
-    }
-
-    if (pass.sharedWith.includes(acceptorId)) {
-      return res
-        .status(400)
-        .json({ message: "You are already sharing this pass." });
-    }
-
-    pass.sharedWith.push(acceptorId);
-    pass.shareCode = null;
-
-    await pass.save();
 
     res
       .status(200)
@@ -646,6 +1021,9 @@ exports.getPassForAdminScan = async (req, res) => {
 
     if (!pass) {
       return res.status(404).json({ message: "Pass not found." });
+    }
+    if (!canManageStudio(req.user, pass.issuingStudio)) {
+      return res.status(403).json({ message: "Unauthorized." });
     }
 
     if (!pass.isActive) {

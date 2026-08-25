@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 const User = require("../../models/UserData/User");
+const { idsEqual } = require("../../helper/authorization");
+const { logAuthError } = require("../../helper/authSecurity");
 
 function formatUserIdDisplay(id) {
   if (!id) return "";
@@ -15,11 +17,13 @@ exports.generatePass = async (req, res) => {
     const backendRoot = path.resolve(__dirname, "../../");
     const modelPath = path.join(backendRoot, "pass-models", "mypilates.pass");
 
-    // TODO: replace with DB lookup
     const userId = req.params.id; // QR content
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
+    }
+    if (!idsEqual(req.user?._id, userId)) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
 
     const user = await User.findById(userId);
@@ -35,14 +39,19 @@ exports.generatePass = async (req, res) => {
     const phone = user.phoneNumber || "";
 
     const certificates = {
-      wwdr: fs.readFileSync(path.join(backendRoot, "keys", "wwdr.pem")),
+      wwdr: fs.readFileSync(
+        process.env.APPLE_PASS_WWDR_PATH ||
+          path.join(backendRoot, "keys", "wwdr.pem"),
+      ),
       signerCert: fs.readFileSync(
-        path.join(backendRoot, "keys", "signerCert.pem"),
+        process.env.APPLE_PASS_SIGNER_CERT_PATH ||
+          path.join(backendRoot, "keys", "signerCert.pem"),
       ),
       signerKey: fs.readFileSync(
-        path.join(backendRoot, "keys", "signerKey.pem"),
+        process.env.APPLE_PASS_SIGNER_KEY_PATH ||
+          path.join(backendRoot, "keys", "signerKey.pem"),
       ),
-      signerKeyPassphrase: process.env.PASSWORD,
+      signerKeyPassphrase: process.env.APPLE_PASS_SIGNER_KEY_PASSPHRASE,
     };
 
     const pass = await PKPass.from(
@@ -80,7 +89,7 @@ exports.generatePass = async (req, res) => {
     );
     return res.status(200).send(buffer);
   } catch (err) {
-    console.error("❌ ERROR:", err);
-    return res.status(500).send(`Error: ${err.message}`);
+    logAuthError("Apple Wallet pass generation failed", err);
+    return res.status(500).json({ message: "Unable to generate wallet pass." });
   }
 };

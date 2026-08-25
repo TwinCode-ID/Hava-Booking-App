@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -20,7 +21,10 @@ import InstructorList from "./components/Instructors/InstructorList";
 import BookTheClass from "./components/BookClass/components/BookTheClass";
 
 const ManageClient = () => {
-  const [activeTab, setActiveTab] = useState("purchase");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(
+    location.state?.tab || "purchase",
+  );
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -46,6 +50,12 @@ const ManageClient = () => {
       color: "text-purple-600",
     },
     {
+      id: "booking",
+      label: "Bookings",
+      icon: Calendar,
+      color: "text-stone-800",
+    },
+    {
       id: "instructor",
       label: "Instructors",
       icon: Users,
@@ -59,7 +69,7 @@ const ManageClient = () => {
     },
   ];
 
-  // const extraTabs = [];
+  const extraTabs = [];
 
   const allTabs = [...mainTabs];
 
@@ -73,8 +83,8 @@ const ManageClient = () => {
         onClick={() => setActiveTab(tab.id)}
         className={`flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl transition-all duration-200 border whitespace-nowrap ${
           isActive
-            ? `bg-gray-900 text-white border-gray-900 shadow-md`
-            : "bg-white border-transparent hover:bg-gray-50 text-gray-500 hover:text-gray-900"
+            ? `bg-stone-700 text-white border-stone-700 shadow-md`
+            : "bg-white border-transparent hover:bg-stone-50 text-stone-500 hover:text-stone-900"
         }`}>
         <Icon className={`w-5 h-5 ${isActive ? "text-white" : tab.color}`} />
         <span className='text-sm font-bold'>{tab.label}</span>
@@ -83,17 +93,17 @@ const ManageClient = () => {
   };
 
   return (
-    <div className='h-full bg-gray-50 overflow-hidden flex flex-col'>
+    <div className='h-full bg-stone-50 overflow-hidden flex flex-col'>
       {/* --- HEADER SECTION --- */}
       <div className='bg-white px-6 pt-6 pb-2'>
-        <h1 className='text-2xl font-bold text-gray-900'>Menu</h1>
-        <p className='text-gray-500 text-sm'>
+        <h1 className='text-2xl font-bold text-stone-900'>Menu</h1>
+        <p className='text-stone-500 text-sm'>
           Centralized control for your booking experience.
         </p>
       </div>
 
       {/* --- NAVIGATION BAR --- */}
-      <div className='bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center gap-3 relative z-20 shadow-sm shrink-0'>
+      <div className='bg-white border-b border-stone-200 px-4 md:px-6 py-3 flex items-center gap-3 relative z-20 shadow-sm shrink-0'>
         {/* TABS CONTAINER */}
         <div className='overflow-hidden min-w-0 flex-1'>
           {isMobile ? (
@@ -121,8 +131,8 @@ const ManageClient = () => {
         {/* {isMobile && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`p-2.5 rounded-xl border border-gray-200 hover:bg-gray-100 text-gray-500 transition-colors shadow-sm bg-white shrink-0 ${
-              isExpanded ? "bg-gray-100 ring-2 ring-gray-200" : ""
+            className={`p-2.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-500 transition-colors shadow-sm bg-white shrink-0 ${
+              isExpanded ? "bg-stone-100 ring-2 ring-stone-200" : ""
             }`}
             title={isExpanded ? "Back / Show Less" : "More Options"}>
             {isExpanded ? (
@@ -145,6 +155,7 @@ const ManageClient = () => {
             transition={{ duration: 0.2 }}
             className='h-full'>
             {activeTab === "purchase" && <PurchasePackage isEmbedded={true} />}
+            {activeTab === "booking" && <ManageBooking />}
             {activeTab === "instructor" && <InstructorList isEmbedded={true} />}
             {activeTab === "medical" && <MedicalRecords isEmbedded={true} />}
           </motion.div>

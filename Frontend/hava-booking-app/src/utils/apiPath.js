@@ -1,4 +1,18 @@
-export const BASE_URL = import.meta.env.VITE_BASE_URL;
+const configuredBaseUrl = import.meta.env.VITE_BASE_URL?.trim();
+
+if (!configuredBaseUrl) {
+  throw new Error("VITE_BASE_URL is required.");
+}
+
+const parsedBaseUrl = new URL(configuredBaseUrl);
+if (parsedBaseUrl.username || parsedBaseUrl.password) {
+  throw new Error("VITE_BASE_URL must not contain credentials.");
+}
+if (import.meta.env.PROD && parsedBaseUrl.protocol !== "https:") {
+  throw new Error("VITE_BASE_URL must use HTTPS in production.");
+}
+
+export const BASE_URL = configuredBaseUrl.replace(/\/+$/, "");
 
 export const API_PATHS = {
   AUTH: {
@@ -39,6 +53,8 @@ export const API_PATHS = {
   PACKAGES: {
     GET_ALL: "/api/package",
     GET_PACKAGE_BY_ID: (id) => `/api/package/${id}`,
+    GET_PAYMENT_INSTRUCTIONS: (id) =>
+      `/api/package/${id}/payment-instructions`,
     GET_PACKAGE_BY_STUDIO: (studioId) => `/api/package/studio/${studioId}`,
     CREATE_PACKAGE: "/api/package",
     UPDATE_PACKAGE: (id) => `/api/package/${id}`,
@@ -73,6 +89,8 @@ export const API_PATHS = {
   STUDIO: {
     GET_ALL: "/api/studio",
     GET_STUDIO_BY_ID: (studioId) => `/api/studio/${studioId}`,
+    GET_PAYMENT_INSTRUCTIONS: (studioId) =>
+      `/api/studio/${studioId}/payment-instructions`,
     UPDATE_STUDIO_BY_ID: (studioId) => `/api/studio/${studioId}`,
   },
 

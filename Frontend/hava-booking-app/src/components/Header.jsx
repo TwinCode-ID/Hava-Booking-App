@@ -4,7 +4,6 @@ import { MapPin, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ProfileDropdown from "./layout/ProfileDropdown";
-import logo from "/havalogo.png";
 
 const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -36,7 +35,7 @@ const Header = () => {
             <div className='md:hidden '>
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className='text-gray-600 hover:text-gray-900 focus:outline-none transition-transform duration-100 active:scale-95'>
+                className='text-stone-600 hover:text-stone-900 focus:outline-none transition-transform duration-100 active:scale-95'>
                 {isMobileMenuOpen ? (
                   <X className='w-6 h-6' />
                 ) : (
@@ -55,7 +54,7 @@ const Header = () => {
 
                 {/* 2. Logo Section (Swapped to Bottom = Right Side) */}
                 {/* Added md:ml-3 to keep spacing on desktop if needed */}
-                <div className='text-xl font-bold text-emerald-900 ml-3 md:ml-3'>
+                <div className='text-xl font-bold text-stone-900 ml-3 md:ml-3'>
                   Booking
                   <span> Service</span>
                 </div>
@@ -78,13 +77,10 @@ const Header = () => {
               </div>
             ) : (
               <div
-                className='flex items-center space-x-3 cursor-pointer'
+                className='flex items-center space-x-3 cursor-pointer md:ml-3'
                 onClick={() => navigate("/")}>
-                <div className='w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-300 hover:scale-105 md: ml-3'>
-                  <img src={logo} alt='Logo' />
-                </div>
-                <span className='text-xl font-bold text-gray-900'>
-                  <span className='text-xl font-bold text-emerald-900'>
+                <span className='text-xl font-bold text-stone-900'>
+                  <span className='text-xl font-bold text-stone-900'>
                     Booking
                   </span>
                   <span> Service</span>
@@ -96,12 +92,12 @@ const Header = () => {
             <nav className='hidden md:flex items-center space-x-8 ml-8 transition-all duration-100 ease-in-out'>
               <a
                 onClick={() => navigate("/studio-location")}
-                className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium cursor-pointer'>
+                className='text-stone-600 hover:text-stone-900 transition-colors duration-300 font-medium cursor-pointer'>
                 Studio Location
               </a>
               <a
                 onClick={() => navigate("/")}
-                className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium cursor-pointer'>
+                className='text-stone-600 hover:text-stone-900 transition-colors duration-300 font-medium cursor-pointer'>
                 Book Class
               </a>
             </nav>
@@ -127,12 +123,12 @@ const Header = () => {
               <div className='hidden md:flex items-center space-x-3 ml-auto transition-all duration-100 ease-in-out'>
                 <a
                   href='/login'
-                  className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium px-4 py-2 rounded-lg hover:bg-gray-50'>
+                  className='text-stone-600 hover:text-stone-900 transition-colors duration-300 font-medium px-4 py-2 rounded-lg hover:bg-stone-50'>
                   Login
                 </a>
                 <a
                   href='/signup'
-                  className='bg-emerald-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-all duration-300 shadow-sm hover:shadow-md'>
+                  className='bg-stone-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-stone-700 transition-all duration-300 shadow-sm hover:shadow-md'>
                   Sign Up
                 </a>
               </div>
@@ -160,7 +156,7 @@ const Header = () => {
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className='md:hidden bg-white border-t border-gray-100 overflow-hidden absolute left-0 right-0 z-50 shadow-lg'>
+                className='md:hidden bg-white border-t border-stone-100 overflow-hidden absolute left-0 right-0 z-50 shadow-lg'>
                 <div className='container mx-auto px-4 py-6 space-y-4 flex flex-col'>
                   {isAuthenticated ? (
                     <div className='md:flex items-center mr-auto transition-all duration-100 ease-in-out'>
@@ -169,7 +165,7 @@ const Header = () => {
                           navigate("/studio-location");
                           setIsMobileMenuOpen(false);
                         }}
-                        className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
+                        className='text-stone-600 hover:text-stone-900 font-medium cursor-pointer block text-lg'>
                         Studio Location
                       </a>
                       <a
@@ -177,7 +173,7 @@ const Header = () => {
                           navigate("/");
                           setIsMobileMenuOpen(false);
                         }}
-                        className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
+                        className='text-stone-600 hover:text-stone-900 font-medium cursor-pointer block text-lg'>
                         Book Class
                       </a>
                     </div>
@@ -185,12 +181,12 @@ const Header = () => {
                     <div className='md:flex items-center mr-auto transition-all duration-100 ease-in-out'>
                       <a
                         href='/signup'
-                        className='bg-emerald-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-800 transition-all duration-300 shadow-sm hover:shadow-md'>
+                        className='bg-stone-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-stone-700 transition-all duration-300 shadow-sm hover:shadow-md'>
                         Sign Up
                       </a>
                       <a
                         href='/login'
-                        className='text-gray-600 hover:text-emerald-800 transition-colors duration-300 font-medium px-4 py-2 rounded-lg hover:bg-gray-50'>
+                        className='text-stone-600 hover:text-stone-900 transition-colors duration-300 font-medium px-4 py-2 rounded-lg hover:bg-stone-50'>
                         Login
                       </a>
                       <div className='container  md:flex items-center space-x-3 ml-auto transition-all duration-100 ease-in-out mt-5'>
@@ -199,7 +195,7 @@ const Header = () => {
                             navigate("/studio-location");
                             setIsMobileMenuOpen(false);
                           }}
-                          className='text-gray-600  hover:text-emerald-800 font-medium cursor-pointer block text-lg mb-2.5'>
+                          className='text-stone-600  hover:text-stone-900 font-medium cursor-pointer block text-lg mb-2.5'>
                           Studio Location
                         </a>
                         <a
@@ -207,7 +203,7 @@ const Header = () => {
                             navigate("/");
                             setIsMobileMenuOpen(false);
                           }}
-                          className='text-gray-600 hover:text-emerald-800 font-medium cursor-pointer block text-lg'>
+                          className='text-stone-600 hover:text-stone-900 font-medium cursor-pointer block text-lg'>
                           Book Class
                         </a>
                       </div>

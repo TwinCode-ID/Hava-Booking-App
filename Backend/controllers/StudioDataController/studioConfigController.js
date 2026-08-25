@@ -1,4 +1,5 @@
 const StudioConfig = require("../../models/StudioData/StudioConfig");
+const { canManageStudio } = require("../../helper/authorization");
 
 // 1. Get Configuration (Auto-create if missing)
 exports.getStudioConfig = async (req, res) => {
@@ -7,8 +8,7 @@ exports.getStudioConfig = async (req, res) => {
     let config = await StudioConfig.findOne({ studioId });
 
     if (!config) {
-      // Create default config if this is the first time
-      config = await StudioConfig.create({ studioId });
+      config = new StudioConfig({ studioId });
     }
 
     res.status(200).json(config);
@@ -22,6 +22,10 @@ exports.addConfigType = async (req, res) => {
   try {
     const { studioId } = req.params;
     const { type, category } = req.body; // category must be 'classTypes' or 'instructorTypes'
+
+    if (!canManageStudio(req.user, studioId)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
 
     if (!["classTypes", "instructorTypes"].includes(category)) {
       return res.status(400).json({ error: "Invalid category" });
@@ -56,6 +60,13 @@ exports.removeConfigType = async (req, res) => {
   try {
     const { studioId } = req.params;
     const { type, category } = req.body;
+
+    if (!canManageStudio(req.user, studioId)) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+    if (!["classTypes", "instructorTypes"].includes(category)) {
+      return res.status(400).json({ error: "Invalid category" });
+    }
 
     const config = await StudioConfig.findOne({ studioId });
     if (!config) return res.status(404).json({ error: "Config not found" });

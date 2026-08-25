@@ -28,6 +28,8 @@ import { API_PATHS } from "../../../../../../utils/apiPath";
 import { useAuth } from "../../../../../../context/AuthContext";
 import LoadingSpinner from "../../../../../../components/LoadingSpinner";
 import uploadStudio from "../../../../../../utils/uploadStudio";
+import FinancialAccessGate from "../../../../../../components/FinancialAccessGate";
+import useFinancialStepUp from "../../../../../../utils/useFinancialStepUp";
 
 import { fetchImage, INDONESIAN_BANKS } from "../../../../../../utils/helper";
 import { getBankLogo } from "../../../../../../utils/helpers";
@@ -55,21 +57,21 @@ const CustomBankDropdown = ({ value, onChange, isCustom }) => {
     <div className='relative' ref={dropdownRef}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className='w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-white cursor-pointer flex items-center justify-between hover:border-emerald-500 transition-colors'>
+        className='w-full p-2.5 border border-stone-200 rounded-lg text-sm bg-white cursor-pointer flex items-center justify-between hover:border-stone-500 transition-colors'>
         <div className='flex items-center gap-3'>
           {displayValue ? (
             <>
               <div className='w-8 h-5 flex items-center justify-center shrink-0'>
                 {getBankLogo(displayValue)}
               </div>
-              <span className='font-medium text-gray-700'>{displayValue}</span>
+              <span className='font-medium text-stone-700'>{displayValue}</span>
             </>
           ) : (
-            <span className='text-gray-400'>Select Bank...</span>
+            <span className='text-stone-400'>Select Bank...</span>
           )}
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-stone-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </div>
 
@@ -79,7 +81,7 @@ const CustomBankDropdown = ({ value, onChange, isCustom }) => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className='absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar py-2'>
+            className='absolute z-50 w-full mt-2 bg-white border border-stone-100 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar py-2'>
             {INDONESIAN_BANKS.map((bank) => (
               <div
                 key={bank}
@@ -87,11 +89,11 @@ const CustomBankDropdown = ({ value, onChange, isCustom }) => {
                   onChange(bank);
                   setIsOpen(false);
                 }}
-                className='flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50 cursor-pointer transition-colors'>
+                className='flex items-center gap-3 px-4 py-2.5 hover:bg-stone-100 cursor-pointer transition-colors'>
                 <div className='w-8 h-5 flex items-center justify-center shrink-0'>
                   {getBankLogo(bank)}
                 </div>
-                <span className='text-sm font-medium text-gray-700'>
+                <span className='text-sm font-medium text-stone-700'>
                   {bank}
                 </span>
               </div>
@@ -108,7 +110,14 @@ const StudioDetails = () => {
   const [studio, setStudio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [bankDetailsLoading, setBankDetailsLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [financialPasswordError, setFinancialPasswordError] = useState("");
+  const financialAccess = useFinancialStepUp();
+
+  useEffect(() => {
+    financialAccess.lock();
+  }, [financialAccess.lock, user?._id, user?.adminStudioLocation]);
 
   const fetchStudio = async () => {
     try {
@@ -127,6 +136,46 @@ const StudioDetails = () => {
   useEffect(() => {
     fetchStudio();
   }, [user]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    const fetchPaymentInstructions = async () => {
+      if (!financialAccess.isUnlocked || !user?.adminStudioLocation) return;
+
+      setBankDetailsLoading(true);
+      try {
+        const response = await axiosInstance.get(
+          API_PATHS.STUDIO.GET_PAYMENT_INSTRUCTIONS(
+            user.adminStudioLocation,
+          ),
+          { headers: financialAccess.requestHeaders },
+        );
+        if (!isCurrent) return;
+        setStudio((currentStudio) =>
+          currentStudio
+            ? {
+                ...currentStudio,
+                bankDetails: response.data?.bankDetails || [],
+              }
+            : currentStudio,
+        );
+      } catch (err) {
+        if (isCurrent) console.error("Failed to fetch payment instructions", err);
+      } finally {
+        if (isCurrent) setBankDetailsLoading(false);
+      }
+    };
+
+    fetchPaymentInstructions();
+    return () => {
+      isCurrent = false;
+    };
+  }, [
+    financialAccess.isUnlocked,
+    financialAccess.requestHeaders,
+    user?.adminStudioLocation,
+  ]);
 
   const handleUpdateStudio = async ({ formData, newFiles }) => {
     try {
@@ -161,12 +210,13 @@ const StudioDetails = () => {
         bankDetails: cleanBankDetails,
       };
 
-      await axiosInstance.put(
+      const response = await axiosInstance.put(
         API_PATHS.STUDIO.UPDATE_STUDIO_BY_ID(studio._id),
         payload,
+        { headers: financialAccess.requestHeaders },
       );
+      setStudio(response.data);
       setIsEditModalOpen(false);
-      fetchStudio();
       alert("Studio updated successfully!");
     } catch (error) {
       console.error("Update failed", error);
@@ -176,13 +226,24 @@ const StudioDetails = () => {
     }
   };
 
-  if (loading)
+  if (loading || (financialAccess.isUnlocked && bankDetailsLoading))
     return (
       <div className='min-h-screen flex justify-center items-center'>
         <LoadingSpinner />
       </div>
     );
   if (!studio) return <div className='p-10 text-center'>Studio not found.</div>;
+  if (!financialAccess.isUnlocked) {
+    return (
+      <FinancialAccessGate
+        description='Confirm your password before editing studio payment instructions.'
+        error={financialPasswordError}
+        onUnlock={financialAccess.unlock}
+        setError={setFinancialPasswordError}
+        title='Unlock Studio Settings'
+      />
+    );
+  }
 
   const facilitiesList = studio?.facilities?.flat() || [];
   const allImages = studio?.studioPictures?.flat() || [];
@@ -191,11 +252,11 @@ const StudioDetails = () => {
   const [lat, lng] = studio?.address?.coordinates || [0, 0];
 
   return (
-    <div className='p-6 md:p-10 bg-gray-50 min-h-screen font-sans'>
+    <div className='p-6 md:p-10 bg-stone-50 min-h-screen font-sans'>
       <div className='max-w-7xl mx-auto'>
         {/* TOP: Full Width Image Gallery */}
-        <div className='bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mb-8'>
-          <div className='h-[40vh] w-full rounded-xl overflow-hidden bg-gray-100 relative group'>
+        <div className='bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-8'>
+          <div className='h-[40vh] w-full rounded-xl overflow-hidden bg-stone-100 relative group'>
             {activeImage ? (
               <img
                 src={fetchImage(activeImage)}
@@ -203,7 +264,7 @@ const StudioDetails = () => {
                 className='w-full h-full object-cover'
               />
             ) : (
-              <div className='flex items-center justify-center h-full text-gray-400 bg-gray-50'>
+              <div className='flex items-center justify-center h-full text-stone-400 bg-stone-50'>
                 <ImageIcon className='w-12 h-12 opacity-50' />
               </div>
             )}
@@ -225,7 +286,7 @@ const StudioDetails = () => {
                 {/* Action Section */}
                 <button
                   onClick={() => setIsEditModalOpen(true)}
-                  className='flex items-center justify-center gap-2 bg-emerald-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-800 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.4)] active:scale-95 w-full sm:w-auto shrink-0'>
+                  className='flex items-center justify-center gap-2 bg-stone-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.4)] active:scale-95 w-full sm:w-auto shrink-0'>
                   <Edit2 className='w-4 h-4' /> Edit Details
                 </button>
               </div>
@@ -238,7 +299,7 @@ const StudioDetails = () => {
                   key={idx}
                   src={fetchImage(img)}
                   alt={`Gallery ${idx}`}
-                  className='w-24 h-24 rounded-lg object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0'
+                  className='w-24 h-24 rounded-lg object-cover border border-stone-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0'
                 />
               ))}
             </div>
@@ -248,21 +309,21 @@ const StudioDetails = () => {
         {/* BOTTOM: Two Column Layout */}
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
           <div className='lg:col-span-2 space-y-8'>
-            <div className='bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm'>
-              <h3 className='font-bold text-gray-900 mb-6 flex items-center gap-2 text-lg'>
-                <CheckCircle2 className='w-5 h-5 text-emerald-600' /> Facilities
+            <div className='bg-white p-6 md:p-8 rounded-2xl border border-stone-100 shadow-sm'>
+              <h3 className='font-bold text-stone-900 mb-6 flex items-center gap-2 text-lg'>
+                <CheckCircle2 className='w-5 h-5 text-stone-800' /> Facilities
               </h3>
               <div className='flex flex-wrap gap-3'>
                 {facilitiesList.length > 0 ? (
                   facilitiesList.map((facility, index) => (
                     <span
                       key={index}
-                      className='inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-800 text-sm font-semibold border border-emerald-100'>
+                      className='inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-stone-100 text-stone-900 text-sm font-semibold border border-stone-200'>
                       <CheckCircle2 className='w-4 h-4' /> {facility}
                     </span>
                   ))
                 ) : (
-                  <p className='text-sm text-gray-400 italic'>
+                  <p className='text-sm text-stone-400 italic'>
                     No facilities listed.
                   </p>
                 )}
@@ -270,44 +331,44 @@ const StudioDetails = () => {
             </div>
 
             {/* Bank Details Display */}
-            <div className='bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm'>
-              <h3 className='font-bold text-gray-900 mb-6 flex items-center gap-2 text-lg'>
-                <CreditCard className='w-5 h-5 text-emerald-600' /> Bank Details
+            <div className='bg-white p-6 md:p-8 rounded-2xl border border-stone-100 shadow-sm'>
+              <h3 className='font-bold text-stone-900 mb-6 flex items-center gap-2 text-lg'>
+                <CreditCard className='w-5 h-5 text-stone-800' /> Bank Details
               </h3>
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 {bankDetails.length > 0 ? (
                   bankDetails.map((detail) => (
                     <div
                       key={detail._id}
-                      className='group relative flex items-center justify-between p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-200 overflow-hidden'>
+                      className='group relative flex items-center justify-between p-5 bg-white border border-stone-200 rounded-xl shadow-sm hover:shadow-md hover:border-stone-300 transition-all duration-200 overflow-hidden'>
                       <div className='flex items-center gap-4 overflow-hidden'>
-                        <div className='w-12 h-8 flex items-center justify-center bg-white rounded-md border border-gray-200 p-1 shrink-0 group-hover:scale-105 transition-transform duration-200'>
+                        <div className='w-12 h-8 flex items-center justify-center bg-white rounded-md border border-stone-200 p-1 shrink-0 group-hover:scale-105 transition-transform duration-200'>
                           {getBankLogo(detail.bankName)}
                         </div>
                         <div className='flex flex-col min-w-0'>
-                          <p className='text-xs font-bold text-gray-500 uppercase tracking-wider truncate'>
+                          <p className='text-xs font-bold text-stone-500 uppercase tracking-wider truncate'>
                             {detail.bankName}
                           </p>
-                          <p className='text-base font-bold text-gray-900 tracking-tight truncate'>
+                          <p className='text-base font-bold text-stone-900 tracking-tight truncate'>
                             {detail.accountNumber}
                           </p>
-                          <p className='text-sm text-gray-600 truncate'>
+                          <p className='text-sm text-stone-600 truncate'>
                             a/n{" "}
-                            <span className='font-medium text-gray-800'>
+                            <span className='font-medium text-stone-800'>
                               {detail.accountHolderName}
                             </span>
                           </p>
                         </div>
                       </div>
                       <button
-                        className='flex-shrink-0 p-2 text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-full transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100'
+                        className='flex-shrink-0 p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-full transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100'
                         title='Copy Account Number'>
                         <Copy className='w-4 h-4' />
                       </button>
                     </div>
                   ))
                 ) : (
-                  <p className='text-sm text-gray-500 italic'>
+                  <p className='text-sm text-stone-500 italic'>
                     No bank details available.
                   </p>
                 )}
@@ -317,28 +378,28 @@ const StudioDetails = () => {
 
           <div className='lg:col-span-1 space-y-8'>
             <div className='sticky top-8 space-y-8'>
-              <div className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm'>
-                <h3 className='font-bold text-gray-900 mb-5 flex items-center gap-2'>
-                  <Building2 className='w-5 h-5 text-emerald-600' /> Contact &
+              <div className='bg-white p-6 rounded-2xl border border-stone-100 shadow-sm'>
+                <h3 className='font-bold text-stone-900 mb-5 flex items-center gap-2'>
+                  <Building2 className='w-5 h-5 text-stone-800' /> Contact &
                   Address
                 </h3>
                 <div className='space-y-5'>
                   <div>
-                    <p className='text-xs text-gray-400 font-bold uppercase tracking-wider mb-1'>
+                    <p className='text-xs text-stone-400 font-bold uppercase tracking-wider mb-1'>
                       Full Address
                     </p>
-                    <p className='text-sm text-gray-800 leading-relaxed font-medium'>
+                    <p className='text-sm text-stone-800 leading-relaxed font-medium'>
                       {studio.address?.street}
                       <br />
                       {studio.address?.city} {studio.address?.zip}
                     </p>
                   </div>
                   <div>
-                    <p className='text-xs text-gray-400 font-bold uppercase tracking-wider mb-1'>
+                    <p className='text-xs text-stone-400 font-bold uppercase tracking-wider mb-1'>
                       Contact Number
                     </p>
-                    <p className='text-sm text-gray-800 font-mono font-medium flex items-center gap-2'>
-                      <Phone className='w-4 h-4 text-emerald-600' /> +
+                    <p className='text-sm text-stone-800 font-mono font-medium flex items-center gap-2'>
+                      <Phone className='w-4 h-4 text-stone-800' /> +
                       {studio.contactNumber}
                     </p>
                   </div>
@@ -464,8 +525,8 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
   };
 
   const SectionHeader = ({ title }) => (
-    <div className='bg-gray-50 -mx-6 px-6 py-2 border-y border-gray-100 mb-4 mt-6 first:mt-0'>
-      <p className='text-xs font-bold text-gray-500 uppercase tracking-widest'>
+    <div className='bg-stone-50 -mx-6 px-6 py-2 border-y border-stone-100 mb-4 mt-6 first:mt-0'>
+      <p className='text-xs font-bold text-stone-500 uppercase tracking-widest'>
         {title}
       </p>
     </div>
@@ -481,19 +542,19 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
         {isSaving && (
           <div className='absolute inset-0 z-50 bg-white/90 flex flex-col items-center justify-center'>
             <LoadingSpinner />
-            <p className='mt-4 text-emerald-900 font-bold animate-pulse'>
+            <p className='mt-4 text-stone-900 font-bold animate-pulse'>
               Uploading & Saving...
             </p>
           </div>
         )}
 
-        <div className='p-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0'>
-          <h3 className='text-xl font-bold text-gray-900'>Edit Studio</h3>
+        <div className='p-5 border-b border-stone-100 flex justify-between items-center bg-white shrink-0'>
+          <h3 className='text-xl font-bold text-stone-900'>Edit Studio</h3>
           {!isSaving && (
             <button
               onClick={onClose}
-              className='p-2 rounded-full hover:bg-gray-100 transition-colors'>
-              <X className='w-5 h-5 text-gray-500' />
+              className='p-2 rounded-full hover:bg-stone-100 transition-colors'>
+              <X className='w-5 h-5 text-stone-500' />
             </button>
           )}
         </div>
@@ -505,7 +566,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
           <SectionHeader title='Basic Information' />
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
             <div>
-              <label className='block text-xs font-bold text-gray-700 mb-1'>
+              <label className='block text-xs font-bold text-stone-700 mb-1'>
                 Studio Name
               </label>
               <input
@@ -513,11 +574,11 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                 name='studioName'
                 value={formData.studioName}
                 onChange={handleChange}
-                className='w-full p-2.5 border rounded-lg text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all'
+                className='w-full p-2.5 border rounded-lg text-sm bg-stone-50 focus:bg-white focus:ring-2 focus:ring-stone-500 outline-none transition-all'
               />
             </div>
             <div>
-              <label className='block text-xs font-bold text-gray-700 mb-1'>
+              <label className='block text-xs font-bold text-stone-700 mb-1'>
                 Contact Number
               </label>
               <input
@@ -525,7 +586,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                 name='contactNumber'
                 value={formData.contactNumber}
                 onChange={handleChange}
-                className='w-full p-2.5 border rounded-lg text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all'
+                className='w-full p-2.5 border rounded-lg text-sm bg-stone-50 focus:bg-white focus:ring-2 focus:ring-stone-500 outline-none transition-all'
               />
             </div>
           </div>
@@ -535,17 +596,17 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
             {formData.bankDetails.map((bank, index) => (
               <div
                 key={index}
-                className='relative p-4 border border-gray-200 rounded-xl bg-gray-50/50'>
+                className='relative p-4 border border-stone-200 rounded-xl bg-stone-50/50'>
                 <button
                   type='button'
                   onClick={() => removeBankDetail(index)}
-                  className='absolute top-3 right-3 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors'>
+                  className='absolute top-3 right-3 p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors'>
                   <Trash2 className='w-4 h-4' />
                 </button>
 
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4 pr-8'>
                   <div>
-                    <label className='block text-xs font-bold text-gray-600 mb-1'>
+                    <label className='block text-xs font-bold text-stone-600 mb-1'>
                       Bank Name
                     </label>
                     <CustomBankDropdown
@@ -580,7 +641,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                               )
                             }
                             placeholder='e.g. Bank Jateng'
-                            className='mt-3 w-full p-2.5 border rounded-lg text-sm outline-none focus:border-emerald-500 bg-white'
+                            className='mt-3 w-full p-2.5 border rounded-lg text-sm outline-none focus:border-stone-500 bg-white'
                           />
                         </motion.div>
                       )}
@@ -588,7 +649,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                   </div>
 
                   <div>
-                    <label className='block text-xs font-bold text-gray-600 mb-1'>
+                    <label className='block text-xs font-bold text-stone-600 mb-1'>
                       Account Number
                     </label>
                     <input
@@ -598,11 +659,11 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                         handleBankChange(index, "accountNumber", e.target.value)
                       }
                       placeholder='e.g. 1234567890'
-                      className='w-full p-2.5 border rounded-lg text-sm outline-none focus:border-emerald-500'
+                      className='w-full p-2.5 border rounded-lg text-sm outline-none focus:border-stone-500'
                     />
                   </div>
                   <div className='md:col-span-2'>
-                    <label className='block text-xs font-bold text-gray-600 mb-1'>
+                    <label className='block text-xs font-bold text-stone-600 mb-1'>
                       Account Holder Name
                     </label>
                     <input
@@ -616,7 +677,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                         )
                       }
                       placeholder='e.g. CV Gerak Selaras'
-                      className='w-full p-2.5 border rounded-lg text-sm outline-none focus:border-emerald-500'
+                      className='w-full p-2.5 border rounded-lg text-sm outline-none focus:border-stone-500'
                     />
                   </div>
                 </div>
@@ -625,7 +686,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
             <button
               type='button'
               onClick={addBankDetail}
-              className='w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-sm font-bold text-gray-500 flex justify-center items-center gap-2 hover:bg-gray-50 hover:border-gray-400 transition-all'>
+              className='w-full py-3 border-2 border-dashed border-stone-300 rounded-xl text-sm font-bold text-stone-500 flex justify-center items-center gap-2 hover:bg-stone-50 hover:border-stone-400 transition-all'>
               <Plus className='w-4 h-4' /> Add Bank Account
             </button>
           </div>
@@ -636,7 +697,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
             {formData.studioPictures.map((pic, idx) => (
               <div
                 key={`exist-${idx}`}
-                className='relative group aspect-square rounded-xl overflow-hidden border border-gray-200'>
+                className='relative group aspect-square rounded-xl overflow-hidden border border-stone-200'>
                 <img
                   src={fetchImage(pic)}
                   alt='Preview'
@@ -655,7 +716,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
             {newFiles.map((file, idx) => (
               <div
                 key={`new-${idx}`}
-                className='relative group aspect-square rounded-xl overflow-hidden border-2 border-emerald-500'>
+                className='relative group aspect-square rounded-xl overflow-hidden border-2 border-stone-500'>
                 <img
                   src={URL.createObjectURL(file)}
                   alt='New Upload'
@@ -671,7 +732,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
                 </div>
               </div>
             ))}
-            <label className='aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition-all text-gray-400 hover:text-emerald-600'>
+            <label className='aspect-square rounded-xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center cursor-pointer hover:border-stone-500 hover:bg-stone-100 transition-all text-stone-400 hover:text-stone-800'>
               <UploadCloud className='w-8 h-8 mb-2' />
               <span className='text-xs font-bold'>Upload Image</span>
               <input
@@ -685,19 +746,19 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
           </div>
         </form>
 
-        <div className='p-5 bg-gray-50 flex justify-end gap-3 border-t border-gray-200 shrink-0'>
+        <div className='p-5 bg-stone-50 flex justify-end gap-3 border-t border-stone-200 shrink-0'>
           <button
             type='button'
             onClick={onClose}
             disabled={isSaving}
-            className='px-6 py-2.5 text-gray-600 font-bold hover:bg-gray-200 rounded-xl disabled:opacity-50 transition-colors'>
+            className='px-6 py-2.5 text-stone-600 font-bold hover:bg-stone-200 rounded-xl disabled:opacity-50 transition-colors'>
             Cancel
           </button>
           <button
             type='submit'
             onClick={handleSubmit}
             disabled={isSaving}
-            className='px-8 py-2.5 bg-emerald-900 text-white font-bold hover:bg-emerald-800 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:bg-emerald-700 disabled:cursor-wait transition-all'>
+            className='px-8 py-2.5 bg-stone-600 text-white font-bold hover:bg-stone-700 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:bg-stone-600 disabled:cursor-wait transition-all'>
             {isSaving ? (
               <LoadingSpinner size='sm' />
             ) : (

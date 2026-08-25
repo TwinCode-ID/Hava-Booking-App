@@ -8,6 +8,7 @@ const {
   updatePassword,
   updateProfileDeveloper,
   getSystemMetrics,
+  logoutAllSessions,
   saveFcmToken,
 } = require("../../controllers/UserController/userController");
 
@@ -22,24 +23,82 @@ const {
 
 const {
   protect,
+  requireRecentAuth,
   devTeam,
   studioAdmin,
 } = require("../../middlewares/authMiddleware");
+const {
+  authIpLimiter,
+  sensitiveActionLimiter,
+} = require("../../middlewares/rateLimitMiddleware");
 
 const router = express.Router();
 
-router.post("/push-token", protect, saveFcmToken);
+router.post(
+  "/push-token",
+  protect,
+  sensitiveActionLimiter,
+  saveFcmToken,
+);
+router.post(
+  "/logout-all",
+  protect,
+  sensitiveActionLimiter,
+  logoutAllSessions,
+);
 router.get("/metrics", protect, devTeam, getSystemMetrics);
-router.put("/update-password", protect, updatePassword);
-router.put("/set-password", protect, setNewUserPassword);
+router.put(
+  "/update-password",
+  protect,
+  requireRecentAuth,
+  sensitiveActionLimiter,
+  updatePassword,
+);
+router.put(
+  "/set-password",
+  protect,
+  requireRecentAuth,
+  sensitiveActionLimiter,
+  setNewUserPassword,
+);
 router.get("/passkey", protect, listPasskeys);
-router.delete("/passkey/:authenticatorId", protect, deletePasskey);
-router.post("/passkey/register-start", protect, registerStart);
-router.post("/passkey/register-finish", protect, registerFinish);
-router.post("/passkey/login-start", loginStart);
-router.post("/passkey/login-finish", loginFinish);
-router.get("/all", protect, getAllUsers);
-router.put("/profile/:id", protect, studioAdmin, updateProfileDeveloper);
+router.delete(
+  "/passkey/:authenticatorId",
+  protect,
+  requireRecentAuth,
+  sensitiveActionLimiter,
+  deletePasskey,
+);
+router.post(
+  "/passkey/register-start",
+  protect,
+  requireRecentAuth,
+  sensitiveActionLimiter,
+  registerStart,
+);
+router.post(
+  "/passkey/register-finish",
+  protect,
+  sensitiveActionLimiter,
+  registerFinish,
+);
+router.post(
+  "/passkey/login-start",
+  authIpLimiter,
+  loginStart,
+);
+router.post(
+  "/passkey/login-finish",
+  authIpLimiter,
+  loginFinish,
+);
+router.get("/all", protect, studioAdmin, getAllUsers);
+router.put(
+  "/profile/:id",
+  protect,
+  studioAdmin,
+  updateProfileDeveloper,
+);
 router.put("/profile", protect, updateProfile);
 router.get("/:id", protect, getPublicProfile);
 router.delete("/:id", protect, devTeam, deleteUser);

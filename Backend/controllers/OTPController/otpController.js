@@ -1,108 +1,307 @@
+const crypto = require("crypto");
 const { sendEmail } = require("../../helper/sendEmail");
+const {
+  getAuthVersion,
+  issueAuthToken,
+} = require("../../helper/authToken");
+const {
+  generateOtp,
+  hashOtp,
+  logAuthError,
+  normalizeEmail,
+} = require("../../helper/authSecurity");
+const {
+  PREAUTH_PURPOSES,
+  consumePreAuthSession,
+  findActivePreAuthSession,
+} = require("../../helper/preAuthSession");
 const User = require("../../models/UserData/User");
 const OTP = require("../../models/OTP/OTP");
 const OtpLog = require("../../models/OTP/OtpLog");
-const jwt = require("jsonwebtoken"); // <--- Import the new model
+const PendingRegistration = require("../../models/OTP/PendingRegistration");
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "60d" });
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_REQUEST_INTERVAL_MS = 60 * 1000;
+const OTP_REQUESTS_PER_HOUR = 5;
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_SENT_MESSAGE = "If the account exists, a code has been sent.";
+const INVALID_OTP_MESSAGE = "Invalid or expired OTP.";
+const INVALID_OTP_FLOW_MESSAGE = "OTP verification flow is invalid or expired.";
+
+const AUTHENTICATION_METHODS = {
+  [PREAUTH_PURPOSES.PASSWORD_LOGIN]: "password_otp",
+  [PREAUTH_PURPOSES.PASSWORDLESS_LOGIN]: "email_otp",
+  [PREAUTH_PURPOSES.REGISTRATION]: "registration_otp",
 };
+
+const otpHashesMatch = (expectedHash, suppliedHash) => {
+  if (
+    typeof expectedHash !== "string" ||
+    typeof suppliedHash !== "string" ||
+    !/^[a-f\d]{64}$/i.test(expectedHash) ||
+    !/^[a-f\d]{64}$/i.test(suppliedHash)
+  ) {
+    return false;
+  }
+  return crypto.timingSafeEqual(
+    Buffer.from(expectedHash, "hex"),
+    Buffer.from(suppliedHash, "hex"),
+  );
+};
+
+const getBoundPreAuthFlow = async (body = {}) => {
+  const email = normalizeEmail(body.email);
+  if (!email) return null;
+
+  const flow = await findActivePreAuthSession({
+    token: body.preAuthToken,
+    email,
+    purpose: body.purpose,
+  });
+  if (!flow) return null;
+
+  if (flow.session.purpose === PREAUTH_PURPOSES.REGISTRATION) {
+    if (!flow.session.pendingRegistrationId || flow.session.userId) return null;
+
+    const pendingRegistration = await PendingRegistration.findById(
+      flow.session.pendingRegistrationId,
+    ).select("+registrationVersion");
+    if (
+      !pendingRegistration ||
+      normalizeEmail(pendingRegistration.email) !== email ||
+      pendingRegistration.expiresAt <= new Date() ||
+      pendingRegistration.registrationVersion !==
+        flow.session.registrationVersion
+    ) {
+      return null;
+    }
+
+    return {
+      ...flow,
+      email,
+      purpose: flow.session.purpose,
+      pendingRegistration,
+      registrationVersion: flow.session.registrationVersion,
+    };
+  }
+
+  if (!flow.session.userId || flow.session.pendingRegistrationId) return null;
+  const user = await User.findById(flow.session.userId);
+  if (!user || normalizeEmail(user.email) !== email) return null;
+
+  return {
+    ...flow,
+    email,
+    purpose: flow.session.purpose,
+    user,
+  };
+};
+
+const getOtpSubjectBinding = (flow) =>
+  flow.purpose === PREAUTH_PURPOSES.REGISTRATION
+    ? {
+        pendingRegistrationId: flow.pendingRegistration._id,
+        registrationVersion: flow.registrationVersion,
+      }
+    : { userId: flow.user._id };
+
+const rejectInvalidOtpFlow = (res) =>
+  res.status(401).json({
+    code: "INVALID_OTP_FLOW",
+    error: INVALID_OTP_FLOW_MESSAGE,
+  });
 
 exports.requestOTP = async (req, res) => {
   try {
-    const { email } = req.body;
-
-    // 1. Check if user exists
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    const email = normalizeEmail(req.body.email);
+    if (!email) {
+      return res.status(400).json({ error: "A valid email is required." });
     }
 
-    // --- CHECK 1: 1-MINUTE INTERVAL ---
-    // Get the most recent request log for this email
-    const lastRequest = await OtpLog.findOne({ email }).sort({ createdAt: -1 });
+    const flow = await getBoundPreAuthFlow(req.body);
+    if (!flow) return rejectInvalidOtpFlow(res);
 
+    const lastRequest = await OtpLog.findOne({ email }).sort({ createdAt: -1 });
     if (lastRequest) {
-      const timeDiff = Date.now() - lastRequest.createdAt.getTime();
-      if (timeDiff < 60 * 1000) {
-        // 60,000 ms = 1 minute
-        const secondsLeft = Math.ceil((60000 - timeDiff) / 1000);
+      const elapsed = Date.now() - lastRequest.createdAt.getTime();
+      if (elapsed < OTP_REQUEST_INTERVAL_MS) {
         return res.status(429).json({
-          error: `Please wait ${secondsLeft} seconds before requesting again.`,
+          code: "OTP_RATE_LIMITED",
+          error: "Please wait before requesting another code.",
+          retryAfter: Math.ceil(
+            (OTP_REQUEST_INTERVAL_MS - elapsed) / 1000,
+          ),
         });
       }
     }
 
-    // --- CHECK 2: MAX 5 PER HOUR ---
-    // Count how many logs exist (The DB auto-deletes logs older than 1 hour)
     const requestCount = await OtpLog.countDocuments({ email });
-
-    if (requestCount >= 5) {
+    if (requestCount >= OTP_REQUESTS_PER_HOUR) {
       return res.status(429).json({
-        error:
-          "Too many attempts. You can only request 5 OTPs per hour. Please try again later.",
+        code: "OTP_RATE_LIMITED",
+        error: "Too many code requests. Please try again later.",
       });
     }
 
-    // --- ALL CHECKS PASSED: GENERATE OTP ---
-
-    // Generate Code
-    const generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Clear old OTP (The actual code)
-    await OTP.deleteOne({ email });
-
-    // Save new OTP
-    await OTP.create({
-      email,
-      otp: generatedOTP,
-    });
-
-    // *** IMPORTANT: Save the Log for the checks next time ***
+    const otp = generateOtp();
+    const otpHash = hashOtp(email, otp);
+    const subjectBinding = getOtpSubjectBinding(flow);
+    const obsoleteSubjectFields = flow.pendingRegistration
+      ? { userId: "" }
+      : { pendingRegistrationId: "", registrationVersion: "" };
+    await OTP.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          attempts: 0,
+          createdAt: new Date(),
+          otpHash,
+          preAuthSessionHash: flow.tokenHash,
+          purpose: flow.purpose,
+          ...subjectBinding,
+        },
+        $unset: obsoleteSubjectFields,
+      },
+      { new: true, setDefaultsOnInsert: true, upsert: true },
+    );
     await OtpLog.create({ email });
 
-    // Send Email
-    // Note: Ensure your sendEmail function accepts (name, email, otp) based on your previous code
-    await sendEmail(user.fullName || "User", email, generatedOTP);
-
-    res.status(200).json({ message: "OTP sent to your email." });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// --- B. VERIFY OTP (User enters email + code) ---
-exports.verifyOTP = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    // 1. Find the OTP record
-    // We search for both email AND the otp code
-    const validOTP = await OTP.findOne({ email, otp });
-
-    // 2. Validation
-    if (!validOTP) {
-      return res.status(400).json({ error: "Invalid or expired OTP." });
+    try {
+      await sendEmail(
+        (flow.user || flow.pendingRegistration).fullName || "User",
+        email,
+        otp,
+      );
+    } catch (error) {
+      // Do not leave a usable code behind if delivery failed. The request log
+      // remains to prevent abusing email delivery failures as a bypass.
+      await OTP.deleteOne({
+        email,
+        otpHash,
+        preAuthSessionHash: flow.tokenHash,
+      });
+      throw error;
     }
 
-    // 3. OTP is correct! -> Log them in
-    // Fetch the user to generate a token (JWT)
-    const user = await User.findOne({ email });
-
-    // ... Generate JWT Token here ...
-    // const token = generateToken(user._id);
-
-    // 4. SECURITY CRITICAL: Delete the OTP immediately
-    // Prevents "Replay Attacks" (using the same code twice)
-    await OTP.deleteOne({ _id: validOTP._id });
-
-    res.status(200).json({
-      message: "Login successful",
-      userId: user._id,
-      role: user.role,
-      token: generateToken(user._id),
-    });
+    return res.status(200).json({ message: OTP_SENT_MESSAGE });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    logAuthError("OTP request failed", error);
+    return res.status(500).json({ error: "Unable to send a code." });
   }
 };
+
+exports.verifyOTP = async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const otp = req.body.otp;
+    if (!email || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ error: INVALID_OTP_MESSAGE });
+    }
+
+    const flow = await getBoundPreAuthFlow(req.body);
+    if (!flow) return rejectInvalidOtpFlow(res);
+
+    const validAfter = new Date(Date.now() - OTP_TTL_MS);
+    const subjectBinding = getOtpSubjectBinding(flow);
+    const otpRecord = await OTP.findOne({
+      email,
+      preAuthSessionHash: flow.tokenHash,
+      purpose: flow.purpose,
+      ...subjectBinding,
+      createdAt: { $gte: validAfter },
+    }).select("+otpHash +attempts");
+    if (!otpRecord || otpRecord.attempts >= OTP_MAX_ATTEMPTS) {
+      return res.status(400).json({ error: INVALID_OTP_MESSAGE });
+    }
+
+    const suppliedHash = hashOtp(email, otp);
+    if (!otpHashesMatch(otpRecord.otpHash, suppliedHash)) {
+      await OTP.updateOne(
+        {
+          _id: otpRecord._id,
+          preAuthSessionHash: flow.tokenHash,
+          purpose: flow.purpose,
+          ...subjectBinding,
+          attempts: { $lt: OTP_MAX_ATTEMPTS },
+        },
+        { $inc: { attempts: 1 } },
+      );
+      return res.status(400).json({ error: INVALID_OTP_MESSAGE });
+    }
+
+    // Atomic consumption prevents concurrent replay of the same valid code.
+    const consumedOtp = await OTP.findOneAndDelete({
+      _id: otpRecord._id,
+      attempts: { $lt: OTP_MAX_ATTEMPTS },
+      createdAt: { $gte: validAfter },
+      otpHash: suppliedHash,
+      preAuthSessionHash: flow.tokenHash,
+      purpose: flow.purpose,
+      ...subjectBinding,
+    });
+    if (!consumedOtp) {
+      return res.status(400).json({ error: INVALID_OTP_MESSAGE });
+    }
+
+    const consumedPreAuth = await consumePreAuthSession({
+      sessionId: flow.session._id,
+      tokenHash: flow.tokenHash,
+      ...subjectBinding,
+      email,
+      purpose: flow.purpose,
+    });
+    if (!consumedPreAuth) {
+      return res.status(400).json({ error: INVALID_OTP_MESSAGE });
+    }
+
+    let authenticatedUser = flow.user;
+    if (flow.purpose === PREAUTH_PURPOSES.REGISTRATION) {
+      const pendingRegistration = await PendingRegistration.findOneAndDelete({
+        _id: flow.pendingRegistration._id,
+        email,
+        registrationVersion: flow.registrationVersion,
+        expiresAt: { $gt: new Date() },
+      }).select("+passwordHash");
+      if (!pendingRegistration) {
+        return res.status(400).json({ error: INVALID_OTP_MESSAGE });
+      }
+
+      authenticatedUser = await User.createWithPasswordHash({
+        fullName: pendingRegistration.fullName,
+        email: pendingRegistration.email,
+        password: pendingRegistration.passwordHash,
+        phoneNumber: pendingRegistration.phoneNumber || "",
+        role: "client",
+        avatar: pendingRegistration.avatar || "",
+      });
+    }
+
+    return res.status(200).json({
+      message:
+        flow.purpose === PREAUTH_PURPOSES.REGISTRATION
+          ? "Registration successful"
+          : "Login successful",
+      _id: authenticatedUser._id,
+      fullName: authenticatedUser.fullName,
+      email: authenticatedUser.email,
+      userId: authenticatedUser._id,
+      role: authenticatedUser.role,
+      purpose: flow.purpose,
+      token: issueAuthToken(authenticatedUser._id, {
+        authenticationMethod: AUTHENTICATION_METHODS[flow.purpose],
+        authVersion: getAuthVersion(authenticatedUser),
+      }),
+    });
+  } catch (error) {
+    logAuthError("OTP verification failed", error);
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        code: "REGISTRATION_CONFLICT",
+        error: "Unable to activate this registration. Start again.",
+      });
+    }
+    return res.status(500).json({ error: "Unable to verify the code." });
+  }
+};
+
+module.exports.OTP_MAX_ATTEMPTS = OTP_MAX_ATTEMPTS;

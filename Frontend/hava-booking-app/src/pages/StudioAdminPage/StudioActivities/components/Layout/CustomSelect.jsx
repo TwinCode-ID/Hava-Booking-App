@@ -64,7 +64,7 @@ const CustomSelect = ({
   return (
     <div className='relative w-full' ref={containerRef}>
       {label && (
-        <label className='block text-xs font-bold text-gray-700 mb-1'>
+        <label className='block text-xs font-bold text-stone-700 mb-1'>
           {label}
         </label>
       )}
@@ -74,12 +74,12 @@ const CustomSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full p-3 border rounded-xl flex items-center justify-between cursor-pointer bg-white transition-all ${
           isOpen
-            ? "border-emerald-500 ring-2 ring-emerald-500/20"
-            : "border-gray-200 hover:border-emerald-500"
+            ? "border-stone-500 ring-2 ring-stone-500/20"
+            : "border-stone-200 hover:border-stone-500"
         }`}>
         <span
           className={`text-sm truncate pr-2 ${
-            selectedOption ? "text-gray-900 font-medium" : "text-gray-400"
+            selectedOption ? "text-stone-900 font-medium" : "text-stone-400"
           }`}>
           {selectedOption ? getLabel(selectedOption) : placeholder}
         </span>
@@ -89,12 +89,12 @@ const CustomSelect = ({
           {selectedOption && (
             <button
               onClick={handleClear}
-              className='p-1 rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors mr-1'>
+              className='p-1 rounded-full text-stone-400 hover:bg-red-50 hover:text-red-500 transition-colors mr-1'>
               <X className='w-4 h-4' />
             </button>
           )}
           <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform ${
+            className={`w-4 h-4 text-stone-400 transition-transform ${
               isOpen ? "rotate-180" : ""
             }`}
           />
@@ -108,16 +108,16 @@ const CustomSelect = ({
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
-            className='absolute z-50 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden'>
+            className='absolute z-50 mt-2 w-full bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden'>
             {/* Search Input (Sticky Top) */}
             {searchable && (
-              <div className='p-2 border-b border-gray-100 bg-gray-50'>
+              <div className='p-2 border-b border-stone-100 bg-stone-50'>
                 <div className='relative'>
-                  <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
+                  <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400' />
                   <input
                     ref={searchInputRef}
                     type='text'
-                    className='w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                    className='w-full pl-9 pr-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:border-stone-500 focus:ring-1 focus:ring-stone-500'
                     placeholder='Type to search...'
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -138,8 +138,8 @@ const CustomSelect = ({
                       onClick={() => handleSelect(opt)}
                       className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors ${
                         isSelected
-                          ? "bg-emerald-50 text-emerald-700 font-bold"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-stone-100 text-stone-800 font-bold"
+                          : "text-stone-700 hover:bg-stone-50"
                       }`}>
                       <span>{getLabel(opt)}</span>
                       {isSelected && <Check className='w-4 h-4' />}
@@ -147,7 +147,7 @@ const CustomSelect = ({
                   );
                 })
               ) : (
-                <div className='p-4 text-center text-sm text-gray-400'>
+                <div className='p-4 text-center text-sm text-stone-400'>
                   No results found.
                 </div>
               )}

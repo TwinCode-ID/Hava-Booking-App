@@ -1,5 +1,34 @@
 const Conversation = require("../../models/Messaging/Conversation");
 const Message = require("../../models/Messaging/Message");
+const Studio = require("../../models/StudioData/Studios");
+const {
+  MAX_CHAT_MESSAGE_BYTES,
+  isChatMessageWithinLimit,
+} = require("../../helper/chatSecurity");
+const {
+  idsEqual,
+  isDevTeam,
+  isStudioAdmin,
+} = require("../../helper/authorization");
+
+const canAccessConversation = (user, conversation) =>
+  isDevTeam(user) ||
+  idsEqual(conversation.client, user?._id) ||
+  (isStudioAdmin(user) &&
+    idsEqual(conversation.studio, user.adminStudioLocation));
+
+const findAuthorizedConversation = async (req, res, conversationId) => {
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation) {
+    res.status(404).json({ message: "Conversation not found" });
+    return null;
+  }
+  if (!canAccessConversation(req.user, conversation)) {
+    res.status(403).json({ message: "Not authorized for this conversation" });
+    return null;
+  }
+  return conversation;
+};
 
 // 1. Get all conversations for the logged-in user (Admin or Client)
 exports.getConversations = async (req, res) => {
@@ -31,6 +60,12 @@ exports.getConversations = async (req, res) => {
 exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
+    const conversation = await findAuthorizedConversation(
+      req,
+      res,
+      conversationId,
+    );
+    if (!conversation) return;
 
     const messages = await Message.find({ conversationId })
       .populate("sender", "fullName avatar role")
@@ -46,15 +81,36 @@ exports.getMessages = async (req, res) => {
 // 3. Send a new message
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, text, receiverId } = req.body;
+    const { conversationId, text } = req.body;
     const senderId = req.user._id;
     const senderRole = req.user.role;
+
+    if (typeof text !== "string") {
+      return res.status(400).json({ message: "Message text is required" });
+    }
+    const normalizedText = text.trim();
+    if (!normalizedText) {
+      return res.status(400).json({ message: "Message text is required" });
+    }
+    if (!isChatMessageWithinLimit(normalizedText)) {
+      return res.status(400).json({
+        code: "MESSAGE_TOO_LONG",
+        message: `Message text must be at most ${MAX_CHAT_MESSAGE_BYTES} bytes.`,
+      });
+    }
+
+    const conversation = await findAuthorizedConversation(
+      req,
+      res,
+      conversationId,
+    );
+    if (!conversation) return;
 
     // Save the new message
     const newMessage = await Message.create({
       conversationId,
       sender: senderId,
-      text,
+      text: normalizedText,
     });
 
     // Determine who needs their unread counter increased
@@ -65,7 +121,7 @@ exports.sendMessage = async (req, res) => {
 
     // Update the conversation's last message and timestamp
     await Conversation.findByIdAndUpdate(conversationId, {
-      lastMessage: text,
+      lastMessage: normalizedText,
       lastMessageAt: Date.now(),
       ...updateField,
     });
@@ -77,7 +133,7 @@ exports.sendMessage = async (req, res) => {
     );
 
     const io = req.app.get("io");
-    io.to(conversationId).emit("receive_message", populatedMessage);
+    if (io) io.to(conversationId).emit("receive_message", populatedMessage);
 
     res.status(201).json(populatedMessage);
   } catch (error) {
@@ -91,6 +147,17 @@ exports.createOrGetConversation = async (req, res) => {
   try {
     const { studioId } = req.body;
     const clientId = req.user._id;
+
+    if (req.user.role !== "client") {
+      return res
+        .status(403)
+        .json({ message: "Only clients can initiate studio conversations" });
+    }
+
+    const studioExists = await Studio.exists({ _id: studioId });
+    if (!studioExists) {
+      return res.status(404).json({ message: "Studio not found" });
+    }
 
     let conversation = await Conversation.findOne({
       client: clientId,
@@ -120,6 +187,13 @@ exports.markAsRead = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userRole = req.user.role;
+
+    const conversation = await findAuthorizedConversation(
+      req,
+      res,
+      conversationId,
+    );
+    if (!conversation) return;
 
     // Determine which counter to reset based on who is looking at the chat
     const updateField =

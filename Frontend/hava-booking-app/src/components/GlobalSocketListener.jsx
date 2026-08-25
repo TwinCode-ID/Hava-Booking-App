@@ -1,12 +1,16 @@
 import React, { useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import socket from "../utils/socket";
+import { AUTH_TOKEN_ROTATED_EVENT } from "../utils/authToken";
 
 const GlobalSocketListener = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user?._id) return;
+    if (!user?._id) {
+      if (socket.connected) socket.disconnect();
+      return;
+    }
 
     if (!socket.connected) {
       socket.connect();
@@ -15,12 +19,8 @@ const GlobalSocketListener = () => {
     const handleConnect = () => {
       if (user.role === "client") {
         socket.emit("join_user_room", user._id);
-        console.log(`🌍 [GLOBAL SOCKET] Connected. Joining room: ${user._id}`);
       } else if (user.role === "studioAdmin") {
         socket.emit("join_studio_admin_room", user.adminStudioLocation);
-        console.log(
-          `🌍 [GLOBAL SOCKET] Connected. Joining room: ${user.adminStudioLocation}`,
-        );
       }
     };
 
@@ -30,9 +30,14 @@ const GlobalSocketListener = () => {
 
     socket.on("connect", handleConnect);
 
-    socket.on("purchase_notification", (data) => {
-      console.log("🔔 [GLOBAL SOCKET] Notification:", data);
+    const handleTokenRotation = () => {
+      socket.disconnect();
+      socket.connect();
+    };
 
+    window.addEventListener(AUTH_TOKEN_ROTATED_EVENT, handleTokenRotation);
+
+    socket.on("purchase_notification", (data) => {
       // Triggered by the newly added backend socket
       if (data.type === "PASS_FREEZE_UPDATED") {
         window.dispatchEvent(new Event("pass-freeze-updated"));
@@ -56,6 +61,11 @@ const GlobalSocketListener = () => {
     return () => {
       socket.off("connect", handleConnect);
       socket.off("purchase_notification");
+      window.removeEventListener(
+        AUTH_TOKEN_ROTATED_EVENT,
+        handleTokenRotation,
+      );
+      socket.disconnect();
     };
   }, [user]);
 

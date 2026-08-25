@@ -3,6 +3,10 @@ const toAuthenticatedUser = (user) => {
     password,
     authenticators,
     currentChallenge,
+    currentChallengeExpiresAt,
+    currentChallengeType,
+    authVersion,
+    passwordChangedAt,
     ...safeUser
   } = user;
 

@@ -1,31 +1,70 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const PasskeyCeremony = require("../models/UserData/PasskeyCeremony");
 const User = require("../models/UserData/User");
 const { toAuthenticatedUser } = require("../helper/userResponse");
+const {
+  getSessionBinding,
+  hashCeremonyValue,
+} = require("../helper/passkeyCeremony");
 
-let authenticationVerification = {
-  verified: true,
-  authenticationInfo: { newCounter: 7 },
-};
+const REGISTRATION_CEREMONY_ID = "R".repeat(43);
+const AUTHENTICATION_CEREMONY_ID = "A".repeat(43);
+const TEST_JWT_SECRET = "passkey-management-test-secret-at-least-32-chars";
+
+let authenticationOptionsInput;
+let authenticationVerification;
+let authenticationVerificationInput;
+let registrationOptionsInput;
 let registrationVerification;
+let registrationVerificationInput;
 
-// The controller captures these functions when it is required. Replace only the
-// authentication verifier so login-finish can be exercised without hardware.
 const webAuthnPath = require.resolve("@simplewebauthn/server");
 const realWebAuthn = require(webAuthnPath);
 require.cache[webAuthnPath].exports = {
   ...realWebAuthn,
-  verifyRegistrationResponse: async () => registrationVerification,
-  verifyAuthenticationResponse: async () => authenticationVerification,
+  generateAuthenticationOptions: async (input) => {
+    authenticationOptionsInput = input;
+    return {
+      challenge: "authentication-challenge",
+      rpId: input.rpID,
+      timeout: 60_000,
+      userVerification: input.userVerification,
+    };
+  },
+  generateRegistrationOptions: async (input) => {
+    registrationOptionsInput = input;
+    return {
+      challenge: "registration-challenge",
+      rp: { id: input.rpID, name: input.rpName },
+      user: {
+        id: Buffer.from(input.userID).toString("base64url"),
+        name: input.userName,
+        displayName: input.userDisplayName,
+      },
+      excludeCredentials: input.excludeCredentials,
+    };
+  },
+  verifyAuthenticationResponse: async (input) => {
+    authenticationVerificationInput = input;
+    return authenticationVerification;
+  },
+  verifyRegistrationResponse: async (input) => {
+    registrationVerificationInput = input;
+    return registrationVerification;
+  },
 };
 
 const {
+  AUTHENTICATION_FAILED_RESPONSE,
+  getExpectedUserHandle,
   listPasskeys,
   deletePasskey,
-  registerStart,
-  registerFinish,
   loginFinish,
+  loginStart,
+  registerFinish,
+  registerStart,
 } = require("../controllers/UserController/passkeyController");
 
 const createResponse = () => ({
@@ -60,14 +99,74 @@ const createQuery = (value) => {
   return query;
 };
 
-const withFindById = async (implementation, callback) => {
-  const originalFindById = User.findById;
-  User.findById = implementation;
+const withModelMethods = async (model, methods, callback) => {
+  const originals = new Map();
+  for (const [name, implementation] of Object.entries(methods)) {
+    originals.set(name, model[name]);
+    model[name] = implementation;
+  }
+
   try {
     return await callback();
   } finally {
-    User.findById = originalFindById;
+    for (const [name, implementation] of originals) {
+      model[name] = implementation;
+    }
   }
+};
+
+const recordMatchesFilter = (record, filter) => {
+  if (!record || record.type !== filter.type) return false;
+  if (record.expiresAt.getTime() <= filter.expiresAt.$gt.getTime()) return false;
+  if (filter.userId !== undefined && record.userId !== filter.userId) {
+    return false;
+  }
+  if (
+    filter.sessionBindingHash !== undefined &&
+    record.sessionBindingHash !== filter.sessionBindingHash
+  ) {
+    return false;
+  }
+  return true;
+};
+
+const withCeremonyStore = async (callback) => {
+  const records = new Map();
+  const seed = ({
+    ceremonyId,
+    challenge,
+    type,
+    userId,
+    sessionBinding,
+    expiresAt = new Date(Date.now() + 60_000),
+  }) => {
+    records.set(hashCeremonyValue(ceremonyId), {
+      challenge,
+      expiresAt,
+      sessionBindingHash: sessionBinding
+        ? hashCeremonyValue(sessionBinding)
+        : undefined,
+      type,
+      userId: userId?.toString(),
+    });
+  };
+
+  await withModelMethods(
+    PasskeyCeremony,
+    {
+      create: async (record) => {
+        records.set(record.ceremonyIdHash, { ...record });
+        return record;
+      },
+      findOneAndDelete: (filter) => {
+        const record = records.get(filter.ceremonyIdHash);
+        const consumed = recordMatchesFilter(record, filter) ? record : null;
+        if (consumed) records.delete(filter.ceremonyIdHash);
+        return createQuery(consumed);
+      },
+    },
+    () => callback({ records, seed }),
+  );
 };
 
 const safePasskeyKeys = [
@@ -80,7 +179,7 @@ const safePasskeyKeys = [
   "transports",
 ];
 
-test("authenticated user responses strip passkey secrets and challenges", () => {
+test("authenticated responses strip passkey secrets and legacy challenges", () => {
   const responseUser = toAuthenticatedUser({
     _id: "owner-user",
     email: "owner@example.com",
@@ -101,18 +200,15 @@ test("authenticated user responses strip passkey secrets and challenges", () => 
   assert.equal(Object.hasOwn(responseUser, "currentChallenge"), false);
 });
 
-test("passkey list is owner-scoped and returns only approved metadata", async () => {
-  const createdAt = new Date("2026-01-02T03:04:05.000Z");
-  const lastUsedAt = new Date("2026-02-03T04:05:06.000Z");
+test("passkey list is owner-scoped and exposes metadata only", async () => {
   let requestedUserId;
-
   const user = {
     authenticators: [
       {
         _id: { toString: () => "passkey-one" },
         name: "Work laptop",
-        createdAt,
-        lastUsedAt,
+        createdAt: new Date("2026-01-02T03:04:05.000Z"),
+        lastUsedAt: new Date("2026-02-03T04:05:06.000Z"),
         deviceType: "multiDevice",
         backedUp: true,
         transports: ["internal", "hybrid"],
@@ -123,10 +219,13 @@ test("passkey list is owner-scoped and returns only approved metadata", async ()
     ],
   };
 
-  await withFindById(
-    (id) => {
-      requestedUserId = id;
-      return createQuery(user);
+  await withModelMethods(
+    User,
+    {
+      findById: (id) => {
+        requestedUserId = id;
+        return createQuery(user);
+      },
     },
     async () => {
       const response = createResponse();
@@ -141,30 +240,22 @@ test("passkey list is owner-scoped and returns only approved metadata", async ()
       assert.equal(requestedUserId, "owner-user");
       assert.equal(response.statusCode, 200);
       assert.equal(response.body.passkeys.length, 1);
-
-      const passkey = response.body.passkeys[0];
-      assert.deepEqual(Object.keys(passkey).sort(), safePasskeyKeys);
-      assert.equal(passkey.id, "passkey-one");
-      assert.equal(passkey.name, "Work laptop");
-      assert.equal(
-        new Date(passkey.createdAt).toISOString(),
-        createdAt.toISOString(),
+      assert.deepEqual(
+        Object.keys(response.body.passkeys[0]).sort(),
+        safePasskeyKeys,
       );
+      assert.equal(response.body.passkeys[0].name, "Work laptop");
+      assert.equal(response.body.passkeys[0].deviceType, "multiDevice");
+      assert.equal(response.body.passkeys[0].backedUp, true);
       assert.equal(
-        new Date(passkey.lastUsedAt).toISOString(),
-        lastUsedAt.toISOString(),
+        Object.hasOwn(response.body.passkeys[0], "credentialPublicKey"),
+        false,
       );
-      assert.equal(passkey.deviceType, "multiDevice");
-      assert.equal(passkey.backedUp, true);
-      assert.deepEqual(passkey.transports, ["internal", "hybrid"]);
-      assert.equal(Object.hasOwn(passkey, "credentialID"), false);
-      assert.equal(Object.hasOwn(passkey, "credentialPublicKey"), false);
-      assert.equal(Object.hasOwn(passkey, "counter"), false);
     },
   );
 });
 
-test("passkey list safely handles legacy entries without metadata", async () => {
+test("passkey list handles legacy entries without metadata", async () => {
   const user = {
     authenticators: [
       {
@@ -176,101 +267,81 @@ test("passkey list safely handles legacy entries without metadata", async () => 
     ],
   };
 
-  await withFindById(
-    () => createQuery(user),
+  await withModelMethods(
+    User,
+    { findById: () => createQuery(user) },
     async () => {
       const response = createResponse();
       await listPasskeys({ user: { _id: "owner-user" } }, response);
 
       assert.equal(response.statusCode, 200);
-      assert.equal(response.body.passkeys.length, 1);
-      const passkey = response.body.passkeys[0];
-      assert.deepEqual(Object.keys(passkey).sort(), safePasskeyKeys);
-      assert.equal(passkey.id, "legacy-passkey");
-      assert.ok(passkey.name === "Passkey" || passkey.name === null);
-      assert.equal(passkey.createdAt, null);
-      assert.equal(passkey.lastUsedAt, null);
-      assert.ok(
-        passkey.deviceType === "unknown" || passkey.deviceType === null,
+      assert.deepEqual(
+        Object.keys(response.body.passkeys[0]).sort(),
+        safePasskeyKeys,
       );
-      assert.ok(passkey.backedUp === false || passkey.backedUp === null);
-      assert.deepEqual(passkey.transports, []);
+      assert.equal(response.body.passkeys[0].id, "legacy-passkey");
+      assert.equal(response.body.passkeys[0].createdAt, null);
+      assert.deepEqual(response.body.passkeys[0].transports, []);
     },
   );
 });
 
-test("passkey deletion only removes a passkey owned by the authenticated user", async () => {
-  const owner = new User({
+test("passkey deletion is an atomic owner-scoped pull", async () => {
+  const remaining = new User({
     fullName: "Owner",
     email: "owner@example.com",
     authenticators: [
       {
-        credentialID: "credential-one",
-        credentialPublicKey: Buffer.from("public-key-one"),
-      },
-      {
-        credentialID: "credential-two",
-        credentialPublicKey: Buffer.from("public-key-two"),
+        credentialID: "remaining-credential",
+        credentialPublicKey: Buffer.from("remaining-public-key"),
       },
     ],
   });
-  const targetId = owner.authenticators[0]._id.toString();
-  const remainingId = owner.authenticators[1]._id.toString();
-  let requestedUserId;
-  let saveCount = 0;
-  owner.save = async () => {
-    saveCount += 1;
-  };
+  const authenticatorId = "507f1f77bcf86cd799439011";
+  let capturedFilter;
+  let capturedUpdate;
+  let capturedOptions;
 
-  await withFindById(
-    (id) => {
-      requestedUserId = id;
-      return createQuery(owner);
+  await withModelMethods(
+    User,
+    {
+      findOneAndUpdate: (filter, update, options) => {
+        capturedFilter = filter;
+        capturedUpdate = update;
+        capturedOptions = options;
+        return createQuery(remaining);
+      },
     },
     async () => {
       const response = createResponse();
       await deletePasskey(
         {
           user: { _id: "owner-user" },
-          params: { authenticatorId: targetId },
+          params: { authenticatorId },
           body: { userId: "different-user" },
         },
         response,
       );
 
-      assert.equal(requestedUserId, "owner-user");
+      assert.deepEqual(capturedFilter, {
+        _id: "owner-user",
+        "authenticators._id": authenticatorId,
+      });
+      assert.deepEqual(capturedUpdate, {
+        $pull: { authenticators: { _id: authenticatorId } },
+      });
+      assert.deepEqual(capturedOptions, { new: true });
       assert.equal(response.statusCode, 200);
       assert.equal(response.body.success, true);
-      assert.equal(saveCount, 1);
-      assert.equal(owner.authenticators.length, 1);
-      assert.equal(owner.authenticators[0]._id.toString(), remainingId);
       assert.equal(response.body.passkeys.length, 1);
-      assert.deepEqual(
-        Object.keys(response.body.passkeys[0]).sort(),
-        safePasskeyKeys,
-      );
     },
   );
 });
 
-test("deleting an unowned passkey returns 404 without saving", async () => {
-  const owner = new User({
-    fullName: "Owner",
-    email: "owner@example.com",
-    authenticators: [
-      {
-        credentialID: "owner-credential",
-        credentialPublicKey: Buffer.from("owner-public-key"),
-      },
-    ],
-  });
-  let saveCount = 0;
-  owner.save = async () => {
-    saveCount += 1;
-  };
-
-  await withFindById(
-    () => createQuery(owner),
+test("deleting an unowned passkey returns 404", async () => {
+  await withModelMethods(
+    User,
+    { findOneAndUpdate: () => createQuery(null) },
     async () => {
       const response = createResponse();
       await deletePasskey(
@@ -282,64 +353,115 @@ test("deleting an unowned passkey returns 404 without saving", async () => {
       );
 
       assert.equal(response.statusCode, 404);
-      assert.equal(saveCount, 0);
-      assert.equal(owner.authenticators.length, 1);
+      assert.equal(response.body.code, "PASSKEY_NOT_FOUND");
     },
   );
 });
 
-test("deleting the final passkey is allowed", async () => {
-  const owner = new User({
+test("registration start returns a session-bound ceremony wrapper", async () => {
+  const user = new User({
     fullName: "Owner",
     email: "owner@example.com",
     authenticators: [
       {
-        credentialID: "only-credential",
-        credentialPublicKey: Buffer.from("only-public-key"),
+        credentialID: "existing-credential",
+        credentialPublicKey: Buffer.from("existing-public-key"),
+        transports: ["internal"],
       },
     ],
   });
-  const targetId = owner.authenticators[0]._id.toString();
-  let saveCount = 0;
-  owner.save = async () => {
-    saveCount += 1;
-  };
 
-  await withFindById(
-    () => createQuery(owner),
-    async () => {
-      const response = createResponse();
-      await deletePasskey(
-        {
-          user: { _id: "owner-user" },
-          params: { authenticatorId: targetId },
-        },
-        response,
-      );
+  await withCeremonyStore(async ({ records }) => {
+    await withModelMethods(
+      User,
+      { findById: () => createQuery(user) },
+      async () => {
+        const response = createResponse();
+        await registerStart(
+          {
+            user: { _id: "owner-user" },
+            auth: { jti: "session-one" },
+            body: { userId: "different-user" },
+          },
+          response,
+        );
 
-      assert.equal(response.statusCode, 200);
-      assert.equal(response.body.success, true);
-      assert.equal(saveCount, 1);
-      assert.equal(owner.authenticators.length, 0);
-      assert.deepEqual(response.body.passkeys, []);
-    },
-  );
+        assert.equal(response.statusCode, 200);
+        assert.match(response.body.ceremonyId, /^[A-Za-z0-9_-]{43}$/);
+        assert.equal(response.body.options.challenge, "registration-challenge");
+        assert.equal(registrationOptionsInput.rpID, "bookingservice.my.id");
+        assert.equal(
+          registrationOptionsInput.authenticatorSelection.userVerification,
+          "required",
+        );
+        assert.equal(registrationOptionsInput.excludeCredentials.length, 1);
+
+        const record = records.get(
+          hashCeremonyValue(response.body.ceremonyId),
+        );
+        assert.equal(record.type, "registration");
+        assert.equal(record.userId, "owner-user");
+        assert.equal(
+          record.sessionBindingHash,
+          hashCeremonyValue("owner-user:session-one"),
+        );
+      },
+    );
+  });
 });
 
-test("passkey registration stores display and credential metadata", async () => {
-  const originalFindById = User.findById;
-  let requestedUserId;
-  let saveCount = 0;
+test("registration ceremony rejects another JWT session without consuming", async () => {
+  let userLookupCount = 0;
+  await withCeremonyStore(async ({ records, seed }) => {
+    seed({
+      ceremonyId: REGISTRATION_CEREMONY_ID,
+      challenge: "registration-challenge",
+      type: "registration",
+      userId: "owner-user",
+      sessionBinding: getSessionBinding("owner-user", "session-one"),
+    });
+
+    await withModelMethods(
+      User,
+      {
+        findById: () => {
+          userLookupCount += 1;
+          return createQuery(null);
+        },
+      },
+      async () => {
+        const response = createResponse();
+        await registerFinish(
+          {
+            user: { _id: "owner-user" },
+            auth: { jti: "session-two" },
+            body: {
+              ceremonyId: REGISTRATION_CEREMONY_ID,
+              registrationResponse: {},
+            },
+          },
+          response,
+        );
+
+        assert.equal(response.statusCode, 400);
+        assert.equal(response.body.code, "PASSKEY_CEREMONY_INVALID");
+        assert.equal(userLookupCount, 0);
+        assert.equal(records.size, 1);
+      },
+    );
+  });
+});
+
+test("registration finish consumes once and stores safe metadata", async () => {
   const user = new User({
     fullName: "Owner",
     email: "owner@example.com",
-    currentChallenge: "expected-challenge",
     authenticators: [],
   });
+  let saveCount = 0;
   user.save = async () => {
     saveCount += 1;
   };
-
   registrationVerification = {
     verified: true,
     registrationInfo: {
@@ -353,109 +475,128 @@ test("passkey registration stores display and credential metadata", async () => 
       credentialBackedUp: true,
     },
   };
-  User.findById = (id) => {
-    requestedUserId = id;
-    return createQuery(user);
-  };
 
-  try {
-    const before = Date.now();
-    const response = createResponse();
-    await registerFinish(
+  await withCeremonyStore(async ({ records, seed }) => {
+    seed({
+      ceremonyId: REGISTRATION_CEREMONY_ID,
+      challenge: "registration-challenge",
+      type: "registration",
+      userId: "owner-user",
+      sessionBinding: getSessionBinding("owner-user", "session-one"),
+    });
+
+    await withModelMethods(
+      User,
       {
-        user: { _id: "owner-user" },
-        body: {
-          userId: "different-user",
-          name: "Work laptop",
-          registrationResponse: {},
+        exists: async () => false,
+        findById: () => createQuery(user),
+      },
+      async () => {
+        const request = {
+          user: { _id: "owner-user" },
+          auth: { jti: "session-one" },
+          body: {
+            ceremonyId: REGISTRATION_CEREMONY_ID,
+            name: "Work laptop",
+            registrationResponse: { id: "new-credential", response: {} },
+          },
+        };
+        const response = createResponse();
+        await registerFinish(request, response);
+
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.body.success, true);
+        assert.equal(saveCount, 1);
+        assert.equal(records.size, 0);
+        assert.equal(
+          registrationVerificationInput.expectedChallenge,
+          "registration-challenge",
+        );
+        assert.deepEqual(registrationVerificationInput.expectedOrigin, [
+          "https://bookingservice.my.id",
+          "https://www.bookingservice.my.id",
+        ]);
+        assert.equal(
+          registrationVerificationInput.expectedRPID,
+          "bookingservice.my.id",
+        );
+        assert.equal(user.authenticators[0].credentialID, "new-credential");
+        assert.equal(user.authenticators[0].name, "Work laptop");
+        assert.equal(user.authenticators[0].deviceType, "multiDevice");
+        assert.equal(user.authenticators[0].backedUp, true);
+        assert.deepEqual(user.authenticators[0].transports, [
+          "internal",
+          "hybrid",
+        ]);
+        assert.deepEqual(
+          Object.keys(response.body.passkey).sort(),
+          safePasskeyKeys,
+        );
+
+        const replayResponse = createResponse();
+        await registerFinish(request, replayResponse);
+        assert.equal(replayResponse.statusCode, 400);
+        assert.equal(replayResponse.body.code, "PASSKEY_CEREMONY_INVALID");
+        assert.equal(saveCount, 1);
+      },
+    );
+  });
+});
+
+test("login start is identifier-less and uniform", async () => {
+  let userLookupCount = 0;
+  await withCeremonyStore(async ({ records }) => {
+    await withModelMethods(
+      User,
+      {
+        findOne: () => {
+          userLookupCount += 1;
+          throw new Error("login start must not query users");
         },
       },
-      response,
-    );
+      async () => {
+        const responses = [];
+        for (const body of [
+          {},
+          { email: "known@example.com" },
+          { email: "not-an-email" },
+        ]) {
+          const response = createResponse();
+          await loginStart({ body }, response);
+          responses.push(response);
+        }
 
-    assert.equal(requestedUserId, "owner-user");
-    assert.equal(response.statusCode, 200);
-    assert.equal(response.body.success, true);
-    assert.equal(saveCount, 1);
-    assert.equal(user.currentChallenge, undefined);
-    assert.equal(user.authenticators.length, 1);
-
-    const authenticator = user.authenticators[0];
-    assert.equal(authenticator.credentialID, "new-credential");
-    assert.equal(Buffer.isBuffer(authenticator.credentialPublicKey), true);
-    assert.equal(authenticator.counter, 3);
-    assert.equal(authenticator.name, "Work laptop");
-    assert.equal(authenticator.createdAt instanceof Date, true);
-    assert.ok(authenticator.createdAt.getTime() >= before);
-    assert.equal(authenticator.lastUsedAt == null, true);
-    assert.equal(authenticator.deviceType, "multiDevice");
-    assert.equal(authenticator.backedUp, true);
-    assert.deepEqual(authenticator.transports, ["internal", "hybrid"]);
-
-    assert.deepEqual(
-      Object.keys(response.body.passkey).sort(),
-      safePasskeyKeys,
+        assert.equal(userLookupCount, 0);
+        assert.equal(records.size, 3);
+        for (const response of responses) {
+          assert.equal(response.statusCode, 200);
+          assert.deepEqual(Object.keys(response.body).sort(), [
+            "ceremonyId",
+            "options",
+          ]);
+          assert.match(response.body.ceremonyId, /^[A-Za-z0-9_-]{43}$/);
+          assert.equal(
+            Object.hasOwn(response.body.options, "allowCredentials"),
+            false,
+          );
+          assert.equal(response.body.options.userVerification, "required");
+        }
+        assert.deepEqual(authenticationOptionsInput, {
+          rpID: "bookingservice.my.id",
+          userVerification: "required",
+        });
+      },
     );
-    assert.equal(response.body.passkey.name, "Work laptop");
-    assert.equal(response.body.passkey.deviceType, "multiDevice");
-    assert.equal(response.body.passkey.backedUp, true);
-    assert.deepEqual(response.body.passkey.transports, ["internal", "hybrid"]);
-    assert.equal(
-      Object.hasOwn(response.body.passkey, "credentialPublicKey"),
-      false,
-    );
-    assert.equal(Object.hasOwn(response.body.passkey, "credentialID"), false);
-    assert.equal(Object.hasOwn(response.body.passkey, "counter"), false);
-  } finally {
-    User.findById = originalFindById;
-  }
+  });
 });
 
-test("passkey registration start and finish ignore a supplied userId", async () => {
-  const requestedIds = [];
-
-  await withFindById(
-    (id) => {
-      requestedIds.push(id);
-      return createQuery(null);
-    },
-    async () => {
-      const startResponse = createResponse();
-      await registerStart(
-        {
-          user: { _id: "owner-user" },
-          body: { userId: "different-user" },
-        },
-        startResponse,
-      );
-
-      const finishResponse = createResponse();
-      await registerFinish(
-        {
-          user: { _id: "owner-user" },
-          body: {
-            userId: "different-user",
-            name: "Work laptop",
-            registrationResponse: {},
-          },
-        },
-        finishResponse,
-      );
-
-      assert.deepEqual(requestedIds, ["owner-user", "owner-user"]);
-      assert.equal(startResponse.statusCode, 404);
-      assert.equal(finishResponse.statusCode, 400);
-    },
-  );
-});
-
-test("successful passkey login updates counter and last-used metadata", async () => {
-  const originalFindOne = User.findOne;
+test("identifier-less login consumes once and updates metadata", async () => {
   const originalSecret = process.env.JWT_SECRET;
+  process.env.JWT_SECRET = TEST_JWT_SECRET;
   const before = Date.now();
   let saveCount = 0;
   let markedPath;
-
+  let capturedFindFilter;
   const authenticator = {
     credentialID: "credential-one",
     credentialPublicKey: Buffer.from("public-key-one"),
@@ -465,7 +606,6 @@ test("successful passkey login updates counter and last-used metadata", async ()
   };
   const user = {
     _id: "owner-user",
-    currentChallenge: "expected-challenge",
     authenticators: [authenticator],
     markModified(path) {
       markedPath = path;
@@ -474,65 +614,146 @@ test("successful passkey login updates counter and last-used metadata", async ()
       saveCount += 1;
     },
   };
-
   authenticationVerification = {
     verified: true,
-    authenticationInfo: { newCounter: 7 },
+    authenticationInfo: {
+      newCounter: 7,
+      credentialDeviceType: "multiDevice",
+      credentialBackedUp: true,
+    },
   };
-  User.findOne = () => createQuery(user);
-  process.env.JWT_SECRET = "passkey-management-test-secret";
 
   try {
-    const response = createResponse();
-    await loginFinish(
-      {
-        body: {
-          email: "owner@example.com",
-          response: { id: "credential-one" },
-        },
-      },
-      response,
-    );
+    await withCeremonyStore(async ({ seed }) => {
+      seed({
+        ceremonyId: AUTHENTICATION_CEREMONY_ID,
+        challenge: "authentication-challenge",
+        type: "authentication",
+      });
 
-    assert.equal(response.statusCode, 200);
-    assert.equal(response.body.verified, true);
-    assert.equal(typeof response.body.token, "string");
-    assert.equal(Object.hasOwn(response.body, "credentialPublicKey"), false);
-    assert.equal(authenticator.counter, 7);
-    assert.equal(authenticator.lastUsedAt instanceof Date, true);
-    assert.ok(authenticator.lastUsedAt.getTime() >= before);
-    assert.ok(authenticator.lastUsedAt.getTime() <= Date.now());
-    assert.equal(markedPath, "authenticators");
-    assert.equal(user.currentChallenge, undefined);
-    assert.equal(saveCount, 1);
+      await withModelMethods(
+        User,
+        {
+          findOne: (filter) => {
+            capturedFindFilter = filter;
+            return createQuery(user);
+          },
+        },
+        async () => {
+          const request = {
+            body: {
+              ceremonyId: AUTHENTICATION_CEREMONY_ID,
+              email: "ignored@example.com",
+              response: {
+                id: "credential-one",
+                response: { userHandle: getExpectedUserHandle(user._id) },
+              },
+            },
+          };
+          const response = createResponse();
+          await loginFinish(request, response);
+
+          assert.deepEqual(capturedFindFilter, {
+            "authenticators.credentialID": "credential-one",
+          });
+          assert.equal(response.statusCode, 200);
+          assert.equal(response.body.verified, true);
+          assert.equal(typeof response.body.token, "string");
+          assert.equal(saveCount, 1);
+          assert.equal(markedPath, "authenticators");
+          assert.equal(authenticator.counter, 7);
+          assert.equal(authenticator.deviceType, "multiDevice");
+          assert.equal(authenticator.backedUp, true);
+          assert.ok(authenticator.lastUsedAt.getTime() >= before);
+          assert.equal(
+            authenticationVerificationInput.expectedChallenge,
+            "authentication-challenge",
+          );
+          assert.deepEqual(authenticationVerificationInput.expectedOrigin, [
+            "https://bookingservice.my.id",
+            "https://www.bookingservice.my.id",
+          ]);
+
+          const replayResponse = createResponse();
+          await loginFinish(request, replayResponse);
+          assert.equal(replayResponse.statusCode, 400);
+          assert.deepEqual(replayResponse.body, AUTHENTICATION_FAILED_RESPONSE);
+          assert.equal(saveCount, 1);
+        },
+      );
+    });
   } finally {
-    User.findOne = originalFindOne;
     if (originalSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = originalSecret;
   }
 });
 
-test("passkey management routes are protected and precede the generic user route", () => {
+test("unknown credential receives the uniform authentication failure", async () => {
+  await withCeremonyStore(async ({ seed }) => {
+    seed({
+      ceremonyId: AUTHENTICATION_CEREMONY_ID,
+      challenge: "authentication-challenge",
+      type: "authentication",
+    });
+
+    await withModelMethods(
+      User,
+      { findOne: () => createQuery(null) },
+      async () => {
+        const response = createResponse();
+        await loginFinish(
+          {
+            body: {
+              ceremonyId: AUTHENTICATION_CEREMONY_ID,
+              response: {
+                id: "unknown-credential",
+                response: { userHandle: "dW5rbm93bg" },
+              },
+            },
+          },
+          response,
+        );
+
+        assert.equal(response.statusCode, 400);
+        assert.deepEqual(response.body, AUTHENTICATION_FAILED_RESPONSE);
+      },
+    );
+  });
+});
+
+test("passkey routes enforce recent authentication where required", () => {
   const router = require("../routes/UserRoutes/userRoutes");
   const routeLayers = router.stack.filter((layer) => layer.route);
-  const listIndex = routeLayers.findIndex(
-    (layer) => layer.route.path === "/passkey" && layer.route.methods.get,
-  );
-  const deleteIndex = routeLayers.findIndex(
-    (layer) =>
-      layer.route.path === "/passkey/:authenticatorId" &&
-      layer.route.methods.delete,
-  );
-  const genericGetIndex = routeLayers.findIndex(
-    (layer) => layer.route.path === "/:id" && layer.route.methods.get,
-  );
+  const findRoute = (path, method) =>
+    routeLayers.find(
+      (layer) => layer.route.path === path && layer.route.methods[method],
+    );
+  const handlerNames = (route) =>
+    route.route.stack.map((layer) => layer.handle.name);
 
-  assert.ok(listIndex >= 0, "GET /passkey route is registered");
-  assert.ok(deleteIndex >= 0, "DELETE /passkey/:authenticatorId is registered");
-  assert.ok(
-    listIndex < genericGetIndex,
-    "GET /passkey is not shadowed by GET /:id",
+  const listRoute = findRoute("/passkey", "get");
+  const deleteRoute = findRoute("/passkey/:authenticatorId", "delete");
+  const registerStartRoute = findRoute("/passkey/register-start", "post");
+  const registerFinishRoute = findRoute("/passkey/register-finish", "post");
+  const genericGetRoute = findRoute("/:id", "get");
+
+  assert.ok(listRoute);
+  assert.ok(deleteRoute);
+  assert.ok(registerStartRoute);
+  assert.ok(registerFinishRoute);
+  assert.ok(routeLayers.indexOf(listRoute) < routeLayers.indexOf(genericGetRoute));
+  assert.equal(handlerNames(listRoute)[0], "protect");
+  assert.deepEqual(handlerNames(deleteRoute).slice(0, 2), [
+    "protect",
+    "requireRecentAuth",
+  ]);
+  assert.deepEqual(handlerNames(registerStartRoute).slice(0, 2), [
+    "protect",
+    "requireRecentAuth",
+  ]);
+  assert.equal(handlerNames(registerFinishRoute)[0], "protect");
+  assert.equal(
+    handlerNames(registerFinishRoute).includes("requireRecentAuth"),
+    false,
   );
-  assert.equal(routeLayers[listIndex].route.stack[0].handle.name, "protect");
-  assert.equal(routeLayers[deleteIndex].route.stack[0].handle.name, "protect");
 });

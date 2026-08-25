@@ -2,6 +2,20 @@ const mongoose = require("mongoose");
 const ClassBooking = require("../../models/ClassBooking/ClassBooking");
 const ClassSchedule = require("../../models/ClassBooking/ClassSchedule");
 const UserPasses = require("../../models/UserData/User_Passes");
+const {
+  canManageStudio,
+  idsEqual,
+  isStudioStaff,
+} = require("../../helper/authorization");
+const { isPassCurrentlyFrozen } = require("../../helper/passState");
+
+const forbidden = (
+  message = "You are not authorized to manage this studio.",
+) => {
+  const error = new Error(message);
+  error.status = 403;
+  return error;
+};
 
 // 1. DEFINE THE HIERARCHY
 const INSTRUCTOR_RANKS = {
@@ -16,6 +30,16 @@ const INSTRUCTOR_RANKS = {
 exports.getClassBookings = async (req, res) => {
   try {
     const { classId } = req.params;
+    const classSession = await ClassSchedule.findById(classId).select(
+      "studioId",
+    );
+    if (!classSession) {
+      return res.status(404).json({ error: "Class not found." });
+    }
+    if (!canManageStudio(req.user, classSession.studioId)) {
+      return res.status(403).json({ error: "Unauthorized." });
+    }
+
     const bookings = await ClassBooking.find({ classId, status: "Booked" })
       .populate("userId", "fullName email phoneNumber")
       .populate({
@@ -33,6 +57,16 @@ exports.getClassBookings = async (req, res) => {
 exports.getUserBookings = async (req, res) => {
   try {
     const { userId, classId } = req.body;
+    const classSession = await ClassSchedule.findById(classId).select(
+      "studioId",
+    );
+    if (!classSession) {
+      return res.status(404).json({ error: "Class not found." });
+    }
+    if (!canManageStudio(req.user, classSession.studioId)) {
+      return res.status(403).json({ error: "Unauthorized." });
+    }
+
     const bookings = await ClassBooking.find({
       userId,
       classId,
@@ -59,14 +93,7 @@ exports.createBooking = async (req, res) => {
   session.startTransaction();
 
   try {
-    const userRole = req.user.role ? req.user.role.toLowerCase() : "user";
-    const isAdmin = [
-      "admin",
-      "superadmin",
-      "owner",
-      "studioadmin",
-      "devteam",
-    ].includes(userRole);
+    const isAdmin = isStudioStaff(req.user);
 
     let userId = req.user._id;
     if (req.body.targetUserId && isAdmin) {
@@ -79,6 +106,9 @@ exports.createBooking = async (req, res) => {
     const classSession = await ClassSchedule.findById(classId).session(session);
     if (!classSession || !classSession.isActive)
       throw new Error("Class not available or inactive.");
+    if (isAdmin && !canManageStudio(req.user, classSession.studioId)) {
+      throw forbidden();
+    }
     if (classSession.currentEnrollment >= classSession.capacity)
       throw new Error("Class is full.");
 
@@ -109,8 +139,14 @@ exports.createBooking = async (req, res) => {
     if (!isOwner && !isShared) {
       throw new Error("You do not have permission to use this pass.");
     }
+    if (!idsEqual(userPass.issuingStudio, classSession.studioId)) {
+      throw forbidden("This pass cannot be used at another studio.");
+    }
 
     if (!userPass.isActive) throw new Error("This pass is inactive.");
+    if (isPassCurrentlyFrozen(userPass)) {
+      throw new Error("This pass is currently frozen.");
+    }
     if (userPass.remainingCredits < 1) throw new Error("Insufficient credits.");
 
     // EXPIRE LOGIC WITH ACTIVATION WINDOW
@@ -177,7 +213,7 @@ exports.createBooking = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     console.error("Booking Error:", error);
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   } finally {
     session.endSession();
   }
@@ -188,6 +224,9 @@ exports.studentCheckIn = async (req, res) => {
     const { bookingId } = req.params;
     const booking = await ClassBooking.findById(bookingId);
     if (!booking) throw new Error("Booking not found");
+    if (!canManageStudio(req.user, booking.studioId)) {
+      throw forbidden();
+    }
 
     if (!booking.isAttend) {
       const userPass = await UserPasses.findById(booking.passId);
@@ -212,7 +251,7 @@ exports.studentCheckIn = async (req, res) => {
       isAttend: booking.isAttend,
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   }
 };
 
@@ -226,23 +265,27 @@ exports.cancelBooking = async (req, res) => {
     if (!booking || booking.status === "Cancelled")
       throw new Error("Booking not found or already cancelled.");
 
-    const userRole = req.user.role ? req.user.role.toLowerCase() : "user";
-    const isAdmin = [
-      "studioadmin",
-      "devteam",
-      "admin",
-      "superadmin",
-      "owner",
-    ].includes(userRole);
-    const isOwner = booking.userId.toString() === req.user._id.toString();
+    const isAdmin = isStudioStaff(req.user);
+    const isOwner = idsEqual(booking.userId, req.user._id);
 
     if (!isAdmin && !isOwner) throw new Error("Unauthorized.");
+    if (isAdmin && !canManageStudio(req.user, booking.studioId)) {
+      throw forbidden();
+    }
 
     const classSession = await ClassSchedule.findById(booking.classId).session(
       session,
     );
 
-    if (!isAdmin && classSession) {
+    if (!classSession) {
+      const missingClassError = new Error(
+        "This booking cannot be cancelled automatically because its class no longer exists. Please contact the studio.",
+      );
+      missingClassError.status = 409;
+      throw missingClassError;
+    }
+
+    if (!isAdmin) {
       const hoursDiff =
         (new Date(classSession.startTime) - new Date()) / (1000 * 60 * 60);
       if (hoursDiff < 0) throw new Error("Cannot cancel past class.");
@@ -259,24 +302,22 @@ exports.cancelBooking = async (req, res) => {
     booking.isAttend = false;
     await booking.save({ session });
 
-    if (classSession) {
-      classSession.currentEnrollment = Math.max(
-        0,
-        classSession.currentEnrollment - 1,
-      );
-      await classSession.save({ session });
-    }
+    classSession.currentEnrollment = Math.max(
+      0,
+      classSession.currentEnrollment - 1,
+    );
+    await classSession.save({ session });
 
     await session.commitTransaction();
 
     // WEB SOCKET GLOBAL EVENT: UPDATE SCHEDULE SO SPOT OPENS UP
     const io = req.app.get("io");
-    if (io) io.emit("schedule_updated", { classId: classSession?._id });
+    if (io) io.emit("schedule_updated", { classId: classSession._id });
 
     res.status(200).json({ message: "Booking cancelled. Credit refunded." });
   } catch (error) {
     await session.abortTransaction();
-    res.status(400).json({ error: error.message });
+    res.status(error.status || 400).json({ error: error.message });
   } finally {
     session.endSession();
   }

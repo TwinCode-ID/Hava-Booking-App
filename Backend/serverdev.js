@@ -1,5 +1,10 @@
 require("dotenv").config();
+const {
+  validateSecurityEnvironment,
+} = require("./config/validateSecurityEnv");
+validateSecurityEnvironment();
 require("./cron/expiryReminderJob");
+require("./cron/orphanUploadCleanupJob");
 
 const express = require("express");
 const http = require("http"); // 1. Import HTTP
@@ -7,9 +12,23 @@ const { Server } = require("socket.io"); // 2. Import Socket.io
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
-const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
+const {
+  corsOptions,
+  getTrustProxySetting,
+  isOriginAllowed,
+} = require("./config/security");
+const {
+  configureAuthenticatedSockets,
+} = require("./config/socketSecurity");
+const { logAuthError } = require("./helper/authSecurity");
+const {
+  verifyPrivateUploadSignature,
+} = require("./helper/privateUpload");
+const {
+  generalApiLimiter,
+} = require("./middlewares/rateLimitMiddleware");
 
 // Route Imports
 const authRoutes = require("./routes/UserRoutes/authRoutes");
@@ -31,50 +50,30 @@ const server = http.createServer(app);
 
 // Initialize Socket.io
 const io = new Server(server, {
-  cors: {
-    origin: "*", // Matches your Frontend
-    methods: ["GET", "POST"],
-  },
+  allowRequest: (req, callback) =>
+    callback(null, isOriginAllowed(req.headers.origin)),
+  cors: corsOptions,
+  maxHttpBufferSize: 1e6,
 });
 
 app.set("io", io);
-
-io.on("connection", (socket) => {
-  console.log(`Socket Connected: ${socket.id}`);
-
-  // Admin Room
-  socket.on("join_studio_admin_room", (studioId) => {
-    if (studioId) {
-      socket.join(studioId);
-      console.log(`Socket ${socket.id} joined STUDIO admin room: ${studioId}`);
-    }
-  });
-
-  // Client Room
-  socket.on("join_user_room", (userId) => {
-    if (userId) {
-      socket.join(userId);
-      console.log(`Socket ${socket.id} joined USER room: ${userId}`);
-    }
-  });
-
-  // Chat Room
-  socket.on("join_chat", (conversationId) => {
-    socket.join(conversationId);
-    console.log(`Socket ${socket.id} joined chat room: ${conversationId}`);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Socket Disconnected", socket.id);
-  });
-});
+configureAuthenticatedSockets(io);
 
 // --- CORE CONFIGURATIONS ---
-app.set("trust proxy", 1);
+app.set("trust proxy", getTrustProxySetting());
+app.disable("x-powered-by");
 connectDB();
 
 // --- GLOBAL MIDDLEWARE ---
-app.use(express.json());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(cors(corsOptions));
+app.use("/api", generalApiLimiter);
+app.use(express.json({ limit: "1mb", strict: true }));
+app.use(express.urlencoded({ limit: "1mb", extended: false }));
 
 app.use((req, res, next) => {
   Object.defineProperty(req, "query", {
@@ -91,56 +90,7 @@ app.get("/.well-known/apple-app-site-association", (req, res) => {
   res.sendFile(path.join(__dirname, "apple-app-site-association"));
 });
 
-// CORS & Security
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
-  }),
-);
-
-app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-  }),
-);
-
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
 app.use(mongoSanitize());
-
-// --- CUSTOM MIDDLEWARE ---
-const protectAPI = (req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return next();
-  }
-
-  const clientSecret = req.headers["x-api-key"] || req.query["x-api-key"];
-  if (clientSecret === process.env.INTERNAL_API_KEY) {
-    next();
-  } else {
-    res.status(403).json({ message: "Forbidden: Invalid API Key" });
-  }
-};
-
-// --- RATE LIMITERS ---
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 100,
-  message: "Too many requests, please try again after 15 minutes",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  message: "Too many login attempts. Please try again later.",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 // --- ROUTES ---
 app.use("/api/auth", authRoutes);
@@ -157,12 +107,52 @@ app.use("/api/config", studioConfigRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/promos", promo);
 
-// Static files
+// Public-facing profile/studio media is intentionally public. Payment proofs
+// are served only through short-lived, server-signed URLs issued after an
+// authorized purchase lookup.
 app.use(
-  "/uploads",
-  protectAPI,
-  express.static(path.join(__dirname, "uploads")),
+  "/uploads/UserProfile",
+  express.static(path.join(__dirname, "uploads", "UserProfile"), {
+    immutable: true,
+    maxAge: "1d",
+  }),
 );
+app.use(
+  "/uploads/Studio",
+  express.static(path.join(__dirname, "uploads", "Studio"), {
+    immutable: true,
+    maxAge: "1d",
+  }),
+);
+app.use(
+  "/uploads/ProofOfPurchase",
+  verifyPrivateUploadSignature,
+  express.static(path.join(__dirname, "uploads", "ProofOfPurchase")),
+);
+
+app.use((error, _req, res, _next) => {
+  if (error?.code === "CORS_NOT_ALLOWED") {
+    return res.status(403).json({ message: "Origin is not allowed." });
+  }
+  if (error?.type === "entity.too.large") {
+    return res.status(413).json({ message: "Request body is too large." });
+  }
+  if (error?.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ message: "Image file is too large." });
+  }
+  if (error?.code === "UPLOAD_QUOTA_EXCEEDED") {
+    return res.status(413).json({ message: "Upload storage limit reached." });
+  }
+  if (
+    error?.code === "INVALID_IMAGE_TYPE" ||
+    error?.code === "INVALID_IMAGE_DATA"
+  ) {
+    return res.status(400).json({ message: "The uploaded image is invalid." });
+  }
+
+  logAuthError("Unhandled request error", error);
+  return res.status(500).json({ message: "Internal server error." });
+});
 
 // --- SERVER LISTEN ---
 const PORT = process.env.PORT || 5000;
