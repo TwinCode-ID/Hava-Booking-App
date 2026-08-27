@@ -97,7 +97,7 @@ export default function ManagePackage() {
   ];
 
   return (
-    <div className='min-h-screen bg-[#F9FAFB] font-sans text-stone-900 flex flex-col'>
+    <div className='min-h-screen bg-canvas font-sans text-stone-900 flex flex-col'>
       <div className='bg-white border-b border-stone-200 pt-6 md:pt-8 sticky top-0 z-40 shadow-sm'>
         <div className='container mx-auto px-4 md:px-6'>
           <div className='flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar'>
@@ -118,7 +118,7 @@ export default function ManagePackage() {
                 {activeTab === tab.id && (
                   <motion.div
                     layoutId='activeTab'
-                    className='absolute bottom-0 left-0 right-0 h-[3px] bg-stone-600 rounded-t-full'
+                    className='absolute bottom-0 left-0 right-0 h-[3px] bg-stone-900 rounded-t-full'
                   />
                 )}
               </button>
@@ -337,7 +337,7 @@ function PackageSelectorView({ user }) {
               key={type}
               className='flex items-center gap-3.5 cursor-pointer group py-1'>
               <div
-                className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${selectedStudioLocations.includes(type) ? "bg-stone-600 border-stone-600 shadow" : "border-stone-300 group-hover:border-stone-500 bg-white"}`}>
+                className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${selectedStudioLocations.includes(type) ? "bg-stone-900 border-stone-600 shadow" : "border-stone-300 group-hover:border-stone-500 bg-white"}`}>
                 {selectedStudioLocations.includes(type) && (
                   <Check className='w-3.5 h-3.5 text-white' />
                 )}
@@ -375,7 +375,7 @@ function PackageSelectorView({ user }) {
                 key={type}
                 className='flex items-center gap-3.5 cursor-pointer group py-1'>
                 <div
-                  className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${isSelected ? "bg-stone-600 border-stone-600 shadow" : "border-stone-300 group-hover:border-stone-500 bg-white"}`}>
+                  className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${isSelected ? "bg-stone-900 border-stone-600 shadow" : "border-stone-300 group-hover:border-stone-500 bg-white"}`}>
                   {isSelected && <Check className='w-3.5 h-3.5 text-white' />}
                 </div>
                 <input
@@ -407,12 +407,12 @@ function PackageSelectorView({ user }) {
         <div className='flex gap-3 mt-3'>
           <button
             onClick={() => setSortOrder("asc")}
-            className={`flex-1 py-3 md:py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "asc" ? "bg-stone-600 text-white border-stone-600" : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"}`}>
+            className={`flex-1 py-3 md:py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "asc" ? "bg-stone-900 text-white border-stone-600" : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"}`}>
             <ArrowUpNarrowWide className='w-4 h-4' /> Lowest
           </button>
           <button
             onClick={() => setSortOrder("desc")}
-            className={`flex-1 py-3 md:py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "desc" ? "bg-stone-600 text-white border-stone-600" : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"}`}>
+            className={`flex-1 py-3 md:py-2.5 px-4 rounded-xl border text-[13px] font-bold flex items-center justify-center gap-2 transition-all ${sortOrder === "desc" ? "bg-stone-900 text-white border-stone-600" : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"}`}>
             <ArrowDownNarrowWide className='w-4 h-4' /> Highest
           </button>
         </div>
@@ -559,7 +559,7 @@ function PackageSelectorView({ user }) {
               <div className='p-4 border-t border-stone-100 bg-white shrink-0'>
                 <button
                   onClick={() => setShowMobileFilters(false)}
-                  className='w-full py-4 bg-stone-600 text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
+                  className='w-full py-4 bg-stone-900 text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
                   Apply Filters
                 </button>
               </div>
@@ -608,7 +608,7 @@ function PackageSelectorView({ user }) {
                 </button>
               </div>
 
-              <div className='p-4 md:p-8 overflow-y-auto bg-[#F9FAFB] flex flex-col gap-4 md:gap-6 custom-scrollbar overscroll-contain'>
+              <div className='p-4 md:p-8 overflow-y-auto bg-stone-50 flex flex-col gap-4 md:gap-6 custom-scrollbar overscroll-contain'>
                 <div className='bg-white p-5 md:p-8 border border-stone-100 rounded-2xl md:rounded-3xl shadow-sm'>
                   <div className='flex flex-wrap gap-2 mb-4 md:mb-6'>
                     {selectedPackage.isActive && (
@@ -644,13 +644,13 @@ function PackageSelectorView({ user }) {
                   </div>
 
                   <h3
-                    className={`font-semibold text-2xl md:text-[28px] leading-tight tracking-tight mb-2 md:mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-stone-800"}`}>
+                    className={`font-semibold text-2xl md:text-[28px] leading-tight tracking-tight mb-2 md:mb-3 ${isSelectedCombo ? "text-stone-900" : "text-stone-800"}`}>
                     {selectedPackage.packageName}
                   </h3>
 
                   <div className='flex items-center flex-wrap gap-2 md:gap-3 mb-5 md:mb-6'>
                     {(isSelectedPromo || appliedPromo) && (
-                      <span className='text-base md:text-[18px] text-[#9CA3AF] line-through font-bold'>
+                      <span className='text-base md:text-[18px] text-stone-400 line-through font-bold'>
                         {originalPriceFormattedModal} IDR
                       </span>
                     )}
@@ -659,7 +659,7 @@ function PackageSelectorView({ user }) {
                     </span>
                   </div>
 
-                  <div className='text-[#4B5563] mb-6 md:mb-8 text-sm md:text-[15px]'>
+                  <div className='text-stone-600 mb-6 md:mb-8 text-sm md:text-[15px]'>
                     {(() => {
                       const desc = selectedPackage.packageDescription || "";
                       const descParts = desc
@@ -694,7 +694,7 @@ function PackageSelectorView({ user }) {
                     })()}
                   </div>
 
-                  <div className='flex gap-3 md:gap-4 mb-6 md:mb-8 bg-[#F9FAFB] p-4 md:p-5 rounded-2xl border border-stone-100'>
+                  <div className='flex gap-3 md:gap-4 mb-6 md:mb-8 bg-stone-50 p-4 md:p-5 rounded-2xl border border-stone-100'>
                     <CalendarDays className='w-5 h-5 md:w-[22px] md:h-[22px] text-stone-400 shrink-0 mt-0.5' />
                     <div>
                       <p className='text-sm md:text-[15px] font-bold text-stone-900'>
@@ -722,23 +722,23 @@ function PackageSelectorView({ user }) {
                         <div className='flex flex-col md:flex-row flex-wrap gap-2.5'>
                           {selectedPackage.instructorType &&
                             selectedPackage.instructorType.length > 0 && (
-                              <span className='flex items-start md:items-center gap-1.5 text-[#374151] text-xs md:text-[13px] font-semibold tracking-wide rounded-md'>
-                                <User className='w-4 h-4 text-[#9CA3AF] shrink-0 mt-0.5 md:mt-0' />{" "}
+                              <span className='flex items-start md:items-center gap-1.5 text-stone-700 text-xs md:text-[13px] font-semibold tracking-wide rounded-md'>
+                                <User className='w-4 h-4 text-stone-400 shrink-0 mt-0.5 md:mt-0' />{" "}
                                 {selectedPackage.instructorType.join(", ")}
                               </span>
                             )}
                           {selectedPackage.classType &&
                             selectedPackage.classType.length > 0 && (
-                              <span className='flex items-start md:items-center gap-1.5 text-[#374151] text-xs md:text-[13px] font-semibold tracking-wide rounded-md'>
-                                <Settings2 className='w-4 h-4 text-[#9CA3AF] shrink-0 mt-0.5 md:mt-0' />{" "}
+                              <span className='flex items-start md:items-center gap-1.5 text-stone-700 text-xs md:text-[13px] font-semibold tracking-wide rounded-md'>
+                                <Settings2 className='w-4 h-4 text-stone-400 shrink-0 mt-0.5 md:mt-0' />{" "}
                                 {selectedPackage.classType.join(", ")}
                               </span>
                             )}
                         </div>
                       </div>
                     ) : (
-                      <div className='bg-[#F9FAFB] rounded-2xl p-4 md:p-6 border border-stone-100'>
-                        <p className='text-[10px] md:text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-4 md:mb-5'>
+                      <div className='bg-stone-50 rounded-2xl p-4 md:p-6 border border-stone-100'>
+                        <p className='text-[10px] md:text-[11px] font-bold text-stone-500 uppercase tracking-wider mb-4 md:mb-5'>
                           Combo Includes
                         </p>
                         <div className='space-y-3'>
@@ -746,18 +746,18 @@ function PackageSelectorView({ user }) {
                             <div
                               key={idx}
                               className='bg-white rounded-2xl p-4 md:p-5 border border-stone-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 md:gap-6'>
-                              <p className='font-bold text-[#111827] text-[15px] md:text-[16px] sm:w-24 shrink-0'>
+                              <p className='font-bold text-stone-900 text-[15px] md:text-[16px] sm:w-24 shrink-0'>
                                 {item.credits} Credits
                               </p>
-                              <div className='flex flex-col gap-y-2.5 md:gap-y-3 text-[13px] md:text-[14px] text-[#4B5563] flex-1'>
+                              <div className='flex flex-col gap-y-2.5 md:gap-y-3 text-[13px] md:text-[14px] text-stone-600 flex-1'>
                                 <div className='flex items-start gap-3 font-medium'>
-                                  <User className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                  <User className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-stone-400 shrink-0 mt-[2px]' />
                                   <span className='leading-relaxed'>
                                     {item.instructorType?.join(", ")}
                                   </span>
                                 </div>
                                 <div className='flex items-start gap-3 font-medium'>
-                                  <Settings2 className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                  <Settings2 className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-stone-400 shrink-0 mt-[2px]' />
                                   <span className='leading-relaxed'>
                                     {item.classType?.join(", ")}
                                   </span>
@@ -785,13 +785,13 @@ function PackageSelectorView({ user }) {
                         setPromoCode(e.target.value.toUpperCase())
                       }
                       disabled={appliedPromo !== null}
-                      className='flex-1 px-4 py-3.5 md:py-3 bg-[#F9FAFB] border border-stone-200 rounded-xl text-sm md:text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-stone-500 focus:border-stone-500 disabled:opacity-70 disabled:cursor-not-allowed'
+                      className='flex-1 px-4 py-3.5 md:py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm md:text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-stone-500 focus:border-stone-500 disabled:opacity-70 disabled:cursor-not-allowed'
                     />
                     {!appliedPromo ? (
                       <button
                         onClick={handleApplyPromo}
                         disabled={!promoCode.trim() || promoLoading}
-                        className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-stone-600 hover:bg-[#0F2922] text-white text-[14px] md:text-[15px] font-bold rounded-xl transition-colors disabled:bg-stone-300 disabled:text-stone-500 flex items-center justify-center min-w-[100px] shadow-sm'>
+                        className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-stone-900 hover:bg-stone-800 text-white text-[14px] md:text-[15px] font-bold rounded-xl transition-colors disabled:bg-stone-300 disabled:text-stone-500 flex items-center justify-center min-w-[100px] shadow-sm'>
                         {promoLoading ? (
                           <Loader2 className='w-4 h-4 animate-spin' />
                         ) : (
@@ -874,7 +874,7 @@ function PackageCardMinimal({ pkg, onPurchase }) {
         isCombo ? "border-stone-500 shadow-sm" : "border-stone-200"
       }`}>
       {isCombo && (
-        <div className='absolute top-0 left-0 w-1.5 md:w-2.5 h-full bg-stone-500' />
+        <div className='absolute top-0 left-0 w-1.5 md:w-2.5 h-full bg-stone-900' />
       )}
 
       <div className={`flex-1 mb-5 md:mb-6 ${isCombo ? "ml-2 md:ml-3" : ""}`}>
@@ -882,17 +882,17 @@ function PackageCardMinimal({ pkg, onPurchase }) {
           className={`text-lg md:text-[24px] font-semibold mb-2 md:mb-3 tracking-tight transition-colors line-clamp-2 ${
             isCombo
               ? "text-stone-700"
-              : "text-[#111827] group-hover:text-stone-700"
+              : "text-stone-900 group-hover:text-stone-700"
           }`}>
           {pkg.packageName}
         </h3>
 
-        <div className='text-[#6B7280] text-sm md:text-[15px] font-medium mb-6 md:mb-8 min-h-[44px]'>
+        <div className='text-stone-500 text-sm md:text-[15px] font-medium mb-6 md:mb-8 min-h-[44px]'>
           {descParts.length > 1 ? (
             <ul className='space-y-1.5 md:space-y-2'>
               {descParts.slice(0, 3).map((part, idx) => (
                 <li key={idx} className='flex items-start gap-2.5'>
-                  <div className='w-1.5 h-1.5 rounded-full bg-[#6B7280] mt-1.5 md:mt-2 shrink-0' />
+                  <div className='w-1.5 h-1.5 rounded-full bg-stone-900 mt-1.5 md:mt-2 shrink-0' />
                   <span className='line-clamp-1'>{part}</span>
                 </li>
               ))}
@@ -910,11 +910,11 @@ function PackageCardMinimal({ pkg, onPurchase }) {
         </div>
 
         <div className='space-y-3 md:space-y-4 mb-6 md:mb-8'>
-          <div className='flex items-center gap-2.5 md:gap-3 text-[#374151] text-sm md:text-[15px] font-bold'>
+          <div className='flex items-center gap-2.5 md:gap-3 text-stone-700 text-sm md:text-[15px] font-bold'>
             <CalendarDays className='w-[18px] h-[18px] md:w-5 md:h-5 text-stone-400 shrink-0' />
             <span>{totalCredits} Sessions</span>
           </div>
-          <div className='flex items-center gap-2.5 md:gap-3 text-[#374151] text-sm md:text-[15px] font-bold'>
+          <div className='flex items-center gap-2.5 md:gap-3 text-stone-700 text-sm md:text-[15px] font-bold'>
             <Clock className='w-[18px] h-[18px] md:w-5 md:h-5 text-stone-400 shrink-0' />
             <span>{pkg.validityDays} Days</span>
           </div>
@@ -938,7 +938,7 @@ function PackageCardMinimal({ pkg, onPurchase }) {
             </p>
             {isPromo ? (
               <div className='flex items-center flex-wrap gap-1.5 md:gap-2.5'>
-                <span className='text-[#9CA3AF] line-through text-[14px] md:text-[16px] font-bold'>
+                <span className='text-stone-400 line-through text-[14px] md:text-[16px] font-bold'>
                   IDR {originalPriceFormatted}
                 </span>
                 <span className='text-stone-800 font-semibold text-xl md:text-[26px] tracking-tight'>
@@ -955,8 +955,8 @@ function PackageCardMinimal({ pkg, onPurchase }) {
           <button
             className={`w-10 h-10 md:w-[52px] md:h-[52px] rounded-full flex items-center justify-center transition-all shadow-sm group-hover:shadow-md shrink-0 ml-2 ${
               isCombo
-                ? "bg-stone-500 text-white md:hover:bg-stone-600"
-                : "bg-stone-700 text-white md:group-hover:bg-stone-500"
+                ? "bg-stone-900 text-white md:hover:bg-stone-800"
+                : "bg-stone-900 text-white md:group-hover:bg-stone-900"
             }`}>
             <ShoppingBag className='w-4 h-4 md:w-[22px] md:h-[22px]' />
           </button>
@@ -1086,7 +1086,7 @@ function UserPassesView({ user }) {
                 <div
                   className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
                     selectedStudios.includes(studio)
-                      ? "bg-stone-600 border-stone-600 shadow"
+                      ? "bg-stone-900 border-stone-600 shadow"
                       : "border-stone-300 group-hover:border-stone-500 bg-white"
                   }`}>
                   {selectedStudios.includes(studio) && (
@@ -1126,7 +1126,7 @@ function UserPassesView({ user }) {
             <div
               className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
                 selectedStatusFilters.includes("active")
-                  ? "bg-stone-600 border-stone-600 shadow"
+                  ? "bg-stone-900 border-stone-600 shadow"
                   : "border-stone-300 group-hover:border-stone-500 bg-white"
               }`}>
               {selectedStatusFilters.includes("active") && (
@@ -1153,7 +1153,7 @@ function UserPassesView({ user }) {
             <div
               className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
                 selectedStatusFilters.includes("history")
-                  ? "bg-stone-600 border-stone-600 shadow"
+                  ? "bg-stone-900 border-stone-600 shadow"
                   : "border-stone-300 group-hover:border-stone-500 bg-white"
               }`}>
               {selectedStatusFilters.includes("history") && (
@@ -1287,7 +1287,7 @@ function UserPassesView({ user }) {
               <div className='p-4 border-t border-stone-100 bg-white shrink-0'>
                 <button
                   onClick={() => setShowMobileFilters(false)}
-                  className='w-full py-4 bg-stone-600 text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
+                  className='w-full py-4 bg-stone-900 text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
                   Apply Filters
                 </button>
               </div>
@@ -1378,7 +1378,7 @@ function PurchaseHistoryView({ user }) {
             <div
               className={`w-5 h-5 rounded flex items-center justify-center transition-all border shrink-0 ${
                 selectedStatuses.includes(status.key)
-                  ? "bg-stone-600 border-stone-600 shadow"
+                  ? "bg-stone-900 border-stone-600 shadow"
                   : "border-stone-300 group-hover:border-stone-500 bg-white"
               }`}>
               {selectedStatuses.includes(status.key) && (
@@ -1513,7 +1513,7 @@ function PurchaseHistoryView({ user }) {
               <div className='p-4 border-t border-stone-100 bg-white shrink-0'>
                 <button
                   onClick={() => setShowMobileFilters(false)}
-                  className='w-full py-4 bg-stone-600 text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
+                  className='w-full py-4 bg-stone-900 text-white font-bold rounded-xl active:scale-[0.98] transition-all'>
                   Apply Filters
                 </button>
               </div>
@@ -1571,7 +1571,7 @@ function PassCard({ group, onClick }) {
       onClick={onClick}
       className='bg-white rounded-2xl md:rounded-[24px] border border-stone-200 shadow-sm hover:shadow-md transition-shadow flex overflow-hidden cursor-pointer active:scale-[0.99] md:active:scale-100'>
       <div
-        className={`w-1.5 md:w-[10px] shrink-0 ${isExpired ? "bg-stone-400" : progressPercent < 15 ? "bg-rose-500" : "bg-stone-500"}`}></div>
+        className={`w-1.5 md:w-[10px] shrink-0 ${isExpired ? "bg-stone-400" : progressPercent < 15 ? "bg-rose-500" : "bg-stone-900"}`}></div>
       <div className='flex-1 p-4 md:p-7 flex flex-col md:flex-row justify-between md:items-center gap-4 md:gap-6'>
         <div className='flex-1 w-full md:pr-6 md:border-r border-dashed border-stone-200 flex flex-col justify-center h-full'>
           <div className='mb-2 md:mb-2.5 flex flex-wrap items-center gap-2'>
@@ -1586,7 +1586,7 @@ function PassCard({ group, onClick }) {
             )}
           </div>
           <h3
-            className='text-xl md:text-[26px] font-semibold mb-3 md:mb-5 text-[#111827] tracking-tight leading-snug md:pr-8 group-hover:text-stone-700 transition-colors line-clamp-2'
+            className='text-xl md:text-[26px] font-semibold mb-3 md:mb-5 text-stone-900 tracking-tight leading-snug md:pr-8 group-hover:text-stone-700 transition-colors line-clamp-2'
             title={pkgName}>
             {pkgName}
           </h3>
@@ -1652,7 +1652,7 @@ function PassCard({ group, onClick }) {
 
           <div className='flex flex-row md:flex-col items-baseline md:items-center gap-1.5 md:gap-0 mt-0'>
             <span
-              className={`text-4xl md:text-[64px] leading-none font-semibold tracking-tighter ${isExpired ? "text-stone-400" : "text-[#0F2922]"}`}>
+              className={`text-4xl md:text-[64px] leading-none font-semibold tracking-tighter ${isExpired ? "text-stone-400" : "text-stone-900"}`}>
               {group.totalRemaining}
             </span>
             <span className='hidden md:block text-[12px] font-bold text-stone-500 tracking-[0.15em] mt-2 uppercase'>
@@ -1666,7 +1666,7 @@ function PassCard({ group, onClick }) {
           {!isExpired && (
             <div className='hidden md:block w-full max-w-[120px] bg-stone-200 h-1.5 rounded-full mt-5 overflow-hidden'>
               <div
-                className={`${progressPercent < 15 ? "bg-rose-500" : "bg-stone-500"} h-full rounded-full transition-all`}
+                className={`${progressPercent < 15 ? "bg-rose-500" : "bg-stone-900"} h-full rounded-full transition-all`}
                 style={{ width: `${progressPercent}%` }}></div>
             </div>
           )}
@@ -1676,7 +1676,7 @@ function PassCard({ group, onClick }) {
         {!isExpired && (
           <div className='md:hidden w-full bg-stone-100 h-1.5 rounded-full mt-1 overflow-hidden'>
             <div
-              className={`${progressPercent < 15 ? "bg-rose-500" : "bg-stone-500"} h-full rounded-full transition-all`}
+              className={`${progressPercent < 15 ? "bg-rose-500" : "bg-stone-900"} h-full rounded-full transition-all`}
               style={{ width: `${progressPercent}%` }}></div>
           </div>
         )}
@@ -1715,7 +1715,7 @@ function PassDetailModal({ group, onClose }) {
 
         <div className='p-6 md:p-8 pb-4 md:pb-6 border-b border-stone-100 flex justify-between items-start bg-white shrink-0'>
           <div className='space-y-1'>
-            <h3 className='font-semibold text-xl md:text-[26px] text-[#111827] tracking-tight leading-tight pr-4'>
+            <h3 className='font-semibold text-xl md:text-[26px] text-stone-900 tracking-tight leading-tight pr-4'>
               {activePass.packageId?.packageName ||
                 activePass.packageNameSnapshot}
             </h3>
@@ -1759,7 +1759,7 @@ function PassDetailModal({ group, onClose }) {
               className={`pb-3 md:pb-4 text-sm md:text-[15px] font-bold transition-colors relative whitespace-nowrap ${activeTab === "qr" ? "text-stone-800" : "text-stone-400 hover:text-stone-700"}`}>
               Check-in QR
               {activeTab === "qr" && (
-                <div className='absolute bottom-0 left-0 w-full h-[3px] bg-stone-600 rounded-t-full' />
+                <div className='absolute bottom-0 left-0 w-full h-[3px] bg-stone-900 rounded-t-full' />
               )}
             </button>
             <button
@@ -1767,7 +1767,7 @@ function PassDetailModal({ group, onClose }) {
               className={`pb-3 md:pb-4 text-sm md:text-[15px] font-bold transition-colors relative whitespace-nowrap ${activeTab === "share" ? "text-stone-800" : "text-stone-400 hover:text-stone-700"}`}>
               Share Pass
               {activeTab === "share" && (
-                <div className='absolute bottom-0 left-0 w-full h-[3px] bg-stone-600 rounded-t-full' />
+                <div className='absolute bottom-0 left-0 w-full h-[3px] bg-stone-900 rounded-t-full' />
               )}
             </button>
             <button
@@ -1775,13 +1775,13 @@ function PassDetailModal({ group, onClose }) {
               className={`pb-3 md:pb-4 text-sm md:text-[15px] font-bold transition-colors relative whitespace-nowrap ${activeTab === "freeze" ? "text-stone-800" : "text-stone-400 hover:text-stone-700"}`}>
               Freeze Request
               {activeTab === "freeze" && (
-                <div className='absolute bottom-0 left-0 w-full h-[3px] bg-stone-600 rounded-t-full' />
+                <div className='absolute bottom-0 left-0 w-full h-[3px] bg-stone-900 rounded-t-full' />
               )}
             </button>
           </div>
         )}
 
-        <div className='p-6 md:p-8 overflow-y-auto bg-[#F9FAFB] flex-1 custom-scrollbar overscroll-contain'>
+        <div className='p-6 md:p-8 overflow-y-auto bg-stone-50 flex-1 custom-scrollbar overscroll-contain'>
           {activeTab === "qr" && (
             <PassQRView pass={activePass} isExpired={isExpired} />
           )}
@@ -1863,7 +1863,7 @@ function PassQRView({ pass, isExpired }) {
             Balance Left
           </p>
           <p
-            className={`text-2xl md:text-[32px] font-semibold ${isExpired ? "text-stone-400" : "text-[#111827]"} tracking-tight leading-none`}>
+            className={`text-2xl md:text-[32px] font-semibold ${isExpired ? "text-stone-400" : "text-stone-900"} tracking-tight leading-none`}>
             {pass.remainingCredits}{" "}
             <span className='text-xs md:text-[15px] font-semibold text-stone-500 block md:inline mt-1 md:mt-0'>
               Sessions
@@ -1876,7 +1876,7 @@ function PassQRView({ pass, isExpired }) {
             Valid Until
           </p>
           <p
-            className={`text-sm md:text-[16px] font-bold ${isExpired ? "text-stone-400" : "text-[#111827]"}`}>
+            className={`text-sm md:text-[16px] font-bold ${isExpired ? "text-stone-400" : "text-stone-900"}`}>
             {new Date(pass.expiryDate).toLocaleDateString("en-GB", {
               day: "numeric",
               month: "short",
@@ -2009,7 +2009,7 @@ function PassShareView({ pass }) {
               <button
                 onClick={handleGenerateShare}
                 disabled={loading}
-                className='w-full py-3.5 md:py-4 bg-stone-600 text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-[#0F2922] transition-colors flex justify-center items-center gap-2 shadow-sm active:scale-[0.98]'>
+                className='w-full py-3.5 md:py-4 bg-stone-900 text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-stone-800 transition-colors flex justify-center items-center gap-2 shadow-sm active:scale-[0.98]'>
                 {loading ? (
                   <Loader2 className='w-5 h-5 animate-spin' />
                 ) : (
@@ -2026,7 +2026,7 @@ function PassShareView({ pass }) {
                 />
                 <button
                   onClick={handleCopy}
-                  className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-stone-100 text-stone-800 rounded-xl font-bold text-sm md:text-[14px] hover:bg-stone-500 hover:text-white transition-colors border border-stone-500 active:scale-[0.98] sm:active:scale-100'>
+                  className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-stone-100 text-stone-800 rounded-xl font-bold text-sm md:text-[14px] hover:bg-stone-800 hover:text-white transition-colors border border-stone-500 active:scale-[0.98] sm:active:scale-100'>
                   Copy Link
                 </button>
               </div>
@@ -2049,7 +2049,7 @@ function PassShareView({ pass }) {
                 <button
                   onClick={sendEmail}
                   disabled={emailLoading || !email}
-                  className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-stone-600 text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-[#0F2922] transition-colors disabled:bg-stone-300 flex items-center justify-center min-w-[100px] shadow-sm active:scale-[0.98] sm:active:scale-100'>
+                  className='w-full sm:w-auto px-6 py-3.5 md:py-3 bg-stone-900 text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-stone-800 transition-colors disabled:bg-stone-300 flex items-center justify-center min-w-[100px] shadow-sm active:scale-[0.98] sm:active:scale-100'>
                   {emailLoading ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (
@@ -2273,7 +2273,7 @@ function PassFreezeView({ group }) {
               <button
                 onClick={() => handleFreeze(parseInt(customDays))}
                 disabled={loading || !customDays}
-                className='w-full sm:flex-1 bg-stone-600 text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-[#0F2922] py-3.5 md:py-3 flex justify-center items-center shadow-sm transition-colors active:scale-[0.98] sm:active:scale-100'>
+                className='w-full sm:flex-1 bg-stone-900 text-white rounded-xl font-bold text-sm md:text-[15px] hover:bg-stone-800 py-3.5 md:py-3 flex justify-center items-center shadow-sm transition-colors active:scale-[0.98] sm:active:scale-100'>
                 {loading ? (
                   <Loader2 className='w-5 h-5 animate-spin' />
                 ) : (
@@ -2342,7 +2342,7 @@ function TransactionCard({ tx, onClick }) {
             {priceFormatted} IDR
           </p>
         </div>
-        <button className='w-9 h-9 md:w-12 md:h-12 rounded-full bg-white border border-stone-200 md:group-hover:border-stone-500 text-stone-400 md:group-hover:text-white flex items-center justify-center md:group-hover:bg-stone-500 transition-all shadow-sm md:group-hover:shadow-md shrink-0'>
+        <button className='w-9 h-9 md:w-12 md:h-12 rounded-full bg-white border border-stone-200 md:group-hover:border-stone-500 text-stone-400 md:group-hover:text-white flex items-center justify-center md:group-hover:bg-stone-900 transition-all shadow-sm md:group-hover:shadow-md shrink-0'>
           <ChevronRight className='w-4 h-4 md:w-5 md:h-5' />
         </button>
       </div>
@@ -2399,7 +2399,7 @@ function InvoicePreviewModal({ tx, onClose }) {
           <div className='flex gap-2 md:gap-3'>
             <button
               onClick={handlePrint}
-              className='hidden md:flex items-center gap-2 px-5 py-2.5 bg-stone-600 hover:bg-[#0F2922] text-white text-sm font-bold rounded-xl transition-colors shadow-sm'>
+              className='hidden md:flex items-center gap-2 px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-sm font-bold rounded-xl transition-colors shadow-sm'>
               <Printer className='w-4 h-4' /> Print / Download PDF
             </button>
             <button
@@ -2496,7 +2496,7 @@ function InvoicePreviewModal({ tx, onClose }) {
           </div>
 
           <div className='flex justify-end mb-10 md:mb-16'>
-            <div className='w-full md:w-80 space-y-3 bg-[#F9FAFB] rounded-2xl md:rounded-[24px] p-6 md:p-8 border border-stone-100 shadow-sm'>
+            <div className='w-full md:w-80 space-y-3 bg-stone-50 rounded-2xl md:rounded-[24px] p-6 md:p-8 border border-stone-100 shadow-sm'>
               <div className='flex justify-between items-center'>
                 <span className='text-stone-500 text-sm md:text-[15px] font-bold'>
                   Subtotal Amount
@@ -2638,7 +2638,7 @@ function TransactionDetailModal({ tx, onClose }) {
             </button>
           </div>
 
-          <div className='p-6 md:p-10 overflow-y-auto bg-[#F9FAFB] space-y-6 md:space-y-8 flex-1 custom-scrollbar overscroll-contain'>
+          <div className='p-6 md:p-10 overflow-y-auto bg-stone-50 space-y-6 md:space-y-8 flex-1 custom-scrollbar overscroll-contain'>
             <div
               className={`rounded-2xl border p-5 md:p-6 ${
                 isRejected
@@ -2772,7 +2772,7 @@ function TransactionDetailModal({ tx, onClose }) {
                     className={`border-2 border-dashed rounded-2xl md:rounded-3xl p-8 md:p-10 flex flex-col items-center justify-center cursor-pointer transition-all ${
                       selectedFile
                         ? "border-stone-500 bg-stone-100"
-                        : "border-stone-300 bg-white hover:border-stone-500 hover:bg-[#F9FAFB] shadow-sm"
+                        : "border-stone-300 bg-white hover:border-stone-500 hover:bg-stone-50 shadow-sm"
                     }`}>
                     {selectedFile ? (
                       <div className='text-center w-full'>
@@ -2817,7 +2817,7 @@ function TransactionDetailModal({ tx, onClose }) {
                     <button
                       onClick={handleConfirmUpload}
                       disabled={uploading}
-                      className='w-full py-4 md:py-4 bg-stone-600 hover:bg-[#0F2922] disabled:bg-stone-400 text-white rounded-xl md:rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg transition-all text-sm md:text-[16px] active:scale-[0.98] md:active:scale-100'>
+                      className='w-full py-4 md:py-4 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white rounded-xl md:rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg transition-all text-sm md:text-[16px] active:scale-[0.98] md:active:scale-100'>
                       {uploading ? (
                         <>
                           {" "}

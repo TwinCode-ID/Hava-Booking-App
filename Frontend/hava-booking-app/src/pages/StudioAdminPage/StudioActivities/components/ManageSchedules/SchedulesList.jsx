@@ -379,7 +379,7 @@ const SchedulesList = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-stone-50 min-h-screen relative`}>
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-canvas min-h-screen relative`}>
       <div className='flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-20'>
         <div className='flex items-center gap-4 relative w-full md:w-auto'>
           <div className='relative' ref={headerCalendarRef}>
@@ -468,105 +468,112 @@ const SchedulesList = ({ isEmbedded = false }) => {
           </button>
           <button
             onClick={openCreateModal}
-            className='flex items-center gap-2 bg-stone-700 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-stone-600 transition-shadow shadow-lg shadow-stone-700/20 whitespace-nowrap'>
+            className='flex items-center gap-2 bg-stone-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-stone-800 transition-shadow shadow-lg shadow-stone-900/20 whitespace-nowrap'>
             <Plus className='w-5 h-5' /> Schedule
           </button>
         </div>
       </div>
 
       <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
-        <div className='grid grid-cols-7 border-b border-stone-100 bg-stone-50/80'>
-          {weekDays.map((day) => {
-            const isToday = isSameDay(day, new Date());
-            return (
-              <div
-                key={day.toString()}
-                className={`py-4 text-center border-r border-stone-100 last:border-r-0 ${isToday ? "bg-stone-100/50" : ""}`}>
-                <p
-                  className={`text-xs font-bold uppercase mb-1 ${isToday ? "text-stone-800" : "text-stone-400"}`}>
-                  {format(day, "EEE")}
-                </p>
-                <div className='flex justify-center'>
-                  <span
-                    className={`text-sm font-bold px-2 py-1 rounded-full ${isToday ? "bg-stone-500 text-white shadow-sm" : "text-stone-900"}`}>
-                    {format(day, "dd MMM")}
-                  </span>
-                </div>
+        <div className='overflow-x-auto'>
+          <div className='min-w-[700px] md:min-w-0'>
+            <div className='grid grid-cols-7 border-b border-stone-100 bg-stone-50/80'>
+              {weekDays.map((day) => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div
+                    key={day.toString()}
+                    className={`py-4 text-center border-r border-stone-100 last:border-r-0 ${isToday ? "bg-stone-100/50" : ""}`}>
+                    <p
+                      className={`text-xs font-bold uppercase mb-1 ${isToday ? "text-stone-800" : "text-stone-400"}`}>
+                      {format(day, "EEE")}
+                    </p>
+                    <div className='flex justify-center'>
+                      <span
+                        className={`text-sm font-bold px-2 py-1 rounded-full whitespace-nowrap ${isToday ? "bg-stone-900 text-white shadow-sm" : "text-stone-900"}`}>
+                        {format(day, "dd MMM")}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {loading ? (
+              <div className='p-20'>
+                <LoadingSpinner />
               </div>
-            );
-          })}
-        </div>
-
-        {loading ? (
-          <div className='p-20'>
-            <LoadingSpinner />
-          </div>
-        ) : (
-          <div className='grid grid-cols-7 divide-x divide-stone-100 min-h-[500px]'>
-            {weekDays.map((day) => {
-              const dayClasses = filteredClasses
-                .filter((c) => isSameDay(parseISO(c.startTime), day))
-                .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-              return (
-                <div
-                  key={day.toString()}
-                  className={`p-2 space-y-3 ${isSameDay(day, new Date()) ? "bg-stone-50/30" : ""}`}>
-                  {dayClasses.map((cls) => {
-                    const clsStudioId =
-                      typeof cls.studioId === "object"
-                        ? cls.studioId._id
-                        : cls.studioId;
-                    const isExternal = clsStudioId !== user.adminStudioLocation;
-
-                    return (
-                      <motion.div
-                        key={cls._id}
-                        onClick={() => handleClassClick(cls)}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        className={`p-3 rounded-xl border border-l-4 shadow-sm transition-all relative group ${isExternal ? "bg-stone-50 border-stone-200 border-l-stone-400 opacity-80" : `cursor-pointer hover:shadow-md bg-white border-stone-200 ${!cls.isActive ? "opacity-60 bg-red-50/30 border-l-red-400" : "border-l-stone-500"}`}`}>
-                        <div className='flex justify-between items-start mb-1'>
-                          <p
-                            className={`text-xs font-bold flex items-center gap-1 ${isExternal ? "text-stone-500" : !cls.isActive ? "text-red-700" : "text-stone-800"}`}>
-                            <Clock className='w-3 h-3' />
-                            {format(parseISO(cls.startTime), "HH:mm")}
-                          </p>
-                          {cls.isRecurring && !isExternal && (
-                            <Repeat className='w-3 h-3 text-stone-300' />
-                          )}
-                          {isExternal && (
-                            <Lock className='w-3 h-3 text-stone-300' />
-                          )}
-                        </div>
-                        <h4
-                          className={`font-bold text-sm leading-tight mb-1 ${isExternal || !cls.isActive ? "text-stone-500" : "text-stone-900"} ${!cls.isActive && !isExternal ? "line-through opacity-80" : ""}`}>
-                          {cls.className}
-                        </h4>
-                        <p className='text-xs text-stone-500 mb-2 truncate'>
-                          {cls.instructorId?.fullName || "No Instructor"}
-                        </p>
-                        <div className='flex items-center gap-1.5 pt-2 border-t border-stone-100'>
-                          {!cls.isActive && !isExternal ? (
-                            <span className='px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200'>
-                              INACTIVE
-                            </span>
-                          ) : (
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isExternal ? "bg-stone-200 text-stone-600" : cls.classType === "Private" ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
-                              {cls.classType}
-                            </span>
-                          )}
-                        </div>
-                      </motion.div>
+            ) : (
+              <div className='grid grid-cols-7 divide-x divide-stone-100 min-h-[500px]'>
+                {weekDays.map((day) => {
+                  const dayClasses = filteredClasses
+                    .filter((c) => isSameDay(parseISO(c.startTime), day))
+                    .sort(
+                      (a, b) => new Date(a.startTime) - new Date(b.startTime),
                     );
-                  })}
-                </div>
-              );
-            })}
+
+                  return (
+                    <div
+                      key={day.toString()}
+                      className={`p-2 space-y-3 ${isSameDay(day, new Date()) ? "bg-stone-50/30" : ""}`}>
+                      {dayClasses.map((cls) => {
+                        const clsStudioId =
+                          typeof cls.studioId === "object"
+                            ? cls.studioId._id
+                            : cls.studioId;
+                        const isExternal =
+                          clsStudioId !== user.adminStudioLocation;
+
+                        return (
+                          <motion.div
+                            key={cls._id}
+                            onClick={() => handleClassClick(cls)}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            className={`p-3 rounded-xl border border-l-4 shadow-sm transition-all relative group ${isExternal ? "bg-stone-50 border-stone-200 border-l-stone-400 opacity-80" : `cursor-pointer hover:shadow-md bg-white border-stone-200 ${!cls.isActive ? "opacity-60 bg-red-50/30 border-l-red-400" : "border-l-stone-500"}`}`}>
+                            <div className='flex justify-between items-start mb-1'>
+                              <p
+                                className={`text-xs font-bold flex items-center gap-1 ${isExternal ? "text-stone-500" : !cls.isActive ? "text-red-700" : "text-stone-800"}`}>
+                                <Clock className='w-3 h-3' />
+                                {format(parseISO(cls.startTime), "HH:mm")}
+                              </p>
+                              {cls.isRecurring && !isExternal && (
+                                <Repeat className='w-3 h-3 text-stone-300' />
+                              )}
+                              {isExternal && (
+                                <Lock className='w-3 h-3 text-stone-300' />
+                              )}
+                            </div>
+                            <h4
+                              className={`font-bold text-sm leading-tight mb-1 ${isExternal || !cls.isActive ? "text-stone-500" : "text-stone-900"} ${!cls.isActive && !isExternal ? "line-through opacity-80" : ""}`}>
+                              {cls.className}
+                            </h4>
+                            <p className='text-xs text-stone-500 mb-2 truncate'>
+                              {cls.instructorId?.fullName || "No Instructor"}
+                            </p>
+                            <div className='flex items-center gap-1.5 pt-2 border-t border-stone-100'>
+                              {!cls.isActive && !isExternal ? (
+                                <span className='px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200'>
+                                  INACTIVE
+                                </span>
+                              ) : (
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isExternal ? "bg-stone-200 text-stone-600" : cls.classType === "Private" ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
+                                  {cls.classType}
+                                </span>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <AnimatePresence>
@@ -631,7 +638,7 @@ const GenericAlertModal = ({ title, message, type, onClose }) => {
         <p className='text-stone-500 text-sm mb-6'>{message}</p>
         <button
           onClick={onClose}
-          className='w-full py-2.5 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-all'>
+          className='w-full py-2.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-all'>
           Close
         </button>
       </motion.div>
@@ -665,7 +672,7 @@ const HeaderWeekCalendar = ({ selectedDate, onChange }) => {
           onClick={() => onChange(cloneDay)}
           className={`w-full h-9 flex items-center justify-center text-xs font-bold transition-all relative ${isWeekSelected ? "bg-stone-100 text-stone-900" : "hover:bg-stone-50 text-stone-700"} ${!isCurrentMonth && !isWeekSelected ? "text-stone-300" : ""} ${isWeekSelected && i === 0 ? "rounded-l-lg" : ""} ${isWeekSelected && i === 6 ? "rounded-r-lg" : ""}`}>
           <span
-            className={`flex items-center justify-center w-7 h-7 rounded-full ${isSpecificDay ? "bg-stone-600 text-white shadow-md" : ""}`}>
+            className={`flex items-center justify-center w-7 h-7 rounded-full ${isSpecificDay ? "bg-stone-900 text-white shadow-md" : ""}`}>
             {format(day, "d")}
           </span>
         </button>,
@@ -748,7 +755,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
             e.preventDefault();
             onChange(cloneDay);
           }}
-          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all ${!isCurrentMonth ? "text-stone-300" : "text-stone-700 hover:bg-stone-100"} ${isSpecificDay ? "bg-stone-600 text-white shadow-md hover:bg-stone-700" : ""}`}>
+          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all ${!isCurrentMonth ? "text-stone-300" : "text-stone-700 hover:bg-stone-100"} ${isSpecificDay ? "bg-stone-900 text-white shadow-md hover:bg-stone-800" : ""}`}>
           {format(day, "d")}
         </button>,
       );
@@ -940,7 +947,7 @@ const RecurrenceActionCards = ({
             loading ||
             (mode === "single" && actionType === "toggle" && !targetDate)
           }
-          className={`flex-1 py-3 font-bold rounded-xl transition-all shadow-lg active:scale-95 text-white ${actionType === "delete" ? "bg-red-600 hover:bg-red-700 shadow-red-600/20" : "bg-stone-600 hover:bg-stone-700 shadow-stone-600/20"} disabled:opacity-50`}>
+          className={`flex-1 py-3 font-bold rounded-xl transition-all shadow-lg active:scale-95 text-white ${actionType === "delete" ? "bg-red-600 hover:bg-red-700 shadow-red-600/20" : "bg-stone-900 hover:bg-stone-800 shadow-stone-900/20"} disabled:opacity-50`}>
           {loading ? "Processing..." : `Confirm ${actionText}`}
         </button>
       </div>
@@ -1300,7 +1307,7 @@ const ClassDetailsModal = ({
                           setShowAddStudent(true);
                           fetchUsers();
                         }}
-                        className='flex items-center gap-2 bg-stone-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold'>
+                        className='flex items-center gap-2 bg-stone-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold'>
                         <Plus className='w-3 h-3' /> Add Student
                       </button>
                     </div>
@@ -1385,7 +1392,7 @@ const ClassDetailsModal = ({
                                       </div>
                                     </div>
                                     {isSelected && (
-                                      <div className='absolute bottom-3 right-3 bg-stone-500 text-white rounded-full p-0.5'>
+                                      <div className='absolute bottom-3 right-3 bg-stone-900 text-white rounded-full p-0.5'>
                                         <Check className='w-3 h-3' />
                                       </div>
                                     )}
@@ -1403,7 +1410,7 @@ const ClassDetailsModal = ({
                           <button
                             disabled={!selectedPass || bookingProcessing}
                             onClick={handleAddStudent}
-                            className='w-full py-2 bg-stone-600 text-white rounded-lg text-xs font-bold mt-2'>
+                            className='w-full py-2 bg-stone-900 text-white rounded-lg text-xs font-bold mt-2'>
                             Confirm
                           </button>
                         </div>
@@ -1496,7 +1503,7 @@ const ClassDetailsModal = ({
                   </button>
                   <button
                     onClick={() => executeAction()}
-                    className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg ${confirmationData.type === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-stone-600 hover:bg-stone-700"}`}>
+                    className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg ${confirmationData.type === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-stone-900 hover:bg-stone-800"}`}>
                     Confirm
                   </button>
                 </div>
@@ -2234,7 +2241,7 @@ const CreateClassModal = ({
                                 key={day.value}
                                 type='button'
                                 onClick={() => toggleDay(day.value)}
-                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${isSelected ? "bg-stone-600 text-white border-stone-600 shadow-md" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400 hover:bg-stone-100"}`}>
+                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${isSelected ? "bg-stone-900 text-white border-stone-900 shadow-md" : "bg-white text-stone-500 border-stone-200 hover:border-stone-800 hover:bg-stone-100"}`}>
                                 {day.label}
                               </button>
                             );
@@ -2324,7 +2331,7 @@ const CreateClassModal = ({
                   !isAvailable ||
                   (form.isRecurring && selectedRecurrenceDays.length === 0)
                 }
-                className={`flex-1 py-3 font-bold text-white rounded-xl shadow-lg transition-all ${isAvailable && (!form.isRecurring || selectedRecurrenceDays.length > 0) ? "bg-stone-600 hover:bg-stone-700" : "bg-stone-400 cursor-not-allowed"}`}>
+                className={`flex-1 py-3 font-bold text-white rounded-xl shadow-lg transition-all ${isAvailable && (!form.isRecurring || selectedRecurrenceDays.length > 0) ? "bg-stone-900 hover:bg-stone-800" : "bg-stone-400 cursor-not-allowed"}`}>
                 {loading
                   ? "Saving..."
                   : initialData
@@ -2378,7 +2385,7 @@ const CreateClassModal = ({
                 <button
                   type='button'
                   onClick={handleConfirmCreate}
-                  className='w-full py-3.5 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 transition-all shadow-lg shadow-stone-600/20 transform active:scale-95'>
+                  className='w-full py-3.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-all shadow-lg shadow-stone-900/20 transform active:scale-95'>
                   {initialData ? "Yes, Update Class" : "Yes, Create Schedule"}
                 </button>
                 <button

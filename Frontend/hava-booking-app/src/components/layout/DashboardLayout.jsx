@@ -17,7 +17,7 @@ const NavigationItem = ({ item, isActive, onClick, isCollapsed }) => {
       onClick={() => onClick(item.id)}
       className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group ${
         isActive
-          ? "bg-stone-600 text-white shadow-sm shadow-stone-200"
+          ? "bg-stone-900 text-white shadow-sm shadow-stone-200"
           : "text-stone-600 hover:bg-stone-50 hover:text-stone-800"
       }`}>
       <Icon
@@ -84,7 +84,7 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
   const sidebarCollapsed = !isMobile && false;
 
   return (
-    <div className='flex h-screen bg-stone-50'>
+    <div className='flex h-screen bg-canvas'>
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-50 transition-transform duration-300 transform ${
@@ -100,7 +100,7 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
         <div className='flex items-center h-16 border-b border-stone-200 pl-6'>
           {!sidebarCollapsed ? (
             <Link className='flex items-center space-x-3' to='/'>
-              <div className='h-8 w-8 bg-stone-600 rounded-lg flex items-center justify-center'>
+              <div className='h-8 w-8 bg-stone-900 rounded-lg flex items-center justify-center'>
                 <User className='h-5 w-5 text-white' />
               </div>
               {user.role === "studioAdmin" ? (
@@ -118,7 +118,7 @@ const DashboardLayout = ({ activeMenu, children, role }) => {
               )}
             </Link>
           ) : (
-            <div className='h-8 w-8 bg-stone-600 rounded-lg flex items-center justify-center'>
+            <div className='h-8 w-8 bg-stone-900 rounded-lg flex items-center justify-center'>
               <Building2 className='h-5 w-5 text-white' />
             </div>
           )}

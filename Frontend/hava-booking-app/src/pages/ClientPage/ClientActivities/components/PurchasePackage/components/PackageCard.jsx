@@ -34,7 +34,7 @@ const PackageCard = ({ pkg, onPurchase }) => {
       }`}>
       {/* "Best Value" Badge */}
       {isBestValue && (
-        <div className='absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-stone-500 text-white text-[10px] md:text-xs font-bold px-3.5 md:px-4 py-1 md:py-1.5 rounded-full shadow-md flex items-center gap-1.5 whitespace-nowrap z-10'>
+        <div className='absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-stone-900 text-white text-[10px] md:text-xs font-bold px-3.5 md:px-4 py-1 md:py-1.5 rounded-full shadow-md flex items-center gap-1.5 whitespace-nowrap z-10'>
           <Sparkles className='w-3 h-3 md:w-3.5 md:h-3.5' /> BEST VALUE
         </div>
       )}
@@ -72,7 +72,7 @@ const PackageCard = ({ pkg, onPurchase }) => {
         onClick={onPurchase}
         className={`w-full py-3.5 md:py-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98] md:active:scale-95 mt-auto ${
           isBestValue
-            ? "bg-stone-600 text-white hover:bg-[#0F2922] shadow-lg shadow-stone-600/20"
+            ? "bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-600/20"
             : "bg-stone-100 text-stone-900 hover:bg-stone-200 hover:text-stone-900 border border-stone-200"
         }`}>
         <ShoppingBag className='w-4 h-4 md:w-[18px] md:h-[18px]' />

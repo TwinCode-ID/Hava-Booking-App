@@ -254,7 +254,7 @@ const MarketplaceModal = ({
         {/* =========================================================
             CONTENT BODY (List View OR Side-by-Side Checkout)
         ========================================================= */}
-        <div className='flex-1 overflow-y-auto custom-scrollbar overscroll-contain bg-[#F9FAFB] relative pb-safe'>
+        <div className='flex-1 overflow-y-auto custom-scrollbar overscroll-contain bg-stone-50 relative pb-safe'>
           {/* VIEW 1: PACKAGE LIST */}
           {!selectedPackage && (
             <div className='p-4 md:p-6'>
@@ -270,7 +270,7 @@ const MarketplaceModal = ({
                       key={pkg._id}
                       onClick={() => handleSelectPackage(pkg)}
                       className='bg-white border border-stone-200 rounded-2xl p-4 md:p-5 cursor-pointer hover:border-stone-500 hover:shadow-lg transition-all group relative overflow-hidden flex flex-col h-full'>
-                      <div className='absolute top-0 left-0 w-1.5 h-full bg-stone-500 opacity-0 group-hover:opacity-100 transition-opacity' />
+                      <div className='absolute top-0 left-0 w-1.5 h-full bg-stone-900 opacity-0 group-hover:opacity-100 transition-opacity' />
                       <div className='flex-1'>
                         <h3 className='font-bold text-stone-900 text-lg md:text-lg mb-1'>
                           {pkg.packageName}
@@ -294,7 +294,7 @@ const MarketplaceModal = ({
                           IDR{" "}
                           {parseInt(pkg.packagePrice).toLocaleString("id-ID")}
                         </p>
-                        <button className='mt-3 w-full py-3 md:py-2.5 bg-stone-700 text-white rounded-xl text-sm font-bold md:group-hover:bg-stone-600 transition-colors shadow-lg shadow-stone-200 active:scale-[0.98] md:active:scale-100'>
+                        <button className='mt-3 w-full py-3 md:py-2.5 bg-stone-900 text-white rounded-xl text-sm font-bold md:group-hover:bg-stone-900 transition-colors shadow-lg shadow-stone-200 active:scale-[0.98] md:active:scale-100'>
                           Select Package
                         </button>
                       </div>
@@ -369,13 +369,13 @@ const MarketplaceModal = ({
                     </div>
 
                     <h3
-                      className={`font-semibold text-2xl md:text-[28px] leading-tight tracking-tight mb-3 ${isSelectedCombo ? "text-[#111827]" : "text-stone-800"}`}>
+                      className={`font-semibold text-2xl md:text-[28px] leading-tight tracking-tight mb-3 ${isSelectedCombo ? "text-stone-900" : "text-stone-800"}`}>
                       {selectedPackage.packageName}
                     </h3>
 
                     <div className='flex items-center flex-wrap gap-3 mb-6'>
                       {(isSelectedPromo || appliedPromo) && (
-                        <span className='text-base md:text-[18px] text-[#9CA3AF] line-through font-bold'>
+                        <span className='text-base md:text-[18px] text-stone-400 line-through font-bold'>
                           {originalPriceFormattedModal} IDR
                         </span>
                       )}
@@ -385,7 +385,7 @@ const MarketplaceModal = ({
                       </span>
                     </div>
 
-                    <div className='text-[#4B5563] mb-6 md:mb-8 text-sm md:text-[15px]'>
+                    <div className='text-stone-600 mb-6 md:mb-8 text-sm md:text-[15px]'>
                       {(() => {
                         const desc = selectedPackage.packageDescription || "";
                         const descParts = desc
@@ -422,7 +422,7 @@ const MarketplaceModal = ({
                       })()}
                     </div>
 
-                    <div className='flex items-start gap-3 md:gap-4 mb-6 md:mb-8 bg-[#F9FAFB] p-4 md:p-5 rounded-2xl border border-stone-100'>
+                    <div className='flex items-start gap-3 md:gap-4 mb-6 md:mb-8 bg-stone-50 p-4 md:p-5 rounded-2xl border border-stone-100'>
                       <CalendarDays className='w-5 h-5 md:w-[22px] md:h-[22px] text-stone-400 shrink-0 mt-0.5' />
                       <div>
                         <p className='text-sm md:text-[15px] font-bold text-stone-900'>
@@ -449,23 +449,23 @@ const MarketplaceModal = ({
                           <div className='flex flex-col md:flex-row flex-wrap gap-3 md:gap-2.5'>
                             {selectedPackage.instructorType &&
                               selectedPackage.instructorType.length > 0 && (
-                                <span className='flex items-start md:items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
-                                  <User className='w-4 h-4 text-[#9CA3AF] shrink-0 mt-0.5 md:mt-0' />{" "}
+                                <span className='flex items-start md:items-center gap-1.5 text-stone-700 text-[13px] font-semibold tracking-wide rounded-md'>
+                                  <User className='w-4 h-4 text-stone-400 shrink-0 mt-0.5 md:mt-0' />{" "}
                                   {selectedPackage.instructorType.join(", ")}
                                 </span>
                               )}
                             {selectedPackage.classType &&
                               selectedPackage.classType.length > 0 && (
-                                <span className='flex items-start md:items-center gap-1.5 text-[#374151] text-[13px] font-semibold tracking-wide rounded-md'>
-                                  <Settings2 className='w-4 h-4 text-[#9CA3AF] shrink-0 mt-0.5 md:mt-0' />{" "}
+                                <span className='flex items-start md:items-center gap-1.5 text-stone-700 text-[13px] font-semibold tracking-wide rounded-md'>
+                                  <Settings2 className='w-4 h-4 text-stone-400 shrink-0 mt-0.5 md:mt-0' />{" "}
                                   {selectedPackage.classType.join(", ")}
                                 </span>
                               )}
                           </div>
                         </div>
                       ) : (
-                        <div className='bg-[#F9FAFB] rounded-2xl p-4 md:p-6 border border-stone-100'>
-                          <p className='text-[10px] md:text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-4 md:mb-5'>
+                        <div className='bg-stone-50 rounded-2xl p-4 md:p-6 border border-stone-100'>
+                          <p className='text-[10px] md:text-[11px] font-bold text-stone-500 uppercase tracking-wider mb-4 md:mb-5'>
                             Combo Includes
                           </p>
                           <div className='space-y-3'>
@@ -473,18 +473,18 @@ const MarketplaceModal = ({
                               <div
                                 key={idx}
                                 className='bg-white rounded-2xl p-4 md:p-5 border border-stone-100 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 md:gap-6'>
-                                <p className='font-bold text-[#111827] text-[15px] md:text-[16px] sm:w-24 shrink-0'>
+                                <p className='font-bold text-stone-900 text-[15px] md:text-[16px] sm:w-24 shrink-0'>
                                   {item.credits} Credits
                                 </p>
-                                <div className='flex flex-col gap-y-2.5 md:gap-y-3 text-[13px] md:text-[14px] text-[#4B5563] flex-1'>
+                                <div className='flex flex-col gap-y-2.5 md:gap-y-3 text-[13px] md:text-[14px] text-stone-600 flex-1'>
                                   <div className='flex items-start gap-2.5 md:gap-3 font-medium'>
-                                    <User className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                    <User className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-stone-400 shrink-0 mt-[2px]' />
                                     <span className='leading-relaxed'>
                                       {item.instructorType?.join(", ")}
                                     </span>
                                   </div>
                                   <div className='flex items-start gap-2.5 md:gap-3 font-medium'>
-                                    <Settings2 className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-[#9CA3AF] shrink-0 mt-[2px]' />
+                                    <Settings2 className='w-[16px] h-[16px] md:w-[18px] md:h-[18px] text-stone-400 shrink-0 mt-[2px]' />
                                     <span className='leading-relaxed'>
                                       {item.classType?.join(", ")}
                                     </span>
@@ -513,13 +513,13 @@ const MarketplaceModal = ({
                           setPromoCode(e.target.value.toUpperCase())
                         }
                         disabled={appliedPromo !== null}
-                        className='flex-1 px-4 py-3 md:py-3.5 bg-[#F9FAFB] border border-stone-200 rounded-xl text-sm md:text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-stone-500 focus:border-stone-500 disabled:opacity-70 disabled:cursor-not-allowed'
+                        className='flex-1 px-4 py-3 md:py-3.5 bg-stone-50 border border-stone-200 rounded-xl text-sm md:text-[15px] font-mono font-bold focus:outline-none focus:ring-2 focus:ring-stone-500 focus:border-stone-500 disabled:opacity-70 disabled:cursor-not-allowed'
                       />
                       {!appliedPromo ? (
                         <button
                           onClick={handleApplyPromo}
                           disabled={!promoCode.trim() || promoLoading}
-                          className='w-full sm:w-auto px-6 py-3.5 bg-stone-600 hover:bg-[#0F2922] text-white text-[14px] md:text-[15px] font-bold rounded-xl transition-colors disabled:bg-stone-300 disabled:text-stone-500 flex items-center justify-center min-w-[120px] shadow-sm'>
+                          className='w-full sm:w-auto px-6 py-3.5 bg-stone-900 hover:bg-stone-800 text-white text-[14px] md:text-[15px] font-bold rounded-xl transition-colors disabled:bg-stone-300 disabled:text-stone-500 flex items-center justify-center min-w-[120px] shadow-sm'>
                           {promoLoading ? (
                             <Loader2 className='w-4 h-4 animate-spin' />
                           ) : (
@@ -608,7 +608,7 @@ const MarketplaceModal = ({
                     onClose();
                     navigate("/client-account-settings");
                   }}
-                  className='w-full py-3.5 bg-stone-600 text-white text-sm md:text-base font-bold rounded-xl hover:bg-[#0F2922] shadow-lg shadow-stone-600/20 transition-all active:scale-[0.98]'>
+                  className='w-full py-3.5 bg-stone-900 text-white text-sm md:text-base font-bold rounded-xl hover:bg-stone-800 shadow-lg shadow-stone-600/20 transition-all active:scale-[0.98]'>
                   Complete Medical Profile
                 </button>
                 <button

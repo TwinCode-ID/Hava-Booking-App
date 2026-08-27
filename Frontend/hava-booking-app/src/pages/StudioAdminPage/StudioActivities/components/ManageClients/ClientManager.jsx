@@ -840,7 +840,7 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   if ((selectedClient || pendingFinancialAction) && !isFinancialDataUnlocked) {
     return (
-      <div className='min-h-screen bg-[#F8FAFC] p-4 md:p-8'>
+      <div className='min-h-screen bg-canvas p-4 md:p-8'>
         <button
           type='button'
           onClick={() => {
@@ -870,7 +870,7 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-4 md:p-8 lg:p-10 ${isEmbedded ? "pt-8" : ""} bg-[#F8FAFC] relative min-h-screen font-sans w-full`}>
+      className={`p-4 md:p-8 lg:p-10 ${isEmbedded ? "pt-8" : ""} bg-canvas relative min-h-screen font-sans w-full`}>
       {!isEmbedded && !selectedClient && (
         <div className='flex justify-between items-center mb-6 md:mb-8'>
           <h1 className='text-2xl md:text-[24px] font-extrabold text-stone-900 tracking-tight'>
@@ -897,7 +897,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                 if (isFinancialDataUnlocked) setShowAssignModal(true);
                 else setPendingFinancialAction("assign");
               }}
-              className='w-full md:w-auto justify-center px-5 py-3 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
+              className='w-full md:w-auto justify-center px-5 py-3 bg-stone-900 text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(28,25,23,0.4)] hover:bg-stone-800 transition-all active:scale-[0.98]'>
               <Plus className='w-4 h-4' /> Assign Pass
             </button>
           </div>
@@ -1041,7 +1041,7 @@ const ClientManager = ({ isEmbedded = false }) => {
             </button>
             <button
               onClick={() => setShowDirectAssignModal(true)}
-              className='w-full sm:w-auto justify-center px-5 py-2.5 bg-stone-600 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-stone-700 active:scale-95 transition-all'>
+              className='w-full sm:w-auto justify-center px-5 py-2.5 bg-stone-900 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(28,25,23,0.4)] hover:bg-stone-800 active:scale-95 transition-all'>
               <Plus className='w-4 h-4' /> Assign New Pass
             </button>
           </div>
@@ -1089,7 +1089,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                       onClick={handleToggleStudent}
                       className={`w-10 h-6 rounded-full p-1 transition-colors ${
                         selectedClient.isStudent
-                          ? "bg-stone-500"
+                          ? "bg-stone-900"
                           : "bg-stone-300"
                       }`}>
                       <div
@@ -1156,7 +1156,7 @@ const ClientManager = ({ isEmbedded = false }) => {
 
                 <div className='overflow-x-hidden md:overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar w-full'>
                   <table className='w-full text-left border-collapse hidden md:table'>
-                    <thead className='bg-[#F8FAFC] sticky top-0 z-10 border-b border-stone-100'>
+                    <thead className='bg-stone-50 sticky top-0 z-10 border-b border-stone-100'>
                       <tr>
                         <th
                           onClick={() => handleHistorySort("createdAt")}
@@ -1333,7 +1333,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                   </div>
                                   <div className='w-full bg-stone-100 rounded-full h-1.5 overflow-hidden'>
                                     <div
-                                      className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-stone-300" : "bg-stone-500"}`}
+                                      className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-stone-300" : "bg-stone-900"}`}
                                       style={{
                                         width: `${Math.min(100, (totalRemaining / Math.max(1, totalPurchased)) * 100)}%`,
                                       }}></div>
@@ -1537,7 +1537,7 @@ const ClientManager = ({ isEmbedded = false }) => {
                                 </div>
                                 <div className='w-full bg-stone-100 rounded-full h-1.5 overflow-hidden'>
                                   <div
-                                    className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-stone-300" : "bg-stone-500"}`}
+                                    className={`h-1.5 rounded-full transition-all duration-500 ${totalRemaining === 0 ? "bg-stone-300" : "bg-stone-900"}`}
                                     style={{
                                       width: `${Math.min(100, (totalRemaining / Math.max(1, totalPurchased)) * 100)}%`,
                                     }}></div>
@@ -1689,7 +1689,7 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
     "w-full px-4 py-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium text-stone-900 outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm appearance-none";
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1829,7 +1829,7 @@ const AddMedicalModal = ({ onClose, onSubmit, isLoading }) => {
             <button
               type='submit'
               disabled={isLoading}
-              className='w-full py-4 bg-stone-500 text-white text-[15px] font-bold rounded-xl hover:bg-stone-600 transition-all shadow-[0_4px_14px_-4px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:shadow-none'>
+              className='w-full py-4 bg-stone-900 text-white text-[15px] font-bold rounded-xl hover:bg-stone-800 transition-all shadow-[0_4px_14px_-4px_rgba(28,25,23,0.4)] disabled:opacity-50 disabled:shadow-none'>
               {isLoading ? "Saving..." : "Save Record"}
             </button>
           </div>
@@ -1974,7 +1974,7 @@ const UnifiedDetailModal = ({
   };
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2122,7 +2122,7 @@ const UnifiedDetailModal = ({
                       </div>
                       <div className='w-full bg-stone-200 rounded-full h-2 overflow-hidden'>
                         <div
-                          className={`h-2 rounded-full transition-all duration-500 ${pass.remainingCredits === 0 ? "bg-rose-400" : "bg-stone-500"}`}
+                          className={`h-2 rounded-full transition-all duration-500 ${pass.remainingCredits === 0 ? "bg-rose-400" : "bg-stone-900"}`}
                           style={{
                             width: `${Math.min(100, (pass.remainingCredits / Math.max(1, pass.creditsPurchased)) * 100)}%`,
                           }}></div>
@@ -2247,7 +2247,7 @@ const UnifiedDetailModal = ({
                           <button
                             onClick={() => handleGlobalFreezeAction("unfreeze")}
                             disabled={isFreezing}
-                            className='flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 rounded-md transition-colors'>
+                            className='flex-1 bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-bold py-2 rounded-md transition-colors'>
                             {isFreezing ? "Processing..." : "Confirm Unfreeze"}
                           </button>
                         </div>
@@ -2363,7 +2363,7 @@ const UnifiedDetailModal = ({
                               !freezeData.startDate ||
                               !freezeData.endDate
                             }
-                            className='flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-[12px] font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
+                            className='flex-1 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-300 text-white text-[12px] font-bold py-2.5 rounded-lg transition-colors shadow-sm'>
                             {isFreezing ? "Processing..." : "Confirm Freeze"}
                           </button>
                         </div>
@@ -2445,7 +2445,7 @@ const UnifiedDetailModal = ({
           {isTxn && (
             <button
               onClick={onDownloadInvoice}
-              className='flex-1 py-3.5 bg-stone-600 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] hover:bg-stone-700 transition-all flex justify-center items-center gap-2 text-[15px]'>
+              className='flex-1 py-3.5 bg-stone-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(28,25,23,0.4)] hover:bg-stone-800 transition-all flex justify-center items-center gap-2 text-[15px]'>
               <Download className='w-4 h-4' /> Invoice
             </button>
           )}
@@ -2545,7 +2545,7 @@ const EditPassModal = ({
       onClick={onClick}
       className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 shadow-sm ${isSelected ? "border-stone-500 bg-stone-100/30" : "border-stone-100 bg-white hover:border-stone-300 hover:bg-stone-100/10"}`}>
       <div
-        className={`w-5 h-5 shrink-0 rounded-[6px] flex items-center justify-center transition-colors border ${isSelected ? "bg-stone-500 border-stone-500" : "bg-white border-stone-300"}`}>
+        className={`w-5 h-5 shrink-0 rounded-[6px] flex items-center justify-center transition-colors border ${isSelected ? "bg-stone-900 border-stone-500" : "bg-white border-stone-300"}`}>
         {isSelected && (
           <Check size={14} className='text-white' strokeWidth={4} />
         )}
@@ -2558,7 +2558,7 @@ const EditPassModal = ({
   );
 
   return (
-    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2668,7 +2668,7 @@ const EditPassModal = ({
             form='edit-pass-form'
             type='submit'
             disabled={isLoading}
-            className='flex-1 py-3.5 sm:py-4 bg-stone-600 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] hover:bg-stone-700 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
+            className='flex-1 py-3.5 sm:py-4 bg-stone-900 text-white font-bold rounded-xl shadow-[0_4px_14px_-4px_rgba(28,25,23,0.3)] hover:bg-stone-800 transition-all text-[14px] sm:text-[15px] disabled:opacity-50 disabled:shadow-none'>
             {isLoading ? "Saving..." : "Save Changes"}
           </button>
         </div>
@@ -2678,7 +2678,7 @@ const EditPassModal = ({
 };
 
 const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
-  <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+  <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
     <motion.div
       initial={{ opacity: 0, scale: 0.95, y: 10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2698,7 +2698,7 @@ const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
         </button>
       </div>
       <div className='p-6 sm:p-8 space-y-6 bg-white overflow-y-auto max-h-[70vh] custom-scrollbar'>
-        <div className='bg-[#F8FAFC] p-5 sm:p-6 rounded-2xl border border-stone-100'>
+        <div className='bg-stone-50 p-5 sm:p-6 rounded-2xl border border-stone-100'>
           <div className='grid grid-cols-2 gap-y-6 gap-x-4'>
             <div>
               <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-1'>
@@ -2751,7 +2751,7 @@ const ViewMedicalModal = ({ medicalData, onClose, formatDate }) => (
             <p className='text-[10px] sm:text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-2.5 pl-1'>
               Daily Activity
             </p>
-            <div className='p-4 sm:p-5 bg-[#F8FAFC] text-stone-700 rounded-xl text-[13px] sm:text-[14px] font-medium border border-stone-100 leading-relaxed'>
+            <div className='p-4 sm:p-5 bg-stone-50 text-stone-700 rounded-xl text-[13px] sm:text-[14px] font-medium border border-stone-100 leading-relaxed'>
               {medicalData.dailyActivity || "No details provided."}
             </div>
           </div>
@@ -2823,7 +2823,7 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
   });
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2897,7 +2897,7 @@ const DirectAssignPassModal = ({ client, onClose, onSubmit }) => {
           <button
             type='submit'
             disabled={!isFormValid}
-            className='w-full py-3.5 sm:py-4 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
+            className='w-full py-3.5 sm:py-4 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-all shadow-[0_4px_14px_-4px_rgba(28,25,23,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
             Confirm Assignment
           </button>
         </form>
@@ -2983,7 +2983,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
   });
 
   return (
-    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -3109,7 +3109,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                         },
                       })
                     }
-                    className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.newClientData.isStudent ? "bg-stone-500" : "bg-stone-300"}`}>
+                    className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.newClientData.isStudent ? "bg-stone-900" : "bg-stone-300"}`}>
                     <div
                       className={`w-4 h-4 rounded-full bg-white transition-transform ${formData.newClientData.isStudent ? "translate-x-4" : "translate-x-0"}`}
                     />
@@ -3168,7 +3168,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
           <button
             type='submit'
             disabled={!isFormValid}
-            className='w-full py-3.5 sm:py-4 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
+            className='w-full py-3.5 sm:py-4 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-all shadow-[0_4px_14px_-4px_rgba(28,25,23,0.3)] disabled:opacity-50 disabled:shadow-none mt-2 text-[14px] sm:text-[15px]'>
             Confirm Assignment
           </button>
         </form>

@@ -183,7 +183,7 @@ const ClientDashboard = () => {
     );
 
   return (
-    <div className='p-6 md:p-10 bg-[#FAFAFA] min-h-full font-sans'>
+    <div className='p-6 md:p-10 bg-stone-50 min-h-full font-sans'>
       {/* --- HEADER --- */}
       <div className='mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6'>
         <div>
@@ -197,7 +197,7 @@ const ClientDashboard = () => {
         {nextClasses.length > 0 && (
           <button
             onClick={() => navigate("/book-the-class")}
-            className='flex items-center gap-2 bg-[#0f392b] text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-stone-600 transition-all shadow-xl shadow-stone-600/10 active:scale-95 group'>
+            className='flex items-center gap-2 bg-stone-900 text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-stone-800 transition-all shadow-xl shadow-stone-600/10 active:scale-95 group'>
             <Plus className='w-5 h-5' />
             <span>Book New Class</span>
           </button>
@@ -222,7 +222,7 @@ const ClientDashboard = () => {
                       <div className='flex gap-2 items-center'>
                         {index === 0 ? (
                           <>
-                            <span className='flex h-2 w-2 rounded-full bg-stone-500 animate-pulse'></span>
+                            <span className='flex h-2 w-2 rounded-full bg-stone-900 animate-pulse'></span>
                             <span className='text-xs font-bold text-stone-800 uppercase tracking-wider'>
                               Up Next
                             </span>
@@ -630,7 +630,7 @@ const ClassDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
 
               <button
                 onClick={onClose}
-                className='w-full py-3 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors text-sm'>
+                className='w-full py-3 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-colors text-sm'>
                 Close Details
               </button>
             </div>

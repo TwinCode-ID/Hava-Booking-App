@@ -5,6 +5,10 @@
   --font-display: "Urbanist", sans-serif;
   --breakpoint-3xl: 1920px;
   --color-primary: #00a7f3;
+
+  /* App shell: page canvas is a soft grey so white cards lift off it.
+     Pair `bg-canvas` on page roots with `bg-white` cards. */
+  --color-canvas: #f7f7f8;
 }
 
 @layer base {

@@ -260,7 +260,7 @@ const PurchaseForm = ({
         </p>
         <button
           onClick={onSuccess}
-          className='bg-stone-600 text-white px-8 py-3 rounded-xl font-bold'>
+          className='bg-stone-900 text-white px-8 py-3 rounded-xl font-bold'>
           Done
         </button>
       </div>
@@ -511,7 +511,7 @@ const PurchaseForm = ({
             loading ||
             (paymentMethod !== "pay_at_studio" && !formData.proofOfPayment)
           }
-          className='w-2/3 py-3.5 bg-stone-600 text-white font-bold rounded-xl hover:bg-[#0F2922] shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'>
+          className='w-2/3 py-3.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'>
           <CreditCard className='w-5 h-5' />
           Pay {new Intl.NumberFormat("id-ID").format(finalPrice)} IDR
         </button>
@@ -546,7 +546,7 @@ const CopyButton = ({ text }) => {
     <button
       type='button'
       onClick={handleCopy}
-      className={`text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all ${copied ? "bg-stone-600 text-white" : "bg-stone-100 text-stone-800 hover:bg-stone-200"}`}>
+      className={`text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all ${copied ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-800 hover:bg-stone-200"}`}>
       {copied ? (
         <CheckCircle2 className='w-3.5 h-3.5' />
       ) : (

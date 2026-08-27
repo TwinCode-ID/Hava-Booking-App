@@ -98,7 +98,7 @@ const Hero = () => {
                   <div className='grid grid-cols-2 gap-2 mx-auto w-full justify-center'>
                     {/* WhatsApp Button: Added 'flex items-center justify-center gap-2' */}
                     <button
-                      className='w-full bg-stone-600 text-white text-lg font-medium py-4 rounded-3xl hover:bg-stone-700 transition-colors shadow-lg flex items-center justify-center gap-2'
+                      className='w-full bg-stone-900 text-white text-lg font-medium py-4 rounded-3xl hover:bg-stone-800 transition-colors shadow-lg flex items-center justify-center gap-2'
                       onClick={() => {
                         // FIX 1: Use window.open for external links
                         // FIX 2: Corrected the URL (use 'https' and removed double slash)

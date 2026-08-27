@@ -104,7 +104,7 @@ const StudioActivities = () => {
         onClick={() => setActiveTab(tab.id)}
         className={`flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl transition-all duration-200 border whitespace-nowrap ${
           isActive
-            ? `bg-stone-700 text-white border-stone-700 shadow-md`
+            ? `bg-stone-900 text-white border-stone-900 shadow-md`
             : "bg-white border-transparent hover:bg-stone-50 text-stone-500 hover:text-stone-900"
         }`}>
         <Icon className={`w-5 h-5 ${isActive ? "text-white" : tab.color}`} />
@@ -114,23 +114,27 @@ const StudioActivities = () => {
   };
 
   return (
-    <div className='h-[100dvh] bg-stone-50 overflow-hidden flex flex-col'>
+    <div className='h-[100dvh] bg-canvas overflow-hidden flex flex-col'>
       {/* --- HEADER --- */}
-      <div className='bg-white px-6 pt-6 pb-2 shrink-0'>
-        <h1 className='text-2xl font-bold text-stone-900'>Studio Management</h1>
-        <p className='text-stone-500 text-sm'>
+      <div className='bg-white px-4 md:px-6 pt-5 md:pt-6 pb-3 shrink-0'>
+        <h1 className='text-xl md:text-2xl font-bold text-stone-900 tracking-tight'>
+          Studio Management
+        </h1>
+        <p className='text-stone-500 text-sm mt-0.5'>
           Centralized control for your studio's operations.
         </p>
       </div>
 
       {/* --- NAVIGATION --- */}
       <div className='bg-white border-b border-stone-200 px-4 md:px-6 py-3 flex items-center gap-3 relative z-20 shadow-sm shrink-0'>
-        <div className='overflow-hidden min-w-0 flex-1'>
+        <div className='relative overflow-hidden min-w-0 flex-1'>
           <div className='flex gap-2 overflow-x-auto scrollbar-hide w-full'>
             <AnimatePresence>
               {displayedTabs.map(renderTabButton)}
             </AnimatePresence>
           </div>
+          {/* fade hints that the strip scrolls past the edge */}
+          <div className='pointer-events-none absolute inset-y-0 right-0 w-8 bg-linear-to-l from-white to-transparent' />
         </div>
 
         {isMobile && (

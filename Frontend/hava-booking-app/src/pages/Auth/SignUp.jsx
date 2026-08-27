@@ -373,7 +373,7 @@ const SignUp = () => {
 
         <div className='relative z-10 flex items-center gap-4 text-stone-500 text-[11px] font-bold uppercase tracking-widest'>
           <span>500+ Active Students</span>
-          <span className='w-1 h-1 rounded-full bg-stone-500/60' />
+          <span className='w-1 h-1 rounded-full bg-stone-900/60' />
           <span>25+ Instructors</span>
         </div>
       </div>
@@ -389,7 +389,7 @@ const SignUp = () => {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: -20, opacity: 0 }}
                 className='absolute -top-4 left-0 right-0 mx-auto w-max z-20'>
-                <div className='bg-stone-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center text-sm font-medium'>
+                <div className='bg-stone-900 text-white px-4 py-2 rounded-full shadow-lg flex items-center text-sm font-medium'>
                   <Send className='w-4 h-4 mr-2' /> Code sent!
                 </div>
               </Motion.div>
@@ -597,7 +597,7 @@ const SignUp = () => {
                 <button
                   type='submit'
                   disabled={formState.loading}
-                  className='w-full bg-stone-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-stone-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/25 disabled:opacity-50'>
+                  className='w-full bg-stone-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/25 disabled:opacity-50'>
                   {formState.loading ? (
                     <Loader className='w-5 h-5 animate-spin' />
                   ) : (
@@ -665,7 +665,7 @@ const SignUp = () => {
                   <button
                     type='submit'
                     disabled={formState.loading}
-                    className='flex-1 bg-stone-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-stone-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/25 disabled:opacity-50'>
+                    className='flex-1 bg-stone-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/25 disabled:opacity-50'>
                     {formState.loading ? (
                       <Loader className='w-5 h-5 animate-spin' />
                     ) : (

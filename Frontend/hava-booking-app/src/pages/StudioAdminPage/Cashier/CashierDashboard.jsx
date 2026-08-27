@@ -441,7 +441,7 @@ const CashierDashboard = () => {
   }
 
   return (
-    <div className='flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-hidden bg-[#F8FAFC] font-sans text-stone-800 w-full'>
+    <div className='flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-hidden bg-canvas font-sans text-stone-800 w-full'>
       <div className='flex-1 flex flex-col h-full min-h-[50vh] md:min-h-0 min-w-0 border-r border-stone-200 bg-white'>
         <div className='p-6 border-b border-stone-100 shrink-0 w-full shadow-sm z-10'>
           <div className='flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4'>
@@ -494,7 +494,7 @@ const CashierDashboard = () => {
           </div>
         </div>
 
-        <div className='flex-1 overflow-y-auto p-6 custom-scrollbar w-full bg-[#F8FAFC]'>
+        <div className='flex-1 overflow-y-auto p-6 custom-scrollbar w-full bg-stone-50'>
           {filteredPackages.length === 0 ? (
             <div className='flex flex-col items-center justify-center h-full text-stone-400'>
               <ShoppingBag className='w-12 h-12 mb-3 text-stone-300' />
@@ -577,7 +577,7 @@ const CashierDashboard = () => {
                       {qty === 0 ? (
                         <button
                           onClick={() => updateCart(pkg._id, 1)}
-                          className='w-8 h-8 rounded-full bg-stone-50 border border-stone-200 hover:bg-stone-600 hover:text-white hover:border-stone-600 text-stone-500 font-bold flex items-center justify-center transition-colors shrink-0 shadow-sm'>
+                          className='w-8 h-8 rounded-full bg-stone-50 border border-stone-200 hover:bg-stone-800 hover:text-white hover:border-stone-800 text-stone-500 font-bold flex items-center justify-center transition-colors shrink-0 shadow-sm'>
                           <Plus className='w-4 h-4' />
                         </button>
                       ) : (
@@ -592,7 +592,7 @@ const CashierDashboard = () => {
                           </span>
                           <button
                             onClick={() => updateCart(pkg._id, 1)}
-                            className='w-6 h-6 rounded-full bg-stone-600 text-white flex items-center justify-center shadow-sm hover:bg-stone-700 transition-colors'>
+                            className='w-6 h-6 rounded-full bg-stone-900 text-white flex items-center justify-center shadow-sm hover:bg-stone-800 transition-colors'>
                             <Plus className='w-3.5 h-3.5' />
                           </button>
                         </div>
@@ -623,7 +623,7 @@ const CashierDashboard = () => {
           </button>
         </div>
 
-        <div className='flex-1 overflow-y-auto px-6 py-6 space-y-8 custom-scrollbar w-full min-h-0 bg-[#F8FAFC]'>
+        <div className='flex-1 overflow-y-auto px-6 py-6 space-y-8 custom-scrollbar w-full min-h-0 bg-stone-50'>
           <div className='w-full mb-8'>
             <div className='flex items-center gap-3 mb-4'>
               <div className='w-5 h-5 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center text-[10px] font-bold'>
@@ -701,7 +701,7 @@ const CashierDashboard = () => {
               {selectedClients.map((client) => (
                 <div
                   key={client._id}
-                  className='flex items-center gap-1.5 bg-stone-600 text-white pl-2.5 pr-1 py-1 rounded-lg text-xs font-medium shadow-sm max-w-full'>
+                  className='flex items-center gap-1.5 bg-stone-900 text-white pl-2.5 pr-1 py-1 rounded-lg text-xs font-medium shadow-sm max-w-full'>
                   <span className='truncate'>{client.fullName}</span>
                   <button
                     onClick={() => removeClient(client._id)}
@@ -787,7 +787,7 @@ const CashierDashboard = () => {
           <button
             onClick={handleProceedPayment}
             disabled={selectedClients.length === 0 || cartItems.length === 0}
-            className='w-full bg-stone-600 hover:bg-stone-700 disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed text-white font-extrabold py-4 rounded-xl flex items-center justify-center gap-2 transition-all disabled:shadow-none text-[15px]'>
+            className='w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed text-white font-extrabold py-4 rounded-xl flex items-center justify-center gap-2 transition-all disabled:shadow-none text-[15px]'>
             <span>Proceed to Payment</span>
             <ArrowRight className='w-5 h-5 ml-1' />
           </button>
@@ -858,7 +858,7 @@ const PackageDetailsModal = ({ pkg, onClose, cartQty, onUpdateCart }) => {
     : pkg.credits;
 
   return (
-    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-700/60 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -875,7 +875,7 @@ const PackageDetailsModal = ({ pkg, onClose, cartQty, onUpdateCart }) => {
           </button>
         </div>
 
-        <div className='p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-[#F8FAFC]'>
+        <div className='p-6 overflow-y-auto max-h-[60vh] custom-scrollbar bg-stone-50'>
           <div className='mb-6'>
             <h4 className='text-xl font-black text-stone-900 mb-1.5 leading-snug'>
               {pkg.packageName}
@@ -958,7 +958,7 @@ const PackageDetailsModal = ({ pkg, onClose, cartQty, onUpdateCart }) => {
           {cartQty === 0 ? (
             <button
               onClick={() => onUpdateCart(pkg._id, 1)}
-              className='h-11 px-6 rounded-xl bg-stone-600 hover:bg-stone-700 text-white font-bold flex items-center justify-center transition-colors shadow-md'>
+              className='h-11 px-6 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold flex items-center justify-center transition-colors shadow-md'>
               Add to Cart
             </button>
           ) : (
@@ -973,7 +973,7 @@ const PackageDetailsModal = ({ pkg, onClose, cartQty, onUpdateCart }) => {
               </span>
               <button
                 onClick={() => onUpdateCart(pkg._id, 1)}
-                className='w-8 h-8 rounded-lg bg-stone-600 text-white flex items-center justify-center shadow-sm hover:bg-stone-700 transition-colors'>
+                className='w-8 h-8 rounded-lg bg-stone-900 text-white flex items-center justify-center shadow-sm hover:bg-stone-800 transition-colors'>
                 <Plus className='w-4 h-4' />
               </button>
             </div>
@@ -1060,7 +1060,7 @@ const ClientSelectionModal = ({
   };
 
   return (
-    <div className='fixed inset-0 z-[70] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[70] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -1150,7 +1150,7 @@ const ClientSelectionModal = ({
                       })
                     }
                   />
-                  <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-stone-600"></div>
+                  <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-stone-900"></div>
                   <span className='ml-3 text-xs font-bold text-stone-600'>
                     Verify as Student
                   </span>
@@ -1244,7 +1244,7 @@ const ClientSelectionModal = ({
                         </div>
                         {!isDisabled && (
                           <div
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? "bg-stone-500 border-stone-500" : "border-stone-300"}`}>
+                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? "bg-stone-900 border-stone-500" : "border-stone-300"}`}>
                             {isSelected && (
                               <Check
                                 className='w-3.5 h-3.5 text-white'
@@ -1279,14 +1279,14 @@ const ClientSelectionModal = ({
                 type='submit'
                 form='new-client-form'
                 disabled={isSaving}
-                className='flex-1 py-3.5 bg-stone-600 text-white font-bold rounded-xl shadow-lg hover:bg-stone-700 transition-colors disabled:opacity-50'>
+                className='flex-1 py-3.5 bg-stone-900 text-white font-bold rounded-xl shadow-lg hover:bg-stone-800 transition-colors disabled:opacity-50'>
                 {isSaving ? "Saving..." : "Save & Select"}
               </button>
             </div>
           ) : (
             <button
               onClick={onClose}
-              className='w-full py-3.5 bg-stone-600 hover:bg-stone-700 transition-colors text-white font-bold rounded-xl shadow-lg'>
+              className='w-full py-3.5 bg-stone-900 hover:bg-stone-800 transition-colors text-white font-bold rounded-xl shadow-lg'>
               Done Selecting ({selectedClients.length})
             </button>
           )}
@@ -1318,7 +1318,7 @@ const PromoSelectionModal = ({
   };
 
   return (
-    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-700/40 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1382,7 +1382,7 @@ const PromoSelectionModal = ({
             />
             <button
               onClick={handleManualApply}
-              className='px-6 py-3 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 transition-colors'>
+              className='px-6 py-3 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-colors'>
               Apply
             </button>
           </div>
@@ -1483,7 +1483,7 @@ const PaymentModal = ({
   };
 
   return (
-    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-700/60 backdrop-blur-sm'>
+    <div className='fixed inset-0 z-[80] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -1673,7 +1673,7 @@ const PaymentModal = ({
           <button
             onClick={handleCompleteTransaction}
             disabled={isLoading}
-            className='w-full bg-stone-600 hover:bg-stone-700 disabled:bg-stone-300 disabled:text-stone-500 text-white font-extrabold py-4 rounded-[14px] shadow-[0_4px_14px_-4px_rgba(26,77,62,0.4)] disabled:shadow-none text-[15px] transition-all'>
+            className='w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-300 disabled:text-stone-500 text-white font-extrabold py-4 rounded-[14px] shadow-[0_4px_14px_-4px_rgba(28,25,23,0.4)] disabled:shadow-none text-[15px] transition-all'>
             {isLoading ? "Processing..." : "Complete Transaction"}
           </button>
         </div>

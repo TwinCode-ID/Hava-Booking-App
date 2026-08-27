@@ -191,7 +191,7 @@ const BookTheClass = () => {
             <div key={idx} className='flex justify-center'>
               <button
                 onClick={() => setSelectedDate(day)}
-                className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-sm font-medium transition-all ${isSelected ? "bg-stone-600 text-white shadow-lg shadow-stone-600/20" : isTodayDate ? "bg-stone-100 text-stone-800 font-bold" : "hover:bg-stone-50 text-stone-700"} ${!isCurrentMonth && "text-stone-300"}`}>
+                className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-sm font-medium transition-all ${isSelected ? "bg-stone-900 text-white shadow-lg shadow-stone-600/20" : isTodayDate ? "bg-stone-100 text-stone-800 font-bold" : "hover:bg-stone-50 text-stone-700"} ${!isCurrentMonth && "text-stone-300"}`}>
                 {format(day, "d")}
               </button>
             </div>
@@ -204,7 +204,7 @@ const BookTheClass = () => {
   // STUDIO SELECTION VIEW
   if (!selectedStudio) {
     return (
-      <div className='min-h-screen bg-stone-50 font-sans p-4 md:p-6 lg:p-10 pb-safe'>
+      <div className='min-h-screen bg-canvas font-sans p-4 md:p-6 lg:p-10 pb-safe'>
         <div className='max-w-6xl mx-auto'>
           <div className='flex items-center gap-3 md:gap-4 mb-6 md:mb-8'>
             <button
@@ -230,8 +230,8 @@ const BookTheClass = () => {
               {/* ALL LOCATIONS CARD */}
               <div
                 onClick={() => setSelectedStudio("ALL")}
-                className='bg-stone-700 rounded-3xl border border-stone-600 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group'>
-                <div className='relative h-48 md:h-56 w-full bg-stone-600 overflow-hidden flex flex-col items-center justify-center'>
+                className='bg-stone-900 rounded-3xl border border-stone-600 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group'>
+                <div className='relative h-48 md:h-56 w-full bg-stone-900 overflow-hidden flex flex-col items-center justify-center'>
                   <Globe className='w-14 h-14 md:w-16 md:h-16 text-stone-600 group-hover:scale-110 transition-transform duration-500 mb-2' />
                   <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent'></div>
                   <div className='absolute bottom-5 left-5 right-5 text-white'>
@@ -322,7 +322,7 @@ const BookTheClass = () => {
   // BOOKING VIEW
   return (
     <>
-      <div className='min-h-screen bg-stone-50 font-sans p-4 md:p-6 lg:p-10 pb-40 md:pb-32 relative'>
+      <div className='min-h-screen bg-canvas font-sans p-4 md:p-6 lg:p-10 pb-40 md:pb-32 relative'>
         <div className='max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 md:gap-8 items-start'>
           {/* --- LEFT: MAIN CONTENT --- */}
           <div className='flex-1 w-full min-w-0'>
@@ -420,7 +420,7 @@ const BookTheClass = () => {
                               !isExpired && !isFull && toggleCart(cls)
                             }
                             disabled={isFull || isExpired}
-                            className={`flex-1 md:flex-none md:w-full py-2.5 md:py-3 px-4 font-bold rounded-xl transition-all text-xs md:text-sm flex items-center justify-center gap-2 ${isExpired || isFull ? "bg-stone-100 text-stone-400 cursor-not-allowed" : inCart ? "bg-stone-200 text-stone-900 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-stone-300 group" : "bg-stone-700 text-white hover:bg-stone-600 shadow-md active:scale-95"}`}>
+                            className={`flex-1 md:flex-none md:w-full py-2.5 md:py-3 px-4 font-bold rounded-xl transition-all text-xs md:text-sm flex items-center justify-center gap-2 ${isExpired || isFull ? "bg-stone-100 text-stone-400 cursor-not-allowed" : inCart ? "bg-stone-200 text-stone-900 hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-stone-300 group" : "bg-stone-900 text-white hover:bg-stone-800 shadow-md active:scale-95"}`}>
                             {isExpired ? (
                               "Closed"
                             ) : isFull ? (
@@ -530,7 +530,7 @@ const BookTheClass = () => {
                                 ? "bg-stone-100 text-stone-400 cursor-not-allowed"
                                 : inCart
                                   ? "bg-red-50 text-red-600 hover:bg-red-100"
-                                  : "bg-stone-700 text-white hover:bg-stone-600"
+                                  : "bg-stone-900 text-white hover:bg-stone-800"
                             }`}
                             title={
                               isFull
@@ -567,10 +567,10 @@ const BookTheClass = () => {
         {/* --- BOTTOM FLOATING CART --- */}
         {cart.length > 0 && (
           <div className='fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] md:w-full max-w-2xl z-40 animate-in slide-in-from-bottom-6 duration-300 pb-[env(safe-area-inset-bottom)]'>
-            <div className='bg-stone-700 text-white p-3 md:p-4 rounded-2xl shadow-2xl shadow-stone-700/30 flex items-center justify-between border border-stone-600'>
+            <div className='bg-stone-900 text-white p-3 md:p-4 rounded-2xl shadow-2xl shadow-stone-700/30 flex items-center justify-between border border-stone-600'>
               <div className='flex items-center gap-3 md:gap-4'>
                 <div className='relative shrink-0'>
-                  <div className='bg-stone-500 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white'>
+                  <div className='bg-stone-900 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white'>
                     <ShoppingCart className='w-4 h-4 md:w-5 md:h-5' />
                   </div>
                   <div className='absolute -top-1.5 -right-1.5 md:-top-2 md:-right-2 bg-red-500 text-white text-[9px] md:text-[10px] font-bold w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center shadow-sm'>
@@ -589,7 +589,7 @@ const BookTheClass = () => {
               </div>
               <button
                 onClick={() => setShowBookingModal(true)}
-                className='bg-stone-500 hover:bg-stone-400 text-white px-4 py-2.5 md:px-6 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-colors shadow-lg active:scale-95 shrink-0'>
+                className='bg-stone-900 hover:bg-stone-400 text-white px-4 py-2.5 md:px-6 md:py-3 rounded-xl font-bold text-xs md:text-sm transition-colors shadow-lg active:scale-95 shrink-0'>
                 Review & Book
               </button>
             </div>
@@ -635,7 +635,7 @@ const BookTheClass = () => {
                   setShowMedicalWarning(false);
                   navigate("/client-account-settings");
                 }}
-                className='flex-1 py-3.5 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700 shadow-lg transition-colors text-sm md:text-base'>
+                className='flex-1 py-3.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 shadow-lg transition-colors text-sm md:text-base'>
                 Go to Profile
               </button>
             </div>

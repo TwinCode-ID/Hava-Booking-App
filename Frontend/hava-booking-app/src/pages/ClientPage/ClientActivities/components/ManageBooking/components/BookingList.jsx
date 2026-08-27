@@ -173,7 +173,7 @@ const BookingList = () => {
   };
 
   return (
-    <div className='bg-stone-50 min-h-screen p-4 md:p-6 lg:p-8 font-sans flex flex-col items-center pb-safe'>
+    <div className='bg-canvas min-h-screen p-4 md:p-6 lg:p-8 font-sans flex flex-col items-center pb-safe'>
       <div className='w-full max-w-7xl flex flex-col lg:flex-row gap-6 md:gap-8'>
         {/* --- LEFT SIDE: MAIN LIST CONTENT --- */}
         <div className='flex-1 bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-stone-200 overflow-hidden flex flex-col min-h-[500px] order-2 lg:order-1'>
@@ -359,7 +359,7 @@ const SideCalendar = ({ selectedDate, onChange }) => {
                 }
                 ${
                   isSelected
-                    ? "bg-[#0f392b]! text-white! font-bold shadow-md hover:bg-[#0f392b]!"
+                    ? "bg-stone-900! text-white! font-bold shadow-md hover:bg-stone-800!"
                     : ""
                 }
                 ${
@@ -757,7 +757,7 @@ const BookingDetailsModal = ({ booking, onClose, onCancel, cancellingId }) => {
 
             <button
               onClick={onClose}
-              className='w-full py-3.5 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-all shadow-lg shadow-stone-700/10 text-sm md:text-sm active:scale-[0.98] md:active:scale-100'>
+              className='w-full py-3.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-all shadow-lg shadow-stone-700/10 text-sm md:text-sm active:scale-[0.98] md:active:scale-100'>
               Close Details
             </button>
           </div>

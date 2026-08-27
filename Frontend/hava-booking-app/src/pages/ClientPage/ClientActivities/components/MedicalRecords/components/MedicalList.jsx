@@ -256,7 +256,7 @@ const MedicalList = () => {
               <div
                 className={`w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center shadow-sm ${
                   medical.termsAndConditions || termsLocked
-                    ? "bg-stone-600 border-stone-600"
+                    ? "bg-stone-900 border-stone-600"
                     : "bg-white border-stone-300 group-hover:border-stone-400"
                 }`}>
                 <Check
@@ -306,7 +306,7 @@ const MedicalList = () => {
           <button
             type='submit'
             disabled={submitLoading}
-            className='w-full md:w-auto px-8 py-4 md:py-3.5 bg-stone-600 text-white font-bold rounded-xl md:rounded-2xl hover:bg-stone-700 disabled:bg-stone-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/10 hover:shadow-stone-600/20 active:scale-[0.98] md:active:scale-100'>
+            className='w-full md:w-auto px-8 py-4 md:py-3.5 bg-stone-900 text-white font-bold rounded-xl md:rounded-2xl hover:bg-stone-800 disabled:bg-stone-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/10 hover:shadow-stone-600/20 active:scale-[0.98] md:active:scale-100'>
             {submitLoading ? (
               <>
                 <Loader2 className='w-5 h-5 animate-spin' /> Saving...
@@ -404,7 +404,7 @@ const MedicalList = () => {
               <div className='p-4 md:p-6 border-t border-stone-100 flex justify-end bg-white shrink-0 pb-safe'>
                 <button
                   onClick={() => setActiveModal(null)}
-                  className='w-full md:w-auto px-8 py-3.5 md:py-3 bg-stone-700 text-white rounded-xl font-bold hover:bg-stone-600 transition-colors active:scale-[0.98] md:active:scale-100 shadow-sm'>
+                  className='w-full md:w-auto px-8 py-3.5 md:py-3 bg-stone-900 text-white rounded-xl font-bold hover:bg-stone-800 transition-colors active:scale-[0.98] md:active:scale-100 shadow-sm'>
                   Close
                 </button>
               </div>

@@ -67,7 +67,7 @@ const FinancialAccessGate = ({
           </p>
           <Link
             to='/admin-account-settings'
-            className='flex w-full items-center justify-center rounded-xl bg-stone-600 py-3 font-semibold text-white transition-colors hover:bg-stone-700'>
+            className='flex w-full items-center justify-center rounded-xl bg-stone-900 py-3 font-semibold text-white transition-colors hover:bg-stone-800'>
             Create Password
           </Link>
         </div>
@@ -98,7 +98,7 @@ const FinancialAccessGate = ({
           <button
             disabled={verifying || !password}
             type='submit'
-            className='flex w-full items-center justify-center rounded-xl bg-stone-600 py-3 font-semibold text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60'>
+            className='flex w-full items-center justify-center rounded-xl bg-stone-900 py-3 font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60'>
             {verifying ? "Verifying..." : "Unlock"}
           </button>
         </form>

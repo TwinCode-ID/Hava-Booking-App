@@ -86,7 +86,7 @@ const MultiSelect = ({ label, options, value = [], onChange, placeholder }) => {
                     : "text-stone-700 hover:bg-stone-50"
                 }`}>
                 <div
-                  className={`w-4 h-4 rounded-sm border flex items-center justify-center ${isSelected ? "bg-stone-600 border-stone-600" : "border-stone-300"}`}>
+                  className={`w-4 h-4 rounded-sm border flex items-center justify-center ${isSelected ? "bg-stone-900 border-stone-600" : "border-stone-300"}`}>
                   {isSelected && <Check className='w-3 h-3 text-white' />}
                 </div>
                 {option}
@@ -201,7 +201,7 @@ const AdminPackages = ({ isEmbedded = false }) => {
               setEditingPackage(null);
               setIsFormOpen(true);
             }}
-            className='bg-stone-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-stone-700 transition-colors shadow-sm whitespace-nowrap text-sm font-medium'>
+            className='bg-stone-900 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-stone-800 transition-colors shadow-sm whitespace-nowrap text-sm font-medium'>
             <Plus className='w-4 h-4' /> New Package
           </button>
         </div>
@@ -574,7 +574,7 @@ const PackageFormModal = ({
   ];
 
   return (
-    <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+    <div className='fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -856,7 +856,7 @@ const PackageFormModal = ({
                     setFormData({ ...formData, isPromo: e.target.checked })
                   }
                 />
-                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-900"></div>
               </label>
             </div>
 
@@ -903,7 +903,7 @@ const PackageFormModal = ({
                     setFormData({ ...formData, isCombo: e.target.checked })
                   }
                 />
-                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-600"></div>
+                <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-900"></div>
               </label>
             </div>
 
@@ -1028,7 +1028,7 @@ const PackageFormModal = ({
             type='submit'
             form='package-form'
             disabled={loading}
-            className='px-6 py-2.5 bg-stone-600 text-white font-medium rounded-md hover:bg-stone-700 shadow-sm disabled:opacity-50 text-sm transition-colors'>
+            className='px-6 py-2.5 bg-stone-900 text-white font-medium rounded-md hover:bg-stone-800 shadow-sm disabled:opacity-50 text-sm transition-colors'>
             {loading ? "Saving..." : "Save Package"}
           </button>
         </div>
@@ -1038,7 +1038,7 @@ const PackageFormModal = ({
 };
 
 const DeleteConfirmationModal = ({ onClose, onConfirm }) => (
-  <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+  <div className='fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
     <motion.div
       initial={{ scale: 0.98, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -1067,7 +1067,7 @@ const DeleteConfirmationModal = ({ onClose, onConfirm }) => (
 );
 
 const ToggleConfirmationModal = ({ onClose, onConfirm, status }) => (
-  <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+  <div className='fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
     <motion.div
       initial={{ scale: 0.98, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -1089,7 +1089,7 @@ const ToggleConfirmationModal = ({ onClose, onConfirm, status }) => (
         </button>
         <button
           onClick={onConfirm}
-          className='flex-1 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 text-sm'>
+          className='flex-1 py-2 bg-stone-900 text-white font-medium rounded-md hover:bg-stone-800 text-sm'>
           Confirm
         </button>
       </div>
@@ -1134,7 +1134,7 @@ const ManageTypesModal = ({ onClose, config, studioId, onUpdate }) => {
   };
 
   return (
-    <div className='fixed inset-0 bg-stone-700/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
+    <div className='fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm'>
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -1154,7 +1154,7 @@ const ManageTypesModal = ({ onClose, config, studioId, onUpdate }) => {
           />
           <button
             disabled={loading}
-            className='bg-stone-600 text-white px-4 py-2 rounded-md hover:bg-stone-700 text-sm font-medium'>
+            className='bg-stone-900 text-white px-4 py-2 rounded-md hover:bg-stone-800 text-sm font-medium'>
             Add
           </button>
         </form>

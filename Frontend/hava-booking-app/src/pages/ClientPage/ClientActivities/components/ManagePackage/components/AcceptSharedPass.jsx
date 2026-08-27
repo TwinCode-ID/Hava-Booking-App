@@ -62,7 +62,7 @@ const AcceptSharedPass = () => {
 
   return (
     // Use 100dvh to handle mobile browser UI shifts (e.g. Safari address bar)
-    <div className='min-h-[100dvh] bg-[#F8FAFC] flex flex-col items-center justify-center p-4 md:p-6'>
+    <div className='min-h-[100dvh] bg-stone-50 flex flex-col items-center justify-center p-4 md:p-6'>
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -100,7 +100,7 @@ const AcceptSharedPass = () => {
               The package has been successfully added to your account.
             </p>
             <div className='flex items-center justify-center gap-2 text-xs md:text-sm font-bold text-stone-800 bg-stone-100 py-2 px-4 rounded-full animate-pulse'>
-              <div className='w-1.5 h-1.5 bg-stone-600 rounded-full' />
+              <div className='w-1.5 h-1.5 bg-stone-900 rounded-full' />
               Redirecting to dashboard...
             </div>
           </div>
@@ -164,7 +164,7 @@ const AcceptSharedPass = () => {
             <button
               onClick={handleClaimPass}
               disabled={claiming}
-              className='w-full bg-stone-600 text-white font-bold py-4 md:py-3.5 rounded-xl shadow-lg hover:bg-[#0F2922] transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98]'>
+              className='w-full bg-stone-900 text-white font-bold py-4 md:py-3.5 rounded-xl shadow-lg hover:bg-stone-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98]'>
               {claiming
                 ? "Processing..."
                 : user

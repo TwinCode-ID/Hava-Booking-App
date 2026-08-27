@@ -154,7 +154,7 @@ const InputDatePicker = ({ selectedDate, onChange }) => {
             e.preventDefault();
             onChange(cloneDay);
           }}
-          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${!isCurrentMonth ? "text-stone-300" : "text-stone-700 hover:bg-stone-100"} ${isSpecificDay ? "bg-stone-700 text-white shadow-md hover:bg-stone-800" : ""}`}>
+          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${!isCurrentMonth ? "text-stone-300" : "text-stone-700 hover:bg-stone-100"} ${isSpecificDay ? "bg-stone-900 text-white shadow-md hover:bg-stone-800" : ""}`}>
           {format(day, "d")}
         </button>,
       );
@@ -324,7 +324,7 @@ const DateRangePopover = ({
 
         if (isSelectedStart || isSelectedEnd) {
           baseStyle =
-            "w-8 h-8 flex items-center justify-center text-xs font-bold bg-stone-700 text-white shadow-md rounded-lg z-10 relative";
+            "w-8 h-8 flex items-center justify-center text-xs font-bold bg-stone-900 text-white shadow-md rounded-lg z-10 relative";
         } else if (isBetween) {
           baseStyle =
             "w-8 h-8 flex items-center justify-center text-xs font-bold bg-stone-100 text-stone-900 rounded-none";
@@ -518,7 +518,7 @@ const ManageInstructors = ({ isEmbedded = false }) => {
 
   return (
     <div
-      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-[#f8fafc] relative min-h-screen`}>
+      className={`p-6 md:p-10 ${isEmbedded ? "pt-8" : ""} bg-canvas relative min-h-screen`}>
       {!isEmbedded && (
         <div className='mb-8'>
           <h1 className='text-2xl font-bold text-stone-900'>
@@ -1206,7 +1206,7 @@ const InstructorDashboardModal = ({
                 <button
                   disabled={isProcessing}
                   onClick={executeAction}
-                  className='flex-1 py-3.5 bg-stone-700 hover:bg-stone-600 text-white font-bold rounded-xl transition-colors'>
+                  className='flex-1 py-3.5 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl transition-colors'>
                   {isProcessing ? "Processing..." : "Confirm"}
                 </button>
               </div>
@@ -1235,7 +1235,7 @@ const InstructorDashboardModal = ({
             <button
               disabled={isProcessing}
               onClick={handleProfileSave}
-              className='px-6 py-2 bg-stone-700 hover:bg-stone-800 text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm'>
+              className='px-6 py-2 bg-stone-900 hover:bg-stone-800 text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm'>
               {isProcessing ? "Saving..." : "Save Changes"}
             </button>
             <button
@@ -1279,7 +1279,7 @@ const InstructorDashboardModal = ({
                     {instructor.fullName}
                   </h2>
                   <div className='flex items-center gap-1.5 px-2.5 py-0.5 bg-stone-100 rounded-md text-[11px] font-bold text-stone-800'>
-                    <div className='w-1.5 h-1.5 rounded-full bg-stone-600'></div>{" "}
+                    <div className='w-1.5 h-1.5 rounded-full bg-stone-900'></div>{" "}
                     Active
                   </div>
                 </div>
@@ -1342,18 +1342,18 @@ const InstructorDashboardModal = ({
           <div className='px-10 border-b border-stone-100 flex gap-4 bg-white'>
             <button
               onClick={() => setActiveTab("Schedule")}
-              className={`pb-4 px-2 text-[14px] font-bold flex items-center gap-2 border-b-2 transition-all ${activeTab === "Schedule" ? "border-stone-700 text-[#111827]" : "border-transparent text-stone-500 hover:text-stone-800"}`}>
+              className={`pb-4 px-2 text-[14px] font-bold flex items-center gap-2 border-b-2 transition-all ${activeTab === "Schedule" ? "border-stone-700 text-stone-900" : "border-transparent text-stone-500 hover:text-stone-800"}`}>
               <CalendarDays className='w-4 h-4' /> Schedule
             </button>
             <button
               onClick={() => setActiveTab("Personal Information")}
-              className={`pb-4 px-2 text-[14px] font-bold flex items-center gap-2 border-b-2 transition-all ${activeTab === "Personal Information" ? "border-stone-700 text-[#111827]" : "border-transparent text-stone-500 hover:text-stone-800"}`}>
+              className={`pb-4 px-2 text-[14px] font-bold flex items-center gap-2 border-b-2 transition-all ${activeTab === "Personal Information" ? "border-stone-700 text-stone-900" : "border-transparent text-stone-500 hover:text-stone-800"}`}>
               <User className='w-4 h-4' /> Personal Information
             </button>
           </div>
 
           {/* Active Tab Content Area */}
-          <div className='p-10 bg-[#fafafa] min-h-full'>
+          <div className='p-4 md:p-10 bg-stone-50 min-h-full'>
             {/* SCHEDULE VIEW */}
             {activeTab === "Schedule" && (
               <div className='max-w-3xl mx-auto'>
@@ -1453,7 +1453,7 @@ const InstructorDashboardModal = ({
                                           ) : (
                                             <>
                                               <div
-                                                className={`w-1.5 h-1.5 rounded-full ${slot.isActive ? "bg-stone-500" : "bg-red-500"}`}></div>
+                                                className={`w-1.5 h-1.5 rounded-full ${slot.isActive ? "bg-stone-900" : "bg-red-500"}`}></div>
                                               <span
                                                 className={`text-[13px] font-bold ${slot.isActive ? "text-stone-700" : "text-red-500"}`}>
                                                 {slot.isActive
@@ -1590,7 +1590,7 @@ const InstructorDashboardModal = ({
                                           </p>
                                           <div className='flex items-center gap-1.5'>
                                             <div
-                                              className={`w-1.5 h-1.5 rounded-full ${isPause ? "bg-red-500" : "bg-stone-500"}`}></div>
+                                              className={`w-1.5 h-1.5 rounded-full ${isPause ? "bg-red-500" : "bg-stone-900"}`}></div>
                                             <span
                                               className={`text-[13px] font-bold ${isPause ? "text-red-500" : "text-stone-700"}`}>
                                               {isPause
@@ -1684,7 +1684,7 @@ const InstructorDashboardModal = ({
                                             Status
                                           </p>
                                           <div className='flex items-center gap-1.5'>
-                                            <div className='w-1.5 h-1.5 rounded-full bg-stone-500'></div>
+                                            <div className='w-1.5 h-1.5 rounded-full bg-stone-900'></div>
                                             <span className='text-[13px] font-bold text-stone-700'>
                                               Temporary Reassignment
                                             </span>
@@ -1748,7 +1748,7 @@ const InstructorDashboardModal = ({
                         <h4 className='font-bold text-stone-900 mb-6 text-[16px]'>
                           Add New Shift
                         </h4>
-                        <div className='grid grid-cols-4 gap-4 mb-6'>
+                        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6'>
                           <SleekSelect
                             value={assignForm.day}
                             options={DAYS_ORDER.map((d) => ({
@@ -1801,7 +1801,7 @@ const InstructorDashboardModal = ({
                           <button
                             type='submit'
                             disabled={isProcessing}
-                            className='px-8 py-2.5 bg-stone-700 text-white text-[14px] font-bold rounded-xl hover:bg-stone-800 transition-colors shadow-md'>
+                            className='px-8 py-2.5 bg-stone-900 text-white text-[14px] font-bold rounded-xl hover:bg-stone-800 transition-colors shadow-md'>
                             Save Shift
                           </button>
                         </div>
@@ -2047,7 +2047,7 @@ const GenericAlertModal = ({ title, message, type, onClose }) => {
         <p className='text-stone-500 text-sm mb-6'>{message}</p>
         <button
           onClick={onClose}
-          className='w-full py-2.5 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-all'>
+          className='w-full py-2.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-all'>
           Close
         </button>
       </motion.div>

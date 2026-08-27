@@ -245,7 +245,7 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                         {!isEditing && assignedPass && (
                           <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-100 border border-stone-200 p-3.5 md:p-3 rounded-xl'>
                             <div className='flex items-center gap-3'>
-                              <div className='bg-stone-600 text-white p-2 md:p-1.5 rounded-lg shrink-0'>
+                              <div className='bg-stone-900 text-white p-2 md:p-1.5 rounded-lg shrink-0'>
                                 <Ticket className='w-5 h-5 md:w-4 md:h-4' />
                               </div>
                               <div>
@@ -399,7 +399,7 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                 <button
                   onClick={handleBook}
                   disabled={loading}
-                  className='w-full py-4 text-base bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 disabled:opacity-50 shadow-lg transition-colors flex items-center justify-center gap-2'>
+                  className='w-full py-4 text-base bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 disabled:opacity-50 shadow-lg transition-colors flex items-center justify-center gap-2'>
                   {loading ? (
                     <>
                       <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin'></div>{" "}
@@ -420,7 +420,7 @@ const BookingModal = ({ classes, onClose, onConfirm }) => {
                   </p>
                   <button
                     onClick={() => setShowMarketplace(true)}
-                    className='w-full py-4 text-base bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-500 shadow-lg flex items-center justify-center gap-2 transition-colors'>
+                    className='w-full py-4 text-base bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 shadow-lg flex items-center justify-center gap-2 transition-colors'>
                     <ShoppingBag className='w-5 h-5' /> Buy More Credits
                   </button>
                 </div>

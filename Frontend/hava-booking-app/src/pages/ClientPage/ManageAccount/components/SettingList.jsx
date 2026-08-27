@@ -336,7 +336,7 @@ const SettingList = () => {
   };
 
   return (
-    <div className='p-6 md:p-10 bg-stone-50 min-h-screen font-sans'>
+    <div className='p-6 md:p-10 bg-canvas min-h-screen font-sans'>
       {/* Header */}
       <div className='mb-10'>
         <h1 className='text-3xl font-bold text-stone-900 tracking-tight'>
@@ -400,7 +400,7 @@ const SettingList = () => {
             </div>
           </div>
 
-          <div className='bg-stone-600 rounded-2xl p-6 text-white shadow-lg shadow-stone-600/20'>
+          <div className='bg-stone-900 rounded-2xl p-6 text-white shadow-lg shadow-stone-600/20'>
             <h3 className='font-bold text-lg mb-2'>Security Tip</h3>
             <p className='text-stone-300 text-sm leading-relaxed'>
               Use a strong, unique password or register a Passkey to protect
@@ -482,7 +482,7 @@ const SettingList = () => {
                 <button
                   type='submit'
                   disabled={isLoadingProfile || !isProfileDirty}
-                  className='px-6 py-2.5 bg-stone-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-stone-600/20 hover:bg-stone-700 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:translate-y-0 disabled:cursor-not-allowed'>
+                  className='px-6 py-2.5 bg-stone-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-stone-600/20 hover:bg-stone-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-70 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingProfile ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (
@@ -645,7 +645,7 @@ const SettingList = () => {
                     !passwordData.confirmPassword ||
                     (user?.hasPassword && !passwordData.currentPassword)
                   }
-                  className='px-6 py-2.5 bg-stone-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-stone-700/20 hover:bg-stone-600 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
+                  className='px-6 py-2.5 bg-stone-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-stone-700/20 hover:bg-stone-800 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:translate-y-0 disabled:cursor-not-allowed'>
                   {isLoadingPassword ? (
                     <Loader2 className='w-4 h-4 animate-spin' />
                   ) : (

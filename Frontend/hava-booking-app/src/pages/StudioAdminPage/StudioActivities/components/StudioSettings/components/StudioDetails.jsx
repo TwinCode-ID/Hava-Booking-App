@@ -252,7 +252,7 @@ const StudioDetails = () => {
   const [lat, lng] = studio?.address?.coordinates || [0, 0];
 
   return (
-    <div className='p-6 md:p-10 bg-stone-50 min-h-screen font-sans'>
+    <div className='p-6 md:p-10 bg-canvas min-h-screen font-sans'>
       <div className='max-w-7xl mx-auto'>
         {/* TOP: Full Width Image Gallery */}
         <div className='bg-white rounded-2xl p-4 border border-stone-100 shadow-sm mb-8'>
@@ -286,7 +286,7 @@ const StudioDetails = () => {
                 {/* Action Section */}
                 <button
                   onClick={() => setIsEditModalOpen(true)}
-                  className='flex items-center justify-center gap-2 bg-stone-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(6,78,59,0.4)] active:scale-95 w-full sm:w-auto shrink-0'>
+                  className='flex items-center justify-center gap-2 bg-stone-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-stone-800 transition-all shadow-[0_4px_14px_-4px_rgba(28,25,23,0.4)] active:scale-95 w-full sm:w-auto shrink-0'>
                   <Edit2 className='w-4 h-4' /> Edit Details
                 </button>
               </div>
@@ -758,7 +758,7 @@ const EditStudioModal = ({ studio, onClose, onSave, isSaving }) => {
             type='submit'
             onClick={handleSubmit}
             disabled={isSaving}
-            className='px-8 py-2.5 bg-stone-600 text-white font-bold hover:bg-stone-700 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:bg-stone-600 disabled:cursor-wait transition-all'>
+            className='px-8 py-2.5 bg-stone-900 text-white font-bold hover:bg-stone-800 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:bg-stone-300 disabled:cursor-wait transition-all'>
             {isSaving ? (
               <LoadingSpinner size='sm' />
             ) : (

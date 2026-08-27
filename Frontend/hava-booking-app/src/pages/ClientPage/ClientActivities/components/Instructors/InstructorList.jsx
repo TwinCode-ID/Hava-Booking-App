@@ -135,7 +135,7 @@ const InstructorList = () => {
               <div
                 className={`w-5 h-5 rounded border flex items-center justify-center transition-colors shrink-0 ${
                   selectedTypes.includes(type)
-                    ? "bg-stone-600 border-stone-600"
+                    ? "bg-stone-900 border-stone-600"
                     : "border-stone-300 bg-white group-hover:border-stone-400"
                 }`}>
                 {selectedTypes.includes(type) && (
@@ -178,7 +178,7 @@ const InstructorList = () => {
               <div
                 className={`w-5 h-5 rounded border flex items-center justify-center transition-colors shrink-0 ${
                   selectedStudios.includes(studio)
-                    ? "bg-stone-600 border-stone-600"
+                    ? "bg-stone-900 border-stone-600"
                     : "border-stone-300 bg-white group-hover:border-stone-400"
                 }`}>
                 {selectedStudios.includes(studio) && (
@@ -224,7 +224,7 @@ const InstructorList = () => {
                 onClick={() => toggleFilter(selectedDays, setSelectedDays, day)}
                 className={`px-3 py-2.5 md:py-2 rounded-xl md:rounded-lg text-xs md:text-[13px] font-bold capitalize transition-all border ${
                   isSelected
-                    ? "bg-stone-700 text-white border-stone-700 shadow-md"
+                    ? "bg-stone-900 text-white border-stone-700 shadow-md"
                     : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
                 }`}>
                 {day}
@@ -301,7 +301,7 @@ const InstructorList = () => {
                   onClick={() => setShowMobileFilters(true)}>
                   <Filter className='w-4 h-4' />
                   {getActiveFilterCount() > 0 && (
-                    <span className='absolute -top-1.5 -right-1.5 w-5 h-5 bg-stone-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white'>
+                    <span className='absolute -top-1.5 -right-1.5 w-5 h-5 bg-stone-900 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white'>
                       {getActiveFilterCount()}
                     </span>
                   )}
@@ -396,7 +396,7 @@ const InstructorList = () => {
                 </button>
                 <button
                   onClick={() => setShowMobileFilters(false)}
-                  className='flex-[2] py-3.5 bg-stone-700 text-white font-bold rounded-xl text-sm hover:bg-stone-600 transition-colors shadow-lg shadow-stone-200'>
+                  className='flex-[2] py-3.5 bg-stone-900 text-white font-bold rounded-xl text-sm hover:bg-stone-800 transition-colors shadow-lg shadow-stone-200'>
                   Apply Filters
                 </button>
               </div>
@@ -429,7 +429,7 @@ const InstructorCard = ({ data, onClick }) => {
       onClick={onClick}
       className='group flex flex-col h-full cursor-pointer bg-white border border-stone-200 rounded-3xl p-5 md:p-6 hover:shadow-xl hover:border-stone-500 transition-all duration-300 relative overflow-hidden active:scale-[0.98] md:active:scale-100'>
       {/* Accent Strip */}
-      <div className='absolute top-0 left-0 w-1.5 h-full bg-stone-500 opacity-0 group-hover:opacity-100 transition-opacity' />
+      <div className='absolute top-0 left-0 w-1.5 h-full bg-stone-900 opacity-0 group-hover:opacity-100 transition-opacity' />
 
       <div className='flex items-start justify-between mb-5 md:mb-6'>
         <div className='w-14 h-14 md:w-16 md:h-16 rounded-full p-1 bg-gradient-to-br from-stone-200 to-white shadow-sm shrink-0'>
@@ -480,7 +480,7 @@ const InstructorCard = ({ data, onClick }) => {
         <div className='flex items-center gap-1.5 md:gap-2'>
           {data.isActive ? (
             <>
-              <div className='w-2 h-2 rounded-full bg-stone-500 animate-pulse'></div>
+              <div className='w-2 h-2 rounded-full bg-stone-900 animate-pulse'></div>
               <span className='text-[10px] md:text-xs font-bold text-stone-500 uppercase tracking-wider'>
                 Active Now
               </span>
@@ -491,7 +491,7 @@ const InstructorCard = ({ data, onClick }) => {
             </span>
           )}
         </div>
-        <button className='w-8 h-8 md:w-9 md:h-9 rounded-full bg-stone-50 border border-stone-100 text-stone-400 flex items-center justify-center group-hover:bg-stone-600 group-hover:text-white group-hover:border-stone-600 transition-all'>
+        <button className='w-8 h-8 md:w-9 md:h-9 rounded-full bg-stone-50 border border-stone-100 text-stone-400 flex items-center justify-center group-hover:bg-stone-900 group-hover:text-white group-hover:border-stone-600 transition-all'>
           <ChevronRight className='w-4 h-4 md:w-5 md:h-5' />
         </button>
       </div>
@@ -658,7 +658,7 @@ const InstructorDetailModal = ({ instructor, onClose }) => {
         <div className='p-4 md:p-6 bg-white border-t border-stone-100 shrink-0 pb-safe'>
           <button
             onClick={onClose}
-            className='w-full py-3.5 md:py-3 bg-stone-700 hover:bg-stone-600 text-white rounded-xl font-bold text-sm transition-colors shadow-lg shadow-stone-200 active:scale-[0.98] md:active:scale-100'>
+            className='w-full py-3.5 md:py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold text-sm transition-colors shadow-lg shadow-stone-200 active:scale-[0.98] md:active:scale-100'>
             Close Profile
           </button>
         </div>

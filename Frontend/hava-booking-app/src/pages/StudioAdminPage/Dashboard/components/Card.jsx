@@ -33,7 +33,7 @@ const StatCard = ({
   const colorClasses = {
     blue: "from-blue-500 to-blue-600",
     red: "from-red-500 to-red-600",
-    green: "from-stone-500 to-stone-600",
+    green: "from-stone-900 to-stone-800",
     orange: "from-orange-500 to-orange-600",
   };
 

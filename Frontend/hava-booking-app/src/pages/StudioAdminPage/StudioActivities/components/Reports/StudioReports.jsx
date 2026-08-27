@@ -61,17 +61,19 @@ const CustomSelect = ({
   }, []);
 
   return (
-    <div className='relative w-full' ref={containerRef}>
+    <div className="relative w-full" ref={containerRef}>
       <button
-        type='button'
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full h-10.5 px-4 py-2.5 rounded-xl border bg-white flex items-center justify-between transition-all outline-none text-sm font-medium shadow-sm ${
           isOpen
             ? "border-stone-500 ring-2 ring-stone-500/20"
             : "border-stone-200 hover:border-stone-500"
-        }`}>
+        }`}
+      >
         <span
-          className={`block truncate ${value ? "text-stone-900" : "text-stone-400"}`}>
+          className={`block truncate ${value ? "text-stone-900" : "text-stone-400"}`}
+        >
           {value || placeholder}
         </span>
         <ChevronDown
@@ -85,7 +87,8 @@ const CustomSelect = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className='absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden max-h-60 overflow-y-auto'>
+            className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden max-h-60 overflow-y-auto"
+          >
             {options.map((option) => (
               <div
                 key={option}
@@ -97,10 +100,11 @@ const CustomSelect = ({
                   value === option
                     ? "bg-stone-100 text-stone-900 font-bold"
                     : "text-stone-700 hover:bg-stone-50 hover:text-stone-900"
-                }`}>
+                }`}
+              >
                 {option}
                 {value === option && (
-                  <Check className='w-3.5 h-3.5 text-stone-800' />
+                  <Check className="w-3.5 h-3.5 text-stone-800" />
                 )}
               </div>
             ))}
@@ -138,10 +142,7 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
       );
       if (
         response.data.success &&
-        onUnlock(
-          response.data.stepUpToken,
-          response.data.stepUpExpiresIn,
-        )
+        onUnlock(response.data.stepUpToken, response.data.stepUpExpiresIn)
       ) {
         setPassword("");
       } else {
@@ -160,19 +161,20 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
 
   if (!user?.hasPassword) {
     return (
-      <div className='bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors'>
-        <div className='w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform'>
-          <Lock className='w-8 h-8 text-amber-600' />
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors">
+        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+          <Lock className="w-8 h-8 text-amber-600" />
         </div>
-        <h2 className='text-xl font-bold text-stone-900 mb-2'>
+        <h2 className="text-xl font-bold text-stone-900 mb-2">
           Create a Password First
         </h2>
-        <p className='text-stone-500 mb-6 text-sm max-w-sm'>
+        <p className="text-stone-500 mb-6 text-sm max-w-sm">
           You need to create a password before you can unlock financial data.
         </p>
         <Link
-          to='/admin-account-settings'
-          className='w-full max-w-sm py-3 bg-stone-600 text-white rounded-xl font-semibold hover:bg-stone-700 transition-colors flex justify-center items-center'>
+          to="/admin-account-settings"
+          className="w-full max-w-sm py-3 bg-stone-900 text-white rounded-xl font-semibold hover:bg-stone-800 transition-colors flex justify-center items-center"
+        >
           Create Password
         </Link>
       </div>
@@ -180,32 +182,33 @@ const PasswordGateInline = ({ onUnlock, error, setError }) => {
   }
 
   return (
-    <div className='bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors'>
-      <div className='w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform'>
-        <Lock className='w-8 h-8 text-stone-800' />
+    <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors">
+      <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+        <Lock className="w-8 h-8 text-stone-800" />
       </div>
-      <h2 className='text-xl font-bold text-stone-900 mb-2'>
+      <h2 className="text-xl font-bold text-stone-900 mb-2">
         Unlock Financial Data
       </h2>
-      <p className='text-stone-500 mb-6 text-sm max-w-sm'>
+      <p className="text-stone-500 mb-6 text-sm max-w-sm">
         To view revenue details and include financial data in your PDF export,
         please confirm your admin password.
       </p>
-      <form onSubmit={handleSubmit} className='w-full max-w-sm space-y-4'>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
         <input
-          type='password'
+          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder='Admin Password'
-          autoComplete='current-password'
+          placeholder="Admin Password"
+          autoComplete="current-password"
           required
-          className='w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-stone-500 focus:ring-2 focus:ring-stone-300 outline-none transition-all'
+          className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-stone-500 focus:ring-2 focus:ring-stone-300 outline-none transition-all"
         />
-        {error && <p className='text-red-500 text-xs'>{error}</p>}
+        {error && <p className="text-red-500 text-xs">{error}</p>}
         <button
           disabled={verifying || !password}
-          type='submit'
-          className='w-full py-3 bg-stone-600 text-white rounded-xl font-semibold hover:bg-stone-700 transition-colors flex justify-center items-center gap-2'>
+          type="submit"
+          className="w-full py-3 bg-stone-900 text-white rounded-xl font-semibold hover:bg-stone-800 transition-colors flex justify-center items-center gap-2"
+        >
           {verifying ? "Verifying..." : "Unlock Revenue"}
         </button>
       </form>
@@ -403,32 +406,34 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
     transaction.totalAmount + (transaction.discountAmount || 0);
 
   return (
-    <div className='fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm'>
+    <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 30 }}
-        className='flex flex-col items-center max-h-[95vh] overflow-y-auto w-full no-scrollbar pb-6 mt-6'>
-        <div className='w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-2xl relative font-sans pb-8'>
-          <div className='p-8 pb-6'>
-            <div className='flex justify-between items-start mb-8'>
-              <div className='flex items-center gap-2.5'>
-                <div className='grid grid-cols-3 gap-[3px]'>
+        className="flex flex-col items-center max-h-[95vh] overflow-y-auto w-full no-scrollbar pb-6 mt-6"
+      >
+        <div className="w-full max-w-[400px] bg-white rounded-[24px] overflow-hidden shadow-2xl relative font-sans pb-8">
+          <div className="p-8 pb-6">
+            <div className="flex justify-between items-start mb-8">
+              <div className="flex items-center gap-2.5">
+                <div className="grid grid-cols-3 gap-[3px]">
                   {[...Array(9)].map((_, i) => (
                     <div
                       key={i}
-                      className='w-1.5 h-1.5 bg-stone-700 rounded-full'></div>
+                      className="w-1.5 h-1.5 bg-stone-900 rounded-full"
+                    ></div>
                   ))}
                 </div>
-                <span className='font-bold text-stone-900 text-[20px] tracking-tight'>
+                <span className="font-bold text-stone-900 text-[20px] tracking-tight">
                   Hava Studio
                 </span>
               </div>
-              <div className='text-right'>
-                <p className='text-[10px] text-stone-500 font-bold tracking-wider uppercase'>
+              <div className="text-right">
+                <p className="text-[10px] text-stone-500 font-bold tracking-wider uppercase">
                   Receipt No. {getReceiptNo(transaction.transactionId)}
                 </p>
-                <p className='text-[11px] text-stone-400 font-medium mt-0.5'>
+                <p className="text-[11px] text-stone-400 font-medium mt-0.5">
                   {new Date(transaction.createdAt).toLocaleString("en-GB", {
                     day: "2-digit",
                     month: "2-digit",
@@ -440,107 +445,109 @@ const InvoiceReceiptModal = ({ transaction, onClose }) => {
               </div>
             </div>
 
-            <h2 className='text-[32px] font-extrabold text-stone-900 mb-3 leading-[1.1] tracking-tight'>
+            <h2 className="text-[32px] font-extrabold text-stone-900 mb-3 leading-[1.1] tracking-tight">
               Thanks for
               <br />
               your purchase!
             </h2>
-            <p className='text-[14px] text-stone-500 font-medium leading-relaxed'>
+            <p className="text-[14px] text-stone-500 font-medium leading-relaxed">
               Your order{" "}
-              <span className='text-blue-600 font-bold'>
+              <span className="text-blue-600 font-bold">
                 #{transaction.transactionId}
               </span>{" "}
               has been successfully processed.
             </p>
           </div>
 
-          <div className='w-full border-t-[2px] border-dashed border-stone-200'></div>
+          <div className="w-full border-t-[2px] border-dashed border-stone-200"></div>
 
-          <div className='p-8 pt-8'>
-            <div className='flex justify-between items-start mb-4'>
-              <div className='flex gap-4 pr-4'>
-                <span className='font-bold text-lg text-stone-900'>1</span>
+          <div className="p-8 pt-8">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex gap-4 pr-4">
+                <span className="font-bold text-lg text-stone-900">1</span>
                 <div>
-                  <p className='font-bold text-[16px] text-stone-900 leading-snug mb-1'>
+                  <p className="font-bold text-[16px] text-stone-900 leading-snug mb-1">
                     {transaction.packageId?.packageName ||
                       transaction.packageNameSnapshot ||
                       "Custom Package"}
                   </p>
-                  <p className='text-[13px] text-stone-500 font-medium'>
+                  <p className="text-[13px] text-stone-500 font-medium">
                     1 × {formatCurrency(preDiscountAmount)}
                   </p>
                 </div>
               </div>
-              <span className='font-bold text-[16px] text-stone-900 whitespace-nowrap'>
+              <span className="font-bold text-[16px] text-stone-900 whitespace-nowrap">
                 {formatCurrency(preDiscountAmount)}
               </span>
             </div>
 
             {transaction.promoCodeApplied && (
-              <div className='flex justify-between items-center mb-6 pl-10'>
-                <span className='text-[13px] text-stone-500 font-bold'>
+              <div className="flex justify-between items-center mb-6 pl-10">
+                <span className="text-[13px] text-stone-500 font-bold">
                   Discount ({transaction.promoCodeApplied})
                 </span>
-                <span className='font-bold text-[15px] text-rose-500'>
+                <span className="font-bold text-[15px] text-rose-500">
                   - {formatCurrency(transaction.discountAmount || 0)}
                 </span>
               </div>
             )}
 
-            <div className='bg-[#F3F4F6] p-6 rounded-[20px] mb-8 mt-2'>
-              <div className='flex justify-between items-end mb-6'>
-                <span className='font-bold text-xl text-stone-800'>Total</span>
-                <span className='font-extrabold text-[26px] text-stone-900 tracking-tight leading-none'>
+            <div className="bg-stone-100 p-6 rounded-[20px] mb-8 mt-2">
+              <div className="flex justify-between items-end mb-6">
+                <span className="font-bold text-xl text-stone-800">Total</span>
+                <span className="font-extrabold text-[26px] text-stone-900 tracking-tight leading-none">
                   {formatCurrency(transaction.totalAmount)}
                 </span>
               </div>
-              <div className='flex justify-between items-center text-[13px] font-bold mb-3'>
-                <span className='text-stone-500'>Payment Method</span>
-                <span className='text-stone-800 capitalize'>
+              <div className="flex justify-between items-center text-[13px] font-bold mb-3">
+                <span className="text-stone-500">Payment Method</span>
+                <span className="text-stone-800 capitalize">
                   {transaction.paymentMethod?.replace(/_/g, " ")}
                 </span>
               </div>
-              <div className='flex justify-between items-center text-[13px] font-bold'>
-                <span className='text-stone-500'>Status</span>
-                <span className='text-stone-800 capitalize'>
+              <div className="flex justify-between items-center text-[13px] font-bold">
+                <span className="text-stone-500">Status</span>
+                <span className="text-stone-800 capitalize">
                   {transaction.status || "Confirmed"}
                 </span>
               </div>
             </div>
 
-            <div className='flex items-center justify-between gap-4 bg-white rounded-[16px] p-4 border border-stone-200'>
-              <div className='flex-1 pr-2'>
-                <h3 className='font-bold text-[14px] text-stone-900 mb-1'>
+            <div className="flex items-center justify-between gap-4 bg-white rounded-[16px] p-4 border border-stone-200">
+              <div className="flex-1 pr-2">
+                <h3 className="font-bold text-[14px] text-stone-900 mb-1">
                   Verify Transaction
                 </h3>
-                <p className='text-[12px] text-stone-500 leading-relaxed'>
+                <p className="text-[12px] text-stone-500 leading-relaxed">
                   Scan the QR code to securely view and verify these details
                   online.
                 </p>
               </div>
-              <div className='shrink-0'>
+              <div className="shrink-0">
                 <QRCodeCanvas
-                  id='qr-canvas'
+                  id="qr-canvas"
                   value={qrUrl}
                   size={64}
-                  level='M'
+                  level="M"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <div className='flex gap-3 w-full max-w-[400px] mt-6'>
+        <div className="flex gap-3 w-full max-w-[400px] mt-6">
           <button
             onClick={onClose}
-            className='flex-1 py-3.5 bg-white text-stone-800 border border-stone-200 rounded-xl text-[15px] font-bold hover:bg-stone-50 transition-colors shadow-sm'>
+            className="flex-1 py-3.5 bg-white text-stone-800 border border-stone-200 rounded-xl text-[15px] font-bold hover:bg-stone-50 transition-colors shadow-sm"
+          >
             Close
           </button>
           <button
             onClick={handleDownloadPDF}
             disabled={downloading}
-            className='flex-[2] flex justify-center items-center gap-2 py-3.5 bg-stone-500 text-white rounded-xl text-[15px] font-bold hover:bg-stone-400 transition-colors disabled:opacity-50 shadow-lg shadow-stone-500/20'>
-            <Download className='w-4 h-4' />{" "}
+            className="flex-[2] flex justify-center items-center gap-2 py-3.5 bg-stone-900 text-white rounded-xl text-[15px] font-bold hover:bg-stone-800 transition-colors disabled:opacity-50 shadow-lg shadow-stone-900/20"
+          >
+            <Download className="w-4 h-4" />{" "}
             {downloading ? "Generating..." : "Download Invoice"}
           </button>
         </div>
@@ -556,77 +563,79 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
   if (!transaction) return null;
 
   return (
-    <div className='fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4'>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className='bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden'>
-        <div className='p-6 border-b border-stone-100 flex justify-between items-center bg-white shrink-0'>
-          <div className='flex items-center gap-4'>
-            <div className='w-12 h-12 bg-stone-100 text-stone-800 rounded-full flex items-center justify-center'>
-              <Wallet className='w-6 h-6' />
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-white shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-stone-100 text-stone-800 rounded-full flex items-center justify-center">
+              <Wallet className="w-6 h-6" />
             </div>
             <div>
-              <h3 className='text-xl font-bold text-stone-900'>
+              <h3 className="text-xl font-bold text-stone-900">
                 Transaction Details
               </h3>
-              <p className='text-sm font-medium text-stone-500 font-mono mt-0.5'>
+              <p className="text-sm font-medium text-stone-500 font-mono mt-0.5">
                 ID: {transaction.transactionId || "N/A"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-stone-100 transition-colors text-stone-500'>
-            <X className='w-6 h-6' />
+            className="p-2 rounded-full hover:bg-stone-100 transition-colors text-stone-500"
+          >
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className='p-6 overflow-y-auto flex-1 space-y-6 bg-white'>
-          <div className='grid grid-cols-2 gap-4'>
-            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-stone-100'>
-              <p className='text-xs font-bold text-stone-500 uppercase tracking-wider mb-2'>
+        <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-white">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-5 bg-stone-50 rounded-2xl border border-stone-100">
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
                 Amount Paid
               </p>
-              <p className='text-3xl font-extrabold text-stone-800 tracking-tight'>
+              <p className="text-3xl font-extrabold text-stone-800 tracking-tight">
                 {formatCurrency(transaction.totalAmount)}
               </p>
             </div>
-            <div className='p-5 bg-[#f8f9fa] rounded-2xl border border-stone-100'>
-              <p className='text-xs font-bold text-stone-500 uppercase tracking-wider mb-2'>
+            <div className="p-5 bg-stone-50 rounded-2xl border border-stone-100">
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
                 Status
               </p>
-              <div className='flex items-center gap-2'>
-                <CheckCircle className='w-6 h-6 text-stone-700' />
-                <p className='text-xl font-bold text-stone-900 capitalize'>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-6 h-6 text-stone-700" />
+                <p className="text-xl font-bold text-stone-900 capitalize">
                   {transaction.status || "Confirmed"}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className='bg-white border border-stone-200 rounded-2xl overflow-hidden'>
-            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-stone-200'>
-              <h4 className='text-[15px] font-bold text-stone-900'>
+          <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 bg-stone-50 border-b border-stone-200">
+              <h4 className="text-[15px] font-bold text-stone-900">
                 Purchase Information
               </h4>
             </div>
-            <div className='divide-y divide-stone-100'>
-              <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-stone-500'>
+            <div className="divide-y divide-stone-100">
+              <div className="grid grid-cols-3 p-5 items-center">
+                <span className="text-[15px] font-semibold text-stone-500">
                   Client Name
                 </span>
-                <span className='text-[15px] font-bold text-stone-900 col-span-2'>
+                <span className="text-[15px] font-bold text-stone-900 col-span-2">
                   {transaction.userId?.fullName || "N/A"}
                 </span>
               </div>
-              <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-stone-500'>
+              <div className="grid grid-cols-3 p-5 items-center">
+                <span className="text-[15px] font-semibold text-stone-500">
                   Package
                 </span>
-                <span className='text-[15px] font-medium text-stone-900 col-span-2 flex'>
-                  <span className='bg-[#f1f3f5] px-3 py-1.5 rounded-lg border border-stone-200 text-sm font-bold'>
+                <span className="text-[15px] font-medium text-stone-900 col-span-2 flex">
+                  <span className="bg-stone-100 px-3 py-1.5 rounded-lg border border-stone-200 text-sm font-bold">
                     {transaction.packageId?.packageName ||
                       transaction.packageNameSnapshot ||
                       "Deleted Package"}
@@ -634,29 +643,29 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
                 </span>
               </div>
               {transaction.promoCodeApplied && (
-                <div className='grid grid-cols-3 p-5 items-center'>
-                  <span className='text-[15px] font-semibold text-stone-500'>
+                <div className="grid grid-cols-3 p-5 items-center">
+                  <span className="text-[15px] font-semibold text-stone-500">
                     Promo Code
                   </span>
-                  <span className='text-[15px] font-bold text-pink-600 col-span-2'>
+                  <span className="text-[15px] font-bold text-pink-600 col-span-2">
                     {transaction.promoCodeApplied} (-{" "}
                     {formatCurrency(transaction.discountAmount || 0)})
                   </span>
                 </div>
               )}
-              <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-stone-500'>
+              <div className="grid grid-cols-3 p-5 items-center">
+                <span className="text-[15px] font-semibold text-stone-500">
                   Payment Method
                 </span>
-                <span className='text-[15px] font-bold text-stone-900 capitalize col-span-2'>
+                <span className="text-[15px] font-bold text-stone-900 capitalize col-span-2">
                   {transaction.paymentMethod?.replace(/_/g, " ")}
                 </span>
               </div>
-              <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-stone-500'>
+              <div className="grid grid-cols-3 p-5 items-center">
+                <span className="text-[15px] font-semibold text-stone-500">
                   Purchase Date
                 </span>
-                <span className='text-[15px] font-bold text-stone-900 col-span-2'>
+                <span className="text-[15px] font-bold text-stone-900 col-span-2">
                   {new Date(transaction.createdAt).toLocaleString("en-GB", {
                     day: "2-digit",
                     month: "2-digit",
@@ -670,28 +679,28 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
             </div>
           </div>
 
-          <div className='bg-white border border-stone-200 rounded-2xl overflow-hidden'>
-            <div className='px-5 py-4 bg-[#f8f9fa] border-b border-stone-200'>
-              <h4 className='text-[15px] font-bold text-stone-900'>
+          <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 bg-stone-50 border-b border-stone-200">
+              <h4 className="text-[15px] font-bold text-stone-900">
                 Package Lifecycle & Credits
               </h4>
             </div>
-            <div className='divide-y divide-stone-100'>
-              <div className='grid grid-cols-3 p-5 items-center'>
-                <span className='text-[15px] font-semibold text-stone-500'>
+            <div className="divide-y divide-stone-100">
+              <div className="grid grid-cols-3 p-5 items-center">
+                <span className="text-[15px] font-semibold text-stone-500">
                   Credits
                 </span>
-                <span className='text-[15px] font-bold text-stone-900 col-span-2'>
+                <span className="text-[15px] font-bold text-stone-900 col-span-2">
                   {transaction.remainingCredits} Remaining /{" "}
                   {transaction.creditsPurchased} Total
                 </span>
               </div>
               {transaction.mustActivateBy && (
-                <div className='grid grid-cols-3 p-5 items-center'>
-                  <span className='text-[15px] font-semibold text-stone-500'>
+                <div className="grid grid-cols-3 p-5 items-center">
+                  <span className="text-[15px] font-semibold text-stone-500">
                     Must Activate By
                   </span>
-                  <span className='text-[15px] font-bold text-amber-700 col-span-2'>
+                  <span className="text-[15px] font-bold text-amber-700 col-span-2">
                     {new Date(transaction.mustActivateBy).toLocaleDateString(
                       "en-GB",
                     )}
@@ -699,11 +708,11 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
                 </div>
               )}
               {transaction.expiryDate && (
-                <div className='grid grid-cols-3 p-5 items-center'>
-                  <span className='text-[15px] font-semibold text-stone-500'>
+                <div className="grid grid-cols-3 p-5 items-center">
+                  <span className="text-[15px] font-semibold text-stone-500">
                     Expiry Date
                   </span>
-                  <span className='text-[15px] font-bold text-red-600 col-span-2'>
+                  <span className="text-[15px] font-bold text-red-600 col-span-2">
                     {new Date(transaction.expiryDate).toLocaleDateString(
                       "en-GB",
                     )}
@@ -713,11 +722,12 @@ const TransactionDetailsModal = ({ transaction, onClose, onOpenReceipt }) => {
             </div>
           </div>
         </div>
-        <div className='p-6 bg-white shrink-0'>
+        <div className="p-6 bg-white shrink-0">
           <button
             onClick={() => onOpenReceipt(transaction)}
-            className='w-full py-4 bg-stone-700 text-white rounded-xl font-bold hover:bg-stone-600 transition-colors flex justify-center items-center gap-2 shadow-md'>
-            <FileText className='w-5 h-5' /> Generate Stylized Receipt
+            className="w-full py-4 bg-stone-900 text-white rounded-xl font-bold hover:bg-stone-800 transition-colors flex justify-center items-center gap-2 shadow-md"
+          >
+            <FileText className="w-5 h-5" /> Generate Stylized Receipt
           </button>
         </div>
       </motion.div>
@@ -765,79 +775,81 @@ const RevenueSection = ({
   }, [tableData, searchQuery, methodFilter]);
 
   return (
-    <div className='space-y-6'>
-      <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
-        <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
-          <Wallet className='w-5 h-5 text-stone-800' /> Financial Overview
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+          <Wallet className="w-5 h-5 text-stone-800" /> Financial Overview
         </h3>
-        <div className='relative w-full md:w-80'>
-          <Search className='absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4' />
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4" />
           <input
-            type='text'
-            placeholder='Search transactions...'
+            type="text"
+            placeholder="Search transactions..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className='w-full pl-10 pr-4 py-2 bg-white border border-stone-200 rounded-xl text-sm outline-none focus:border-stone-500 transition-all shadow-sm'
+            className="w-full pl-10 pr-4 py-2 bg-white border border-stone-200 rounded-xl text-sm outline-none focus:border-stone-500 transition-all shadow-sm"
           />
         </div>
       </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-        <div className='bg-gradient-to-br from-stone-700 to-stone-950 text-white p-6 rounded-2xl shadow-md relative overflow-hidden'>
-          <div className='relative z-10'>
-            <p className='text-stone-300 text-sm font-medium mb-1'>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-br from-stone-900 to-stone-950 text-white p-6 rounded-2xl shadow-md relative overflow-hidden">
+          <div className="relative z-10">
+            <p className="text-stone-300 text-sm font-medium mb-1">
               Total Confirmed Revenue
             </p>
-            <h3 className='text-3xl font-extrabold'>
+            <h3 className="text-3xl font-extrabold">
               {formatCurrency(stats.totalRevenue)}
             </h3>
           </div>
-          <Wallet className='absolute right-4 bottom-4 w-24 h-24 text-white opacity-10' />
+          <Wallet className="absolute right-4 bottom-4 w-24 h-24 text-white opacity-10" />
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex flex-col justify-center'>
-          <div className='flex items-center gap-4'>
-            <div className='p-3 bg-blue-50 text-blue-600 rounded-lg'>
-              <TrendingUp className='w-6 h-6' />
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 flex flex-col justify-center">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+              <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-              <p className='text-stone-500 text-xs uppercase tracking-wider font-semibold'>
+              <p className="text-stone-500 text-xs uppercase tracking-wider font-semibold">
                 Transactions
               </p>
-              <p className='text-xl font-bold text-stone-900'>
+              <p className="text-xl font-bold text-stone-900">
                 {stats.totalTransactions}{" "}
-                <span className='text-sm font-normal text-stone-400'>
+                <span className="text-sm font-normal text-stone-400">
                   orders
                 </span>
               </p>
             </div>
           </div>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
-          <div className='flex justify-between items-center mb-4'>
-            <h4 className='text-stone-900 font-bold flex items-center gap-2 text-sm'>
-              <CreditCard className='w-4 h-4 text-stone-400' /> Payment Methods
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-stone-900 font-bold flex items-center gap-2 text-sm">
+              <CreditCard className="w-4 h-4 text-stone-400" /> Payment Methods
             </h4>
             {methodFilter !== "All" && (
               <button
                 onClick={() => setMethodFilter("All")}
-                className='text-[10px] text-red-500 bg-red-50 px-2 py-1 rounded'>
+                className="text-[10px] text-red-500 bg-red-50 px-2 py-1 rounded"
+              >
                 Clear
               </button>
             )}
           </div>
-          <div className='flex flex-col gap-2'>
+          <div className="flex flex-col gap-2">
             {stats.breakdown.map((item) => (
               <div
                 key={item.name}
                 onClick={() => setMethodFilter(item.name)}
-                className={`cursor-pointer rounded-lg p-2 transition-colors border ${methodFilter === item.name ? "bg-stone-50 border-stone-300" : "border-transparent hover:bg-stone-50"}`}>
-                <div className='flex justify-between text-xs mb-1'>
-                  <span className='text-stone-600'>{item.name}</span>
-                  <span className='font-semibold text-stone-900'>
+                className={`cursor-pointer rounded-lg p-2 transition-colors border ${methodFilter === item.name ? "bg-stone-50 border-stone-300" : "border-transparent hover:bg-stone-50"}`}
+              >
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-stone-600">{item.name}</span>
+                  <span className="font-semibold text-stone-900">
                     {item.percentage}%
                   </span>
                 </div>
-                <div className='w-full bg-stone-100 rounded-full h-1.5'>
+                <div className="w-full bg-stone-100 rounded-full h-1.5">
                   <div
                     className={`h-full rounded-full ${item.color}`}
                     style={{ width: `${item.percentage}%` }}
@@ -849,42 +861,43 @@ const RevenueSection = ({
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
-        <div className='overflow-x-auto'>
-          <table className='w-full text-left border-collapse'>
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className='border-b border-stone-100 text-xs uppercase tracking-wider text-stone-400 bg-stone-50/50'>
-                <th className='px-6 py-4 font-bold'>Date</th>
-                <th className='px-6 py-4 font-bold'>Client</th>
-                <th className='px-6 py-4 font-bold'>Package</th>
-                <th className='px-6 py-4 font-bold'>Method</th>
-                <th className='px-6 py-4 font-bold text-right'>Amount</th>
+              <tr className="border-b border-stone-100 text-xs uppercase tracking-wider text-stone-400 bg-stone-50/50">
+                <th className="px-6 py-4 font-bold">Date</th>
+                <th className="px-6 py-4 font-bold">Client</th>
+                <th className="px-6 py-4 font-bold">Package</th>
+                <th className="px-6 py-4 font-bold">Method</th>
+                <th className="px-6 py-4 font-bold text-right">Amount</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-stone-50'>
+            <tbody className="divide-y divide-stone-50">
               {filteredData.length > 0 ? (
                 filteredData.map((trx) => (
                   <tr
                     key={trx._id}
                     onClick={() => onRowSelected(trx)}
-                    className='hover:bg-stone-100/80 cursor-pointer transition-colors group'>
-                    <td className='px-6 py-4 text-sm text-stone-500 group-hover:text-stone-800 transition-colors'>
+                    className="hover:bg-stone-100/80 cursor-pointer transition-colors group"
+                  >
+                    <td className="px-6 py-4 text-sm text-stone-500 group-hover:text-stone-800 transition-colors">
                       {new Date(trx.createdAt).toLocaleDateString()}
                     </td>
-                    <td className='px-6 py-4 text-sm font-semibold text-stone-900 group-hover:text-stone-900 transition-colors'>
+                    <td className="px-6 py-4 text-sm font-semibold text-stone-900 group-hover:text-stone-900 transition-colors">
                       {trx.userId?.fullName}
                     </td>
-                    <td className='px-6 py-4 text-sm'>
-                      <span className='px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200 group-hover:bg-white transition-colors'>
+                    <td className="px-6 py-4 text-sm">
+                      <span className="px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200 group-hover:bg-white transition-colors">
                         {trx.packageId?.packageName ||
                           trx.packageNameSnapshot ||
                           "Deleted Package"}
                       </span>
                     </td>
-                    <td className='px-6 py-4 text-sm capitalize text-stone-600'>
+                    <td className="px-6 py-4 text-sm capitalize text-stone-600">
                       {trx.paymentMethod?.replace(/_/g, " ")}
                     </td>
-                    <td className='px-6 py-4 text-sm text-right font-bold text-stone-900'>
+                    <td className="px-6 py-4 text-sm text-right font-bold text-stone-900">
                       {formatCurrency(trx.totalAmount)}
                     </td>
                   </tr>
@@ -892,8 +905,9 @@ const RevenueSection = ({
               ) : (
                 <tr>
                   <td
-                    colSpan='5'
-                    className='px-6 py-8 text-center text-stone-400'>
+                    colSpan="5"
+                    className="px-6 py-8 text-center text-stone-400"
+                  >
                     No successful transactions found for this period.
                   </td>
                 </tr>
@@ -913,132 +927,134 @@ const AttendanceSection = ({
   selectedStudentName,
 }) => {
   return (
-    <div className='space-y-6'>
-      <div className='flex justify-between items-center'>
-        <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
-          <ClipboardList className='w-5 h-5 text-blue-600' /> Class Attendance
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 text-blue-600" /> Class Attendance
         </h3>
         {selectedStudentName && (
-          <div className='flex items-center gap-3'>
-            <span className='text-sm px-3 py-1 bg-blue-50 text-blue-800 rounded-full font-semibold border border-blue-100'>
+          <div className="flex items-center gap-3">
+            <span className="text-sm px-3 py-1 bg-blue-50 text-blue-800 rounded-full font-semibold border border-blue-100">
               Showing for: {selectedStudentName}
             </span>
             <button
               onClick={onClearStudent}
-              className='p-1 hover:bg-red-50 text-red-500 rounded'>
-              <X className='w-4 h-4' />
+              className="p-1 hover:bg-red-50 text-red-500 rounded"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
       </div>
-      <div className='grid grid-cols-1 md:grid-cols-4 gap-6'>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-stone-300 transition-colors'>
-          <div className='flex justify-between items-start mb-4'>
-            <p className='text-stone-500 text-xs font-bold tracking-wider uppercase'>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-stone-300 transition-colors">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-stone-500 text-xs font-bold tracking-wider uppercase">
               Total Bookings
             </p>
-            <div className='p-2 bg-stone-50 rounded-lg text-stone-400 group-hover:text-stone-600 transition-colors'>
-              <Ticket className='w-5 h-5' />
+            <div className="p-2 bg-stone-50 rounded-lg text-stone-400 group-hover:text-stone-600 transition-colors">
+              <Ticket className="w-5 h-5" />
             </div>
           </div>
-          <h3 className='text-3xl font-extrabold text-stone-900'>
+          <h3 className="text-3xl font-extrabold text-stone-900">
             {stats.total}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-stone-300 transition-colors'>
-          <div className='flex justify-between items-start mb-4'>
-            <p className='text-stone-500 text-xs font-bold tracking-wider uppercase'>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-stone-300 transition-colors">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-stone-500 text-xs font-bold tracking-wider uppercase">
               Total Attended
             </p>
-            <div className='p-2 bg-stone-100 rounded-lg text-stone-700'>
-              <CheckCircle className='w-5 h-5' />
+            <div className="p-2 bg-stone-100 rounded-lg text-stone-700">
+              <CheckCircle className="w-5 h-5" />
             </div>
           </div>
-          <h3 className='text-3xl font-extrabold text-stone-800'>
+          <h3 className="text-3xl font-extrabold text-stone-800">
             {stats.attended}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-red-200 transition-colors'>
-          <div className='flex justify-between items-start mb-4'>
-            <p className='text-stone-500 text-xs font-bold tracking-wider uppercase'>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group hover:border-red-200 transition-colors">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-stone-500 text-xs font-bold tracking-wider uppercase">
               Cancellations
             </p>
-            <div className='p-2 bg-red-50 rounded-lg text-red-500'>
-              <XCircle className='w-5 h-5' />
+            <div className="p-2 bg-red-50 rounded-lg text-red-500">
+              <XCircle className="w-5 h-5" />
             </div>
           </div>
-          <h3 className='text-3xl font-extrabold text-red-600'>
+          <h3 className="text-3xl font-extrabold text-red-600">
             {stats.cancelled}
           </h3>
         </div>
-        <div className='bg-gradient-to-br from-blue-800 to-blue-950 p-6 rounded-2xl shadow-md relative overflow-hidden'>
-          <div className='absolute top-0 right-0 p-4 opacity-10'>
-            <TrendingUp className='w-24 h-24 text-white -mt-4 -mr-4' />
+        <div className="bg-gradient-to-br from-blue-800 to-blue-950 p-6 rounded-2xl shadow-md relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <TrendingUp className="w-24 h-24 text-white -mt-4 -mr-4" />
           </div>
-          <div className='relative z-10'>
-            <p className='text-blue-100 text-xs font-bold tracking-wider uppercase mb-4'>
+          <div className="relative z-10">
+            <p className="text-blue-100 text-xs font-bold tracking-wider uppercase mb-4">
               Attendance Rate
             </p>
-            <h3 className='text-4xl font-extrabold text-white'>
+            <h3 className="text-4xl font-extrabold text-white">
               {stats.rate}%
             </h3>
           </div>
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
-        <div className='px-6 py-4 border-b border-stone-100 bg-stone-50/50'>
-          <h3 className='font-bold text-stone-800 text-sm'>
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-stone-100 bg-stone-50/50">
+          <h3 className="font-bold text-stone-800 text-sm">
             {selectedStudentName
               ? "Student Attendance Details"
               : "Recent Class Bookings"}
           </h3>
         </div>
-        <div className='overflow-x-auto'>
-          <table className='w-full text-left border-collapse'>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className='border-b border-stone-100 text-xs font-bold tracking-wider text-stone-400 bg-stone-50/30 uppercase'>
-                <th className='px-6 py-4'>Date</th>
+              <tr className="border-b border-stone-100 text-xs font-bold tracking-wider text-stone-400 bg-stone-50/30 uppercase">
+                <th className="px-6 py-4">Date</th>
                 {!selectedStudentName && (
-                  <th className='px-6 py-4'>Client Name</th>
+                  <th className="px-6 py-4">Client Name</th>
                 )}
-                <th className='px-6 py-4'>Class</th>
-                <th className='px-6 py-4'>Instructor</th>
-                <th className='px-6 py-4'>Status</th>
+                <th className="px-6 py-4">Class</th>
+                <th className="px-6 py-4">Instructor</th>
+                <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-stone-50'>
+            <tbody className="divide-y divide-stone-50">
               {bookings.slice(0, 30).map((b) => (
                 <tr
                   key={b._id}
-                  className='hover:bg-stone-50/80 transition-colors'>
-                  <td className='px-6 py-4 text-sm text-stone-500'>
+                  className="hover:bg-stone-50/80 transition-colors"
+                >
+                  <td className="px-6 py-4 text-sm text-stone-500">
                     {new Date(b.bookingDate).toLocaleDateString()}
                   </td>
                   {!selectedStudentName && (
-                    <td className='px-6 py-4 text-sm font-semibold text-stone-900'>
+                    <td className="px-6 py-4 text-sm font-semibold text-stone-900">
                       {b.userId?.fullName || "N/A"}
                     </td>
                   )}
-                  <td className='px-6 py-4 text-sm text-stone-600'>
-                    <span className='px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200'>
+                  <td className="px-6 py-4 text-sm text-stone-600">
+                    <span className="px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200">
                       {b.classId?.className || "Class Removed"}
                     </span>
                   </td>
-                  <td className='px-6 py-4 text-sm text-stone-600'>
+                  <td className="px-6 py-4 text-sm text-stone-600">
                     {b.instructorId?.fullName || "-"}
                   </td>
-                  <td className='px-6 py-4 text-sm'>
+                  <td className="px-6 py-4 text-sm">
                     {b.status === "Cancelled" ? (
-                      <span className='px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold border border-red-100'>
+                      <span className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold border border-red-100">
                         Cancelled
                       </span>
                     ) : b.isAttend ? (
-                      <span className='px-3 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-semibold border border-stone-200'>
+                      <span className="px-3 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-semibold border border-stone-200">
                         Checked In
                       </span>
                     ) : (
-                      <span className='px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-semibold border border-amber-100'>
+                      <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-semibold border border-amber-100">
                         Booked
                       </span>
                     )}
@@ -1047,15 +1063,15 @@ const AttendanceSection = ({
               ))}
               {bookings.length === 0 && (
                 <tr>
-                  <td colSpan='5' className='px-6 py-16 text-center'>
-                    <div className='flex flex-col items-center justify-center text-stone-400'>
-                      <div className='bg-stone-50 p-4 rounded-full mb-3 border border-stone-100'>
-                        <CalendarX className='w-8 h-8 text-stone-300' />
+                  <td colSpan="5" className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center justify-center text-stone-400">
+                      <div className="bg-stone-50 p-4 rounded-full mb-3 border border-stone-100">
+                        <CalendarX className="w-8 h-8 text-stone-300" />
                       </div>
-                      <p className='text-stone-900 font-medium text-base'>
+                      <p className="text-stone-900 font-medium text-base">
                         No bookings yet
                       </p>
-                      <p className='text-sm mt-1'>
+                      <p className="text-sm mt-1">
                         When students book classes, they will appear here.
                       </p>
                     </div>
@@ -1072,70 +1088,73 @@ const AttendanceSection = ({
 
 const InstructorSection = ({ stats, classesCount }) => {
   return (
-    <div className='space-y-6'>
-      <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
-        <Briefcase className='w-5 h-5 text-orange-600' /> Instructor Workload
+    <div className="space-y-6">
+      <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+        <Briefcase className="w-5 h-5 text-orange-600" /> Instructor Workload
       </h3>
-      <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
-          <p className='text-stone-500 text-xs uppercase font-bold tracking-wider mb-1'>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+          <p className="text-stone-500 text-xs uppercase font-bold tracking-wider mb-1">
             Active Instructors
           </p>
-          <h3 className='text-3xl font-extrabold text-stone-900'>
+          <h3 className="text-3xl font-extrabold text-stone-900">
             {stats.length}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
-          <p className='text-stone-500 text-xs uppercase font-bold tracking-wider mb-1'>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+          <p className="text-stone-500 text-xs uppercase font-bold tracking-wider mb-1">
             Classes Scheduled
           </p>
-          <h3 className='text-3xl font-extrabold text-stone-900'>
+          <h3 className="text-3xl font-extrabold text-stone-900">
             {classesCount}
           </h3>
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
-          <p className='text-stone-500 text-xs uppercase font-bold tracking-wider mb-1'>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+          <p className="text-stone-500 text-xs uppercase font-bold tracking-wider mb-1">
             Total Students Enrolled
           </p>
-          <h3 className='text-3xl font-extrabold text-stone-900'>
+          <h3 className="text-3xl font-extrabold text-stone-900">
             {stats.reduce((acc, curr) => acc + curr.students, 0)}
           </h3>
         </div>
       </div>
 
-      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
-        <div className='px-6 py-4 border-b border-stone-100 bg-stone-50/50'>
-          <h3 className='font-bold text-stone-800 text-sm'>
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-stone-100 bg-stone-50/50">
+          <h3 className="font-bold text-stone-800 text-sm">
             Instructor Workload Details
           </h3>
         </div>
-        <div className='overflow-x-auto'>
-          <table className='w-full text-left border-collapse'>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className='border-b border-stone-100 text-xs font-bold tracking-wider text-stone-500 bg-stone-50/30 uppercase'>
-                <th className='px-6 py-4'>Instructor Name</th>
-                <th className='px-6 py-4'>Type</th>
-                <th className='px-6 py-4 text-center'>Classes Taught</th>
-                <th className='px-6 py-4 text-center'>Total Students</th>
-                <th className='px-6 py-4 text-right'>Total Hours</th>
+              <tr className="border-b border-stone-100 text-xs font-bold tracking-wider text-stone-500 bg-stone-50/30 uppercase">
+                <th className="px-6 py-4">Instructor Name</th>
+                <th className="px-6 py-4">Type</th>
+                <th className="px-6 py-4 text-center">Classes Taught</th>
+                <th className="px-6 py-4 text-center">Total Students</th>
+                <th className="px-6 py-4 text-right">Total Hours</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-stone-50'>
+            <tbody className="divide-y divide-stone-50">
               {stats.map((inst, idx) => (
-                <tr key={idx} className='hover:bg-stone-50/80 transition-colors'>
-                  <td className='px-6 py-4 text-sm font-semibold text-stone-900'>
+                <tr
+                  key={idx}
+                  className="hover:bg-stone-50/80 transition-colors"
+                >
+                  <td className="px-6 py-4 text-sm font-semibold text-stone-900">
                     {inst.name}
                   </td>
-                  <td className='px-6 py-4 text-sm text-stone-600'>
+                  <td className="px-6 py-4 text-sm text-stone-600">
                     {inst.type || "N/A"}
                   </td>
-                  <td className='px-6 py-4 text-sm text-center font-bold text-stone-700'>
+                  <td className="px-6 py-4 text-sm text-center font-bold text-stone-700">
                     {inst.classCount}
                   </td>
-                  <td className='px-6 py-4 text-sm text-center text-stone-700'>
+                  <td className="px-6 py-4 text-sm text-center text-stone-700">
                     {inst.students}
                   </td>
-                  <td className='px-6 py-4 text-sm text-right font-bold text-stone-800'>
+                  <td className="px-6 py-4 text-sm text-right font-bold text-stone-800">
                     {(inst.totalDuration / 60).toFixed(1)} hrs
                   </td>
                 </tr>
@@ -1143,8 +1162,9 @@ const InstructorSection = ({ stats, classesCount }) => {
               {stats.length === 0 && (
                 <tr>
                   <td
-                    colSpan='5'
-                    className='px-6 py-8 text-center text-stone-400'>
+                    colSpan="5"
+                    className="px-6 py-8 text-center text-stone-400"
+                  >
                     No instructor data found.
                   </td>
                 </tr>
@@ -1159,60 +1179,61 @@ const InstructorSection = ({ stats, classesCount }) => {
 
 const PackageUsageSection = ({ passes, onRowClick }) => {
   return (
-    <div className='space-y-6'>
-      <h3 className='text-lg font-bold text-stone-900 flex items-center gap-2'>
-        <Ticket className='w-5 h-5 text-purple-600' /> Package Distribution &
+    <div className="space-y-6">
+      <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+        <Ticket className="w-5 h-5 text-purple-600" /> Package Distribution &
         Usage
       </h3>
-      <div className='bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden'>
-        <div className='px-6 py-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center'>
-          <h3 className='font-bold text-stone-800 text-sm'>
+      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center">
+          <h3 className="font-bold text-stone-800 text-sm">
             Issued Passes & Credits Summary
           </h3>
-          <span className='text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded-md'>
+          <span className="text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded-md">
             Click a row to view student history
           </span>
         </div>
-        <div className='overflow-x-auto'>
-          <table className='w-full text-left border-collapse'>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className='border-b border-stone-100 text-xs font-bold tracking-wider text-stone-400 bg-stone-50/50 uppercase'>
-                <th className='px-6 py-4'>Owner</th>
-                <th className='px-6 py-4'>Package Name</th>
-                <th className='px-6 py-4'>Credits Left</th>
-                <th className='px-6 py-4'>Expiry</th>
-                <th className='px-6 py-4'>Status</th>
+              <tr className="border-b border-stone-100 text-xs font-bold tracking-wider text-stone-400 bg-stone-50/50 uppercase">
+                <th className="px-6 py-4">Owner</th>
+                <th className="px-6 py-4">Package Name</th>
+                <th className="px-6 py-4">Credits Left</th>
+                <th className="px-6 py-4">Expiry</th>
+                <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
-            <tbody className='divide-y divide-stone-50'>
+            <tbody className="divide-y divide-stone-50">
               {passes.slice(0, 50).map((pass) => (
                 <tr
                   key={pass._id}
                   onClick={() => pass.userId?._id && onRowClick(pass.userId)}
-                  className='hover:bg-purple-50/50 cursor-pointer transition-colors group'>
-                  <td className='px-6 py-4 text-sm font-semibold text-stone-900 group-hover:text-purple-700 transition-colors'>
+                  className="hover:bg-purple-50/50 cursor-pointer transition-colors group"
+                >
+                  <td className="px-6 py-4 text-sm font-semibold text-stone-900 group-hover:text-purple-700 transition-colors">
                     {pass.userId?.fullName || "N/A"}
                   </td>
-                  <td className='px-6 py-4 text-sm'>
-                    <span className='px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200'>
+                  <td className="px-6 py-4 text-sm">
+                    <span className="px-2.5 py-1 bg-stone-100 text-stone-700 rounded-md text-xs font-medium border border-stone-200">
                       {pass.packageId?.packageName ||
                         pass.packageNameSnapshot ||
                         "Custom Pass"}
                     </span>
                   </td>
-                  <td className='px-6 py-4 text-sm font-extrabold text-stone-700'>
+                  <td className="px-6 py-4 text-sm font-extrabold text-stone-700">
                     {pass.remainingCredits} / {pass.initialCredits}
                   </td>
-                  <td className='px-6 py-4 text-sm text-stone-600'>
+                  <td className="px-6 py-4 text-sm text-stone-600">
                     {new Date(pass.expiryDate).toLocaleDateString()}
                   </td>
-                  <td className='px-6 py-4 text-sm'>
+                  <td className="px-6 py-4 text-sm">
                     {pass.isActive ? (
-                      <span className='px-3 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-semibold border border-stone-200'>
+                      <span className="px-3 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-semibold border border-stone-200">
                         Active
                       </span>
                     ) : (
-                      <span className='px-3 py-1 bg-stone-100 text-stone-600 rounded-full text-xs font-semibold border border-stone-200'>
+                      <span className="px-3 py-1 bg-stone-100 text-stone-600 rounded-full text-xs font-semibold border border-stone-200">
                         Inactive
                       </span>
                     )}
@@ -1222,8 +1243,9 @@ const PackageUsageSection = ({ passes, onRowClick }) => {
               {passes.length === 0 && (
                 <tr>
                   <td
-                    colSpan='5'
-                    className='px-6 py-8 text-center text-stone-400'>
+                    colSpan="5"
+                    className="px-6 py-8 text-center text-stone-400"
+                  >
                     No pass data found.
                   </td>
                 </tr>
@@ -1310,133 +1332,142 @@ const StudentAttendanceModal = ({ student, allBookings, onClose }) => {
   };
 
   return (
-    <div className='fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4'>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className='bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden'>
-        <div className='p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50 shrink-0'>
-          <div className='flex items-center gap-3'>
-            <div className='w-12 h-12 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-bold text-xl'>
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-bold text-xl">
               {student.fullName.charAt(0)}
             </div>
             <div>
-              <h3 className='text-xl font-bold text-stone-900'>
+              <h3 className="text-xl font-bold text-stone-900">
                 {student.fullName}
               </h3>
-              <p className='text-sm text-stone-500'>
+              <p className="text-sm text-stone-500">
                 Attendance History & Detail
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className='p-2 rounded-full hover:bg-stone-200 transition-colors text-stone-500'>
-            <X className='w-6 h-6' />
+            className="p-2 rounded-full hover:bg-stone-200 transition-colors text-stone-500"
+          >
+            <X className="w-6 h-6" />
           </button>
         </div>
-        <div className='p-6 overflow-y-auto flex-1 space-y-6'>
-          <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-            <div className='p-4 bg-stone-50 rounded-xl border border-stone-100 text-center'>
-              <p className='text-xs font-bold text-stone-500 uppercase tracking-wider mb-1'>
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-stone-50 rounded-xl border border-stone-100 text-center">
+              <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">
                 Total Booked
               </p>
-              <p className='text-2xl font-extrabold text-stone-900'>
+              <p className="text-2xl font-extrabold text-stone-900">
                 {stats.total}
               </p>
             </div>
-            <div className='p-4 bg-stone-100 rounded-xl border border-stone-200 text-center'>
-              <p className='text-xs font-bold text-stone-800 uppercase tracking-wider mb-1'>
+            <div className="p-4 bg-stone-100 rounded-xl border border-stone-200 text-center">
+              <p className="text-xs font-bold text-stone-800 uppercase tracking-wider mb-1">
                 Attended
               </p>
-              <p className='text-2xl font-extrabold text-stone-800'>
+              <p className="text-2xl font-extrabold text-stone-800">
                 {stats.attended}
               </p>
             </div>
-            <div className='p-4 bg-red-50 rounded-xl border border-red-100 text-center'>
-              <p className='text-xs font-bold text-red-600 uppercase tracking-wider mb-1'>
+            <div className="p-4 bg-red-50 rounded-xl border border-red-100 text-center">
+              <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">
                 Cancelled
               </p>
-              <p className='text-2xl font-extrabold text-red-700'>
+              <p className="text-2xl font-extrabold text-red-700">
                 {stats.cancelled}
               </p>
             </div>
-            <div className='p-4 bg-amber-50 rounded-xl border border-amber-100 text-center'>
-              <p className='text-xs font-bold text-amber-600 uppercase tracking-wider mb-1'>
+            <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 text-center">
+              <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">
                 Missed/Absent
               </p>
-              <p className='text-2xl font-extrabold text-amber-700'>
+              <p className="text-2xl font-extrabold text-amber-700">
                 {stats.missed}
               </p>
             </div>
           </div>
-          <div className='border border-stone-200 rounded-xl overflow-hidden'>
-            <table className='w-full text-left border-collapse'>
-              <thead>
-                <tr className='bg-stone-50/80 border-b border-stone-200 text-xs font-bold tracking-wider text-stone-500 uppercase'>
-                  <th className='px-4 py-3'>Date</th>
-                  <th className='px-4 py-3'>Class Name</th>
-                  <th className='px-4 py-3'>Instructor</th>
-                  <th className='px-4 py-3'>Status</th>
-                </tr>
-              </thead>
-              <tbody className='divide-y divide-stone-100'>
-                {studentBookings.map((b) => {
-                  const isPast = new Date(b.bookingDate) < new Date();
-                  const isAbsent =
-                    !b.isAttend && b.status !== "Cancelled" && isPast;
-                  return (
-                    <tr
-                      key={b._id}
-                      className='hover:bg-stone-50 transition-colors'>
-                      <td className='px-4 py-3 text-sm text-stone-600'>
-                        {new Date(b.bookingDate).toLocaleDateString()}
-                      </td>
-                      <td className='px-4 py-3 text-sm font-semibold text-stone-900'>
-                        {b.classId?.className || "Removed"}
-                      </td>
-                      <td className='px-4 py-3 text-sm text-stone-600'>
-                        {b.instructorId?.fullName || "-"}
-                      </td>
-                      <td className='px-4 py-3 text-sm'>
-                        {b.status === "Cancelled" ? (
-                          <span className='text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-100'>
-                            Cancelled
-                          </span>
-                        ) : b.isAttend ? (
-                          <span className='text-xs font-semibold text-stone-800 bg-stone-100 px-2 py-1 rounded border border-stone-200'>
-                            Checked In
-                          </span>
-                        ) : isAbsent ? (
-                          <span className='text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100'>
-                            Absent
-                          </span>
-                        ) : (
-                          <span className='text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-1 rounded border border-stone-200'>
-                            Upcoming
-                          </span>
-                        )}
+          <div className="border border-stone-200 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-stone-50/80 border-b border-stone-200 text-xs font-bold tracking-wider text-stone-500 uppercase">
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Class Name</th>
+                    <th className="px-4 py-3">Instructor</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {studentBookings.map((b) => {
+                    const isPast = new Date(b.bookingDate) < new Date();
+                    const isAbsent =
+                      !b.isAttend && b.status !== "Cancelled" && isPast;
+                    return (
+                      <tr
+                        key={b._id}
+                        className="hover:bg-stone-50 transition-colors"
+                      >
+                        <td className="px-4 py-3 text-sm text-stone-600">
+                          {new Date(b.bookingDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-stone-900">
+                          {b.classId?.className || "Removed"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-600">
+                          {b.instructorId?.fullName || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {b.status === "Cancelled" ? (
+                            <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-100">
+                              Cancelled
+                            </span>
+                          ) : b.isAttend ? (
+                            <span className="text-xs font-semibold text-stone-800 bg-stone-100 px-2 py-1 rounded border border-stone-200">
+                              Checked In
+                            </span>
+                          ) : isAbsent ? (
+                            <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100">
+                              Absent
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-1 rounded border border-stone-200">
+                              Upcoming
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {studentBookings.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan="4"
+                        className="text-center py-8 text-stone-400"
+                      >
+                        No bookings recorded for this student.
                       </td>
                     </tr>
-                  );
-                })}
-                {studentBookings.length === 0 && (
-                  <tr>
-                    <td colSpan='4' className='text-center py-8 text-stone-400'>
-                      No bookings recorded for this student.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <div className='p-4 border-t border-stone-100 bg-stone-50 flex justify-end shrink-0'>
+        <div className="p-4 border-t border-stone-100 bg-stone-50 flex justify-end shrink-0">
           <button
             onClick={generateStudentPDF}
-            className='flex items-center gap-2 px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl transition-colors shadow-sm'>
-            <FileText className='w-4 h-4' /> Download Student PDF
+            className="flex items-center gap-2 px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl transition-colors shadow-sm"
+          >
+            <FileText className="w-4 h-4" /> Download Student PDF
           </button>
         </div>
       </motion.div>
@@ -1548,10 +1579,9 @@ const StudioReports = () => {
             API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
             { headers: revenueRequestHeaders },
           ),
-          axiosInstance.get(
-            `/api/passes/history/${user.adminStudioLocation}`,
-            { headers: revenueRequestHeaders },
-          ),
+          axiosInstance.get(`/api/passes/history/${user.adminStudioLocation}`, {
+            headers: revenueRequestHeaders,
+          }),
         ]);
         if (purchaseResponse.data) setTransactions(purchaseResponse.data);
         if (passResponse.data) setPasses(passResponse.data);
@@ -1636,7 +1666,7 @@ const StudioReports = () => {
           : Math.round((methodStats[key] / totalRevenue) * 100),
       color:
         key === "Pay at Studio"
-          ? "bg-stone-500"
+          ? "bg-stone-900"
           : key === "Transfer"
             ? "bg-blue-500"
             : "bg-purple-500",
@@ -1914,36 +1944,36 @@ const StudioReports = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className='p-6 md:p-10 bg-stone-50 h-full overflow-y-auto relative'>
-      <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-stone-200 pb-8 bg-white p-6 rounded-2xl shadow-sm'>
+    <div className="p-6 md:p-10 bg-stone-50 h-full overflow-y-auto relative">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-stone-200 pb-8 bg-white p-6 rounded-2xl shadow-sm">
         <div>
-          <h2 className='text-3xl font-extrabold text-stone-900 tracking-tight'>
+          <h2 className="text-3xl font-extrabold text-stone-900 tracking-tight">
             Master Studio Report
           </h2>
-          <p className='text-stone-500 mt-1 max-w-lg'>
+          <p className="text-stone-500 mt-1 max-w-lg">
             Comprehensive performance data across financials, attendance,
             instructors, and packages. Apply filters below to customize the
             view.
           </p>
         </div>
-        <div className='flex flex-wrap gap-3 items-center w-full md:w-auto'>
-          <div className='w-28'>
+        <div className="flex flex-wrap gap-3 items-center w-full md:w-auto">
+          <div className="w-28">
             <CustomSelect
               value={selectedYear}
               onChange={setSelectedYear}
               options={yearOptions}
-              placeholder='Year'
+              placeholder="Year"
             />
           </div>
-          <div className='w-36'>
+          <div className="w-36">
             <CustomSelect
               value={monthNames[selectedMonth]}
               onChange={(val) => setSelectedMonth(monthNames.indexOf(val))}
               options={availableMonths}
-              placeholder='Month'
+              placeholder="Month"
             />
           </div>
-          <div className='w-56'>
+          <div className="w-56">
             <CustomSelect
               value={
                 studentOptions.find((o) => o.value === selectedStudentId)
@@ -1951,20 +1981,21 @@ const StudioReports = () => {
               }
               onChange={setSelectedStudentId}
               options={studentOptions}
-              placeholder='Filter Student'
+              placeholder="Filter Student"
             />
           </div>
           <button
             onClick={generateMasterPDF}
-            className='flex items-center gap-2 bg-stone-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-stone-700 transition-colors w-full md:w-auto justify-center group'>
-            <FileDown className='w-4 h-4 group-hover:-translate-y-0.5 transition-transform' />{" "}
+            className="flex items-center gap-2 bg-stone-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-stone-800 transition-colors w-full md:w-auto justify-center group"
+          >
+            <FileDown className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />{" "}
             Export Master PDF
           </button>
         </div>
       </div>
 
-      <div className='space-y-12 pb-20'>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
+      <div className="space-y-12 pb-20">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
           {isRevenueLocked ? (
             <PasswordGateInline
               onUnlock={unlockRevenue}
@@ -1981,7 +2012,7 @@ const StudioReports = () => {
             />
           )}
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
           <AttendanceSection
             bookings={attendanceStats.data}
             stats={attendanceStats.stats}
@@ -1989,13 +2020,13 @@ const StudioReports = () => {
             selectedStudentName={selectedStudentName}
           />
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
           <InstructorSection
             stats={instructorStats.data}
             classesCount={instructorStats.totalClasses}
           />
         </div>
-        <div className='bg-white p-6 rounded-2xl shadow-sm border border-stone-100'>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
           <PackageUsageSection
             passes={packageFiltered}
             onRowClick={setModalStudent}

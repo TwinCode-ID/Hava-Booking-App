@@ -226,7 +226,7 @@ const StudioDetails = () => {
 
             {/* Book Button */}
             <div className='pb-8'>
-              <button className='w-full bg-stone-600 text-white font-bold py-4 rounded-full shadow-lg hover:bg-stone-700 transition-transform active:scale-[0.98] text-lg'>
+              <button className='w-full bg-stone-900 text-white font-bold py-4 rounded-full shadow-lg hover:bg-stone-800 transition-transform active:scale-[0.98] text-lg'>
                 Book a Class
               </button>
             </div>

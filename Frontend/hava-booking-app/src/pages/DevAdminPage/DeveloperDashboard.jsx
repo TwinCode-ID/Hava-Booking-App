@@ -232,7 +232,7 @@ const DevelopmentDashboard = () => {
   };
 
   return (
-    <div className='min-h-screen bg-stone-50 text-stone-900 p-4 md:p-8 lg:p-10 font-sans w-full max-w-[100vw] overflow-x-hidden custom-scrollbar'>
+    <div className='min-h-screen bg-canvas text-stone-900 p-4 md:p-8 lg:p-10 font-sans w-full max-w-[100vw] overflow-x-hidden custom-scrollbar'>
       <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8'>
         <div>
           <h1 className='text-[26px] font-extrabold text-stone-900 tracking-tight'>
@@ -240,7 +240,7 @@ const DevelopmentDashboard = () => {
           </h1>
           <div className='flex items-center gap-2 mt-1'>
             <span className='flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-stone-100 border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-800'>
-              <div className='w-1.5 h-1.5 rounded-full bg-stone-500 animate-pulse' />
+              <div className='w-1.5 h-1.5 rounded-full bg-stone-900 animate-pulse' />
               Dev Team Access
             </span>
             <span className='text-xs font-medium text-stone-500'>
@@ -340,7 +340,7 @@ const DevelopmentDashboard = () => {
               </h2>
               <button
                 onClick={() => setIsCreateStudioOpen(true)}
-                className='px-5 py-2.5 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
+                className='px-5 py-2.5 bg-stone-900 text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-800 transition-all active:scale-[0.98]'>
                 <Plus className='w-4 h-4' /> New Studio
               </button>
             </div>
@@ -372,7 +372,7 @@ const DevelopmentDashboard = () => {
               </div>
               <button
                 onClick={() => setIsCreateUserOpen(true)}
-                className='px-5 py-3 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
+                className='px-5 py-3 bg-stone-900 text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-800 transition-all active:scale-[0.98]'>
                 <Plus className='w-4 h-4' /> New User
               </button>
             </div>
@@ -480,7 +480,7 @@ const DevelopmentDashboard = () => {
               </div>
               <button
                 onClick={() => setIsCreateInstructorOpen(true)}
-                className='px-5 py-3 bg-stone-600 text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all active:scale-[0.98]'>
+                className='px-5 py-3 bg-stone-900 text-white rounded-[14px] text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-800 transition-all active:scale-[0.98]'>
                 <Plus className='w-4 h-4' /> New Instructor
               </button>
             </div>
@@ -681,7 +681,7 @@ const TabButton = ({ active, onClick, label, icon }) => (
     onClick={onClick}
     className={`px-5 py-2.5 rounded-[14px] text-[13px] font-bold transition-all whitespace-nowrap flex items-center gap-2 shrink-0 ${
       active
-        ? "bg-stone-600 text-white shadow-md"
+        ? "bg-stone-900 text-white shadow-md"
         : "bg-white text-stone-500 border border-stone-200 hover:bg-stone-50"
     }`}>
     {React.cloneElement(icon, { className: "w-4 h-4" })} {label}
@@ -812,7 +812,7 @@ const MetricBox = ({
           {value}
         </h3>
         <div className='flex items-center gap-1.5 text-stone-800 font-bold text-[10px] uppercase tracking-widest mb-1.5 bg-stone-100 px-2 py-1 rounded-md border border-stone-200'>
-          <span className='w-1.5 h-1.5 bg-stone-500 rounded-full animate-ping' />{" "}
+          <span className='w-1.5 h-1.5 bg-stone-900 rounded-full animate-ping' />{" "}
           LIVE
         </div>
       </div>
@@ -874,7 +874,7 @@ const DetailsModal = ({
       : 0;
 
   return (
-    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1068,7 +1068,7 @@ const StudioModal = ({ studio, onClose, onSuccess, getAuthHeaders }) => {
   };
 
   return (
-    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1151,7 +1151,7 @@ const StudioModal = ({ studio, onClose, onSuccess, getAuthHeaders }) => {
           <button
             type='submit'
             onClick={handleSubmit}
-            className='w-full bg-stone-600 text-white py-4 rounded-[16px] font-bold text-[15px] hover:bg-stone-700 transition-all shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)]'>
+            className='w-full bg-stone-900 text-white py-4 rounded-[16px] font-bold text-[15px] hover:bg-stone-800 transition-all shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)]'>
             Save Studio
           </button>
         </div>
@@ -1285,7 +1285,7 @@ const UserModal = ({
   };
 
   return (
-    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1450,7 +1450,7 @@ const UserModal = ({
             type='submit'
             onClick={handleSubmit}
             disabled={loading}
-            className='flex-1 py-4 bg-stone-600 text-white font-bold rounded-[16px] shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
+            className='flex-1 py-4 bg-stone-900 text-white font-bold rounded-[16px] shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-800 transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
             {loading ? "Saving..." : "Save User"}
           </button>
         </div>
@@ -1540,7 +1540,7 @@ const InstructorModal = ({
   };
 
   return (
-    <div className='fixed inset-0 bg-stone-700/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
+    <div className='fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4'>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1628,7 +1628,7 @@ const InstructorModal = ({
                     onClick={() => handleStudioToggle(studio._id)}
                     className={`flex items-center gap-3 p-3.5 border rounded-xl hover:bg-stone-50 cursor-pointer transition-all bg-white ${isChecked ? "border-stone-500/30" : "border-stone-200"}`}>
                     <div
-                      className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${isChecked ? "bg-stone-600 border-stone-500" : "border-stone-300"}`}>
+                      className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${isChecked ? "bg-stone-900 border-stone-500" : "border-stone-300"}`}>
                       {isChecked && (
                         <svg
                           className='w-3 h-3 text-white'
@@ -1665,7 +1665,7 @@ const InstructorModal = ({
               }
               className='flex items-center gap-3 cursor-pointer w-fit'>
               <div
-                className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${formData.isActive ? "bg-stone-600 border-stone-500" : "border-stone-300"}`}>
+                className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center border transition-colors ${formData.isActive ? "bg-stone-900 border-stone-500" : "border-stone-300"}`}>
                 {formData.isActive && (
                   <svg
                     className='w-3 h-3 text-white'
@@ -1699,7 +1699,7 @@ const InstructorModal = ({
             type='submit'
             onClick={handleSubmit}
             disabled={loading}
-            className='flex-1 py-4 bg-stone-600 text-white font-bold rounded-[14px] shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-700 transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
+            className='flex-1 py-4 bg-stone-900 text-white font-bold rounded-[14px] shadow-[0_4px_14px_-4px_rgba(5,150,105,0.35)] hover:bg-stone-800 transition-all text-[14px] disabled:opacity-50 disabled:shadow-none'>
             {loading ? "Saving..." : "Save Instructor"}
           </button>
         </div>

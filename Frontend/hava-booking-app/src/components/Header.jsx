@@ -128,7 +128,7 @@ const Header = () => {
                 </a>
                 <a
                   href='/signup'
-                  className='bg-stone-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-stone-700 transition-all duration-300 shadow-sm hover:shadow-md'>
+                  className='bg-stone-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-stone-800 transition-all duration-300 shadow-sm hover:shadow-md'>
                   Sign Up
                 </a>
               </div>
@@ -181,7 +181,7 @@ const Header = () => {
                     <div className='md:flex items-center mr-auto transition-all duration-100 ease-in-out'>
                       <a
                         href='/signup'
-                        className='bg-stone-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-stone-700 transition-all duration-300 shadow-sm hover:shadow-md'>
+                        className='bg-stone-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-stone-800 transition-all duration-300 shadow-sm hover:shadow-md'>
                         Sign Up
                       </a>
                       <a

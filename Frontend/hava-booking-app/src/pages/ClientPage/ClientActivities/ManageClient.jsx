@@ -83,7 +83,7 @@ const ManageClient = () => {
         onClick={() => setActiveTab(tab.id)}
         className={`flex items-center gap-2 px-3 md:px-4 py-2.5 rounded-xl transition-all duration-200 border whitespace-nowrap ${
           isActive
-            ? `bg-stone-700 text-white border-stone-700 shadow-md`
+            ? `bg-stone-900 text-white border-stone-700 shadow-md`
             : "bg-white border-transparent hover:bg-stone-50 text-stone-500 hover:text-stone-900"
         }`}>
         <Icon className={`w-5 h-5 ${isActive ? "text-white" : tab.color}`} />

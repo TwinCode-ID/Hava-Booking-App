@@ -62,7 +62,7 @@ const PurchaseRow = ({ purchase, getStatusColor, onReview }) => {
 
         <button
           onClick={onReview}
-          className='flex items-center gap-2 bg-stone-600 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-stone-700 transition-colors shadow-lg shadow-stone-600/20 active:scale-95'>
+          className='flex items-center gap-2 bg-stone-900 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-stone-800 transition-colors shadow-lg shadow-stone-900/20 active:scale-95'>
           <Eye className='w-4 h-4' /> Review
         </button>
       </div>

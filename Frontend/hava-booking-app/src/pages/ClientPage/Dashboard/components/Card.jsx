@@ -93,13 +93,13 @@ const Card = () => {
 
   if (loading)
     return (
-      <div className='h-screen flex items-center justify-center bg-stone-50'>
+      <div className='h-screen flex items-center justify-center bg-canvas'>
         <LoadingSpinner />
       </div>
     );
 
   return (
-    <div className='p-6 md:p-10 bg-[#FAFAFA] min-h-screen font-sans'>
+    <div className='p-6 md:p-10 bg-canvas min-h-screen font-sans'>
       {/* --- HEADER --- */}
       <div className='mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6'>
         <div>
@@ -116,7 +116,7 @@ const Card = () => {
         </div>
         <button
           onClick={() => navigate("/book-the-class")}
-          className='flex items-center gap-2 bg-[#0f392b] text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-stone-600 transition-all shadow-xl shadow-stone-600/10 active:scale-95 group'>
+          className='flex items-center gap-2 bg-stone-900 text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-stone-800 transition-all shadow-xl shadow-stone-600/10 active:scale-95 group'>
           <Plus className='w-5 h-5' />
           <span>Book New Class</span>
         </button>
@@ -169,12 +169,12 @@ const Card = () => {
               animate={{ opacity: 1, y: 0 }}
               className='bg-white rounded-[2rem] border border-stone-100 shadow-sm overflow-hidden relative group'>
               {/* Decorative Accent */}
-              <div className='absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-stone-500 to-[#0f392b]' />
+              <div className='absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-stone-900 to-stone-800' />
 
               <div className='p-8'>
                 <div className='flex items-start justify-between mb-6'>
                   <div className='flex gap-2 items-center'>
-                    <span className='flex h-2 w-2 rounded-full bg-stone-500 animate-pulse'></span>
+                    <span className='flex h-2 w-2 rounded-full bg-stone-900 animate-pulse'></span>
                     <span className='text-xs font-bold text-stone-800 uppercase tracking-wider'>
                       Up Next
                     </span>
@@ -250,7 +250,7 @@ const Card = () => {
             </motion.div>
           ) : (
             // --- EMPTY STATE BANNER ---
-            <div className='bg-gradient-to-br from-[#0f392b] to-stone-700 rounded-[2rem] p-10 text-white relative overflow-hidden shadow-lg'>
+            <div className='bg-gradient-to-br from-stone-900 to-stone-800 rounded-[2rem] p-10 text-white relative overflow-hidden shadow-lg'>
               <div className='relative z-10 max-w-lg'>
                 <h2 className='text-3xl font-bold mb-3'>Start your journey</h2>
                 <p className='text-stone-200 mb-8 text-base opacity-90 leading-relaxed max-w-sm'>
@@ -266,7 +266,7 @@ const Card = () => {
               </div>
 
               {/* Decorative Circles */}
-              <div className='absolute -right-12 -bottom-32 w-80 h-80 bg-stone-500/20 rounded-full blur-3xl'></div>
+              <div className='absolute -right-12 -bottom-32 w-80 h-80 bg-stone-900/20 rounded-full blur-3xl'></div>
               <div className='absolute right-20 -top-20 w-60 h-60 bg-white/5 rounded-full blur-2xl'></div>
             </div>
           )}
@@ -292,7 +292,7 @@ const Card = () => {
                         className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-[3px] border-white shadow-sm z-10 ${
                           activity.status === "Cancelled"
                             ? "bg-red-500"
-                            : "bg-stone-500"
+                            : "bg-stone-900"
                         }`}></div>
 
                       {/* Content */}

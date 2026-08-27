@@ -487,13 +487,13 @@ const AdminDashboard = () => {
 
   if (loading && bookings.length === 0 && schedules.length === 0)
     return (
-      <div className='flex h-screen items-center justify-center bg-stone-50'>
+      <div className='flex h-screen items-center justify-center bg-canvas'>
         <LoadingSpinner />
       </div>
     );
 
   return (
-    <div className='max-w-480 mx-auto h-full flex flex-col lg:flex-row bg-stone-50 overflow-hidden relative'>
+    <div className='max-w-480 mx-auto h-full flex flex-col lg:flex-row bg-canvas overflow-hidden relative'>
       {/* LEFT COLUMN */}
       <div className='flex-1 flex flex-col h-full overflow-hidden order-2 lg:order-1'>
         {/* MOBILE HEADER */}
@@ -576,7 +576,7 @@ const AdminDashboard = () => {
             {!isToday && (
               <button
                 onClick={jumpToToday}
-                className='flex flex-col items-center justify-center px-3 py-2 bg-stone-600 text-white rounded-lg shadow-sm active:scale-95 transition-all'>
+                className='flex flex-col items-center justify-center px-3 py-2 bg-stone-900 text-white rounded-lg shadow-sm active:scale-95 transition-all'>
                 <RotateCcw className='w-4 h-4 mb-0.5' />
                 <span className='text-[10px] font-bold uppercase'>Today</span>
               </button>
@@ -585,7 +585,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* DESKTOP CONTENT */}
-        <div className='flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scrollbar bg-stone-50'>
+        <div className='flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scrollbar bg-canvas'>
           <div className='hidden lg:flex mb-8 justify-between items-end gap-6'>
             <div>
               <h1 className='text-3xl font-bold text-stone-900'>
@@ -611,7 +611,7 @@ const AdminDashboard = () => {
                 </div>
                 <button
                   onClick={() => setShowScanner(true)}
-                  className='p-2.5 bg-stone-700 text-white rounded-xl hover:bg-stone-600 transition-all shadow-md flex items-center gap-2 whitespace-nowrap'>
+                  className='p-2.5 bg-stone-900 text-white rounded-xl hover:bg-stone-800 transition-all shadow-md flex items-center gap-2 whitespace-nowrap'>
                   <QrCode className='w-5 h-5' />
                   <span className='text-sm font-bold hidden xl:block'>
                     Scan
@@ -627,13 +627,13 @@ const AdminDashboard = () => {
                 <div
                   key={cls._id}
                   onClick={() => setSelectedClassDetails(cls)}
-                  className='bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md hover:border-stone-300 transition-all cursor-pointer group overflow-hidden'>
+                  className='bg-white rounded-2xl border border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300 transition-all cursor-pointer group overflow-hidden'>
                   <div
                     className={`h-1.5 w-full ${cls.classType === "Private" ? "bg-purple-500" : "bg-blue-500"}`}></div>
                   <div className='p-5 md:p-6'>
                     <div className='flex justify-between items-start mb-3'>
                       <div className='flex items-center gap-3'>
-                        <div className='px-3 py-1.5 bg-stone-700 text-white rounded-lg text-sm font-bold shadow-sm'>
+                        <div className='px-3 py-1.5 bg-stone-900 text-white rounded-lg text-sm font-bold shadow-sm'>
                           {format(new Date(cls.startTime), "HH:mm")}
                           <span className='text-stone-400 font-normal mx-1'>
                             -
@@ -668,7 +668,7 @@ const AdminDashboard = () => {
                             {cls.students.filter((s) => s.isAttend).length}/
                             {cls.capacity || cls.students.length}
                           </span>
-                          <div className='w-2 h-2 rounded-full bg-stone-500'></div>
+                          <div className='w-2 h-2 rounded-full bg-stone-900'></div>
                         </div>
                       </div>
                     </div>
@@ -694,7 +694,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* RIGHT COLUMN */}
-      <div className='hidden lg:flex w-100 xl:w-112.5 bg-white border-l border-stone-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
+      <div className='hidden lg:flex w-100 xl:w-112.5 bg-canvas border-l border-stone-200 p-8 flex-col gap-8 h-full overflow-y-auto shrink-0 order-2'>
         <div className='space-y-4'>
           <DigitalClock />
           {!isSameDay(selectedDate, new Date()) && (
@@ -711,7 +711,7 @@ const AdminDashboard = () => {
           />
 
           <div className='grid grid-cols-2 gap-4'>
-            <div className='bg-stone-700 text-white p-6 rounded-2xl shadow-xl shadow-stone-200 relative overflow-hidden flex items-center justify-between'>
+            <div className='bg-stone-900 text-white p-6 rounded-2xl shadow-xl shadow-stone-200 relative overflow-hidden flex items-center justify-between'>
               <div className='relative z-10'>
                 <p className='text-stone-400 text-xs font-bold uppercase tracking-wider'>
                   Total Students
@@ -722,7 +722,7 @@ const AdminDashboard = () => {
               </div>
               <Users className='w-12 h-12 text-white' />
             </div>
-            <div className='bg-stone-100 text-stone-900 p-6 rounded-2xl border border-stone-200 flex items-center justify-between'>
+            <div className='bg-white text-stone-900 p-6 rounded-2xl border border-stone-200 flex items-center justify-between'>
               <div>
                 <p className='text-stone-800 text-xs font-bold uppercase tracking-wider'>
                   Total Classes
@@ -774,7 +774,7 @@ const AdminDashboard = () => {
             </div>
             <button
               onClick={handlePreviewReport}
-              className='w-full flex items-center justify-center gap-2 py-3 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors shadow-md'>
+              className='w-full flex items-center justify-center gap-2 py-3 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-colors shadow-md'>
               <Eye className='w-4 h-4' /> Preview Report
             </button>
           </div>
@@ -871,7 +871,7 @@ const AdminDashboard = () => {
                         </p>
                         <button
                           onClick={() => setScanError(null)}
-                          className='w-full py-3 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors shadow-lg'>
+                          className='w-full py-3 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-colors shadow-lg'>
                           Scan Again
                         </button>
                       </div>
@@ -981,7 +981,7 @@ const AdminDashboard = () => {
                 <div className='flex items-center gap-3'>
                   <button
                     onClick={handleDownloadReport}
-                    className='flex items-center gap-2 px-4 py-2 bg-stone-600 text-white font-bold rounded-lg hover:bg-stone-700 transition-colors shadow-sm'>
+                    className='flex items-center gap-2 px-4 py-2 bg-stone-900 text-white font-bold rounded-lg hover:bg-stone-800 transition-colors shadow-sm'>
                     <Download className='w-4 h-4' /> Download PDF
                   </button>
                   <button
@@ -1015,11 +1015,11 @@ const DigitalClock = () => {
     return () => clearInterval(timer);
   }, []);
   return (
-    <div className='bg-stone-700 text-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center'>
+    <div className='bg-stone-900 text-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center'>
       <h3 className='text-4xl font-bold font-mono tracking-wider'>
         {format(time, "HH:mm:ss")}
       </h3>
-      <p className='text-stone-600 text-xs font-bold uppercase tracking-widest mt-1'>
+      <p className='text-stone-400 text-xs font-bold uppercase tracking-widest mt-1'>
         {format(time, "EEEE, d MMM")}
       </p>
     </div>
@@ -1102,7 +1102,7 @@ const ScanResultModal = ({ booking, onClose, onSuccess }) => {
           <button
             onClick={handleCheckIn}
             disabled={loading}
-            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${booking.isAttend ? "bg-stone-100 text-stone-600 hover:bg-stone-200" : "bg-stone-600 text-white hover:bg-stone-700"}`}>
+            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${booking.isAttend ? "bg-stone-100 text-stone-600 hover:bg-stone-200" : "bg-stone-900 text-white hover:bg-stone-800"}`}>
             {loading ? (
               <LoadingSpinner size='sm' />
             ) : booking.isAttend ? (
@@ -1266,7 +1266,7 @@ const PassScanResultModal = ({
                   <button
                     onClick={() => handleAssignAndDeduct(cls)}
                     disabled={loadingId === cls._id}
-                    className='w-full sm:w-auto px-4 py-2.5 bg-stone-600 text-white font-bold rounded-lg hover:bg-stone-700 transition-colors shadow-sm whitespace-nowrap flex justify-center'>
+                    className='w-full sm:w-auto px-4 py-2.5 bg-stone-900 text-white font-bold rounded-lg hover:bg-stone-800 transition-colors shadow-sm whitespace-nowrap flex justify-center'>
                     {loadingId === cls._id ? (
                       <LoadingSpinner size='sm' />
                     ) : (
@@ -1320,7 +1320,7 @@ const AttendanceSummaryModal = ({ date, bookings, onClose }) => {
         <div className='flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6'>
           <div>
             <div className='flex items-center gap-2 mb-3'>
-              <div className='w-2 h-2 rounded-full bg-stone-500'></div>
+              <div className='w-2 h-2 rounded-full bg-stone-900'></div>
               <h3 className='text-sm font-bold text-stone-900 uppercase tracking-wider'>
                 Present ({present.length})
               </h3>
@@ -1478,7 +1478,7 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
-              className='h-full bg-stone-500 rounded-full'
+              className='h-full bg-stone-900 rounded-full'
             />
           </div>
         </div>
@@ -1511,7 +1511,7 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
                     </div>
                     <button
                       onClick={() => toggleAttendance(student.bookingId)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${isCheckedIn ? "bg-stone-500 border-stone-500 text-white shadow-md shadow-stone-300 hover:bg-stone-600" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50"}`}>
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${isCheckedIn ? "bg-stone-900 border-stone-900 text-white shadow-md shadow-stone-300 hover:bg-stone-800" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50"}`}>
                       {isCheckedIn ? (
                         <>
                           <CheckCircle2 className='w-3.5 h-3.5' /> Checked In
@@ -1541,7 +1541,7 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
               className='p-4 border-t border-stone-100 bg-white'>
               <button
                 onClick={() => setShowConfirm(true)}
-                className='w-full py-3.5 bg-stone-700 text-white font-bold rounded-xl hover:bg-stone-600 transition-colors shadow-lg flex items-center justify-center gap-2'>
+                className='w-full py-3.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-colors shadow-lg flex items-center justify-center gap-2'>
                 <Save className='w-4 h-4' /> Save Changes
               </button>
             </motion.div>
@@ -1565,7 +1565,7 @@ const ClassDetailsModal = ({ cls, onClose, onSaveSuccess }) => {
                 <button
                   onClick={handleSaveChanges}
                   disabled={isSaving}
-                  className='flex-1 py-2.5 bg-stone-600 text-white font-bold rounded-xl hover:bg-stone-700'>
+                  className='flex-1 py-2.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800'>
                   {isSaving ? "Saving..." : "Yes, Save"}
                 </button>
               </div>
@@ -1608,7 +1608,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
   const handleYearChange = (e) =>
     setViewDate(setYear(viewDate, parseInt(e.target.value)));
   return (
-    <div className='bg-stone-50 p-4 rounded-2xl border border-stone-200 select-none'>
+    <div className='bg-white p-4 rounded-2xl border border-stone-200 select-none'>
       <div className='flex justify-between items-center mb-4 gap-2'>
         <button
           onClick={() => setViewDate((prev) => addMonths(prev, -1))}
@@ -1662,7 +1662,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, forceViewDate }) => {
             <button
               key={day.toString()}
               onClick={() => onSelectDate(day)}
-              className={`h-8 w-full rounded-lg flex items-center justify-center text-xs font-medium transition-all ${isSelected ? "bg-stone-600 text-white shadow-md font-bold" : "text-stone-700 hover:bg-white hover:shadow-sm"}`}>
+              className={`h-8 w-full rounded-lg flex items-center justify-center text-xs font-medium transition-all ${isSelected ? "bg-stone-900 text-white shadow-md font-bold" : "text-stone-700 hover:bg-white hover:shadow-sm"}`}>
               {format(day, "d")}
             </button>
           );

@@ -163,7 +163,7 @@ const AdminInbox = () => {
   }, [selectedChat, user._id]);
 
   return (
-    <div className='h-[calc(100vh-64px)] md:h-screen bg-stone-50 flex p-4 md:p-6 gap-4 font-sans'>
+    <div className='h-[calc(100vh-64px)] md:h-screen bg-canvas flex p-4 md:p-6 gap-4 font-sans'>
       {/* --- LEFT PANEL: INBOX LIST --- */}
       <div
         className={`bg-white border border-stone-200 rounded-2xl shadow-sm flex flex-col w-full md:w-80 lg:w-96 shrink-0 overflow-hidden ${selectedChat ? "hidden md:flex" : "flex"}`}>
@@ -230,7 +230,7 @@ const AdminInbox = () => {
 
                 {/* Unread Badge */}
                 {conv.unreadCountStudio > 0 && (
-                  <div className='flex items-center justify-center self-center shrink-0 w-5 h-5 bg-stone-500 rounded-full text-[10px] font-bold text-white shadow-sm'>
+                  <div className='flex items-center justify-center self-center shrink-0 w-5 h-5 bg-stone-900 rounded-full text-[10px] font-bold text-white shadow-sm'>
                     {conv.unreadCountStudio}
                   </div>
                 )}
@@ -297,7 +297,7 @@ const AdminInbox = () => {
             </div>
 
             {/* Messages Area */}
-            <div className='flex-1 overflow-y-auto p-4 md:p-6 bg-[#f8fafc] space-y-4 custom-scrollbar'>
+            <div className='flex-1 overflow-y-auto p-4 md:p-6 bg-stone-50 space-y-4 custom-scrollbar'>
               {loadingMessages ? (
                 <div className='h-full flex items-center justify-center'>
                   <LoadingSpinner />
@@ -315,7 +315,7 @@ const AdminInbox = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className={`max-w-[75%] md:max-w-[65%] rounded-2xl p-3.5 shadow-sm relative ${
                           isAdmin
-                            ? "bg-stone-600 text-white rounded-tr-sm"
+                            ? "bg-stone-900 text-white rounded-tr-sm"
                             : "bg-white border border-stone-200 text-stone-800 rounded-tl-sm"
                         }`}>
                         <p className='text-sm leading-relaxed'>{msg.text}</p>
@@ -361,7 +361,7 @@ const AdminInbox = () => {
                 <button
                   type='submit'
                   disabled={!newMessage.trim() || sending}
-                  className='w-12 h-12 shrink-0 bg-stone-600 text-white rounded-full flex items-center justify-center hover:bg-stone-700 disabled:opacity-50 disabled:hover:bg-stone-700 transition-all shadow-md hover:shadow-lg'>
+                  className='w-12 h-12 shrink-0 bg-stone-900 text-white rounded-full flex items-center justify-center hover:bg-stone-800 disabled:opacity-50 disabled:hover:bg-stone-800 transition-all shadow-md hover:shadow-lg'>
                   {sending ? (
                     <Loader2 className='w-5 h-5 animate-spin' />
                   ) : (

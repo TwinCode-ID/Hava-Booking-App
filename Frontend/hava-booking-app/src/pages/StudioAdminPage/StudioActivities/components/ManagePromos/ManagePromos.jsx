@@ -397,7 +397,7 @@ const ManagePromos = () => {
           </div>
           <button
             onClick={() => setShowFormModal(true)}
-            className='flex items-center gap-2 bg-stone-600 hover:bg-stone-700 text-white px-5 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors shrink-0'>
+            className='flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white px-5 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors shrink-0'>
             <Plus className='w-4 h-4' /> New Campaign
           </button>
         </div>
@@ -564,7 +564,7 @@ const ManagePromos = () => {
 
       <AnimatePresence>
         {showFormModal && (
-          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-700/50 backdrop-blur-sm'>
+          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-sm'>
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -850,7 +850,7 @@ const ManagePromos = () => {
                 <div className='pt-5 border-t border-stone-100 bg-white sticky bottom-0 -mx-6 -mb-6 p-6'>
                   <button
                     type='submit'
-                    className='w-full bg-stone-600 hover:bg-stone-700 text-white font-extrabold py-4 rounded-md shadow-md transition-all tracking-tight'>
+                    className='w-full bg-stone-900 hover:bg-stone-800 text-white font-extrabold py-4 rounded-md shadow-md transition-all tracking-tight'>
                     {editingPromoId ? "Save Changes" : "Create Campaign"}
                   </button>
                 </div>
@@ -862,7 +862,7 @@ const ManagePromos = () => {
 
       <AnimatePresence>
         {showCodesModal && selectedPromoForCodes && (
-          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-700/50 backdrop-blur-sm'>
+          <div className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-sm'>
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}

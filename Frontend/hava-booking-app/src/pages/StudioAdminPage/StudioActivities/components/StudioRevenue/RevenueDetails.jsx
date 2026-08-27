@@ -176,7 +176,7 @@ const PasswordGate = ({ onUnlock, error, setError }) => {
           </p>
           <Link
             to='/admin-account-settings'
-            className='w-full py-3 bg-stone-600 text-white rounded-xl font-semibold hover:bg-stone-700 transition-colors flex justify-center items-center'>
+            className='w-full py-3 bg-stone-900 text-white rounded-xl font-semibold hover:bg-stone-800 transition-colors flex justify-center items-center'>
             Create Password
           </Link>
         </div>
@@ -211,7 +211,7 @@ const PasswordGate = ({ onUnlock, error, setError }) => {
           <button
             disabled={verifying || !password}
             type='submit'
-            className='w-full py-3 bg-stone-600 text-white rounded-xl font-semibold hover:bg-stone-700 transition-colors flex justify-center items-center gap-2'>
+            className='w-full py-3 bg-stone-900 text-white rounded-xl font-semibold hover:bg-stone-800 transition-colors flex justify-center items-center gap-2'>
             {verifying ? "Verifying..." : "Unlock Revenue Data"}
           </button>
         </form>
@@ -572,7 +572,7 @@ const RevenueDetails = () => {
           : Math.round((methodStats[key] / totalRevenue) * 100),
       color:
         key === "Pay at Studio"
-          ? "bg-stone-500"
+          ? "bg-stone-900"
           : key === "Transfer"
             ? "bg-blue-500"
             : "bg-purple-500",
@@ -746,7 +746,7 @@ const RevenueDetails = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className='p-6 md:p-10 bg-stone-50 min-h-screen relative'>
+    <div className='p-6 md:p-10 bg-canvas min-h-screen relative'>
       {/* Header & Controls */}
       <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'>
         <div className='relative w-full md:w-96'>
@@ -782,7 +782,7 @@ const RevenueDetails = () => {
           <div className='relative'>
             <button
               onClick={() => setIsExportOpen(!isExportOpen)}
-              className='flex items-center gap-2 bg-stone-600 text-white border border-stone-600 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-stone-700 transition-colors'>
+              className='flex items-center gap-2 bg-stone-900 text-white border border-stone-900 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-stone-800 transition-colors'>
               <Download className='w-4 h-4' /> Export
             </button>
             {isExportOpen && (
@@ -811,7 +811,7 @@ const RevenueDetails = () => {
       {/* Stats Cards */}
       <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
         {/* Card 1: Total Revenue */}
-        <div className='bg-stone-600 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden'>
+        <div className='bg-stone-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden'>
           <div className='relative z-10'>
             <p className='text-stone-300 text-sm font-medium mb-1'>
               Total Revenue (Confirmed)
@@ -822,7 +822,7 @@ const RevenueDetails = () => {
 
             <div className='flex items-center gap-2 mt-3'>
               {stats.growthPercent > 0 ? (
-                <span className='flex items-center gap-1 text-stone-400 text-xs font-bold bg-stone-600/50 px-2 py-1 rounded-lg'>
+                <span className='flex items-center gap-1 text-stone-400 text-xs font-bold bg-white/10 px-2 py-1 rounded-lg'>
                   <TrendingUp className='w-3 h-3' /> +
                   {stats.growthPercent.toFixed(1)}%
                 </span>
@@ -832,7 +832,7 @@ const RevenueDetails = () => {
                   {stats.growthPercent.toFixed(1)}%
                 </span>
               ) : (
-                <span className='text-stone-400 text-xs bg-stone-600/50 px-2 py-1 rounded-lg'>
+                <span className='text-stone-400 text-xs bg-white/10 px-2 py-1 rounded-lg'>
                   No change
                 </span>
               )}
@@ -1060,7 +1060,7 @@ const RevenueDetails = () => {
                 <div className='flex gap-2'>
                   <button
                     onClick={handleDownloadPDF}
-                    className='px-4 py-2 bg-stone-600 text-white rounded-lg text-sm font-bold flex gap-2 items-center hover:bg-stone-700'>
+                    className='px-4 py-2 bg-stone-900 text-white rounded-lg text-sm font-bold flex gap-2 items-center hover:bg-stone-800'>
                     <Download className='w-4 h-4' /> Download PDF
                   </button>
                   <button
