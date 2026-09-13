@@ -60,22 +60,22 @@ for (const [name, env] of [
   [
     "an origin outside the RP ID",
     {
-      WEBAUTHN_RP_ID: "bookingservice.my.id",
+      WEBAUTHN_RP_ID: "booktheclassindonesia.com",
       WEBAUTHN_ORIGINS: "https://attacker.example",
     },
   ],
   [
     "HTTP for a production RP",
     {
-      WEBAUTHN_RP_ID: "bookingservice.my.id",
-      WEBAUTHN_ORIGINS: "http://bookingservice.my.id",
+      WEBAUTHN_RP_ID: "booktheclassindonesia.com",
+      WEBAUTHN_ORIGINS: "http://booktheclassindonesia.com",
     },
   ],
   [
     "an origin containing a path",
     {
-      WEBAUTHN_RP_ID: "bookingservice.my.id",
-      WEBAUTHN_ORIGINS: "https://bookingservice.my.id/login",
+      WEBAUTHN_RP_ID: "booktheclassindonesia.com",
+      WEBAUTHN_ORIGINS: "https://booktheclassindonesia.com/login",
     },
   ],
 ]) {

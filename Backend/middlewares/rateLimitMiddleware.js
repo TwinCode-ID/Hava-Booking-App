@@ -1,6 +1,7 @@
 const net = require("node:net");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const { normalizeEmail } = require("../helper/authSecurity");
+const { normalizePhoneNumber } = require("../helper/phoneNumber");
 const MongoRateLimitStore = require("../config/mongoRateLimitStore");
 
 const CHAT_MESSAGE_LIMIT = 30;
@@ -15,7 +16,12 @@ const ipv6SafeIpKey = (req) => {
 
 const accountOrIpKey = (req) => {
   const email = normalizeEmail(req.body?.email);
-  return email ? `email:${email}` : ipv6SafeIpKey(req);
+  if (email) return `email:${email}`;
+
+  // Phone sign-in identifies the account by number, so the per-account budget
+  // has to follow the number rather than falling back to a shared IP bucket.
+  const phoneNumber = normalizePhoneNumber(req.body?.phoneNumber);
+  return phoneNumber ? `phone:${phoneNumber}` : ipv6SafeIpKey(req);
 };
 
 const userOrIpKey = (req) => {

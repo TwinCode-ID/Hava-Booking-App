@@ -1,8 +1,14 @@
 const mongoose = require("mongoose");
 
+const PHONE_PREAUTH_PURPOSE_VALUES = [
+  "phone_password_login",
+  "phone_password_setup",
+];
+
 const PREAUTH_PURPOSE_VALUES = [
   "password_login",
   "passwordless_login",
+  ...PHONE_PREAUTH_PURPOSE_VALUES,
   "registration",
 ];
 
@@ -29,6 +35,14 @@ const PreAuthSessionSchema = new mongoose.Schema(
       type: String,
       required: true,
       lowercase: true,
+      trim: true,
+      index: true,
+    },
+    // Only set for phone flows, which are addressed by number instead of by
+    // mailbox. The account's email is still recorded so every session has one
+    // subject regardless of how it was started.
+    phoneNumberE164: {
+      type: String,
       trim: true,
       index: true,
     },
@@ -61,9 +75,18 @@ PreAuthSessionSchema.pre("validate", function () {
       "Pre-authentication sessions require exactly one matching subject.",
     );
   }
+
+  const isPhoneFlow = PHONE_PREAUTH_PURPOSE_VALUES.includes(this.purpose);
+  if (isPhoneFlow !== Boolean(this.phoneNumberE164)) {
+    this.invalidate(
+      "phoneNumberE164",
+      "Only phone flows may be addressed by phone number.",
+    );
+  }
 });
 
 PreAuthSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("PreAuthSession", PreAuthSessionSchema);
 module.exports.PREAUTH_PURPOSE_VALUES = PREAUTH_PURPOSE_VALUES;
+module.exports.PHONE_PREAUTH_PURPOSE_VALUES = PHONE_PREAUTH_PURPOSE_VALUES;

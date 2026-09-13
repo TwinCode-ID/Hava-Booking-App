@@ -1,13 +1,22 @@
 const crypto = require("crypto");
 const PreAuthSession = require("../models/OTP/PreAuthSession");
+const { PHONE_E164_PATTERN } = require("./phoneNumber");
 
 const PREAUTH_PURPOSES = Object.freeze({
   PASSWORD_LOGIN: "password_login",
   PASSWORDLESS_LOGIN: "passwordless_login",
+  PHONE_PASSWORD_LOGIN: "phone_password_login",
+  PHONE_PASSWORD_SETUP: "phone_password_setup",
   REGISTRATION: "registration",
 });
 
 const PURPOSE_VALUES = new Set(Object.values(PREAUTH_PURPOSES));
+// Phone flows are addressed by number rather than mailbox, so the caller never
+// has to know the account's email to continue a flow it started.
+const PHONE_PURPOSE_VALUES = new Set([
+  PREAUTH_PURPOSES.PHONE_PASSWORD_LOGIN,
+  PREAUTH_PURPOSES.PHONE_PASSWORD_SETUP,
+]);
 const PREAUTH_SESSION_TTL_MS = 10 * 60 * 1000;
 const PREAUTH_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -19,6 +28,16 @@ const hashPreAuthToken = (token) => {
 };
 
 const isPurposeAllowed = (purpose) => PURPOSE_VALUES.has(purpose);
+
+const isPhonePurpose = (purpose) => PHONE_PURPOSE_VALUES.has(purpose);
+
+// A phone purpose is only addressable by a canonical number, and a mailbox
+// purpose must never carry one, so a flow can never be continued through the
+// identifier it was not issued for.
+const hasValidIdentifier = ({ phoneNumberE164, purpose }) =>
+  isPhonePurpose(purpose)
+    ? PHONE_E164_PATTERN.test(phoneNumberE164 || "")
+    : phoneNumberE164 == null;
 
 const hasValidSubject = ({
   userId,
@@ -43,11 +62,13 @@ const createPreAuthSession = async ({
   pendingRegistrationId,
   registrationVersion,
   email,
+  phoneNumberE164,
   purpose,
 }) => {
   if (
     typeof email !== "string" ||
     !isPurposeAllowed(purpose) ||
+    !hasValidIdentifier({ phoneNumberE164, purpose }) ||
     !hasValidSubject({
       userId,
       pendingRegistrationId,
@@ -68,6 +89,7 @@ const createPreAuthSession = async ({
     pendingRegistrationId,
     registrationVersion,
     email,
+    phoneNumberE164,
     purpose,
     expiresAt,
   });
@@ -79,15 +101,35 @@ const createPreAuthSession = async ({
   };
 };
 
-const findActivePreAuthSession = async ({ token, email, purpose }) => {
+// Phone flows are looked up by number and mailbox flows by email. Binding the
+// lookup to the identifier the session was issued for keeps one flow from being
+// redeemed through the other.
+const getIdentifierFilter = ({ email, phoneNumberE164, purpose }) => {
+  if (isPhonePurpose(purpose)) {
+    return PHONE_E164_PATTERN.test(phoneNumberE164 || "")
+      ? { phoneNumberE164 }
+      : null;
+  }
+  return typeof email === "string" && email ? { email } : null;
+};
+
+const findActivePreAuthSession = async ({
+  token,
+  email,
+  phoneNumberE164,
+  purpose,
+}) => {
   const tokenHash = hashPreAuthToken(token);
-  if (!tokenHash || typeof email !== "string" || !isPurposeAllowed(purpose)) {
+  const identifier = isPurposeAllowed(purpose)
+    ? getIdentifierFilter({ email, phoneNumberE164, purpose })
+    : null;
+  if (!tokenHash || !identifier) {
     return null;
   }
 
   const session = await PreAuthSession.findOne({
     tokenHash,
-    email,
+    ...identifier,
     purpose,
     expiresAt: { $gt: new Date() },
   }).select("+tokenHash +registrationVersion");
@@ -102,6 +144,7 @@ const consumePreAuthSession = async ({
   pendingRegistrationId,
   registrationVersion,
   email,
+  phoneNumberE164,
   purpose,
 }) => {
   if (
@@ -109,6 +152,7 @@ const consumePreAuthSession = async ({
     !/^[a-f\d]{64}$/i.test(tokenHash || "") ||
     typeof email !== "string" ||
     !isPurposeAllowed(purpose) ||
+    !hasValidIdentifier({ phoneNumberE164, purpose }) ||
     !hasValidSubject({
       userId,
       pendingRegistrationId,
@@ -126,6 +170,7 @@ const consumePreAuthSession = async ({
     pendingRegistrationId,
     registrationVersion,
     email,
+    ...(isPhonePurpose(purpose) ? { phoneNumberE164 } : {}),
     purpose,
     expiresAt: { $gt: new Date() },
   });
@@ -138,5 +183,6 @@ module.exports = {
   createPreAuthSession,
   findActivePreAuthSession,
   hashPreAuthToken,
+  isPhonePurpose,
   isPurposeAllowed,
 };

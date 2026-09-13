@@ -8,6 +8,8 @@ const {
   loginWithApple,
   loginWithAppleWeb,
   loginWithGoogle,
+  loginWithPhone,
+  setPhonePassword,
 } = require("../../controllers/UserController/authController");
 const {
   optionalProtect,
@@ -46,6 +48,18 @@ router.post(
   register,
 );
 router.post("/login", authIpLimiter, authAccountLimiter, login);
+router.post(
+  "/phone/login",
+  authIpLimiter,
+  authAccountLimiter,
+  loginWithPhone,
+);
+router.post(
+  "/phone/set-password",
+  authIpLimiter,
+  authAccountLimiter,
+  setPhonePassword,
+);
 router.get("/me", protect, getMe);
 router.post("/apple", authIpLimiter, loginWithApple);
 router.post("/apple-web", authIpLimiter, loginWithAppleWeb);

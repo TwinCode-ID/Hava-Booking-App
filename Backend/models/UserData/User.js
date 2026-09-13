@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const { normalizePhoneNumber } = require("../../helper/phoneNumber");
 
 const BCRYPT_HASH_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
 
@@ -56,6 +57,10 @@ const userSchema = new mongoose.Schema(
     authVersion: { type: Number, default: 0, min: 0 },
     passwordChangedAt: { type: Date, select: false },
     phoneNumber: { type: String },
+    // Canonical E.164 form of phoneNumber, derived on every write. Sign-in
+    // resolves an account through this field so the number a member keeps in
+    // their profile is the number they can sign in with.
+    phoneNumberE164: { type: String, index: true, sparse: true },
     isStudent: { type: Boolean, default: false },
     preferredStudioId: { type: mongoose.Schema.Types.ObjectId, ref: "Studios" },
     role: {
@@ -75,6 +80,7 @@ const userSchema = new mongoose.Schema(
 // Never serialize authentication secrets, even when a controller explicitly
 // selected them for an authentication operation.
 const removeSensitiveAuthenticationFields = (_document, returnedObject) => {
+  delete returnedObject.phoneNumberE164;
   delete returnedObject.password;
   delete returnedObject.authenticators;
   delete returnedObject.currentChallenge;
@@ -99,6 +105,10 @@ userSchema.index(
 );
 
 userSchema.pre("save", async function () {
+  if (this.isModified("phoneNumber")) {
+    this.phoneNumberE164 = normalizePhoneNumber(this.phoneNumber) || undefined;
+  }
+
   const passwordChanged = this.isModified("password");
   const authenticationChanged =
     !this.isNew &&
@@ -147,6 +157,24 @@ userSchema.statics.createWithPasswordHash = async function (attributes) {
 userSchema.pre(["findOneAndUpdate", "updateOne", "updateMany"], function () {
   const update = this.getUpdate();
   if (!update || Array.isArray(update)) return;
+
+  // The derived sign-in identifier must never drift from the stored number,
+  // including when a profile is edited without loading the document.
+  const phoneNumberUpdate = Object.hasOwn(update, "phoneNumber")
+    ? update
+    : update.$set && Object.hasOwn(update.$set, "phoneNumber")
+      ? update.$set
+      : null;
+  if (phoneNumberUpdate) {
+    const normalized = normalizePhoneNumber(phoneNumberUpdate.phoneNumber);
+    if (normalized) {
+      phoneNumberUpdate.phoneNumberE164 = normalized;
+    } else {
+      delete phoneNumberUpdate.phoneNumberE164;
+      update.$unset = { ...update.$unset, phoneNumberE164: "" };
+    }
+    this.setUpdate(update);
+  }
 
   const authenticationFields = new Set([
     "adminStudioLocation",

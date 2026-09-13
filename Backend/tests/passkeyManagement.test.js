@@ -389,7 +389,7 @@ test("registration start returns a session-bound ceremony wrapper", async () => 
         assert.equal(response.statusCode, 200);
         assert.match(response.body.ceremonyId, /^[A-Za-z0-9_-]{43}$/);
         assert.equal(response.body.options.challenge, "registration-challenge");
-        assert.equal(registrationOptionsInput.rpID, "bookingservice.my.id");
+        assert.equal(registrationOptionsInput.rpID, "booktheclassindonesia.com");
         assert.equal(
           registrationOptionsInput.authenticatorSelection.userVerification,
           "required",
@@ -513,12 +513,12 @@ test("registration finish consumes once and stores safe metadata", async () => {
           "registration-challenge",
         );
         assert.deepEqual(registrationVerificationInput.expectedOrigin, [
-          "https://bookingservice.my.id",
-          "https://www.bookingservice.my.id",
+          "https://booktheclassindonesia.com",
+          "https://www.booktheclassindonesia.com",
         ]);
         assert.equal(
           registrationVerificationInput.expectedRPID,
-          "bookingservice.my.id",
+          "booktheclassindonesia.com",
         );
         assert.equal(user.authenticators[0].credentialID, "new-credential");
         assert.equal(user.authenticators[0].name, "Work laptop");
@@ -582,7 +582,7 @@ test("login start is identifier-less and uniform", async () => {
           assert.equal(response.body.options.userVerification, "required");
         }
         assert.deepEqual(authenticationOptionsInput, {
-          rpID: "bookingservice.my.id",
+          rpID: "booktheclassindonesia.com",
           userVerification: "required",
         });
       },
@@ -670,8 +670,8 @@ test("identifier-less login consumes once and updates metadata", async () => {
             "authentication-challenge",
           );
           assert.deepEqual(authenticationVerificationInput.expectedOrigin, [
-            "https://bookingservice.my.id",
-            "https://www.bookingservice.my.id",
+            "https://booktheclassindonesia.com",
+            "https://www.booktheclassindonesia.com",
           ]);
 
           const replayResponse = createResponse();

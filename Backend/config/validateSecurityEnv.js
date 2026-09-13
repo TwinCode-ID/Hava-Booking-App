@@ -51,7 +51,7 @@ const validateSecurityEnvironment = () => {
   REQUIRED_PRODUCTION_VALUES.forEach(assertNonEmpty);
   assertSecret("OTP_HASH_SECRET");
   assertSecret("UPLOAD_URL_SIGNING_SECRET");
-  assertHttpsOrigin("PUBLIC_APP_ORIGIN", "https://bookingservice.my.id");
+  assertHttpsOrigin("PUBLIC_APP_ORIGIN", "https://booktheclassindonesia.com");
   assertHttpsOrigin("PUBLIC_API_ORIGIN");
   getPasskeyConfig();
 };

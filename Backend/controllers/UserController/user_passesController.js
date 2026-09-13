@@ -27,7 +27,7 @@ const hashShareCode = (code) =>
   crypto.createHash("sha256").update(code).digest("hex");
 const getPublicAppOrigin = () => {
   const configured =
-    process.env.PUBLIC_APP_ORIGIN || "https://bookingservice.my.id";
+    process.env.PUBLIC_APP_ORIGIN || "https://booktheclassindonesia.com";
   const url = new URL(configured);
   if (
     (url.protocol !== "https:" &&

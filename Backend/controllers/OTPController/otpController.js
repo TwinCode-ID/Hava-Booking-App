@@ -14,7 +14,10 @@ const {
   PREAUTH_PURPOSES,
   consumePreAuthSession,
   findActivePreAuthSession,
+  isPhonePurpose,
 } = require("../../helper/preAuthSession");
+const { normalizePhoneNumber } = require("../../helper/phoneNumber");
+const { isSmsOtpEnabled, sendOtpSms } = require("../../helper/sendSms");
 const User = require("../../models/UserData/User");
 const OTP = require("../../models/OTP/OTP");
 const OtpLog = require("../../models/OTP/OtpLog");
@@ -31,6 +34,8 @@ const INVALID_OTP_FLOW_MESSAGE = "OTP verification flow is invalid or expired.";
 const AUTHENTICATION_METHODS = {
   [PREAUTH_PURPOSES.PASSWORD_LOGIN]: "password_otp",
   [PREAUTH_PURPOSES.PASSWORDLESS_LOGIN]: "email_otp",
+  [PREAUTH_PURPOSES.PHONE_PASSWORD_LOGIN]: "phone_password_otp",
+  [PREAUTH_PURPOSES.PHONE_PASSWORD_SETUP]: "phone_otp",
   [PREAUTH_PURPOSES.REGISTRATION]: "registration_otp",
 };
 
@@ -50,12 +55,19 @@ const otpHashesMatch = (expectedHash, suppliedHash) => {
 };
 
 const getBoundPreAuthFlow = async (body = {}) => {
-  const email = normalizeEmail(body.email);
-  if (!email) return null;
+  // Phone flows are addressed by number; the account's mailbox still keys the
+  // OTP record so one account can only ever have one code in flight.
+  const usesPhone = isPhonePurpose(body.purpose);
+  const phoneNumberE164 = usesPhone
+    ? normalizePhoneNumber(body.phoneNumber)
+    : null;
+  const email = usesPhone ? null : normalizeEmail(body.email);
+  if (usesPhone ? !phoneNumberE164 : !email) return null;
 
   const flow = await findActivePreAuthSession({
     token: body.preAuthToken,
     email,
+    phoneNumberE164,
     purpose: body.purpose,
   });
   if (!flow) return null;
@@ -87,11 +99,19 @@ const getBoundPreAuthFlow = async (body = {}) => {
 
   if (!flow.session.userId || flow.session.pendingRegistrationId) return null;
   const user = await User.findById(flow.session.userId);
-  if (!user || normalizeEmail(user.email) !== email) return null;
+  const accountEmail = normalizeEmail(user?.email);
+  if (!user || !accountEmail) return null;
+  if (usesPhone) {
+    // The number must still belong to this account when the code is requested.
+    if (user.phoneNumberE164 !== phoneNumberE164) return null;
+  } else if (accountEmail !== email) {
+    return null;
+  }
 
   return {
     ...flow,
-    email,
+    email: accountEmail,
+    phoneNumberE164: usesPhone ? phoneNumberE164 : undefined,
     purpose: flow.session.purpose,
     user,
   };
@@ -113,14 +133,30 @@ const rejectInvalidOtpFlow = (res) =>
 
 exports.requestOTP = async (req, res) => {
   try {
-    const email = normalizeEmail(req.body.email);
-    if (!email) {
+    if (isPhonePurpose(req.body.purpose)) {
+      if (!normalizePhoneNumber(req.body.phoneNumber)) {
+        return res
+          .status(400)
+          .json({ error: "A valid phone number is required." });
+      }
+      // Refusing before a code is generated keeps an undeliverable code from
+      // ever being left behind for an account.
+      if (!isSmsOtpEnabled()) {
+        return res.status(503).json({
+          code: "SMS_OTP_UNAVAILABLE",
+          error: "Text-message codes are not available yet.",
+        });
+      }
+    } else if (!normalizeEmail(req.body.email)) {
       return res.status(400).json({ error: "A valid email is required." });
     }
 
     const flow = await getBoundPreAuthFlow(req.body);
     if (!flow) return rejectInvalidOtpFlow(res);
 
+    // Codes are always rate limited and stored against the account's mailbox,
+    // whichever identifier started the flow.
+    const email = flow.email;
     const lastRequest = await OtpLog.findOne({ email }).sort({ createdAt: -1 });
     if (lastRequest) {
       const elapsed = Date.now() - lastRequest.createdAt.getTime();
@@ -167,11 +203,13 @@ exports.requestOTP = async (req, res) => {
     await OtpLog.create({ email });
 
     try {
-      await sendEmail(
-        (flow.user || flow.pendingRegistration).fullName || "User",
-        email,
-        otp,
-      );
+      const recipientName =
+        (flow.user || flow.pendingRegistration).fullName || "User";
+      if (flow.phoneNumberE164) {
+        await sendOtpSms(recipientName, flow.phoneNumberE164, otp);
+      } else {
+        await sendEmail(recipientName, email, otp);
+      }
     } catch (error) {
       // Do not leave a usable code behind if delivery failed. The request log
       // remains to prevent abusing email delivery failures as a bypass.
@@ -192,15 +230,19 @@ exports.requestOTP = async (req, res) => {
 
 exports.verifyOTP = async (req, res) => {
   try {
-    const email = normalizeEmail(req.body.email);
+    const usesPhone = isPhonePurpose(req.body.purpose);
+    const identifier = usesPhone
+      ? normalizePhoneNumber(req.body.phoneNumber)
+      : normalizeEmail(req.body.email);
     const otp = req.body.otp;
-    if (!email || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
+    if (!identifier || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
       return res.status(400).json({ error: INVALID_OTP_MESSAGE });
     }
 
     const flow = await getBoundPreAuthFlow(req.body);
     if (!flow) return rejectInvalidOtpFlow(res);
 
+    const email = flow.email;
     const validAfter = new Date(Date.now() - OTP_TTL_MS);
     const subjectBinding = getOtpSubjectBinding(flow);
     const otpRecord = await OTP.findOne({
@@ -248,6 +290,7 @@ exports.verifyOTP = async (req, res) => {
       tokenHash: flow.tokenHash,
       ...subjectBinding,
       email,
+      phoneNumberE164: flow.phoneNumberE164,
       purpose: flow.purpose,
     });
     if (!consumedPreAuth) {

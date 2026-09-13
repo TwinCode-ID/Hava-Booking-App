@@ -15,12 +15,22 @@ import {
   User,
   Key,
   Fingerprint,
+  Phone,
 } from "lucide-react";
-import { validateEmail } from "../../utils/helper";
+import {
+  validateEmail,
+  validateNationalPhoneNumber,
+} from "../../utils/helper";
 import axiosInstance from "../../utils/axiosInstance";
 import { API_PATHS } from "../../utils/apiPath";
 import { useAuth } from "../../context/AuthContext";
 import { startAuthentication } from "@simplewebauthn/browser";
+import PhoneNumberInput from "../../components/PhoneNumberInput";
+import {
+  DEFAULT_COUNTRY,
+  formatPhoneNumber,
+  toE164,
+} from "../../utils/countryCodes";
 
 const ROLE_DESTINATIONS = {
   studioAdmin: "/admin-dashboard",
@@ -55,15 +65,21 @@ const Login = () => {
     appleAuthState.current = createOAuthState();
   }
 
-  // Steps: 0 = Email, 1 = Password, 2 = OTP, 3 = Create Password
+  // Steps: 0 = Identifier, 1 = Password, 2 = OTP, 3 = Create Password
   const [step, setStep] = useState(0);
+  const [identifierType, setIdentifierType] = useState("email");
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [hasPassword, setHasPassword] = useState(true);
   const [resendTimer, setResendTimer] = useState(0);
   const [showResendPopup, setShowResendPopup] = useState(false);
   const [preAuthFlow, setPreAuthFlow] = useState(null);
+  // Grant that lets an account identified only by phone number create its
+  // first password, used while text-message codes are unavailable.
+  const [phoneSetupFlow, setPhoneSetupFlow] = useState(null);
 
   const [formData, setFormData] = useState({
     email: "",
+    phoneNumber: "",
     password: "",
     otp: "",
     newPassword: "",
@@ -87,12 +103,22 @@ const Login = () => {
     return { token: data.preAuthToken, purpose: data.purpose };
   };
 
+  const isPhoneLogin = identifierType === "phone";
+  const phoneE164 = toE164(country.dialCode, formData.phoneNumber);
+  const identifierLabel = isPhoneLogin
+    ? formatPhoneNumber(country.dialCode, formData.phoneNumber)
+    : formData.email;
+
+  // A flow is continued through the identifier it was started with: phone
+  // flows are addressed by number, mailbox flows by email.
   const getOtpFlowPayload = (flow = preAuthFlow) => {
     if (!flow?.token || !flow?.purpose) {
       throw new Error("The verification session has expired.");
     }
     return {
-      email: formData.email,
+      ...(flow.purpose.startsWith("phone_")
+        ? { phoneNumber: phoneE164 }
+        : { email: formData.email }),
       preAuthToken: flow.token,
       purpose: flow.purpose,
     };
@@ -100,6 +126,7 @@ const Login = () => {
 
   const restartLogin = () => {
     setPreAuthFlow(null);
+    setPhoneSetupFlow(null);
     setFormData((prev) => ({ ...prev, password: "", otp: "" }));
     setStep(0);
   };
@@ -167,6 +194,24 @@ const Login = () => {
         errors: { ...prev.errors, [name]: "", submit: "" },
       }));
     }
+  };
+
+  const handlePhoneNumberChange = (nationalNumber) => {
+    setFormData((prev) => ({ ...prev, phoneNumber: nationalNumber }));
+    if (formState.errors.phoneNumber || formState.errors.submit) {
+      setFormState((prev) => ({
+        ...prev,
+        errors: { ...prev.errors, phoneNumber: "", submit: "" },
+      }));
+    }
+  };
+
+  const switchIdentifierType = (type) => {
+    if (type === identifierType) return;
+    setIdentifierType(type);
+    setPreAuthFlow(null);
+    setPhoneSetupFlow(null);
+    setFormState((prev) => ({ ...prev, errors: {} }));
   };
 
   // --- GOOGLE SIGN-IN HANDLER ---
@@ -267,18 +312,69 @@ const Login = () => {
     }
   };
 
-  // --- STEP 0: CHECK EMAIL & DETERMINE FLOW ---
-  const handleEmailSubmit = async (e) => {
-    e.preventDefault();
-    const emailError = validateEmail(formData.email);
-    if (emailError) {
-      setFormState((prev) => ({ ...prev, errors: { email: emailError } }));
+  // Decides what the account still needs: a password entry, a verification
+  // code, or a first password. Also reached when a password sign-in reports
+  // that the account never had one.
+  const startPhoneFlow = async () => {
+    const response = await axiosInstance.post(API_PATHS.AUTH.CHECK_STATUS, {
+      phoneNumber: phoneE164,
+    });
+    const userHasPassword = response.data.hasPassword;
+    setHasPassword(userHasPassword);
+
+    if (userHasPassword) {
+      setPreAuthFlow(null);
+      setPhoneSetupFlow(null);
+      setStep(1);
       return;
+    }
+
+    const flow = getPreAuthFlow(response.data);
+    if (!response.data.otpRequired) {
+      // No text-message service yet, so the grant alone authorizes creating
+      // the first password.
+      setPhoneSetupFlow(flow);
+      setPreAuthFlow(null);
+      setStep(3);
+      return;
+    }
+
+    await axiosInstance.post(API_PATHS.AUTH.REQUEST_OTP, {
+      ...getOtpFlowPayload(flow),
+    });
+    setPhoneSetupFlow(null);
+    setPreAuthFlow(flow);
+    setStep(2);
+    setResendTimer(60);
+  };
+
+  // --- STEP 0: CHECK IDENTIFIER & DETERMINE FLOW ---
+  const handleIdentifierSubmit = async (e) => {
+    e.preventDefault();
+
+    if (isPhoneLogin) {
+      const phoneError = validateNationalPhoneNumber(formData.phoneNumber);
+      if (phoneError) {
+        setFormState((prev) => ({ ...prev, errors: { phoneNumber: phoneError } }));
+        return;
+      }
+    } else {
+      const emailError = validateEmail(formData.email);
+      if (emailError) {
+        setFormState((prev) => ({ ...prev, errors: { email: emailError } }));
+        return;
+      }
     }
 
     setFormState((prev) => ({ ...prev, loading: true }));
 
     try {
+      if (isPhoneLogin) {
+        await startPhoneFlow();
+        setFormState((prev) => ({ ...prev, loading: false, errors: {} }));
+        return;
+      }
+
       const response = await axiosInstance.post(API_PATHS.AUTH.CHECK_STATUS, {
         email: formData.email,
       });
@@ -300,12 +396,17 @@ const Login = () => {
       }
 
       setFormState((prev) => ({ ...prev, loading: false, errors: {} }));
-    } catch {
+    } catch (error) {
       setStep(0);
       setFormState((prev) => ({
         ...prev,
         loading: false,
-        errors: { email: "User not found" },
+        errors: isPhoneLogin
+          ? {
+              phoneNumber:
+                error.response?.data?.message || "Unable to continue.",
+            }
+          : { email: "User not found" },
       }));
     }
   };
@@ -324,6 +425,30 @@ const Login = () => {
     setFormState((prev) => ({ ...prev, loading: true }));
 
     try {
+      if (isPhoneLogin) {
+        const phoneResponse = await axiosInstance.post(
+          API_PATHS.AUTH.PHONE_LOGIN,
+          { phoneNumber: phoneE164, password: formData.password },
+        );
+        setFormData((prev) => ({ ...prev, password: "" }));
+
+        // Without a text-message service the password is the only factor, so
+        // the session is issued straight away.
+        if (!phoneResponse.data.otpRequired) {
+          await finalizeLogin(phoneResponse.data);
+          return;
+        }
+
+        const phoneFlow = getPreAuthFlow(phoneResponse.data);
+        await axiosInstance.post(API_PATHS.AUTH.REQUEST_OTP, {
+          ...getOtpFlowPayload(phoneFlow),
+        });
+        setPreAuthFlow(phoneFlow);
+        setStep(2);
+        setFormState((prev) => ({ ...prev, loading: false, errors: {} }));
+        return;
+      }
+
       const loginResponse = await axiosInstance.post(API_PATHS.AUTH.LOGIN, {
         email: formData.email,
         password: formData.password,
@@ -337,6 +462,19 @@ const Login = () => {
       setStep(2);
       setFormState((prev) => ({ ...prev, loading: false, errors: {} }));
     } catch (error) {
+      // The account was provisioned without a password, so send the member to
+      // create one instead of leaving them on a password they cannot know.
+      if (error.response?.data?.code === "PASSWORD_NOT_SET") {
+        try {
+          setFormData((prev) => ({ ...prev, password: "" }));
+          await startPhoneFlow();
+          setFormState((prev) => ({ ...prev, loading: false, errors: {} }));
+          return;
+        } catch {
+          // Fall through to the generic message below.
+        }
+      }
+
       setFormState((prev) => ({
         ...prev,
         loading: false,
@@ -419,6 +557,29 @@ const Login = () => {
     setFormState((prev) => ({ ...prev, loading: true }));
 
     try {
+      // A phone account that has never been signed in to is still anonymous at
+      // this point, so its first password is created with the setup grant
+      // rather than a session.
+      if (phoneSetupFlow) {
+        const response = await axiosInstance.post(
+          API_PATHS.AUTH.PHONE_SET_PASSWORD,
+          {
+            phoneNumber: phoneE164,
+            preAuthToken: phoneSetupFlow.token,
+            purpose: phoneSetupFlow.purpose,
+            password: formData.newPassword,
+          },
+        );
+        setPhoneSetupFlow(null);
+        setFormData((prev) => ({
+          ...prev,
+          newPassword: "",
+          confirmPassword: "",
+        }));
+        await finalizeLogin(response.data);
+        return;
+      }
+
       await axiosInstance.put(API_PATHS.AUTH.SET_NEW_PASSWORD, {
         password: formData.newPassword,
       });
@@ -430,11 +591,14 @@ const Login = () => {
         confirmPassword: "",
       }));
       await finalizeLogin({ role: meRes.data.role });
-    } catch {
+    } catch (error) {
       setFormState((prev) => ({
         ...prev,
         loading: false,
-        errors: { submit: "Failed to set password." },
+        errors: {
+          submit:
+            error.response?.data?.message || "Failed to set password.",
+        },
       }));
     }
   };
@@ -563,12 +727,14 @@ const Login = () => {
             </h2>
             <p className='text-stone-500 text-[15px]'>
               {step === 0
-                ? "Enter your email or use a passkey"
+                ? "Enter your email or phone number, or use a passkey"
                 : step === 1
-                  ? `Welcome back, ${formData.email}`
+                  ? `Welcome back, ${identifierLabel}`
                   : step === 2
-                    ? `Code sent to ${formData.email}`
-                    : "Secure your account with a password"}
+                    ? `Code sent to ${identifierLabel}`
+                    : phoneSetupFlow
+                      ? `Set a password for ${identifierLabel}`
+                      : "Secure your account with a password"}
             </p>
           </div>
 
@@ -582,7 +748,7 @@ const Login = () => {
           )}
 
           <AnimatePresence mode='wait'>
-            {/* --- STEP 0: EMAIL INPUT & SOCIAL LOGINS --- */}
+            {/* --- STEP 0: EMAIL OR PHONE INPUT & SOCIAL LOGINS --- */}
             {step === 0 && (
               <Motion.div
                 key='step0'
@@ -590,34 +756,86 @@ const Login = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className='space-y-6'>
-                <form onSubmit={handleEmailSubmit} className='space-y-6'>
-                  <div>
-                    <label className='block text-sm font-bold text-stone-700 mb-2'>
-                      Email Address
-                    </label>
-                    <div className='relative'>
-                      <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
-                      <input
-                        type='email'
-                        name='email'
-                        autoComplete='username'
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className={`w-full pl-10 pr-12 py-3.5 rounded-xl border ${
-                          formState.errors.email
-                            ? "border-red-500"
-                            : "border-stone-200"
-                        } focus:ring-2 focus:ring-stone-500 outline-none transition-all`}
-                        placeholder='name@example.com'
+                <div className='grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl'>
+                  {["email", "phone"].map((id) => (
+                    <button
+                      key={id}
+                      type='button'
+                      onClick={() => switchIdentifierType(id)}
+                      aria-pressed={identifierType === id}
+                      className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold capitalize transition-all ${
+                        identifierType === id
+                          ? "bg-white text-stone-900 shadow-sm"
+                          : "text-stone-500 hover:text-stone-700"
+                      }`}>
+                      {id === "email" ? (
+                        <Mail className='w-4 h-4' />
+                      ) : (
+                        <Phone className='w-4 h-4' />
+                      )}
+                      {id}
+                    </button>
+                  ))}
+                </div>
+
+                <form onSubmit={handleIdentifierSubmit} className='space-y-6'>
+                  {identifierType === "phone" ? (
+                    <div>
+                      <label
+                        htmlFor='login-phone-number'
+                        className='block text-sm font-bold text-stone-700 mb-2'>
+                        Phone Number
+                      </label>
+                      <PhoneNumberInput
+                        inputId='login-phone-number'
+                        country={country}
+                        onCountryChange={setCountry}
+                        value={formData.phoneNumber}
+                        onChange={handlePhoneNumberChange}
+                        error={Boolean(formState.errors.phoneNumber)}
+                        disabled={formState.loading}
                         autoFocus
                       />
+                      {formState.errors.phoneNumber ? (
+                        <p className='text-red-500 text-xs mt-1.5 ml-1'>
+                          {formState.errors.phoneNumber}
+                        </p>
+                      ) : (
+                        <p className='text-stone-400 text-xs mt-1.5 ml-1'>
+                          Use the number saved on your account, without the
+                          leading zero.
+                        </p>
+                      )}
                     </div>
-                    {formState.errors.email && (
-                      <p className='text-red-500 text-xs mt-1.5 ml-1'>
-                        {formState.errors.email}
-                      </p>
-                    )}
-                  </div>
+                  ) : (
+                    <div>
+                      <label className='block text-sm font-bold text-stone-700 mb-2'>
+                        Email Address
+                      </label>
+                      <div className='relative'>
+                        <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
+                        <input
+                          type='email'
+                          name='email'
+                          autoComplete='username'
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className={`w-full pl-10 pr-12 py-3.5 rounded-xl border ${
+                            formState.errors.email
+                              ? "border-red-500"
+                              : "border-stone-200"
+                          } focus:ring-2 focus:ring-stone-500 outline-none transition-all`}
+                          placeholder='name@example.com'
+                          autoFocus
+                        />
+                      </div>
+                      {formState.errors.email && (
+                        <p className='text-red-500 text-xs mt-1.5 ml-1'>
+                          {formState.errors.email}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <button
                     type='submit'
@@ -933,16 +1151,26 @@ const Login = () => {
                   </div>
                 )}
 
-                <button
-                  type='submit'
-                  disabled={formState.loading}
-                  className='w-full bg-stone-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/25 disabled:opacity-50'>
-                  {formState.loading ? (
-                    <Loader className='w-5 h-5 animate-spin' />
-                  ) : (
-                    "Set Password & Login"
+                <div className='flex gap-3'>
+                  {phoneSetupFlow && (
+                    <button
+                      type='button'
+                      onClick={restartLogin}
+                      className='w-12 flex items-center justify-center rounded-xl border border-stone-200 hover:bg-stone-50 transition-colors'>
+                      <ArrowLeft className='w-5 h-5 text-stone-600' />
+                    </button>
                   )}
-                </button>
+                  <button
+                    type='submit'
+                    disabled={formState.loading}
+                    className='flex-1 bg-stone-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-stone-600/25 disabled:opacity-50'>
+                    {formState.loading ? (
+                      <Loader className='w-5 h-5 animate-spin' />
+                    ) : (
+                      "Set Password & Login"
+                    )}
+                  </button>
+                </div>
               </Motion.form>
             )}
           </AnimatePresence>

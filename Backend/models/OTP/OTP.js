@@ -19,7 +19,13 @@ const OTPSchema = new mongoose.Schema({
   registrationVersion: { type: String, select: false },
   purpose: {
     type: String,
-    enum: ["password_login", "passwordless_login", "registration"],
+    enum: [
+      "password_login",
+      "passwordless_login",
+      "phone_password_login",
+      "phone_password_setup",
+      "registration",
+    ],
     required: true,
   },
   preAuthSessionHash: { type: String, required: true, select: false },

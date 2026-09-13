@@ -49,6 +49,17 @@ export const validatePhoneNumber = (phone) => {
   return "";
 };
 
+// Validates the national part of a phone number, where the country code is
+// chosen separately. E.164 allows 15 digits in total, so the national part has
+// to leave room for the dial code.
+export const validateNationalPhoneNumber = (nationalNumber) => {
+  const digits = String(nationalNumber ?? "").replace(/\D/g, "");
+  if (!digits) return "Phone number is required";
+  if (digits.length < 5) return "Phone number is too short";
+  if (digits.length > 14) return "Phone number is too long";
+  return "";
+};
+
 export { validateImageUpload as validateAvatar } from "./imageUploadValidation";
 
 export const pad = (number) => {

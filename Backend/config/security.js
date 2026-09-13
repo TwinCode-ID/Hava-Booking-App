@@ -1,8 +1,8 @@
 const net = require("node:net");
 
 const PRODUCTION_ALLOWED_ORIGINS = [
-  "https://bookingservice.my.id",
-  "https://www.bookingservice.my.id",
+  "https://booktheclassindonesia.com",
+  "https://www.booktheclassindonesia.com",
 ];
 const DEVELOPMENT_ALLOWED_ORIGINS = [
   ...PRODUCTION_ALLOWED_ORIGINS,

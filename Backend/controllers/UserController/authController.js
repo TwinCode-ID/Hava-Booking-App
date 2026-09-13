@@ -21,11 +21,16 @@ const {
 } = require("../../helper/authSecurity");
 const {
   PREAUTH_PURPOSES,
+  consumePreAuthSession,
   createPreAuthSession,
+  findActivePreAuthSession,
 } = require("../../helper/preAuthSession");
+const { normalizePhoneNumber } = require("../../helper/phoneNumber");
+const { isSmsOtpEnabled } = require("../../helper/sendSms");
 
 const DUMMY_PASSWORD_HASH =
   "$2b$10$KM7M3Wkqj0U7g7qj6SI9b.xWitNbOmqOSoE7vkTmlpXlVJ4tGfOyK";
+const INVALID_PHONE_CREDENTIALS = "Invalid phone number or password.";
 const PENDING_REGISTRATION_TTL_MS = 15 * 60 * 1000;
 const ALLOWED_ROLES = new Set(["client", "studioAdmin", "devTeam"]);
 const ALLOWED_STEP_UP_SCOPES = new Set([
@@ -46,6 +51,34 @@ const socialLoginResponse = (user, authenticationMethod) => ({
     authVersion: getAuthVersion(user),
   }),
 });
+
+const phoneLoginResponse = (user, authenticationMethod) => ({
+  ...socialLoginResponse(user, authenticationMethod),
+  phoneNumber: user.phoneNumber || "",
+});
+
+// A number shared by more than one account identifies no single member, so it
+// must never authenticate one of them.
+const findUserByPhoneNumber = async (phoneNumberE164, selection) => {
+  if (!phoneNumberE164) return null;
+
+  const query = User.find({ phoneNumberE164 }).limit(2);
+  const users = await (selection ? query.select(selection) : query);
+  return Array.isArray(users) && users.length === 1 ? users[0] : null;
+};
+
+// Creating the first password from a phone number alone is only ever offered
+// for accounts a member cannot already sign in to. Anything with a password, a
+// linked social account, or a passkey must be claimed through that method.
+const canClaimAccountByPhone = (user) =>
+  Boolean(
+    user &&
+      user.role === "client" &&
+      !user.password &&
+      !user.googleUserId &&
+      !user.appleUserId &&
+      !(Array.isArray(user.authenticators) && user.authenticators.length > 0),
+  );
 
 const getRequestedRegistrationRole = (req) => {
   const requestedRole = ALLOWED_ROLES.has(req.body.role)
@@ -168,8 +201,65 @@ exports.loginWithGoogle = async (req, res) => {
   }
 };
 
+// Mirrors the password-account answer so a caller cannot tell an unknown
+// number from one that simply cannot be claimed this way.
+const unclaimablePhoneStatus = {
+  success: true,
+  hasPassword: true,
+  identifier: "phone",
+};
+
+const checkPhoneUserStatus = async (req, res) => {
+  const phoneNumberE164 = normalizePhoneNumber(req.body.phoneNumber);
+  if (!phoneNumberE164) {
+    return res.status(400).json({
+      message: "Enter a valid phone number including its country code.",
+    });
+  }
+
+  const user = await findUserByPhoneNumber(
+    phoneNumberE164,
+    "+password +authenticators",
+  );
+  if (!user) {
+    return res.status(200).json(unclaimablePhoneStatus);
+  }
+  if (user.password) {
+    return res.status(200).json({
+      success: true,
+      hasPassword: true,
+      identifier: "phone",
+      otpRequired: isSmsOtpEnabled(),
+    });
+  }
+  if (!canClaimAccountByPhone(user)) {
+    return res.status(200).json(unclaimablePhoneStatus);
+  }
+
+  // The grant is what lets the member create a first password, or — once SMS
+  // exists — what the verification code is bound to.
+  const preAuth = await createPreAuthSession({
+    userId: user._id,
+    email: user.email,
+    phoneNumberE164,
+    purpose: PREAUTH_PURPOSES.PHONE_PASSWORD_SETUP,
+  });
+
+  return res.status(200).json({
+    success: true,
+    hasPassword: false,
+    identifier: "phone",
+    otpRequired: isSmsOtpEnabled(),
+    ...preAuth,
+  });
+};
+
 exports.checkUserStatus = async (req, res) => {
   try {
+    if (typeof req.body.phoneNumber === "string" && req.body.phoneNumber.trim()) {
+      return await checkPhoneUserStatus(req, res);
+    }
+
     const email = normalizeEmail(req.body.email);
     if (!email) {
       return res.status(400).json({ message: "A valid email is required." });
@@ -413,6 +503,149 @@ exports.login = async (req, res) => {
   } catch (error) {
     logAuthError("Password verification failed", error);
     return res.status(500).json({ message: "Unable to sign in." });
+  }
+};
+
+// Phone sign-in resolves the account through the number kept in the member's
+// profile. While SMS delivery is unavailable the password is the only factor;
+// turning SMS_OTP_ENABLED on downgrades this response to a pre-auth grant and
+// makes the code the second factor, exactly as email sign-in already works.
+exports.loginWithPhone = async (req, res) => {
+  try {
+    const phoneNumberE164 = normalizePhoneNumber(req.body.phoneNumber);
+    const password = req.body.password;
+    if (
+      !phoneNumberE164 ||
+      typeof password !== "string" ||
+      password.length > 128
+    ) {
+      return res.status(401).json({ message: INVALID_PHONE_CREDENTIALS });
+    }
+
+    const user = await findUserByPhoneNumber(
+      phoneNumberE164,
+      "+password +authenticators",
+    );
+    const passwordMatches = user?.password
+      ? await user.matchPassword(password)
+      : await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+
+    if (!user) {
+      return res.status(401).json({ message: INVALID_PHONE_CREDENTIALS });
+    }
+    if (!user.password) {
+      const claimable = canClaimAccountByPhone(user);
+      return res.status(409).json({
+        code: claimable ? "PASSWORD_NOT_SET" : "PASSWORD_UNAVAILABLE",
+        hasPassword: false,
+        message: claimable
+          ? "This account has no password yet. Create one to continue."
+          : "Sign in with the method already linked to this account.",
+      });
+    }
+    if (!passwordMatches) {
+      return res.status(401).json({ message: INVALID_PHONE_CREDENTIALS });
+    }
+
+    if (isSmsOtpEnabled()) {
+      const preAuth = await createPreAuthSession({
+        userId: user._id,
+        email: user.email,
+        phoneNumberE164,
+        purpose: PREAUTH_PURPOSES.PHONE_PASSWORD_LOGIN,
+      });
+      return res
+        .status(200)
+        .json({ success: true, otpRequired: true, ...preAuth });
+    }
+
+    return res.status(200).json({
+      success: true,
+      otpRequired: false,
+      ...phoneLoginResponse(user, "phone_password"),
+    });
+  } catch (error) {
+    logAuthError("Phone password verification failed", error);
+    return res.status(500).json({ message: "Unable to sign in." });
+  }
+};
+
+// Creates the first password for an account that was provisioned with a phone
+// number but never activated — typically a client added at the front desk.
+// Once SMS exists the code becomes the proof of ownership and this endpoint
+// steps aside for the OTP flow, which ends at the authenticated set-password
+// route the email flow already uses.
+exports.setPhonePassword = async (req, res) => {
+  try {
+    if (isSmsOtpEnabled()) {
+      return res.status(409).json({
+        code: "OTP_VERIFICATION_REQUIRED",
+        message: "Verify the code sent to your phone before creating a password.",
+      });
+    }
+
+    const passwordError = validatePassword(req.body.password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
+    }
+
+    const phoneNumberE164 = normalizePhoneNumber(req.body.phoneNumber);
+    const flow = phoneNumberE164
+      ? await findActivePreAuthSession({
+          token: req.body.preAuthToken,
+          phoneNumberE164,
+          purpose: PREAUTH_PURPOSES.PHONE_PASSWORD_SETUP,
+        })
+      : null;
+    if (!flow) {
+      return res.status(401).json({
+        code: "INVALID_PHONE_SETUP_FLOW",
+        message: "This password setup session is invalid or has expired.",
+      });
+    }
+
+    const user = await User.findById(flow.session.userId).select(
+      "+password +authenticators",
+    );
+    // Re-check eligibility at redemption time: the account may have gained a
+    // password or a linked credential since the grant was issued.
+    if (
+      !user ||
+      user.phoneNumberE164 !== phoneNumberE164 ||
+      !canClaimAccountByPhone(user)
+    ) {
+      return res.status(401).json({
+        code: "INVALID_PHONE_SETUP_FLOW",
+        message: "This password setup session is invalid or has expired.",
+      });
+    }
+
+    const consumedPreAuth = await consumePreAuthSession({
+      sessionId: flow.session._id,
+      tokenHash: flow.tokenHash,
+      userId: user._id,
+      email: user.email,
+      phoneNumberE164,
+      purpose: PREAUTH_PURPOSES.PHONE_PASSWORD_SETUP,
+    });
+    if (!consumedPreAuth) {
+      return res.status(401).json({
+        code: "INVALID_PHONE_SETUP_FLOW",
+        message: "This password setup session is invalid or has expired.",
+      });
+    }
+
+    user.password = req.body.password;
+    await user.save();
+
+    return res.status(201).json({
+      success: true,
+      hasPassword: true,
+      ...phoneLoginResponse(user, "phone_password_setup"),
+    });
+  } catch (error) {
+    logAuthError("Phone password setup failed", error);
+    return res.status(500).json({ message: "Unable to create a password." });
   }
 };
 

@@ -1,8 +1,8 @@
-const DEFAULT_RP_ID = "bookingservice.my.id";
+const DEFAULT_RP_ID = "booktheclassindonesia.com";
 const DEFAULT_RP_NAME = "Hava";
 const DEFAULT_ORIGINS = [
-  "https://bookingservice.my.id",
-  "https://www.bookingservice.my.id",
+  "https://booktheclassindonesia.com",
+  "https://www.booktheclassindonesia.com",
 ];
 
 const normalizeRpId = (value) => {

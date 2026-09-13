@@ -18,6 +18,8 @@ export const API_PATHS = {
   AUTH: {
     REGISTER: "/api/auth/register",
     LOGIN: "/api/auth/login",
+    PHONE_LOGIN: "/api/auth/phone/login",
+    PHONE_SET_PASSWORD: "/api/auth/phone/set-password",
     GET_PROFILE: "/api/auth/me",
     GET_PROFILE_BY_ID: (id) => `/api/user/${id}`,
     DELETE_USER: (id) => `/api/user/${id}`,
