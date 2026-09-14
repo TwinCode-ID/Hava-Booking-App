@@ -19,6 +19,12 @@ import { API_PATHS } from "../../../utils/apiPath";
 import uploadProfile from "../../../utils/uploadStudio";
 import { fetchImage } from "../../../utils/helper";
 import PasskeyList from "../../../components/PasskeyList";
+import PhoneNumberInput from "../../../components/PhoneNumberInput";
+import {
+  splitPhoneNumber,
+  toComparablePhoneNumber,
+  toE164,
+} from "../../../utils/countryCodes";
 import {
   getSuggestedPasskeyName,
   PASSKEY_STEP_UP_CANCELLED,
@@ -42,12 +48,18 @@ const SettingList = () => {
   const [previewImage, setPreviewImage] = useState(user?.avatar || null);
   const [lastSavedUser, setLastSavedUser] = useState(user || {});
 
-  const [profileData, setProfileData] = useState({
-    fullName: user?.fullName || "",
-    email: user?.email || "",
-    phoneNumber: user?.phoneNumber || "",
-    avatar: user?.avatar || "",
-    newAvatarFile: null,
+  // The number is edited as a country plus the national part, so the country
+  // it belongs to is visible and changeable.
+  const [profileData, setProfileData] = useState(() => {
+    const { country, nationalNumber } = splitPhoneNumber(user?.phoneNumber);
+    return {
+      fullName: user?.fullName || "",
+      email: user?.email || "",
+      phoneNumber: nationalNumber,
+      country,
+      avatar: user?.avatar || "",
+      newAvatarFile: null,
+    };
   });
 
   // Password State
@@ -92,9 +104,12 @@ const SettingList = () => {
       };
 
       setLastSavedUser(cleanUser);
+      const loadedPhone = splitPhoneNumber(cleanUser.phoneNumber);
       setProfileData((prev) => ({
         ...prev,
         ...cleanUser,
+        phoneNumber: loadedPhone.nationalNumber,
+        country: loadedPhone.country,
         newAvatarFile: null,
       }));
 
@@ -113,8 +128,9 @@ const SettingList = () => {
     const normalize = (val) => String(val || "").trim();
     return (
       normalize(profileData.fullName) !== normalize(lastSavedUser.fullName) ||
-      normalize(profileData.phoneNumber) !==
-        normalize(lastSavedUser.phoneNumber) ||
+      (profileData.phoneNumber
+        ? toE164(profileData.country.dialCode, profileData.phoneNumber)
+        : "") !== toComparablePhoneNumber(lastSavedUser.phoneNumber) ||
       profileData.newAvatarFile !== null
     );
   }, [profileData, lastSavedUser]);
@@ -174,7 +190,11 @@ const SettingList = () => {
 
       const payload = {
         fullName: profileData.fullName,
-        phoneNumber: profileData.phoneNumber,
+        // Stored in E.164 so the profile number and the number sign-in
+        // resolves against are always the same string.
+        phoneNumber: profileData.phoneNumber
+          ? toE164(profileData.country.dialCode, profileData.phoneNumber)
+          : "",
         avatar: avatarUrl,
       };
 
@@ -194,7 +214,15 @@ const SettingList = () => {
       };
 
       setLastSavedUser(cleanFetched);
-      setProfileData({ ...cleanFetched, newAvatarFile: null });
+      // The saved number comes back whole, so it is split again for the editor
+      // rather than dropped into the national field verbatim.
+      const savedPhone = splitPhoneNumber(cleanFetched.phoneNumber);
+      setProfileData({
+        ...cleanFetched,
+        phoneNumber: savedPhone.nationalNumber,
+        country: savedPhone.country,
+        newAvatarFile: null,
+      });
       setPreviewImage(fetchedUserData.avatar || null);
 
       alert("Profile updated successfully!");
@@ -441,19 +469,26 @@ const SettingList = () => {
                 </div>
 
                 <div className='col-span-2 md:col-span-1'>
-                  <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
+                  <label
+                    htmlFor='account-phone-number'
+                    className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                     Phone Number
                   </label>
-                  <div className='relative'>
-                    <Phone className='absolute left-3 top-3.5 w-4 h-4 text-stone-400' />
-                    <input
-                      type='tel'
-                      name='phoneNumber'
-                      value={profileData.phoneNumber}
-                      onChange={handleProfileChange}
-                      className='w-full pl-10 p-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-stone-500 focus:border-transparent outline-none transition-all'
-                    />
-                  </div>
+                  <PhoneNumberInput
+                    inputId='account-phone-number'
+                    country={profileData.country}
+                    onCountryChange={(country) =>
+                      setProfileData((prev) => ({ ...prev, country }))
+                    }
+                    value={profileData.phoneNumber}
+                    onChange={(nationalNumber) =>
+                      setProfileData((prev) => ({
+                        ...prev,
+                        phoneNumber: nationalNumber,
+                      }))
+                    }
+                    disabled={isLoadingProfile}
+                  />
                 </div>
 
                 <div className='col-span-2'>

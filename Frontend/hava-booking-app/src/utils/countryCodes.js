@@ -81,6 +81,59 @@ export const toE164 = (dialCode, nationalNumber) => {
   return `${dialCode}${digits}`;
 };
 
+// Splits a stored number back into the two halves the picker edits. Profiles
+// captured before sign-in used phone numbers hold free-form local notation
+// ("0812-3456-7890") with no country code at all, so anything unrecognisable
+// falls back to the studio's home country rather than being dropped.
+export const splitPhoneNumber = (value) => {
+  const compact = String(value ?? "")
+    .trim()
+    .replace(/[()\-./\s]/g, "");
+  if (!compact) return { country: DEFAULT_COUNTRY, nationalNumber: "" };
+
+  // "00" is the international access prefix and means the same as a plus.
+  const international = compact.startsWith("00")
+    ? `+${compact.slice(2)}`
+    : compact;
+
+  if (international.startsWith("+")) {
+    const country = findCountryByDialCode(international);
+    if (country) {
+      return {
+        country,
+        nationalNumber: toNationalDigits(
+          international.slice(country.dialCode.length),
+        ),
+      };
+    }
+  }
+
+  // Some stored numbers carry the home country's code with no plus sign at
+  // all ("6281234567890"). Only the home code is tested, because a bare
+  // national number would otherwise collide with another country's code — an
+  // Indonesian "81234567890" starts with Japan's 81. The API normalizes this
+  // notation by the same rule.
+  const homeDigits = DEFAULT_COUNTRY.dialCode.slice(1);
+  if (compact.startsWith(homeDigits) && compact.length > homeDigits.length) {
+    return {
+      country: DEFAULT_COUNTRY,
+      nationalNumber: toNationalDigits(compact.slice(homeDigits.length)),
+    };
+  }
+
+  return {
+    country: DEFAULT_COUNTRY,
+    nationalNumber: toNationalDigits(compact),
+  };
+};
+
+// One canonical string for comparing a number the member is editing against
+// the one already saved, whichever notation each of them is in.
+export const toComparablePhoneNumber = (value) => {
+  const { country, nationalNumber } = splitPhoneNumber(value);
+  return nationalNumber ? toE164(country.dialCode, nationalNumber) : "";
+};
+
 export const formatPhoneNumber = (dialCode, nationalNumber) => {
   const digits = toNationalDigits(nationalNumber);
   if (!digits) return dialCode;
