@@ -31,12 +31,20 @@ const PreAuthSessionSchema = new mongoose.Schema(
       index: true,
     },
     registrationVersion: { type: String, select: false },
+    // Phone flows are addressed by number, and an account added at the front
+    // desk may have no mailbox at all, so only the mailbox flows require one.
+    // An absent address is stored as undefined rather than "".
     email: {
       type: String,
-      required: true,
+      required: function () {
+        return !PHONE_PREAUTH_PURPOSE_VALUES.includes(this.purpose);
+      },
       lowercase: true,
       trim: true,
       index: true,
+      default: undefined,
+      set: (value) =>
+        typeof value === "string" && value.trim() ? value : undefined,
     },
     // Only set for phone flows, which are addressed by number instead of by
     // mailbox. The account's email is still recorded so every session has one

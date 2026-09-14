@@ -6,6 +6,7 @@ process.env.JWT_SECRET =
 
 const User = require("../models/UserData/User");
 const PendingRegistration = require("../models/OTP/PendingRegistration");
+const PreAuthSession = require("../models/OTP/PreAuthSession");
 const {
   approvePendingSignup,
   register,
@@ -47,6 +48,27 @@ const withStubs = async (stubs, run) => {
 };
 
 const selectResult = (value) => ({ select: async () => value });
+
+// User.find(...).limit(2).select(...) as findUserByPhoneNumber uses it.
+const findResult = (users) => {
+  const query = {
+    limit: () => query,
+    select: async () => users,
+    then: (resolve, reject) => Promise.resolve(users).then(resolve, reject),
+  };
+  return query;
+};
+
+const claimableAccount = (overrides = {}) => ({
+  _id: "507f1f77bcf86cd799439018",
+  fullName: "Front Desk Member",
+  role: "client",
+  password: "",
+  phoneNumber: PHONE_E164,
+  phoneNumberE164: PHONE_E164,
+  authenticators: [],
+  ...overrides,
+});
 
 const staffRequest = (body) => ({
   body,
@@ -198,13 +220,20 @@ test("a phone-only registration waits for staff instead of a code", async (t) =>
     assert.notEqual(parked.update.$set.passwordHash, PASSWORD);
   });
 
-  await t.test("a number already in use cannot be registered again", async () => {
+  await t.test("a number on a signed-in-able account is refused", async () => {
     let parked = false;
     const res = createResponse();
 
     await withStubs(
       [
         [User, "exists", async () => ({ _id: "507f1f77bcf86cd799439015" })],
+        // The account already has a password, so it must be signed in to
+        // rather than claimed or duplicated.
+        [
+          User,
+          "find",
+          () => findResult([claimableAccount({ password: "hashed" })]),
+        ],
         [
           PendingRegistration,
           "findOneAndUpdate",
@@ -228,6 +257,134 @@ test("a phone-only registration waits for staff instead of a code", async (t) =>
 
     assert.equal(parked, false);
     assert.equal(res.statusCode, 400);
+  });
+});
+
+test("a number that already identifies an account links into it", async (t) => {
+  await t.test(
+    "a passwordless front-desk account is claimed, not duplicated",
+    async () => {
+      let createdUser = false;
+      let parked = false;
+      let grant = null;
+      const res = createResponse();
+
+      await withStubs(
+        [
+          [User, "exists", async () => ({ _id: "507f1f77bcf86cd799439018" })],
+          [User, "find", () => findResult([claimableAccount()])],
+          [
+            User,
+            "create",
+            async () => {
+              createdUser = true;
+            },
+          ],
+          [
+            PendingRegistration,
+            "findOneAndUpdate",
+            async () => {
+              parked = true;
+            },
+          ],
+          [
+            PreAuthSession,
+            "create",
+            async (session) => {
+              grant = session;
+              return session;
+            },
+          ],
+        ],
+        () =>
+          register(
+            {
+              body: {
+                fullName: "Walk In Member",
+                password: PASSWORD,
+                phoneNumber: PHONE_E164,
+              },
+            },
+            res,
+          ),
+      );
+
+      assert.equal(createdUser, false);
+      assert.equal(parked, false);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.claimable, true);
+      assert.equal(res.body.hasPassword, false);
+      assert.ok(res.body.preAuthToken);
+      // The grant is bound to the existing account and its number, so the
+      // password it redeems for lands on that identity and no other.
+      assert.equal(grant.userId, "507f1f77bcf86cd799439018");
+      assert.equal(grant.phoneNumberE164, PHONE_E164);
+      assert.equal(grant.purpose, "phone_password_setup");
+    },
+  );
+
+  await t.test("an account with no email can still be granted a claim", async () => {
+    let grant = null;
+    const res = createResponse();
+
+    await withStubs(
+      [
+        [User, "exists", async () => ({ _id: "507f1f77bcf86cd799439018" })],
+        // A front-desk member may have no mailbox at all; the phone grant must
+        // not require one.
+        [
+          User,
+          "find",
+          () => findResult([claimableAccount({ email: undefined })]),
+        ],
+        [
+          PreAuthSession,
+          "create",
+          async (session) => {
+            grant = session;
+            return session;
+          },
+        ],
+      ],
+      () =>
+        register(
+          {
+            body: {
+              fullName: "Walk In Member",
+              password: PASSWORD,
+              phoneNumber: PHONE_E164,
+            },
+          },
+          res,
+        ),
+    );
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.claimable, true);
+    assert.equal(grant.email, undefined);
+  });
+
+  await t.test("staff cannot claim an account on someone's behalf", async () => {
+    const res = createResponse();
+
+    await withStubs(
+      [
+        [User, "exists", async () => ({ _id: "507f1f77bcf86cd799439018" })],
+        [User, "find", () => findResult([claimableAccount()])],
+      ],
+      () =>
+        register(
+          staffRequest({
+            fullName: "Walk In Member",
+            password: "",
+            phoneNumber: PHONE_E164,
+          }),
+          res,
+        ),
+    );
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.claimable, undefined);
   });
 });
 

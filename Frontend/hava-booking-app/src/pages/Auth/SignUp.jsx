@@ -193,6 +193,48 @@ const SignUp = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // Shared tail of every successful route into an account: the avatar can only
+  // be uploaded once a session exists and a user id is known.
+  const completeSignIn = async (token, fallbackId) => {
+    if (!token) {
+      throw new Error("Verification did not return an access token.");
+    }
+
+    const authenticatedUser = await login(token);
+    const userId = authenticatedUser._id || fallbackId;
+
+    if (formData.avatar && userId) {
+      try {
+        const uploadRes = await uploadProfile(formData.avatar, userId);
+        const avatarUrl = uploadRes?.imageUrl || uploadRes?.url || uploadRes;
+        if (avatarUrl) {
+          await axiosInstance.put(API_PATHS.AUTH.UPDATE_PROFILE, {
+            avatar: avatarUrl,
+          });
+        }
+      } catch {
+        console.error("Avatar upload/update failed.");
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, password: "", otp: "" }));
+    finalizeLogin({ role: authenticatedUser.role });
+  };
+
+  // The number already identifies an account that has never had a password —
+  // typically someone the studio added at the front desk. A second account
+  // would split their passes and history, and would leave the number matching
+  // two accounts, which stops phone sign-in working for either. So the
+  // password just chosen is set on the existing account and the member is
+  // signed into it.
+  const claimExistingAccount = async (grant, phoneNumber, password) => {
+    const response = await axiosInstance.post(
+      API_PATHS.AUTH.PHONE_SET_PASSWORD,
+      { phoneNumber, preAuthToken: grant.preAuthToken, password },
+    );
+    await completeSignIn(response.data?.token, response.data?._id);
+  };
+
   // --- STEP 0: REGISTER SUBMIT ---
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
@@ -202,6 +244,10 @@ const SignUp = () => {
     setFormState((prev) => ({ ...prev, loading: true }));
     let createdFlow = null;
 
+    const submittedPhoneNumber = formData.phoneNumber
+      ? toE164(country.dialCode, formData.phoneNumber)
+      : "";
+
     try {
       // 1. Save an expiring registration candidate. The account is created
       // only after the mailbox OTP is verified.
@@ -209,11 +255,20 @@ const SignUp = () => {
         fullName: formData.fullName,
         email: identifierType === "email" ? formData.email : "",
         password: formData.password,
-        phoneNumber: formData.phoneNumber
-          ? toE164(country.dialCode, formData.phoneNumber)
-          : "",
+        phoneNumber: submittedPhoneNumber,
         avatar: "",
       });
+
+      // The number turned out to belong to an account that has no password
+      // yet, so this registration links into it instead of creating another.
+      if (response.data?.claimable) {
+        await claimExistingAccount(
+          response.data,
+          submittedPhoneNumber,
+          formData.password,
+        );
+        return;
+      }
 
       // A phone registration has no code to verify. It waits in the studio's
       // approval queue instead, so there is no OTP step to advance to.
@@ -274,39 +329,7 @@ const SignUp = () => {
       setPreAuthFlow(null);
 
       const { token, _id } = response.data;
-      if (token) {
-        // Validate the issued token and load the server-authoritative profile.
-        const authenticatedUser = await login(token);
-        const userId = authenticatedUser._id || _id;
-
-        // 4. Upload Avatar & Update Profile (If avatar exists)
-        if (formData.avatar && userId) {
-          try {
-            // A. Upload Image
-            // We pass userId because your uploadProfile util expects it
-            const uploadRes = await uploadProfile(formData.avatar, userId);
-
-            const avatarUrl =
-              uploadRes?.imageUrl || uploadRes?.url || uploadRes;
-
-            // B. Update Profile with the new URL
-            // This call now has the Bearer token attached
-            if (avatarUrl) {
-              await axiosInstance.put(API_PATHS.AUTH.UPDATE_PROFILE, {
-                avatar: avatarUrl,
-              });
-            }
-          } catch {
-            console.error("Avatar upload/update failed.");
-          }
-        }
-
-        // 5. Finish
-        setFormData((prev) => ({ ...prev, password: "", otp: "" }));
-        finalizeLogin({ role: authenticatedUser.role });
-      } else {
-        throw new Error("Verification did not return an access token.");
-      }
+      await completeSignIn(token, _id);
     } catch (error) {
       const flowExpired =
         error?.response?.data?.code === "INVALID_OTP_FLOW" || !preAuthFlow;

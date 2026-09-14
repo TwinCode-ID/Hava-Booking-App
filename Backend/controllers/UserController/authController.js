@@ -377,10 +377,48 @@ exports.register = async (req, res) => {
         .status(400)
         .json({ message: "Unable to register with this email." });
     }
-    // Sign-in resolves an account through its number and deliberately refuses
-    // to authenticate a number that matches more than one account, so a second
-    // account must never be able to claim one that is already in use.
+    // A number that already identifies an account must never produce a second
+    // one: sign-in resolves a member through their number and refuses to
+    // authenticate a number held by more than one account.
     if (phoneNumberE164 && (await User.exists({ phoneNumberE164 }))) {
+      // Only worth the fuller lookup once a number is known to be taken, and
+      // only for a member registering themselves: staff cannot choose someone
+      // else's password on their behalf.
+      const existingByPhone = isAuthenticatedProvisioning
+        ? null
+        : await findUserByPhoneNumber(
+            phoneNumberE164,
+            "+password +authenticators",
+          );
+
+      // A front-desk account that was provisioned with this number but never
+      // given a password is the same person registering. They claim that
+      // account by setting its first password rather than starting a second
+      // one, which is what keeps their passes and history attached.
+      if (existingByPhone && canClaimAccountByPhone(existingByPhone)) {
+        const preAuth = await createPreAuthSession({
+          userId: existingByPhone._id,
+          email: existingByPhone.email,
+          phoneNumberE164,
+          purpose: PREAUTH_PURPOSES.PHONE_PASSWORD_SETUP,
+        });
+
+        return res.status(200).json({
+          success: true,
+          accountExists: true,
+          claimable: true,
+          hasPassword: false,
+          identifier: "phone",
+          otpRequired: isSmsOtpEnabled(),
+          message:
+            "This number already belongs to an account. Create its password to continue.",
+          ...preAuth,
+        });
+      }
+
+      // Anything else already reachable — a password, a linked social account,
+      // a passkey, or a number somehow shared by several accounts — has to be
+      // resolved by signing in, not by registering again.
       return res
         .status(400)
         .json({ message: "Unable to register with this phone number." });

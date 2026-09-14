@@ -39,6 +39,11 @@ const hasValidIdentifier = ({ phoneNumberE164, purpose }) =>
     ? PHONE_E164_PATTERN.test(phoneNumberE164 || "")
     : phoneNumberE164 == null;
 
+// A phone flow is addressed by its number and never needs the mailbox, and a
+// front-desk account may not have one, so only mailbox flows require an email.
+const hasValidEmail = ({ email, purpose }) =>
+  typeof email === "string" || (isPhonePurpose(purpose) && email == null);
+
 const hasValidSubject = ({
   userId,
   pendingRegistrationId,
@@ -66,7 +71,7 @@ const createPreAuthSession = async ({
   purpose,
 }) => {
   if (
-    typeof email !== "string" ||
+    !hasValidEmail({ email, purpose }) ||
     !isPurposeAllowed(purpose) ||
     !hasValidIdentifier({ phoneNumberE164, purpose }) ||
     !hasValidSubject({
@@ -88,7 +93,7 @@ const createPreAuthSession = async ({
     userId,
     pendingRegistrationId,
     registrationVersion,
-    email,
+    email: email || undefined,
     phoneNumberE164,
     purpose,
     expiresAt,
@@ -150,7 +155,7 @@ const consumePreAuthSession = async ({
   if (
     !sessionId ||
     !/^[a-f\d]{64}$/i.test(tokenHash || "") ||
-    typeof email !== "string" ||
+    !hasValidEmail({ email, purpose }) ||
     !isPurposeAllowed(purpose) ||
     !hasValidIdentifier({ phoneNumberE164, purpose }) ||
     !hasValidSubject({
@@ -169,7 +174,10 @@ const consumePreAuthSession = async ({
     userId,
     pendingRegistrationId,
     registrationVersion,
-    email,
+    // A session issued for an account with no mailbox must only be redeemable
+    // by one that still has none, so the absence is matched explicitly rather
+    // than dropped from the filter.
+    ...(email ? { email } : { email: { $exists: false } }),
     ...(isPhonePurpose(purpose) ? { phoneNumberE164 } : {}),
     purpose,
     expiresAt: { $gt: new Date() },
