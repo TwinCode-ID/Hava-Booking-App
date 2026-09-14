@@ -27,7 +27,12 @@ import {
 import axiosInstance from "../../../utils/axiosInstance";
 import { API_PATHS } from "../../../utils/apiPath";
 import { useAuth } from "../../../context/AuthContext";
-import { INDONESIAN_BANKS } from "../../../utils/helper";
+import {
+  INDONESIAN_BANKS,
+  validateContactDetails,
+} from "../../../utils/helper";
+import PhoneNumberInput from "../../../components/PhoneNumberInput";
+import { DEFAULT_COUNTRY, toE164 } from "../../../utils/countryCodes";
 import { getBankLogo } from "../../../utils/helpers";
 import FinancialAccessGate from "../../../components/FinancialAccessGate";
 import useFinancialStepUp, {
@@ -1004,6 +1009,8 @@ const ClientSelectionModal = ({
     phoneNumber: "",
     isStudent: false, // NEW: Added student flag for new client registration
   });
+  const [newClientCountry, setNewClientCountry] = useState(DEFAULT_COUNTRY);
+  const [newClientErrors, setNewClientErrors] = useState({});
 
   const filteredUsers = useMemo(() => {
     return users.filter(
@@ -1026,12 +1033,31 @@ const ClientSelectionModal = ({
 
   const handleCreateClient = async (e) => {
     e.preventDefault();
-    if (!newClient.fullName || !newClient.email || !newClient.phoneNumber)
-      return alert("Please fill all fields.");
+    if (!newClient.fullName.trim()) {
+      setNewClientErrors({ fullName: "Enter full name" });
+      return;
+    }
+
+    // Walk-in members often have only one contact detail, so either the email
+    // or the number may be left blank — but not both.
+    const contactErrors = validateContactDetails({
+      email: newClient.email,
+      nationalNumber: newClient.phoneNumber,
+    });
+    if (Object.keys(contactErrors).length > 0) {
+      setNewClientErrors(contactErrors);
+      return;
+    }
+
+    setNewClientErrors({});
     setIsSaving(true);
     try {
       const payload = {
         ...newClient,
+        email: newClient.email.trim(),
+        phoneNumber: newClient.phoneNumber
+          ? toE164(newClientCountry.dialCode, newClient.phoneNumber)
+          : "",
         role: "client",
         password: "",
       };
@@ -1050,6 +1076,8 @@ const ClientSelectionModal = ({
         phoneNumber: "",
         isStudent: false,
       });
+      setNewClientCountry(DEFAULT_COUNTRY);
+      setNewClientErrors({});
     } catch (err) {
       alert(
         `Error creating client: ${err.response?.data?.message || err.response?.data?.error || err.message}`,
@@ -1100,42 +1128,69 @@ const ClientSelectionModal = ({
                   required
                   type='text'
                   value={newClient.fullName}
-                  onChange={(e) =>
-                    setNewClient({ ...newClient, fullName: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setNewClient({ ...newClient, fullName: e.target.value });
+                    setNewClientErrors({});
+                  }}
                   className='w-full px-4 py-3 bg-white border border-stone-200 rounded-xl outline-none focus:border-stone-500 focus:ring-2 focus:ring-stone-500/20 text-sm'
                   placeholder='John Doe'
                 />
+                {newClientErrors.fullName && (
+                  <p className='text-red-500 text-xs mt-1.5'>
+                    {newClientErrors.fullName}
+                  </p>
+                )}
               </div>
+
+              <p className='text-[11px] text-stone-500 bg-stone-100 rounded-lg px-3 py-2 leading-relaxed'>
+                An email address or a phone number is required. Fill in whatever
+                the member actually has — either one is enough to sign in with.
+              </p>
+
               <div>
                 <label className='block text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-1.5'>
                   Email
                 </label>
                 <input
-                  required
                   type='email'
                   value={newClient.email}
-                  onChange={(e) =>
-                    setNewClient({ ...newClient, email: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setNewClient({ ...newClient, email: e.target.value });
+                    setNewClientErrors({});
+                  }}
                   className='w-full px-4 py-3 bg-white border border-stone-200 rounded-xl outline-none focus:border-stone-500 focus:ring-2 focus:ring-stone-500/20 text-sm'
                   placeholder='john@example.com'
                 />
+                {newClientErrors.email && (
+                  <p className='text-red-500 text-xs mt-1.5'>
+                    {newClientErrors.email}
+                  </p>
+                )}
               </div>
               <div>
                 <label className='block text-[11px] font-bold text-stone-500 uppercase tracking-widest mb-1.5'>
                   Phone Number
                 </label>
-                <input
-                  required
-                  type='tel'
+                <PhoneNumberInput
+                  inputId='new-client-phone'
+                  country={newClientCountry}
+                  onCountryChange={setNewClientCountry}
                   value={newClient.phoneNumber}
-                  onChange={(e) =>
-                    setNewClient({ ...newClient, phoneNumber: e.target.value })
-                  }
-                  className='w-full px-4 py-3 bg-white border border-stone-200 rounded-xl outline-none focus:border-stone-500 focus:ring-2 focus:ring-stone-500/20 text-sm'
-                  placeholder='08123456789'
+                  onChange={(nationalNumber) => {
+                    setNewClient({
+                      ...newClient,
+                      phoneNumber: nationalNumber,
+                    });
+                    setNewClientErrors({});
+                  }}
+                  error={newClientErrors.phoneNumber}
+                  disabled={isSaving}
                 />
+                {(newClientErrors.phoneNumber || newClientErrors.contact) && (
+                  <p className='text-red-500 text-xs mt-1.5'>
+                    {newClientErrors.phoneNumber || newClientErrors.contact}
+                  </p>
+                )}
 
                 {/* NEW: Student Status Toggle for New Client */}
                 <label className='relative inline-flex items-center cursor-pointer mt-4'>

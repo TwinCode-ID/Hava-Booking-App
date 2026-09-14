@@ -8,12 +8,20 @@ const userSchema = new mongoose.Schema(
   {
     fcmTokens: [{ type: String, maxlength: 4096 }],
     fullName: { type: String, require: true },
+    // An account is reachable by email, by phone, or by both. Members who join
+    // at the front desk often have neither a mailbox they use nor any wish to
+    // share one, so the identifier that is absent is stored as undefined
+    // rather than "" — a sparse unique index still rejects duplicates, but
+    // only among the accounts that actually carry a value.
     email: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
+      default: undefined,
+      set: (value) =>
+        typeof value === "string" && value.trim() ? value : undefined,
     },
     appleUserId: {
       type: String,
@@ -107,6 +115,13 @@ userSchema.index(
 userSchema.pre("save", async function () {
   if (this.isModified("phoneNumber")) {
     this.phoneNumberE164 = normalizePhoneNumber(this.phoneNumber) || undefined;
+  }
+
+  // Neither identifier is required on its own, but an account with no email
+  // and no usable phone number can never be signed in to or contacted, so it
+  // must not be storable.
+  if (!this.email && !this.phoneNumberE164) {
+    throw new Error("An account needs an email address or a phone number.");
   }
 
   const passwordChanged = this.isModified("password");

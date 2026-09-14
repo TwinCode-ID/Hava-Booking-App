@@ -60,6 +60,30 @@ export const validateNationalPhoneNumber = (nationalNumber) => {
   return "";
 };
 
+// A member is identified by an email address, a phone number, or both. Staff
+// register people who frequently have only one of the two, so the rule is that
+// at least one must be present and whichever is present must be valid. The
+// number is the national part; its country is chosen alongside it.
+export const validateContactDetails = ({ email, nationalNumber }) => {
+  const hasEmail = Boolean(String(email ?? "").trim());
+  const hasPhone = Boolean(String(nationalNumber ?? "").replace(/\D/g, ""));
+
+  if (!hasEmail && !hasPhone) {
+    return { contact: "Enter an email address or a phone number" };
+  }
+
+  const errors = {};
+  if (hasEmail) {
+    const emailError = validateEmail(email);
+    if (emailError) errors.email = emailError;
+  }
+  if (hasPhone) {
+    const phoneError = validateNationalPhoneNumber(nationalNumber);
+    if (phoneError) errors.phoneNumber = phoneError;
+  }
+  return errors;
+};
+
 export { validateImageUpload as validateAvatar } from "./imageUploadValidation";
 
 export const pad = (number) => {

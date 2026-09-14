@@ -1,6 +1,9 @@
 const express = require("express");
 const {
   register,
+  approvePendingSignup,
+  listPendingSignups,
+  rejectPendingSignup,
   login,
   getMe,
   checkAuth,
@@ -47,6 +50,24 @@ router.post(
   optionalProtect,
   register,
 );
+// Phone-only registrations become accounts only once staff confirm the member
+// in the studio, because no SMS gateway exists to verify the number.
+router.get("/pending-signups", protect, studioAdmin, listPendingSignups);
+router.post(
+  "/pending-signups/:id/approve",
+  protect,
+  studioAdmin,
+  sensitiveActionLimiter,
+  approvePendingSignup,
+);
+router.post(
+  "/pending-signups/:id/reject",
+  protect,
+  studioAdmin,
+  sensitiveActionLimiter,
+  rejectPendingSignup,
+);
+
 router.post("/login", authIpLimiter, authAccountLimiter, login);
 router.post(
   "/phone/login",

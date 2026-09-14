@@ -38,6 +38,12 @@ const ROLE_DESTINATIONS = {
   devTeam: "/development-dashboard",
 };
 
+// Sign in with Apple stays off while the Apple Developer account is failing
+// authorization. Set VITE_APPLE_SIGNIN_ENABLED=true to bring the button back
+// once Apple's side is healthy; the backend route is unchanged.
+const APPLE_SIGNIN_ENABLED =
+  import.meta.env.VITE_APPLE_SIGNIN_ENABLED === "true";
+
 const getSafeReturnPath = (role) => {
   if (role !== "client") return null;
   const candidate = new URLSearchParams(window.location.search).get(
@@ -61,7 +67,11 @@ const Login = () => {
   const { login } = useAuth();
   const appleAuthState = useRef(null);
 
-  if (!appleAuthState.current && window.crypto?.getRandomValues) {
+  if (
+    APPLE_SIGNIN_ENABLED &&
+    !appleAuthState.current &&
+    window.crypto?.getRandomValues
+  ) {
     appleAuthState.current = createOAuthState();
   }
 
@@ -145,7 +155,7 @@ const Login = () => {
   // --- INITIALIZE THIRD-PARTY LOGINS ---
   useEffect(() => {
     // 1. Initialize Apple Sign In
-    if (window.AppleID) {
+    if (APPLE_SIGNIN_ENABLED && window.AppleID) {
       window.AppleID.auth.init({
         clientId: import.meta.env.VITE_APPLE_CLIENT_ID,
         scope: "name email",
@@ -165,8 +175,14 @@ const Login = () => {
 
         const googleButtonDiv = document.getElementById("google-button-div");
         if (googleButtonDiv) {
-          // Calculate the exact pixel width of the container
-          const buttonWidth = googleButtonDiv.offsetWidth;
+          // Google only accepts 200-400px here. In the half-width column the
+          // container is narrower than 200, so clamp to keep the SDK from
+          // rejecting the value and falling back to its default width; the
+          // container centres and clips the surplus padding.
+          const buttonWidth = Math.min(
+            400,
+            Math.max(200, googleButtonDiv.offsetWidth),
+          );
 
           window.google.accounts.id.renderButton(googleButtonDiv, {
             theme: "outline",
@@ -236,6 +252,7 @@ const Login = () => {
 
   // --- APPLE SIGN-IN HANDLER ---
   const handleAppleLogin = async () => {
+    if (!APPLE_SIGNIN_ENABLED) return;
     try {
       setFormState((prev) => ({ ...prev, loading: true }));
 
@@ -861,32 +878,36 @@ const Login = () => {
                 </div>
 
                 {/* Social Buttons Container */}
-                <div className='flex flex-col gap-3 pl-6'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
                   {/* Google Sign-In Target Div */}
                   <div
                     id='google-button-div'
                     className='w-full h-10 flex items-center justify-center overflow-hidden'></div>
 
                   {/* Apple Sign-In Button */}
-                  <button
-                    type='button'
-                    onClick={handleAppleLogin}
-                    disabled={formState.loading}
-                    // Changed h-[52px] to h-[40px] and adjusted padding so it matches Google exactly
-                    className='w-full bg-stone-900 text-white px-6 h-10 rounded border border-stone-900 font-medium hover:bg-stone-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
-                    <svg viewBox='0 0 384 512' className='w-5 h-5 fill-current'>
-                      <path d='M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 24 184.8 8.8 245.8c-10.4 41.8-6.4 96.6 22.8 141.2 16.4 25.1 39.1 52.5 67.2 51.5 26.6-1.1 36.6-17.1 68.7-17.1 32 0 41.4 17.1 69.1 16.7 29.1-.4 49-25.1 65.2-48.8 19-27.8 26.9-54.8 27.5-56.2-.2-.2-41.5-15.6-41.8-64.4zM263.2 89.6c14.6-17.8 24.5-42.6 21.8-67.6-20.8 1.1-47.1 14.3-62.3 32.1-13.4 15.6-24.8 41.3-21.6 65.4 23.3 1.9 47.5-12.1 62.1-29.9z' />
-                    </svg>
-                    Sign in with Apple
-                  </button>
+                  {APPLE_SIGNIN_ENABLED && (
+                    <button
+                      type='button'
+                      onClick={handleAppleLogin}
+                      disabled={formState.loading}
+                      // Changed h-[52px] to h-[40px] and adjusted padding so it matches Google exactly
+                      className='w-full bg-stone-900 text-white px-6 h-10 rounded border border-stone-900 font-medium hover:bg-stone-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
+                      <svg
+                        viewBox='0 0 384 512'
+                        className='w-5 h-5 fill-current'>
+                        <path d='M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 24 184.8 8.8 245.8c-10.4 41.8-6.4 96.6 22.8 141.2 16.4 25.1 39.1 52.5 67.2 51.5 26.6-1.1 36.6-17.1 68.7-17.1 32 0 41.4 17.1 69.1 16.7 29.1-.4 49-25.1 65.2-48.8 19-27.8 26.9-54.8 27.5-56.2-.2-.2-41.5-15.6-41.8-64.4zM263.2 89.6c14.6-17.8 24.5-42.6 21.8-67.6-20.8 1.1-47.1 14.3-62.3 32.1-13.4 15.6-24.8 41.3-21.6 65.4 23.3 1.9 47.5-12.1 62.1-29.9z' />
+                      </svg>
+                      Sign in with Apple
+                    </button>
+                  )}
 
                   <button
                     type='button'
                     onClick={handlePasskeyLogin}
                     disabled={formState.loading}
-                    className='w-full bg-white border border-stone-200 text-stone-800 px-6 h-10 rounded font-medium hover:bg-stone-50 hover:border-stone-400 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
-                    <Fingerprint className='w-5 h-5 text-stone-800' />
-                    Sign in with Passkey
+                    className='w-full bg-white border border-stone-200 text-stone-800 px-3 h-10 rounded font-medium hover:bg-stone-50 hover:border-stone-400 transition-all flex items-center justify-center gap-2 disabled:opacity-50'>
+                    <Fingerprint className='w-5 h-5 shrink-0 text-stone-800' />
+                    <span className='truncate'>Passkey</span>
                   </button>
                 </div>
 

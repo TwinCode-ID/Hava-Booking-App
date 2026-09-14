@@ -18,14 +18,20 @@ import {
 import {
   validateAvatar,
   validateEmail,
+  validateNationalPhoneNumber,
   validatePassword,
-  validatePhoneNumber,
 } from "../../utils/helper";
 import axiosInstance from "../../utils/axiosInstance";
 import { API_PATHS } from "../../utils/apiPath";
 import { useAuth } from "../../context/AuthContext";
 // Ensure this path is correct based on your file structure
 import uploadProfile from "../../utils/uploadProfile";
+import PhoneNumberInput from "../../components/PhoneNumberInput";
+import {
+  DEFAULT_COUNTRY,
+  formatPhoneNumber,
+  toE164,
+} from "../../utils/countryCodes";
 
 const ROLE_DESTINATIONS = {
   studioAdmin: "/admin-dashboard",
@@ -49,6 +55,13 @@ const SignUp = () => {
 
   // Step 0: Register Form, Step 1: OTP Verification
   const [step, setStep] = useState(0);
+
+  // Which contact detail identifies the account. Email registrations verify
+  // themselves with a mailbox code; phone registrations cannot, so they are
+  // activated by studio staff instead.
+  const [identifierType, setIdentifierType] = useState("email");
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [awaitingApproval, setAwaitingApproval] = useState(false);
 
   // Timer & Popup State
   const [resendTimer, setResendTimer] = useState(0);
@@ -151,12 +164,24 @@ const SignUp = () => {
     }
   };
 
+  const switchIdentifierType = (type) => {
+    if (type === identifierType) return;
+    setIdentifierType(type);
+    setFormState((prev) => ({ ...prev, errors: {} }));
+  };
+
   const validateForm = () => {
+    const registeringWithEmail = identifierType === "email";
     const errors = {
       fullName: !formData.fullName ? "Enter full name" : "",
-      email: validateEmail(formData.email),
       password: validatePassword(formData.password),
-      phoneNumber: validatePhoneNumber(formData.phoneNumber),
+      // An email registration may still carry a number, and it is checked only
+      // when one was actually entered.
+      email: registeringWithEmail ? validateEmail(formData.email) : "",
+      phoneNumber:
+        registeringWithEmail && !formData.phoneNumber
+          ? ""
+          : validateNationalPhoneNumber(formData.phoneNumber),
       avatar: "",
     };
 
@@ -182,11 +207,22 @@ const SignUp = () => {
       // only after the mailbox OTP is verified.
       const response = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
         fullName: formData.fullName,
-        email: formData.email,
+        email: identifierType === "email" ? formData.email : "",
         password: formData.password,
-        phoneNumber: formData.phoneNumber,
+        phoneNumber: formData.phoneNumber
+          ? toE164(country.dialCode, formData.phoneNumber)
+          : "",
         avatar: "",
       });
+
+      // A phone registration has no code to verify. It waits in the studio's
+      // approval queue instead, so there is no OTP step to advance to.
+      if (identifierType === "phone") {
+        setAwaitingApproval(true);
+        setFormData((prev) => ({ ...prev, password: "" }));
+        setFormState((prev) => ({ ...prev, loading: false, errors: {} }));
+        return;
+      }
 
       createdFlow = getPreAuthFlow(response.data);
       setPreAuthFlow(createdFlow);
@@ -332,6 +368,38 @@ const SignUp = () => {
     }
   };
 
+  if (awaitingApproval) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-white px-4'>
+        <Motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className='bg-white p-10 rounded-3xl shadow-2xl shadow-stone-600/10 border border-stone-100 max-w-md w-full text-center'>
+          <div className='w-16 h-16 bg-stone-100 rounded-2xl flex items-center justify-center mx-auto mb-5'>
+            <ShieldCheck className='w-8 h-8 text-stone-800' />
+          </div>
+          <h2 className='text-2xl font-extrabold text-stone-900 mb-2 tracking-tight'>
+            Almost there
+          </h2>
+          <p className='text-stone-500 mb-6 leading-relaxed'>
+            We saved your details for{" "}
+            <span className='font-bold text-stone-800'>
+              {formatPhoneNumber(country.dialCode, formData.phoneNumber)}
+            </span>
+            . Studio staff will activate your account on your next visit — after
+            that, sign in with your phone number and the password you just
+            chose.
+          </p>
+          <a
+            href='/login'
+            className='inline-flex items-center justify-center w-full bg-stone-900 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-stone-800 transition-all'>
+            Back to sign in
+          </a>
+        </Motion.div>
+      </div>
+    );
+  }
+
   if (formState.success) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-white px-4'>
@@ -425,22 +493,49 @@ const SignUp = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className='space-y-5'>
+                {/* Identifier type */}
+                <div className='grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl'>
+                  {["email", "phone"].map((id) => (
+                    <button
+                      key={id}
+                      type='button'
+                      onClick={() => switchIdentifierType(id)}
+                      aria-pressed={identifierType === id}
+                      className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold capitalize transition-all ${
+                        identifierType === id
+                          ? "bg-white text-stone-900 shadow-sm"
+                          : "text-stone-500 hover:text-stone-700"
+                      }`}>
+                      {id === "email" ? (
+                        <Mail className='w-4 h-4' />
+                      ) : (
+                        <Phone className='w-4 h-4' />
+                      )}
+                      {id}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Full Name */}
                 <div>
-                  <label className='block text-sm font-medium text-stone-700 mb-1'>
+                  <label
+                    htmlFor='signup-full-name'
+                    className='block text-sm font-bold text-stone-700 mb-2'>
                     Full Name
                   </label>
                   <div className='relative'>
                     <User className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
                     <input
+                      id='signup-full-name'
                       type='text'
                       name='fullName'
+                      autoComplete='name'
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+                      className={`w-full pl-10 pr-4 py-3.5 rounded-xl border ${
                         formState.errors.fullName
                           ? "border-red-500"
-                          : "border-stone-300"
+                          : "border-stone-200"
                       } focus:ring-2 focus:ring-stone-500 outline-none transition-colors`}
                       placeholder='John Doe'
                     />
@@ -453,51 +548,111 @@ const SignUp = () => {
                 </div>
 
                 {/* Email */}
-                <div>
-                  <label className='block text-sm font-medium text-stone-700 mb-1'>
-                    Email Address
-                  </label>
-                  <div className='relative'>
-                    <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
-                    <input
-                      type='email'
-                      name='email'
-                      autoComplete='username'
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className={`w-full pl-10 pr-12 py-3 rounded-lg border ${
-                        formState.errors.email
-                          ? "border-red-500"
-                          : "border-stone-300"
-                      } focus:ring-2 focus:ring-stone-500 outline-none transition-colors`}
-                      placeholder='name@example.com'
-                    />
+                {identifierType === "email" && (
+                  <div>
+                    <label
+                      htmlFor='signup-email'
+                      className='block text-sm font-bold text-stone-700 mb-2'>
+                      Email Address
+                    </label>
+                    <div className='relative'>
+                      <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
+                      <input
+                        id='signup-email'
+                        type='email'
+                        name='email'
+                        autoComplete='username'
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className={`w-full pl-10 pr-4 py-3.5 rounded-xl border ${
+                          formState.errors.email
+                            ? "border-red-500"
+                            : "border-stone-200"
+                        } focus:ring-2 focus:ring-stone-500 outline-none transition-colors`}
+                        placeholder='name@example.com'
+                      />
+                    </div>
+                    {formState.errors.email && (
+                      <p className='text-red-500 text-xs mt-1'>
+                        {formState.errors.email}
+                      </p>
+                    )}
                   </div>
-                  {formState.errors.email && (
+                )}
+
+                {/* Phone */}
+                <div>
+                  <label
+                    htmlFor='signup-phone-number'
+                    className='flex items-center justify-between text-sm font-bold text-stone-700 mb-2'>
+                    Phone Number
+                    {identifierType === "email" && (
+                      <span className='font-medium text-stone-400'>
+                        Optional
+                      </span>
+                    )}
+                  </label>
+                  <PhoneNumberInput
+                    inputId='signup-phone-number'
+                    country={country}
+                    onCountryChange={setCountry}
+                    value={formData.phoneNumber}
+                    onChange={(nationalNumber) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        phoneNumber: nationalNumber,
+                      }));
+                      if (
+                        formState.errors.phoneNumber ||
+                        formState.errors.submit
+                      ) {
+                        setFormState((prev) => ({
+                          ...prev,
+                          errors: {
+                            ...prev.errors,
+                            phoneNumber: "",
+                            submit: "",
+                          },
+                        }));
+                      }
+                    }}
+                    error={formState.errors.phoneNumber}
+                    disabled={formState.loading}
+                  />
+                  {formState.errors.phoneNumber && (
                     <p className='text-red-500 text-xs mt-1'>
-                      {formState.errors.email}
+                      {formState.errors.phoneNumber}
+                    </p>
+                  )}
+                  {identifierType === "phone" && (
+                    <p className='text-xs text-stone-500 mt-2 leading-relaxed'>
+                      Studio staff activate phone registrations in person, so
+                      your account becomes usable on your next visit.
                     </p>
                   )}
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className='block text-sm font-medium text-stone-700 mb-1'>
+                  <label
+                    htmlFor='signup-password'
+                    className='block text-sm font-bold text-stone-700 mb-2'>
                     Password
                   </label>
                   <div className='relative'>
                     <Lock className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
                     <input
+                      id='signup-password'
                       type={formState.showPassword ? "text" : "password"}
                       name='password'
                       autoComplete='new-password'
                       value={formData.password}
                       maxLength={128}
                       onChange={handleInputChange}
-                      className={`w-full pl-10 pr-10 py-3 rounded-lg border ${
+                      className={`w-full pl-10 pr-10 py-3.5 rounded-xl border ${
                         formState.errors.password
                           ? "border-red-500"
-                          : "border-stone-300"
+                          : "border-stone-200"
                       } focus:ring-2 focus:ring-stone-500 outline-none transition-colors`}
                       placeholder='Create password'
                     />
@@ -524,37 +679,13 @@ const SignUp = () => {
                   )}
                 </div>
 
-                {/* Phone */}
-                <div>
-                  <label className='block text-sm font-medium text-stone-700 mb-1'>
-                    Phone Number
-                  </label>
-                  <div className='relative'>
-                    <Phone className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
-                    <input
-                      type='text'
-                      name='phoneNumber'
-                      value={formData.phoneNumber}
-                      onChange={handleInputChange}
-                      className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
-                        formState.errors.phoneNumber
-                          ? "border-red-500"
-                          : "border-stone-300"
-                      } focus:ring-2 focus:ring-stone-500 outline-none transition-colors`}
-                      placeholder='081...'
-                    />
-                  </div>
-                  {formState.errors.phoneNumber && (
-                    <p className='text-red-500 text-xs mt-1'>
-                      {formState.errors.phoneNumber}
-                    </p>
-                  )}
-                </div>
-
                 {/* Avatar */}
                 <div>
-                  <label className='block text-sm font-medium text-stone-700 mb-2'>
+                  <label
+                    htmlFor='avatar'
+                    className='flex items-center justify-between text-sm font-bold text-stone-700 mb-2'>
                     Profile Picture
+                    <span className='font-medium text-stone-400'>Optional</span>
                   </label>
                   <div className='flex items-center space-x-4'>
                     <div className='w-14 h-14 rounded-full bg-stone-100 flex items-center justify-center overflow-hidden border border-stone-200'>
@@ -578,7 +709,7 @@ const SignUp = () => {
                       />
                       <label
                         htmlFor='avatar'
-                        className='cursor-pointer inline-flex items-center px-4 py-2 border border-stone-300 rounded-lg text-sm font-medium text-stone-700 bg-white hover:bg-stone-50'>
+                        className='cursor-pointer inline-flex items-center px-4 py-2.5 border border-stone-200 rounded-xl text-sm font-bold text-stone-700 bg-white hover:bg-stone-50 transition-colors'>
                         <Upload className='w-4 h-4 mr-2' /> Upload
                       </label>
                     </div>
@@ -586,7 +717,7 @@ const SignUp = () => {
                 </div>
 
                 {formState.errors.submit && (
-                  <div className='bg-red-50 border border-red-200 rounded-lg p-3'>
+                  <div className='bg-red-50 border border-red-200 rounded-xl p-3.5'>
                     <p className='text-red-700 text-sm flex items-center'>
                       <AlertCircle className='w-4 h-4 mr-2' />
                       {formState.errors.submit}
@@ -650,7 +781,7 @@ const SignUp = () => {
                 </div>
 
                 {formState.errors.submit && (
-                  <div className='bg-red-50 border border-red-200 rounded-lg p-3 text-center text-red-600 text-sm font-medium'>
+                  <div className='bg-red-50 border border-red-200 rounded-xl p-3.5 text-center text-red-600 text-sm font-medium'>
                     {formState.errors.submit}
                   </div>
                 )}

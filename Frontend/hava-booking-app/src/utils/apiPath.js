@@ -17,6 +17,11 @@ export const BASE_URL = configuredBaseUrl.replace(/\/+$/, "");
 export const API_PATHS = {
   AUTH: {
     REGISTER: "/api/auth/register",
+    // Phone-only registrations wait here until staff activate them, because no
+    // SMS gateway exists to verify the number.
+    PENDING_SIGNUPS: "/api/auth/pending-signups",
+    APPROVE_PENDING_SIGNUP: (id) => `/api/auth/pending-signups/${id}/approve`,
+    REJECT_PENDING_SIGNUP: (id) => `/api/auth/pending-signups/${id}/reject`,
     LOGIN: "/api/auth/login",
     PHONE_LOGIN: "/api/auth/phone/login",
     PHONE_SET_PASSWORD: "/api/auth/phone/set-password",

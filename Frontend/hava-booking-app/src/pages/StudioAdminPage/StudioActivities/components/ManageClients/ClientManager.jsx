@@ -38,7 +38,14 @@ import { API_PATHS } from "../../../../../utils/apiPath";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { useAuth } from "../../../../../context/AuthContext";
 import CustomSelect from "../Layout/CustomSelect";
+import PhoneNumberInput from "../../../../../components/PhoneNumberInput";
+import {
+  DEFAULT_COUNTRY,
+  toE164,
+} from "../../../../../utils/countryCodes";
+import { validateContactDetails } from "../../../../../utils/helper";
 import FinancialAccessGate from "../../../../../components/FinancialAccessGate";
+import PendingSignupApprovals from "../../../../../components/PendingSignupApprovals";
 import useFinancialStepUp, {
   isFinancialStepUpError,
 } from "../../../../../utils/useFinancialStepUp";
@@ -901,6 +908,8 @@ const ClientManager = ({ isEmbedded = false }) => {
               <Plus className='w-4 h-4' /> Assign Pass
             </button>
           </div>
+
+          <PendingSignupApprovals onApproved={fetchData} />
 
           <div className='bg-white rounded-[20px] border border-stone-100 shadow-sm overflow-hidden'>
             <div className='overflow-x-hidden md:overflow-x-auto w-full custom-scrollbar'>
@@ -2918,8 +2927,16 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
     paymentIssuer: "",
     totalAmount: "",
     isNewClient: false,
-    newClientData: { fullName: "", email: "", phone: "", isStudent: false },
+    // The key has to be phoneNumber: it is submitted straight to the register
+    // endpoint, which reads that name and ignores anything else.
+    newClientData: {
+      fullName: "",
+      email: "",
+      phoneNumber: "",
+      isStudent: false,
+    },
   });
+  const [newClientCountry, setNewClientCountry] = useState(DEFAULT_COUNTRY);
 
   useEffect(() => {
     const init = async () => {
@@ -2955,17 +2972,34 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
     e.preventDefault();
     onSubmit({
       ...formData,
+      newClientData: {
+        ...formData.newClientData,
+        phoneNumber: formData.newClientData.phoneNumber
+          ? toE164(
+              newClientCountry.dialCode,
+              formData.newClientData.phoneNumber,
+            )
+          : "",
+      },
       isNewClient: activeTab === "new",
       userId: activeTab === "new" ? null : formData.userId,
     });
   };
+
+  // A new client needs a name and at least one way to be identified, which may
+  // be an email address or a phone number.
+  const newClientContactErrors = validateContactDetails({
+    email: formData.newClientData.email,
+    nationalNumber: formData.newClientData.phoneNumber,
+  });
 
   const isFormValid =
     formData.packageId &&
     formData.paymentIssuer &&
     (activeTab === "existing"
       ? formData.userId
-      : formData.newClientData.fullName && formData.newClientData.email);
+      : formData.newClientData.fullName &&
+        Object.keys(newClientContactErrors).length === 0);
 
   const isSelectedStudent =
     activeTab === "existing"
@@ -3053,6 +3087,7 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                 <input
                   name='fullName'
                   placeholder='Full Name'
+                  value={formData.newClientData.fullName}
                   className='w-full p-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
                   onChange={(e) =>
                     setFormData({
@@ -3064,9 +3099,15 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                     })
                   }
                 />
+                <p className='text-[11px] text-stone-500 leading-relaxed'>
+                  An email address or a phone number is required — either one on
+                  its own is enough for the client to sign in with.
+                </p>
                 <input
                   name='email'
+                  type='email'
                   placeholder='Email Address'
+                  value={formData.newClientData.email}
                   className='w-full p-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
                   onChange={(e) =>
                     setFormData({
@@ -3078,19 +3119,21 @@ const AssignPassModal = ({ onClose, onSubmit }) => {
                     })
                   }
                 />
-                <input
-                  name='phone'
-                  placeholder='Phone Number (Optional)'
-                  className='w-full p-3.5 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:border-stone-500 focus:ring-4 focus:ring-stone-500/10 transition-all shadow-sm'
-                  onChange={(e) =>
+                <PhoneNumberInput
+                  inputId='assign-new-client-phone'
+                  country={newClientCountry}
+                  onCountryChange={setNewClientCountry}
+                  value={formData.newClientData.phoneNumber}
+                  onChange={(nationalNumber) =>
                     setFormData({
                       ...formData,
                       newClientData: {
                         ...formData.newClientData,
-                        phone: e.target.value,
+                        phoneNumber: nationalNumber,
                       },
                     })
                   }
+                  error={newClientContactErrors.phoneNumber}
                 />
                 <div className='flex items-center justify-between p-3.5 bg-white border border-stone-200 rounded-xl shadow-sm mt-2'>
                   <span className='text-sm font-medium text-stone-600'>

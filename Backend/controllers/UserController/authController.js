@@ -32,6 +32,9 @@ const DUMMY_PASSWORD_HASH =
   "$2b$10$KM7M3Wkqj0U7g7qj6SI9b.xWitNbOmqOSoE7vkTmlpXlVJ4tGfOyK";
 const INVALID_PHONE_CREDENTIALS = "Invalid phone number or password.";
 const PENDING_REGISTRATION_TTL_MS = 15 * 60 * 1000;
+// A phone-only candidate waits for a person, not for a code, so it is kept
+// long enough for the member to walk into the studio and be approved there.
+const STAFF_APPROVAL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const ALLOWED_ROLES = new Set(["client", "studioAdmin", "devTeam"]);
 const ALLOWED_STEP_UP_SCOPES = new Set([
   ADMIN_MANAGEMENT_SCOPE,
@@ -43,7 +46,9 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const socialLoginResponse = (user, authenticationMethod) => ({
   _id: user._id,
   fullName: user.fullName,
-  email: user.email,
+  // Phone-only accounts have no email at all. Sending "" rather than dropping
+  // the key keeps the response shape identical for every sign-in method.
+  email: user.email || "",
   role: user.role,
   avatar: user.avatar || "",
   token: issueAuthToken(user._id, {
@@ -309,10 +314,28 @@ exports.register = async (req, res) => {
         ? req.user.adminStudioLocation
         : req.body.preferredStudioId;
 
-    if (!email || !fullName) {
+    const phoneNumber =
+      typeof req.body.phoneNumber === "string"
+        ? req.body.phoneNumber.trim().slice(0, 32)
+        : "";
+    const phoneNumberE164 = normalizePhoneNumber(phoneNumber);
+
+    if (!fullName) {
+      return res.status(400).json({ message: "A valid name is required." });
+    }
+    // A number that was typed but cannot be parsed is a mistake worth naming,
+    // so it is reported before the broader "no identifier at all" case.
+    if (phoneNumber && !phoneNumberE164) {
       return res
         .status(400)
-        .json({ message: "A valid name and email are required." });
+        .json({ message: "Enter a valid phone number, including its country." });
+    }
+    // Either identifier alone is enough to register. Members joining at the
+    // front desk frequently have only a phone number.
+    if (!email && !phoneNumberE164) {
+      return res
+        .status(400)
+        .json({ message: "An email address or a phone number is required." });
     }
     if (!role) {
       return res.status(403).json({ message: "Not authorized." });
@@ -339,7 +362,7 @@ exports.register = async (req, res) => {
     if (isStaffCreatingClient && password !== "") {
       return res.status(400).json({
         message:
-          "Staff-created clients must verify their email before creating a password.",
+          "Staff-created clients must verify their own contact details before creating a password.",
       });
     }
     if (!isStaffCreatingClient) {
@@ -349,16 +372,20 @@ exports.register = async (req, res) => {
       }
     }
 
-    if (await User.exists({ email })) {
+    if (email && (await User.exists({ email }))) {
       return res
         .status(400)
         .json({ message: "Unable to register with this email." });
     }
+    // Sign-in resolves an account through its number and deliberately refuses
+    // to authenticate a number that matches more than one account, so a second
+    // account must never be able to claim one that is already in use.
+    if (phoneNumberE164 && (await User.exists({ phoneNumberE164 }))) {
+      return res
+        .status(400)
+        .json({ message: "Unable to register with this phone number." });
+    }
 
-    const phoneNumber =
-      typeof req.body.phoneNumber === "string"
-        ? req.body.phoneNumber.trim().slice(0, 32)
-        : "";
     const avatar =
       typeof req.body.avatar === "string"
         ? req.body.avatar.slice(0, 2048)
@@ -371,7 +398,10 @@ exports.register = async (req, res) => {
     if (isAuthenticatedProvisioning) {
       const user = await User.create({
         fullName,
-        email,
+        // An absent identifier is stored as undefined, never as null or "",
+        // so the sparse unique index skips it instead of treating every
+        // phone-only account as a duplicate of the others.
+        email: email || undefined,
         password: password || "",
         phoneNumber,
         role,
@@ -389,7 +419,7 @@ exports.register = async (req, res) => {
       return res.status(201).json({
         _id: user._id,
         fullName: user.fullName,
-        email: user.email,
+        email: user.email || "",
         phoneNumber: user.phoneNumber || "",
         preferredStudioId: user.preferredStudioId || "",
         isStudent: user.isStudent === true,
@@ -397,6 +427,47 @@ exports.register = async (req, res) => {
         adminStudioLocation: user.adminStudioLocation || "",
         avatar: user.avatar || "",
         activationRequired: false,
+      });
+    }
+
+    // A phone-only registration has nothing it can prove itself against: no
+    // SMS gateway is contracted, so the number cannot be verified over the
+    // air. The candidate is parked instead, and becomes an account only when a
+    // cashier or an admin confirms the person at the front desk.
+    if (!email) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      await PendingRegistration.findOneAndUpdate(
+        { phoneNumberE164 },
+        {
+          $set: {
+            fullName,
+            phoneNumber,
+            phoneNumberE164,
+            passwordHash,
+            avatar,
+            role: "client",
+            approvalStatus: "awaitingStaff",
+            registrationVersion: crypto.randomBytes(32).toString("base64url"),
+            expiresAt: new Date(Date.now() + STAFF_APPROVAL_TTL_MS),
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+          setDefaultsOnInsert: true,
+          upsert: true,
+        },
+      );
+
+      return res.status(202).json({
+        fullName,
+        phoneNumber,
+        role: "client",
+        avatar,
+        activationRequired: true,
+        approvalRequired: true,
+        message:
+          "Your details were received. Studio staff will activate your account the next time you visit.",
       });
     }
 
@@ -467,11 +538,139 @@ exports.register = async (req, res) => {
   } catch (error) {
     logAuthError("Registration failed", error);
     if (error?.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "Unable to register with this email." });
+      return res.status(400).json({
+        message: "Unable to register with these contact details.",
+      });
     }
     return res.status(500).json({ message: "Registration failed." });
+  }
+};
+
+// --- Phone-only signup approval ---------------------------------------------
+// A candidate that registered with a phone number alone has proven nothing, so
+// it never becomes an account on its own. Staff confirm the person and the
+// number in the studio, and only these handlers create the User.
+
+const pendingSignupResponse = (candidate) => ({
+  _id: candidate._id,
+  fullName: candidate.fullName,
+  phoneNumber: candidate.phoneNumber || "",
+  requestedAt: candidate.createdAt,
+  expiresAt: candidate.expiresAt,
+});
+
+exports.listPendingSignups = async (_req, res) => {
+  try {
+    const candidates = await PendingRegistration.find({
+      approvalStatus: "awaitingStaff",
+    })
+      .sort({ createdAt: 1 })
+      .limit(200);
+
+    return res.status(200).json(candidates.map(pendingSignupResponse));
+  } catch (error) {
+    logAuthError("Listing pending signups failed", error);
+    return res
+      .status(500)
+      .json({ message: "Unable to load pending registrations." });
+  }
+};
+
+exports.approvePendingSignup = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ message: "Registration not found." });
+    }
+    if (
+      Object.hasOwn(req.body, "isStudent") &&
+      typeof req.body.isStudent !== "boolean"
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Student status must be true or false." });
+    }
+
+    const managedStudio =
+      req.user?.role === "studioAdmin"
+        ? req.user.adminStudioLocation
+        : req.body.preferredStudioId;
+    if (!mongoose.isValidObjectId(managedStudio)) {
+      return res
+        .status(400)
+        .json({ message: "A valid managed studio is required." });
+    }
+
+    // Claiming the candidate before creating the account means two cashiers
+    // approving the same person cannot produce two accounts for one number.
+    const candidate = await PendingRegistration.findOneAndDelete({
+      _id: id,
+      approvalStatus: "awaitingStaff",
+    }).select("+passwordHash");
+    if (!candidate) {
+      return res.status(404).json({ message: "Registration not found." });
+    }
+
+    if (await User.exists({ phoneNumberE164: candidate.phoneNumberE164 })) {
+      return res.status(409).json({
+        message: "An account already uses this phone number.",
+      });
+    }
+
+    const user = await User.createWithPasswordHash({
+      fullName: candidate.fullName,
+      phoneNumber: candidate.phoneNumber,
+      password: candidate.passwordHash,
+      role: "client",
+      isStudent: req.body.isStudent === true,
+      preferredStudioId: managedStudio,
+      avatar: candidate.avatar || "",
+    });
+
+    return res.status(201).json({
+      _id: user._id,
+      fullName: user.fullName,
+      email: "",
+      phoneNumber: user.phoneNumber || "",
+      preferredStudioId: user.preferredStudioId || "",
+      isStudent: user.isStudent === true,
+      role: user.role,
+      avatar: user.avatar || "",
+    });
+  } catch (error) {
+    logAuthError("Approving a pending signup failed", error);
+    if (error?.code === 11000) {
+      return res
+        .status(409)
+        .json({ message: "An account already uses this phone number." });
+    }
+    return res
+      .status(500)
+      .json({ message: "Unable to activate this registration." });
+  }
+};
+
+exports.rejectPendingSignup = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ message: "Registration not found." });
+    }
+
+    const candidate = await PendingRegistration.findOneAndDelete({
+      _id: id,
+      approvalStatus: "awaitingStaff",
+    });
+    if (!candidate) {
+      return res.status(404).json({ message: "Registration not found." });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    logAuthError("Rejecting a pending signup failed", error);
+    return res
+      .status(500)
+      .json({ message: "Unable to discard this registration." });
   }
 };
 
