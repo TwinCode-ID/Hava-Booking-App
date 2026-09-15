@@ -33,7 +33,7 @@ import {
 import { startRegistration } from "@simplewebauthn/browser";
 
 const SettingList = () => {
-  const { user, updateUser } = useAuth();
+  const { user, login, updateUser } = useAuth();
 
   // --- States ---
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -220,19 +220,23 @@ const SettingList = () => {
     e.preventDefault();
     setEmailClaim((prev) => ({ ...prev, busy: true, error: "" }));
     try {
-      await axiosInstance.post(API_PATHS.AUTH.VERIFY_OTP, {
+      const { data } = await axiosInstance.post(API_PATHS.AUTH.VERIFY_OTP, {
         email: emailClaim.address.trim(),
         preAuthToken: emailClaim.flow.token,
         purpose: emailClaim.flow.purpose,
         otp: emailClaim.otp,
       });
 
-      const { data } = await axiosInstance.get(
-        `${API_PATHS.AUTH.GET_PROFILE}?t=${Date.now()}`,
-      );
-      updateUser(data);
-      setProfileData((prev) => ({ ...prev, email: data.email || "" }));
-      setLastSavedUser((prev) => ({ ...prev, email: data.email || "" }));
+      // Attaching the address is an authentication change, so the server
+      // revokes every existing token and returns a replacement. The session
+      // has to adopt it here, or the very next request signs this tab out.
+      const refreshedUser = await login(data.token);
+      updateUser(refreshedUser);
+      setProfileData((prev) => ({ ...prev, email: refreshedUser.email || "" }));
+      setLastSavedUser((prev) => ({
+        ...prev,
+        email: refreshedUser.email || "",
+      }));
       setEmailClaim({
         address: "",
         otp: "",

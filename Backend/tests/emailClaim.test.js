@@ -5,9 +5,16 @@ process.env.JWT_SECRET =
   process.env.JWT_SECRET || "test-only-jwt-secret-that-is-at-least-32-characters";
 
 const User = require("../models/UserData/User");
+const OTP = require("../models/OTP/OTP");
 const PreAuthSession = require("../models/OTP/PreAuthSession");
 const { startEmailClaim } = require("../controllers/UserController/userController");
+const { verifyOTP } = require("../controllers/OTPController/otpController");
 const { PREAUTH_PURPOSES } = require("../helper/preAuthSession");
+const { hashOtp } = require("../helper/authSecurity");
+const { verifyAuthToken } = require("../helper/authToken");
+
+const FLOW_TOKEN = "A".repeat(43);
+const OTP_CODE = "123456";
 
 const USER_ID = "507f1f77bcf86cd799439011";
 const NEW_EMAIL = "member@example.com";
@@ -154,4 +161,74 @@ test("a mailbox is only attached to an account after it is proved", async (t) =>
       assert.equal(res.statusCode, 400, JSON.stringify(invalid));
     }
   });
+});
+
+test("confirming a claimed mailbox keeps the member signed in", async () => {
+  // Attaching an email is an authentication change, so the model revokes every
+  // existing token by raising authVersion. The reply therefore has to carry a
+  // replacement minted after that bump — a token cut before it is already dead,
+  // which logs the member straight out of the tab they are sitting in.
+  const savedUser = {
+    _id: USER_ID,
+    fullName: "Walk In Member",
+    role: "client",
+    email: undefined,
+    authVersion: 4,
+    save: async function () {
+      this.authVersion += 1;
+    },
+  };
+
+  const res = createResponse();
+  await withStubs(
+    [
+      [
+        PreAuthSession,
+        "findOne",
+        () => ({
+          select: async () => ({
+            _id: "507f1f77bcf86cd799439055",
+            userId: USER_ID,
+            email: NEW_EMAIL,
+            purpose: PREAUTH_PURPOSES.EMAIL_CLAIM,
+          }),
+        }),
+      ],
+      [PreAuthSession, "findOneAndDelete", async () => ({ _id: "consumed" })],
+      [User, "findById", async () => savedUser],
+      [User, "exists", async () => null],
+      [
+        OTP,
+        "findOne",
+        () => ({
+          select: async () => ({
+            _id: "507f1f77bcf86cd799439066",
+            attempts: 0,
+            otpHash: hashOtp(NEW_EMAIL, OTP_CODE),
+          }),
+        }),
+      ],
+      [OTP, "findOneAndDelete", async () => ({ _id: "507f1f77bcf86cd799439066" })],
+    ],
+    () =>
+      verifyOTP(
+        {
+          body: {
+            email: NEW_EMAIL,
+            otp: OTP_CODE,
+            preAuthToken: FLOW_TOKEN,
+            purpose: PREAUTH_PURPOSES.EMAIL_CLAIM,
+          },
+        },
+        res,
+      ),
+  );
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(savedUser.email, NEW_EMAIL);
+  assert.equal(savedUser.authVersion, 5);
+  assert.ok(res.body.token);
+  // The access token carries the version as "ver"; it must match the account
+  // as it stands after the save, or the middleware rejects it immediately.
+  assert.equal(verifyAuthToken(res.body.token).ver, savedUser.authVersion);
 });
