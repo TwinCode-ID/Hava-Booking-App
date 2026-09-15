@@ -44,11 +44,7 @@ import {
   toE164,
 } from "../../../../../utils/countryCodes";
 import { validateContactDetails } from "../../../../../utils/helper";
-import FinancialAccessGate from "../../../../../components/FinancialAccessGate";
 import PendingSignupApprovals from "../../../../../components/PendingSignupApprovals";
-import useFinancialStepUp, {
-  isFinancialStepUpError,
-} from "../../../../../utils/useFinancialStepUp";
 
 // --- Safe Data Getters ---
 const getSafeClientData = (user) => ({
@@ -185,38 +181,14 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   const [editingTarget, setEditingTarget] = useState(null);
   const [config, setConfig] = useState({ classTypes: [], instructorTypes: [] });
-  const [financialPasswordError, setFinancialPasswordError] = useState("");
-  const [pendingFinancialAction, setPendingFinancialAction] = useState(null);
-  const {
-    isUnlocked: isFinancialDataUnlocked,
-    lock: lockFinancialData,
-    requestHeaders: financialRequestHeaders,
-    unlock: unlockFinancialData,
-  } = useFinancialStepUp();
-
-  useEffect(() => {
-    lockFinancialData();
-  }, [lockFinancialData, user?._id, user?.adminStudioLocation]);
-
-  useEffect(() => {
-    if (isFinancialDataUnlocked) return;
-    setPurchaseHistory([]);
-    setViewingCombinedItem(null);
-    setEditingTarget(null);
-    setShowAssignModal(false);
-    setShowDirectAssignModal(false);
-  }, [isFinancialDataUnlocked]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const [res, configRes] = await Promise.allSettled([
-        isFinancialDataUnlocked
-          ? axiosInstance.get(
-              API_PATHS.PASSES.GET_ALL_ADMIN(user.adminStudioLocation),
-              { headers: financialRequestHeaders },
-            )
-          : Promise.resolve({ data: [] }),
+        axiosInstance.get(
+          API_PATHS.PASSES.GET_ALL_ADMIN(user.adminStudioLocation),
+        ),
         axiosInstance.get(API_PATHS.CONFIG.GET(user.adminStudioLocation)),
       ]);
 
@@ -241,26 +213,19 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   useEffect(() => {
     fetchData();
-  }, [
-    financialRequestHeaders,
-    isFinancialDataUnlocked,
-    user.adminStudioLocation,
-  ]);
+  }, [user.adminStudioLocation]);
 
   const fetchClientDetails = async () => {
-    if (!selectedClient || !isFinancialDataUnlocked) {
+    if (!selectedClient) {
       setPurchaseHistory([]);
       return;
     }
     setLoadingDetails(true);
     try {
       const [medRes, purRes] = await Promise.allSettled([
-        axiosInstance.get(API_PATHS.AUTH.MEDICAL_INFO(selectedClient._id), {
-          headers: financialRequestHeaders,
-        }),
+        axiosInstance.get(API_PATHS.AUTH.MEDICAL_INFO(selectedClient._id)),
         axiosInstance.get(
           API_PATHS.PURCHASES.GET_ALL_USER(selectedClient._id),
-          { headers: financialRequestHeaders },
         ),
       ]);
 
@@ -274,15 +239,6 @@ const ClientManager = ({ isEmbedded = false }) => {
         setPurchaseHistory(purRes.value.data.map(getSafePurchaseData));
       } else {
         setPurchaseHistory([]);
-        if (
-          purRes.status === "rejected" &&
-          isFinancialStepUpError(purRes.reason)
-        ) {
-          setFinancialPasswordError(
-            "Authorization expired. Verify your password again.",
-          );
-          lockFinancialData();
-        }
       }
     } catch (e) {
       console.error("Error fetching client details", e);
@@ -293,11 +249,7 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   useEffect(() => {
     fetchClientDetails();
-  }, [
-    financialRequestHeaders,
-    isFinancialDataUnlocked,
-    selectedClient,
-  ]);
+  }, [selectedClient]);
 
   const handleToggleStudent = async () => {
     if (!selectedClient) return;
@@ -308,7 +260,6 @@ const ClientManager = ({ isEmbedded = false }) => {
       await axiosInstance.put(
         endpoint,
         { isStudent: newStatus },
-        { headers: financialRequestHeaders },
       );
       fetchData();
     } catch (e) {
@@ -537,7 +488,6 @@ const ClientManager = ({ isEmbedded = false }) => {
             role: "client",
             password: "",
           },
-          { headers: financialRequestHeaders },
         );
         targetUserIds = [userRes.data.user?._id || userRes.data._id];
       } else {
@@ -560,7 +510,6 @@ const ClientManager = ({ isEmbedded = false }) => {
               issuingStudio: user.adminStudioLocation,
               status: "confirmed",
             },
-            { headers: financialRequestHeaders },
           ),
         ),
       );
@@ -570,15 +519,8 @@ const ClientManager = ({ isEmbedded = false }) => {
       fetchData();
       if (selectedClient) fetchClientDetails();
     } catch (error) {
-      if (isFinancialStepUpError(error)) {
-        setFinancialPasswordError(
-          "Authorization expired. Verify your password again.",
-        );
-        lockFinancialData();
-      } else {
-        console.error("Assign failed", error);
-        alert(error.response?.data?.message || "Failed to assign pass");
-      }
+      console.error("Assign failed", error);
+      alert(error.response?.data?.message || "Failed to assign pass");
     } finally {
       setLoading(false);
     }
@@ -590,7 +532,6 @@ const ClientManager = ({ isEmbedded = false }) => {
       await axiosInstance.post(
         API_PATHS.AUTH.MEDICAL_INFO(selectedClient._id),
         { ...formData },
-        { headers: financialRequestHeaders },
       );
       setShowAddMedicalModal(false);
       fetchClientDetails();
@@ -611,7 +552,6 @@ const ClientManager = ({ isEmbedded = false }) => {
           startDate: data?.startDate,
           endDate: data?.endDate,
         },
-        { headers: financialRequestHeaders },
       );
 
       if (viewingCombinedItem) {
@@ -626,15 +566,8 @@ const ClientManager = ({ isEmbedded = false }) => {
       fetchData();
       fetchClientDetails();
     } catch (error) {
-      if (isFinancialStepUpError(error)) {
-        setFinancialPasswordError(
-          "Authorization expired. Verify your password again.",
-        );
-        lockFinancialData();
-      } else {
-        console.error(error);
-        alert(error.response?.data?.message || "Failed to manage freeze");
-      }
+      console.error(error);
+      alert(error.response?.data?.message || "Failed to manage freeze");
     }
   };
 
@@ -845,36 +778,6 @@ const ClientManager = ({ isEmbedded = false }) => {
 
   if (loading && !purchases.length) return <LoadingSpinner />;
 
-  if ((selectedClient || pendingFinancialAction) && !isFinancialDataUnlocked) {
-    return (
-      <div className='min-h-screen bg-canvas p-4 md:p-8'>
-        <button
-          type='button'
-          onClick={() => {
-            setSelectedClient(null);
-            setPendingFinancialAction(null);
-          }}
-          className='flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-stone-600 hover:bg-white'>
-          <ArrowLeft className='h-4 w-4' /> Back to clients
-        </button>
-        <FinancialAccessGate
-          title='Unlock Client Financial History'
-          description='Confirm your admin password before viewing a client purchase history or assigning a paid package.'
-          error={financialPasswordError}
-          onUnlock={(token, expiresIn) => {
-            const unlocked = unlockFinancialData(token, expiresIn);
-            if (unlocked && pendingFinancialAction === "assign") {
-              setPendingFinancialAction(null);
-              setShowAssignModal(true);
-            }
-            return unlocked;
-          }}
-          setError={setFinancialPasswordError}
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       className={`p-4 md:p-8 lg:p-10 ${isEmbedded ? "pt-8" : ""} bg-canvas relative min-h-screen font-sans w-full`}>
@@ -900,10 +803,7 @@ const ClientManager = ({ isEmbedded = false }) => {
               />
             </div>
             <button
-              onClick={() => {
-                if (isFinancialDataUnlocked) setShowAssignModal(true);
-                else setPendingFinancialAction("assign");
-              }}
+              onClick={() => setShowAssignModal(true)}
               className='w-full md:w-auto justify-center px-5 py-3 bg-stone-900 text-white rounded-[14px] text-sm font-bold flex items-center gap-2 shadow-[0_4px_14px_-4px_rgba(28,25,23,0.4)] hover:bg-stone-800 transition-all active:scale-[0.98]'>
               <Plus className='w-4 h-4' /> Assign Pass
             </button>
@@ -1656,13 +1556,6 @@ const ClientManager = ({ isEmbedded = false }) => {
           <EditPassModal
             target={editingTarget}
             config={config}
-            financialRequestHeaders={financialRequestHeaders}
-            onFinancialAuthorizationError={() => {
-              setFinancialPasswordError(
-                "Authorization expired. Verify your password again.",
-              );
-              lockFinancialData();
-            }}
             onClose={() => setEditingTarget(null)}
             onSubmit={() => {
               setEditingTarget(null);
@@ -2464,14 +2357,7 @@ const UnifiedDetailModal = ({
   );
 };
 
-const EditPassModal = ({
-  target,
-  config,
-  financialRequestHeaders,
-  onClose,
-  onFinancialAuthorizationError,
-  onSubmit,
-}) => {
+const EditPassModal = ({ target, config, onClose, onSubmit }) => {
   const isGlobal = target.type === "global";
   const passesToEdit = isGlobal ? target.passes : [target.pass];
   const basePass = passesToEdit[0];
@@ -2520,7 +2406,6 @@ const EditPassModal = ({
             axiosInstance.put(
               API_PATHS.PASSES.UPDATE_PASS(p._id),
               { expiryDate: formData.expiryDate },
-              { headers: financialRequestHeaders },
             ),
           ),
         );
@@ -2533,17 +2418,12 @@ const EditPassModal = ({
             classType: formData.classType,
             instructorType: formData.instructorType,
           },
-          { headers: financialRequestHeaders },
         );
       }
       onSubmit();
     } catch (error) {
-      if (isFinancialStepUpError(error)) {
-        onFinancialAuthorizationError();
-      } else {
-        console.error(error);
-        alert("Failed to update pass");
-      }
+      console.error(error);
+      alert("Failed to update pass");
     } finally {
       setIsLoading(false);
     }

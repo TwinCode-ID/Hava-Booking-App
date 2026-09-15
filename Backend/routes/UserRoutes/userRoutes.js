@@ -1,6 +1,7 @@
 const express = require("express");
 const {
   updateProfile,
+  startEmailClaim,
   getPublicProfile,
   deleteUser,
   getAllUsers,
@@ -100,6 +101,14 @@ router.put(
   updateProfileDeveloper,
 );
 router.put("/profile", protect, updateProfile);
+// Adds a mailbox to an account that has none. This only starts the flow; the
+// code sent to the address is what actually attaches it.
+router.post(
+  "/email/claim",
+  protect,
+  sensitiveActionLimiter,
+  startEmailClaim,
+);
 router.get("/:id", protect, getPublicProfile);
 router.delete("/:id", protect, devTeam, deleteUser);
 

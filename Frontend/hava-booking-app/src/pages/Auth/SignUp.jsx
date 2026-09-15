@@ -10,15 +10,13 @@ import {
   Loader,
   CheckCircle,
   AlertCircle,
-  Phone,
   ShieldCheck,
   ArrowLeft,
   Send,
 } from "lucide-react";
 import {
   validateAvatar,
-  validateEmail,
-  validateNationalPhoneNumber,
+  validateContactDetails,
   validatePassword,
 } from "../../utils/helper";
 import axiosInstance from "../../utils/axiosInstance";
@@ -56,10 +54,6 @@ const SignUp = () => {
   // Step 0: Register Form, Step 1: OTP Verification
   const [step, setStep] = useState(0);
 
-  // Which contact detail identifies the account. Email registrations verify
-  // themselves with a mailbox code; phone registrations cannot, so they are
-  // activated by studio staff instead.
-  const [identifierType, setIdentifierType] = useState("email");
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [awaitingApproval, setAwaitingApproval] = useState(false);
 
@@ -164,25 +158,21 @@ const SignUp = () => {
     }
   };
 
-  const switchIdentifierType = (type) => {
-    if (type === identifierType) return;
-    setIdentifierType(type);
-    setFormState((prev) => ({ ...prev, errors: {} }));
-  };
+  // Either contact detail identifies the account, and only the one that was
+  // actually filled in is checked. An email address is what makes the account
+  // usable immediately, because the mailbox code can verify it; a number alone
+  // has to be verified by studio staff instead.
+  const registeringWithEmail = Boolean(formData.email.trim());
 
   const validateForm = () => {
-    const registeringWithEmail = identifierType === "email";
     const errors = {
       fullName: !formData.fullName ? "Enter full name" : "",
       password: validatePassword(formData.password),
-      // An email registration may still carry a number, and it is checked only
-      // when one was actually entered.
-      email: registeringWithEmail ? validateEmail(formData.email) : "",
-      phoneNumber:
-        registeringWithEmail && !formData.phoneNumber
-          ? ""
-          : validateNationalPhoneNumber(formData.phoneNumber),
       avatar: "",
+      ...validateContactDetails({
+        email: formData.email,
+        nationalNumber: formData.phoneNumber,
+      }),
     };
 
     Object.keys(errors).forEach((key) => {
@@ -253,7 +243,7 @@ const SignUp = () => {
       // only after the mailbox OTP is verified.
       const response = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
         fullName: formData.fullName,
-        email: identifierType === "email" ? formData.email : "",
+        email: formData.email.trim(),
         password: formData.password,
         phoneNumber: submittedPhoneNumber,
         avatar: "",
@@ -270,9 +260,9 @@ const SignUp = () => {
         return;
       }
 
-      // A phone registration has no code to verify. It waits in the studio's
-      // approval queue instead, so there is no OTP step to advance to.
-      if (identifierType === "phone") {
+      // A registration with no email address has no code to verify. It waits
+      // in the studio's approval queue instead of advancing to an OTP step.
+      if (!registeringWithEmail) {
         setAwaitingApproval(true);
         setFormData((prev) => ({ ...prev, password: "" }));
         setFormState((prev) => ({ ...prev, loading: false, errors: {} }));
@@ -516,29 +506,6 @@ const SignUp = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className='space-y-5'>
-                {/* Identifier type */}
-                <div className='grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl'>
-                  {["email", "phone"].map((id) => (
-                    <button
-                      key={id}
-                      type='button'
-                      onClick={() => switchIdentifierType(id)}
-                      aria-pressed={identifierType === id}
-                      className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold capitalize transition-all ${
-                        identifierType === id
-                          ? "bg-white text-stone-900 shadow-sm"
-                          : "text-stone-500 hover:text-stone-700"
-                      }`}>
-                      {id === "email" ? (
-                        <Mail className='w-4 h-4' />
-                      ) : (
-                        <Phone className='w-4 h-4' />
-                      )}
-                      {id}
-                    </button>
-                  ))}
-                </div>
-
                 {/* Full Name */}
                 <div>
                   <label
@@ -570,38 +537,45 @@ const SignUp = () => {
                   )}
                 </div>
 
+                {/* Either contact detail is enough on its own. */}
+                <p className='text-xs text-stone-500 bg-stone-50 border border-stone-100 rounded-xl px-3.5 py-3 leading-relaxed'>
+                  Give us an email address or a phone number — either one is
+                  enough to sign in with. An email address lets you finish right
+                  now; with a number alone, studio staff activate your account
+                  on your next visit.
+                </p>
+
                 {/* Email */}
-                {identifierType === "email" && (
-                  <div>
-                    <label
-                      htmlFor='signup-email'
-                      className='block text-sm font-bold text-stone-700 mb-2'>
-                      Email Address
-                    </label>
-                    <div className='relative'>
-                      <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
-                      <input
-                        id='signup-email'
-                        type='email'
-                        name='email'
-                        autoComplete='username'
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className={`w-full pl-10 pr-4 py-3.5 rounded-xl border ${
-                          formState.errors.email
-                            ? "border-red-500"
-                            : "border-stone-200"
-                        } focus:ring-2 focus:ring-stone-500 outline-none transition-colors`}
-                        placeholder='name@example.com'
-                      />
-                    </div>
-                    {formState.errors.email && (
-                      <p className='text-red-500 text-xs mt-1'>
-                        {formState.errors.email}
-                      </p>
-                    )}
+                <div>
+                  <label
+                    htmlFor='signup-email'
+                    className='flex items-center justify-between text-sm font-bold text-stone-700 mb-2'>
+                    Email Address
+                    <span className='font-medium text-stone-400'>Optional</span>
+                  </label>
+                  <div className='relative'>
+                    <Mail className='absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5' />
+                    <input
+                      id='signup-email'
+                      type='email'
+                      name='email'
+                      autoComplete='username'
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full pl-10 pr-4 py-3.5 rounded-xl border ${
+                        formState.errors.email || formState.errors.contact
+                          ? "border-red-500"
+                          : "border-stone-200"
+                      } focus:ring-2 focus:ring-stone-500 outline-none transition-colors`}
+                      placeholder='name@example.com'
+                    />
                   </div>
-                )}
+                  {formState.errors.email && (
+                    <p className='text-red-500 text-xs mt-1'>
+                      {formState.errors.email}
+                    </p>
+                  )}
+                </div>
 
                 {/* Phone */}
                 <div>
@@ -609,11 +583,7 @@ const SignUp = () => {
                     htmlFor='signup-phone-number'
                     className='flex items-center justify-between text-sm font-bold text-stone-700 mb-2'>
                     Phone Number
-                    {identifierType === "email" && (
-                      <span className='font-medium text-stone-400'>
-                        Optional
-                      </span>
-                    )}
+                    <span className='font-medium text-stone-400'>Optional</span>
                   </label>
                   <PhoneNumberInput
                     inputId='signup-phone-number'
@@ -639,18 +609,15 @@ const SignUp = () => {
                         }));
                       }
                     }}
-                    error={formState.errors.phoneNumber}
+                    error={
+                      formState.errors.phoneNumber || formState.errors.contact
+                    }
                     disabled={formState.loading}
                   />
-                  {formState.errors.phoneNumber && (
+                  {(formState.errors.phoneNumber ||
+                    formState.errors.contact) && (
                     <p className='text-red-500 text-xs mt-1'>
-                      {formState.errors.phoneNumber}
-                    </p>
-                  )}
-                  {identifierType === "phone" && (
-                    <p className='text-xs text-stone-500 mt-2 leading-relaxed'>
-                      Studio staff activate phone registrations in person, so
-                      your account becomes usable on your next visit.
+                      {formState.errors.phoneNumber || formState.errors.contact}
                     </p>
                   )}
                 </div>

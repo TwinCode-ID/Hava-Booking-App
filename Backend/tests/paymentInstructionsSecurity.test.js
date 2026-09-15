@@ -87,7 +87,7 @@ test("payment-instruction contracts are protected before controller access", () 
     "/:id/payment-instructions",
   );
   assert.equal(packageHandlers[0], protect);
-  assert.equal(packageHandlers.length, 3);
+  assert.equal(packageHandlers.length, 2);
 
   const studioHandlers = getRouteHandlers(
     studioRouter,
@@ -96,7 +96,7 @@ test("payment-instruction contracts are protected before controller access", () 
   );
   assert.equal(studioHandlers[0], protect);
   assert.equal(studioHandlers[1], studioAdmin);
-  assert.equal(studioHandlers.length, 4);
+  assert.equal(studioHandlers.length, 3);
 });
 
 test("public studio responses omit bank details", async () => {

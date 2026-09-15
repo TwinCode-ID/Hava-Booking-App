@@ -76,7 +76,7 @@ const PendingSignupApprovals = ({ onApproved }) => {
       <div className='flex items-center gap-2.5 px-5 py-4 border-b border-stone-100 bg-stone-50/50'>
         <UserPlus2 className='w-4 h-4 text-stone-800 shrink-0' />
         <h2 className='text-[13px] font-extrabold text-stone-900'>
-          Awaiting approval
+          Verify new clients
         </h2>
         <span className='text-[11px] font-bold text-white bg-stone-900 rounded-full px-2 py-0.5'>
           {candidates.length}
@@ -84,8 +84,9 @@ const PendingSignupApprovals = ({ onApproved }) => {
       </div>
 
       <p className='px-5 pt-3.5 text-[11px] text-stone-500 leading-relaxed'>
-        These people registered with a phone number only. Check the number
-        belongs to them before activating the account.
+        These people signed up with a phone number only, so nothing has
+        confirmed the number is theirs. Check it belongs to them, then verify
+        to create their account.
       </p>
 
       {error && (
@@ -120,7 +121,7 @@ const PendingSignupApprovals = ({ onApproved }) => {
                 disabled={busyId === candidate._id}
                 onClick={() => resolveCandidate(candidate, "reject")}
                 className='p-2 rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-800 transition-colors disabled:opacity-50'
-                aria-label={`Discard the registration for ${candidate.fullName}`}>
+                aria-label={`Reject the registration for ${candidate.fullName}`}>
                 <X className='w-4 h-4' />
               </button>
               <button
@@ -133,7 +134,7 @@ const PendingSignupApprovals = ({ onApproved }) => {
                 ) : (
                   <Check className='w-4 h-4' />
                 )}
-                Activate
+                Verify
               </button>
             </div>
           </li>

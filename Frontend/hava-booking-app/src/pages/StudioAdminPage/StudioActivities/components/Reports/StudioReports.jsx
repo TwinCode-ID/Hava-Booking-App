@@ -32,10 +32,6 @@ import axiosInstance from "../../../../../utils/axiosInstance";
 import { useAuth } from "../../../../../context/AuthContext";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import { API_PATHS } from "../../../../../utils/apiPath";
-import useFinancialStepUp, {
-  FINANCIAL_READ_SCOPE,
-  isFinancialStepUpError,
-} from "../../../../../utils/useFinancialStepUp";
 
 // --- Custom Select Component ---
 const CustomSelect = ({
@@ -125,96 +121,6 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-// --- Sub-Component: Inline Password Gate ---
-const PasswordGateInline = ({ onUnlock, error, setError }) => {
-  const { user } = useAuth();
-  const [password, setPassword] = useState("");
-  const [verifying, setVerifying] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setVerifying(true);
-    setError("");
-    try {
-      const response = await axiosInstance.post(
-        API_PATHS.AUTH.VERIFY_PASSWORD,
-        { password, scope: FINANCIAL_READ_SCOPE },
-      );
-      if (
-        response.data.success &&
-        onUnlock(response.data.stepUpToken, response.data.stepUpExpiresIn)
-      ) {
-        setPassword("");
-      } else {
-        setError("Verification did not return a valid authorization.");
-      }
-    } catch (err) {
-      if (err.response?.data?.code === "PASSWORD_NOT_SET")
-        setError("Create a password in Account Settings first.");
-      else if (err.response && err.response.status === 401)
-        setError("Incorrect password.");
-      else setError("Verification failed.");
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  if (!user?.hasPassword) {
-    return (
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors">
-        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-          <Lock className="w-8 h-8 text-amber-600" />
-        </div>
-        <h2 className="text-xl font-bold text-stone-900 mb-2">
-          Create a Password First
-        </h2>
-        <p className="text-stone-500 mb-6 text-sm max-w-sm">
-          You need to create a password before you can unlock financial data.
-        </p>
-        <Link
-          to="/admin-account-settings"
-          className="w-full max-w-sm py-3 bg-stone-900 text-white rounded-xl font-semibold hover:bg-stone-800 transition-colors flex justify-center items-center"
-        >
-          Create Password
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-200 flex flex-col items-center justify-center text-center py-16 group hover:border-stone-300 transition-colors">
-      <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-        <Lock className="w-8 h-8 text-stone-800" />
-      </div>
-      <h2 className="text-xl font-bold text-stone-900 mb-2">
-        Unlock Financial Data
-      </h2>
-      <p className="text-stone-500 mb-6 text-sm max-w-sm">
-        To view revenue details and include financial data in your PDF export,
-        please confirm your admin password.
-      </p>
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Admin Password"
-          autoComplete="current-password"
-          required
-          className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-stone-500 focus:ring-2 focus:ring-stone-300 outline-none transition-all"
-        />
-        {error && <p className="text-red-500 text-xs">{error}</p>}
-        <button
-          disabled={verifying || !password}
-          type="submit"
-          className="w-full py-3 bg-stone-900 text-white rounded-xl font-semibold hover:bg-stone-800 transition-colors flex justify-center items-center gap-2"
-        >
-          {verifying ? "Verifying..." : "Unlock Revenue"}
-        </button>
-      </form>
-    </div>
-  );
-};
 
 // ==========================================
 // MODAL COMPONENT: Stylized Receipt / Invoice
@@ -1492,16 +1398,8 @@ const StudioReports = () => {
   const [selectedTx, setSelectedTx] = useState(null);
   const [receiptTx, setReceiptTx] = useState(null);
 
-  // --- Revenue State (Gated) ---
-  const [revenuePasswordError, setRevenuePasswordError] = useState("");
+  // --- Revenue State ---
   const [transactions, setTransactions] = useState([]);
-  const {
-    isUnlocked: isRevenueUnlocked,
-    lock: lockRevenue,
-    requestHeaders: revenueRequestHeaders,
-    unlock: unlockRevenue,
-  } = useFinancialStepUp();
-  const isRevenueLocked = !isRevenueUnlocked;
 
   // --- Public Data State ---
   const [bookings, setBookings] = useState([]);
@@ -1561,48 +1459,22 @@ const StudioReports = () => {
   }, [user.adminStudioLocation]);
 
   useEffect(() => {
-    lockRevenue();
-  }, [lockRevenue, user?._id, user?.adminStudioLocation]);
-
-  useEffect(() => {
     const fetchRevenueData = async () => {
-      if (isRevenueLocked) {
-        setTransactions([]);
-        setPasses([]);
-        setSelectedTx(null);
-        setReceiptTx(null);
-        return;
-      }
       try {
         const [purchaseResponse, passResponse] = await Promise.all([
           axiosInstance.get(
             API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
-            { headers: revenueRequestHeaders },
           ),
-          axiosInstance.get(`/api/passes/history/${user.adminStudioLocation}`, {
-            headers: revenueRequestHeaders,
-          }),
+          axiosInstance.get(`/api/passes/history/${user.adminStudioLocation}`),
         ]);
         if (purchaseResponse.data) setTransactions(purchaseResponse.data);
         if (passResponse.data) setPasses(passResponse.data);
       } catch (error) {
-        if (isFinancialStepUpError(error)) {
-          setRevenuePasswordError(
-            "Authorization expired. Verify your password again.",
-          );
-          lockRevenue();
-        } else {
-          console.error("Failed to fetch revenue:", error);
-        }
+        console.error("Failed to fetch revenue:", error);
       }
     };
     fetchRevenueData();
-  }, [
-    isRevenueLocked,
-    lockRevenue,
-    revenueRequestHeaders,
-    user.adminStudioLocation,
-  ]);
+  }, [user.adminStudioLocation]);
 
   // --- Derived Stats Calculations ---
   const studentOptions = useMemo(() => {
@@ -1739,14 +1611,6 @@ const StudioReports = () => {
   }, [passes, selectedMonth, selectedYear]);
 
   const generateMasterPDF = () => {
-    if (isRevenueLocked) {
-      alert(
-        user?.hasPassword
-          ? "Please unlock the Revenue section before exporting the comprehensive master report."
-          : "Please create a password in Account Settings before exporting financial data.",
-      );
-      return;
-    }
     const doc = new jsPDF();
     const monthName = monthNames[selectedMonth];
     const reportTitle = `Studio Master Report - ${monthName} ${selectedYear}`;
@@ -1996,21 +1860,13 @@ const StudioReports = () => {
 
       <div className="space-y-12 pb-20">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
-          {isRevenueLocked ? (
-            <PasswordGateInline
-              onUnlock={unlockRevenue}
-              error={revenuePasswordError}
-              setError={setRevenuePasswordError}
-            />
-          ) : (
-            <RevenueSection
-              stats={revenueStats}
-              tableData={revenueStats.tableData}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-              onRowSelected={(trx) => setSelectedTx(trx)}
-            />
-          )}
+          <RevenueSection
+            stats={revenueStats}
+            tableData={revenueStats.tableData}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onRowSelected={(trx) => setSelectedTx(trx)}
+          />
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
           <AttendanceSection

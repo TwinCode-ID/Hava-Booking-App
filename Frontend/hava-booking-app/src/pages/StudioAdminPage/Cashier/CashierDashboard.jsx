@@ -34,10 +34,6 @@ import {
 import PhoneNumberInput from "../../../components/PhoneNumberInput";
 import { DEFAULT_COUNTRY, toE164 } from "../../../utils/countryCodes";
 import { getBankLogo } from "../../../utils/helpers";
-import FinancialAccessGate from "../../../components/FinancialAccessGate";
-import useFinancialStepUp, {
-  isFinancialStepUpError,
-} from "../../../utils/useFinancialStepUp";
 
 const getEffectivePrice = (pkg) => {
   return pkg.isPromo && pkg.promoPrice
@@ -121,39 +117,20 @@ const CashierDashboard = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPromoModal, setShowPromoModal] = useState(false);
   const [selectedPackageDetails, setSelectedPackageDetails] = useState(null);
-  const [financialPasswordError, setFinancialPasswordError] = useState("");
-  const {
-    isUnlocked: isFinancialDataUnlocked,
-    lock: lockFinancialData,
-    requestHeaders: financialRequestHeaders,
-    unlock: unlockFinancialData,
-  } = useFinancialStepUp();
-
   useEffect(() => {
-    lockFinancialData();
-  }, [lockFinancialData, user?._id, user?.adminStudioLocation]);
-
-  useEffect(() => {
-    if (!isFinancialDataUnlocked) return undefined;
-
     const fetchData = async () => {
       try {
         const studioId = user?.adminStudioLocation;
         if (!studioId) return;
 
         const promosPromise = axiosInstance
-          .get(`/api/promos/studio/${studioId}`, {
-            headers: financialRequestHeaders,
-          })
+          .get(`/api/promos/studio/${studioId}`)
           .catch(() => ({ data: [] }));
         const purchasesPromise = axiosInstance.get(
           `/api/purchases/studio/${studioId}`,
-          { headers: financialRequestHeaders },
         );
         const passesPromise = axiosInstance
-          .get(`/api/passes/history/${studioId}`, {
-            headers: financialRequestHeaders,
-          })
+          .get(`/api/passes/history/${studioId}`)
           .catch(() => ({ data: [] }));
 
         const [usersRes, packagesRes, promosRes, purchasesRes, passesRes] =
@@ -233,24 +210,12 @@ const CashierDashboard = () => {
 
         setClientOwnership(ownership);
       } catch (error) {
-        if (isFinancialStepUpError(error)) {
-          setFinancialPasswordError(
-            "Authorization expired. Verify your password again.",
-          );
-          lockFinancialData();
-        } else {
-          console.error("Failed to fetch data:", error);
-        }
+        console.error("Failed to fetch data:", error);
       }
     };
     fetchData();
     return undefined;
-  }, [
-    financialRequestHeaders,
-    isFinancialDataUnlocked,
-    lockFinancialData,
-    user?.adminStudioLocation,
-  ]);
+  }, [user?.adminStudioLocation]);
 
   const handleClientCreated = (newUser) => {
     setUsers((prev) => [newUser, ...prev]);
@@ -432,18 +397,6 @@ const CashierDashboard = () => {
 
     return matchCat && matchClass && matchInst && matchesSearch;
   });
-
-  if (!isFinancialDataUnlocked) {
-    return (
-      <FinancialAccessGate
-        title='Unlock Cashier'
-        description='Confirm your admin password before viewing purchase history or creating cashier transactions.'
-        error={financialPasswordError}
-        onUnlock={unlockFinancialData}
-        setError={setFinancialPasswordError}
-      />
-    );
-  }
 
   return (
     <div className='flex flex-col md:flex-row min-h-screen md:h-screen md:overflow-hidden bg-canvas font-sans text-stone-800 w-full'>
@@ -816,7 +769,6 @@ const CashierDashboard = () => {
             onClose={() => setShowClientListModal(false)}
             cartItems={cartItems}
             clientOwnership={clientOwnership}
-            financialRequestHeaders={financialRequestHeaders}
             onClientCreated={handleClientCreated}
           />
         )}
@@ -841,13 +793,6 @@ const CashierDashboard = () => {
             selectedClients={selectedClients}
             clearTransaction={clearTransaction}
             packages={packages}
-            financialRequestHeaders={financialRequestHeaders}
-            onFinancialAuthorizationError={() => {
-              setFinancialPasswordError(
-                "Authorization expired. Verify your password again.",
-              );
-              lockFinancialData();
-            }}
           />
         )}
       </AnimatePresence>
@@ -996,7 +941,6 @@ const ClientSelectionModal = ({
   onClose,
   cartItems,
   clientOwnership,
-  financialRequestHeaders,
   onClientCreated,
 }) => {
   const [localSearch, setLocalSearch] = useState("");
@@ -1064,7 +1008,6 @@ const ClientSelectionModal = ({
       const res = await axiosInstance.post(
         API_PATHS.AUTH.REGISTER || "/api/auth/register",
         payload,
-        { headers: financialRequestHeaders },
       );
 
       const createdUser = res.data.user || res.data;
@@ -1456,8 +1399,6 @@ const PaymentModal = ({
   selectedClients,
   clearTransaction,
   packages,
-  financialRequestHeaders,
-  onFinancialAuthorizationError,
 }) => {
   const [paymentMethod, setPaymentMethod] = useState("transfer");
   const [isLoading, setIsLoading] = useState(false);
@@ -1515,7 +1456,6 @@ const PaymentModal = ({
       const response = await axiosInstance.post(
         API_PATHS.PURCHASES.CASHIER_BULK || "/api/purchases/cashier-bulk",
         payload,
-        { headers: financialRequestHeaders },
       );
 
       if (response.data) {
@@ -1524,10 +1464,6 @@ const PaymentModal = ({
         onClose();
       }
     } catch (error) {
-      if (isFinancialStepUpError(error)) {
-        onFinancialAuthorizationError();
-        return;
-      }
       console.error(error);
       alert(
         `Error: ${error.response?.data?.error || error.response?.data?.message || "An error occurred."}`,

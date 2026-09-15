@@ -71,6 +71,22 @@ app.use(
   }),
 );
 app.use(cors(corsOptions));
+
+// Load balancer health check. It sits outside /api deliberately: the general
+// API limiter would otherwise count probes from every availability zone
+// against the same budget as real traffic. The status stays 200 while the
+// process can serve, because taking the only target out of service turns a
+// recoverable database blip into a total outage; the payload carries the
+// database state for whoever is actually looking.
+app.get("/health", (_req, res) => {
+  const mongoState = require("mongoose").connection.readyState;
+  res.status(200).json({
+    status: "ok",
+    database: mongoState === 1 ? "connected" : "disconnected",
+    uptime: Math.floor(process.uptime()),
+  });
+});
+
 app.use("/api", generalApiLimiter);
 app.use(express.json({ limit: "1mb", strict: true }));
 app.use(express.urlencoded({ limit: "1mb", extended: false }));

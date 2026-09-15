@@ -8,6 +8,11 @@ const PREAUTH_PURPOSES = Object.freeze({
   PHONE_PASSWORD_LOGIN: "phone_password_login",
   PHONE_PASSWORD_SETUP: "phone_password_setup",
   REGISTRATION: "registration",
+  // Attaching a mailbox to an account that has none. The address is proved by
+  // a code sent to it before it is ever stored, because an unverified address
+  // would let one account claim another person's mailbox — and social sign-in
+  // links accounts by email.
+  EMAIL_CLAIM: "email_claim",
 });
 
 const PURPOSE_VALUES = new Set(Object.values(PREAUTH_PURPOSES));

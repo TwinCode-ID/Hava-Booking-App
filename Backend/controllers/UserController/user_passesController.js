@@ -480,8 +480,11 @@ exports.getUserPassHistory = async (req, res) => {
     const history = await UserPasses.find({ issuingStudio: studioId })
       .sort({ createdAt: -1 })
       .populate("packageId")
-      .populate("userId", "fullName email avatar isStudent")
-      .populate("sharedWith", "fullName email avatar");
+      // The studio's client list is built from these passes, so the client
+      // card can only show a contact detail that is selected here. A member
+      // registered with a phone number alone has no email at all.
+      .populate("userId", "fullName email phoneNumber avatar isStudent")
+      .populate("sharedWith", "fullName email phoneNumber avatar");
     res.status(200).json(history);
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -37,6 +37,16 @@ const SettingList = () => {
 
   // --- States ---
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  // Members who joined with a phone number alone have no mailbox yet. Adding
+  // one is a two-step claim: the address is only stored once a code sent to it
+  // comes back, so it can never be attached on the word of the request alone.
+  const [emailClaim, setEmailClaim] = useState({
+    address: "",
+    otp: "",
+    flow: null,
+    busy: false,
+    error: "",
+  });
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
   const [isRegisteringPasskey, setIsRegisteringPasskey] = useState(false);
   const [passkeys, setPasskeys] = useState([]);
@@ -178,6 +188,67 @@ const SettingList = () => {
   };
 
   // --- API Actions ---
+  const startEmailClaim = async (e) => {
+    e.preventDefault();
+    setEmailClaim((prev) => ({ ...prev, busy: true, error: "" }));
+    try {
+      const { data } = await axiosInstance.post(API_PATHS.AUTH.CLAIM_EMAIL, {
+        email: emailClaim.address.trim(),
+      });
+      await axiosInstance.post(API_PATHS.AUTH.REQUEST_OTP, {
+        email: data.email,
+        preAuthToken: data.preAuthToken,
+        purpose: data.purpose,
+      });
+      setEmailClaim((prev) => ({
+        ...prev,
+        busy: false,
+        flow: { token: data.preAuthToken, purpose: data.purpose },
+      }));
+    } catch (error) {
+      setEmailClaim((prev) => ({
+        ...prev,
+        busy: false,
+        error:
+          error.response?.data?.message ||
+          "Could not send the code. Check the address and try again.",
+      }));
+    }
+  };
+
+  const confirmEmailClaim = async (e) => {
+    e.preventDefault();
+    setEmailClaim((prev) => ({ ...prev, busy: true, error: "" }));
+    try {
+      await axiosInstance.post(API_PATHS.AUTH.VERIFY_OTP, {
+        email: emailClaim.address.trim(),
+        preAuthToken: emailClaim.flow.token,
+        purpose: emailClaim.flow.purpose,
+        otp: emailClaim.otp,
+      });
+
+      const { data } = await axiosInstance.get(
+        `${API_PATHS.AUTH.GET_PROFILE}?t=${Date.now()}`,
+      );
+      updateUser(data);
+      setProfileData((prev) => ({ ...prev, email: data.email || "" }));
+      setLastSavedUser((prev) => ({ ...prev, email: data.email || "" }));
+      setEmailClaim({
+        address: "",
+        otp: "",
+        flow: null,
+        busy: false,
+        error: "",
+      });
+    } catch (error) {
+      setEmailClaim((prev) => ({
+        ...prev,
+        busy: false,
+        error: error.response?.data?.error || "That code is not valid.",
+      }));
+    }
+  };
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setIsLoadingProfile(true);
@@ -501,19 +572,113 @@ const SettingList = () => {
                   <label className='block text-xs font-bold text-stone-500 uppercase mb-2 ml-1'>
                     Email Address
                   </label>
-                  <div className='relative'>
-                    <Mail className='absolute left-3 top-3.5 w-4 h-4 text-stone-400' />
-                    <input
-                      type='email'
-                      name='email'
-                      value={profileData.email}
-                      disabled
-                      className='w-full pl-10 p-3 bg-stone-100 border border-stone-200 rounded-xl text-sm text-stone-500 cursor-not-allowed'
-                    />
-                    <span className='absolute right-3 top-3 text-[10px] font-bold text-stone-800 bg-stone-100 px-2 py-1 rounded'>
-                      VERIFIED
-                    </span>
-                  </div>
+                  {profileData.email ? (
+                    <div className='relative'>
+                      <Mail className='absolute left-3 top-3.5 w-4 h-4 text-stone-400' />
+                      <input
+                        type='email'
+                        name='email'
+                        value={profileData.email}
+                        disabled
+                        className='w-full pl-10 p-3 bg-stone-100 border border-stone-200 rounded-xl text-sm text-stone-500 cursor-not-allowed'
+                      />
+                      <span className='absolute right-3 top-3 text-[10px] font-bold text-stone-800 bg-stone-100 px-2 py-1 rounded'>
+                        VERIFIED
+                      </span>
+                    </div>
+                  ) : (
+                    <div className='rounded-xl border border-stone-200 bg-stone-50/60 p-4 space-y-3'>
+                      <p className='text-xs text-stone-500 leading-relaxed'>
+                        You signed up with a phone number. Add an email address
+                        to sign in with it as well — we will send a code to
+                        confirm the address is yours.
+                      </p>
+
+                      {!emailClaim.flow ? (
+                        <div className='flex flex-col sm:flex-row gap-2'>
+                          <div className='relative flex-1'>
+                            <Mail className='absolute left-3 top-3.5 w-4 h-4 text-stone-400' />
+                            <input
+                              type='email'
+                              value={emailClaim.address}
+                              onChange={(event) =>
+                                setEmailClaim((prev) => ({
+                                  ...prev,
+                                  address: event.target.value,
+                                  error: "",
+                                }))
+                              }
+                              placeholder='name@example.com'
+                              className='w-full pl-10 p-3 bg-white border border-stone-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-stone-500 focus:border-transparent transition-all'
+                            />
+                          </div>
+                          <button
+                            type='button'
+                            onClick={startEmailClaim}
+                            disabled={emailClaim.busy || !emailClaim.address.trim()}
+                            className='px-5 py-3 bg-stone-900 text-white rounded-xl font-bold text-sm hover:bg-stone-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0'>
+                            {emailClaim.busy ? "Sending..." : "Send code"}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className='space-y-3'>
+                          <p className='text-xs text-stone-600'>
+                            Enter the 6-digit code sent to{" "}
+                            <span className='font-bold text-stone-900'>
+                              {emailClaim.address}
+                            </span>
+                            .
+                          </p>
+                          <div className='flex flex-col sm:flex-row gap-2'>
+                            <input
+                              type='text'
+                              inputMode='numeric'
+                              autoComplete='one-time-code'
+                              maxLength={6}
+                              value={emailClaim.otp}
+                              onChange={(event) =>
+                                setEmailClaim((prev) => ({
+                                  ...prev,
+                                  otp: event.target.value.replace(/\D/g, ""),
+                                  error: "",
+                                }))
+                              }
+                              placeholder='000000'
+                              className='flex-1 p-3 bg-white border border-stone-200 rounded-xl text-sm font-bold tracking-[0.3em] text-center outline-none focus:ring-2 focus:ring-stone-500 focus:border-transparent transition-all'
+                            />
+                            <button
+                              type='button'
+                              onClick={confirmEmailClaim}
+                              disabled={
+                                emailClaim.busy || emailClaim.otp.length !== 6
+                              }
+                              className='px-5 py-3 bg-stone-900 text-white rounded-xl font-bold text-sm hover:bg-stone-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0'>
+                              {emailClaim.busy ? "Checking..." : "Confirm"}
+                            </button>
+                          </div>
+                          <button
+                            type='button'
+                            onClick={() =>
+                              setEmailClaim((prev) => ({
+                                ...prev,
+                                flow: null,
+                                otp: "",
+                                error: "",
+                              }))
+                            }
+                            className='text-xs font-bold text-stone-500 hover:text-stone-800 transition-colors'>
+                            Use a different address
+                          </button>
+                        </div>
+                      )}
+
+                      {emailClaim.error && (
+                        <p className='text-xs text-red-500'>
+                          {emailClaim.error}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

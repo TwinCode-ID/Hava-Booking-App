@@ -38,6 +38,9 @@ export const API_PATHS = {
     SET_NEW_PASSWORD: "api/user/set-password",
     UPDATE_PROFILE: "api/user/profile",
     UPDATE_PASSWORD: "api/user/update-password",
+    // Adds a mailbox to an account that has none; the code sent to that
+    // address is what actually attaches it.
+    CLAIM_EMAIL: "/api/user/email/claim",
   },
 
   DEV: {
@@ -141,10 +144,6 @@ export const API_PATHS = {
     LIST: "/api/user/passkey",
     DELETE: (authenticatorId) =>
       `/api/user/passkey/${encodeURIComponent(authenticatorId)}`,
-  },
-
-  APPLE: {
-    LOGIN: "/api/auth/apple-web",
   },
 
   GOOGLE: {

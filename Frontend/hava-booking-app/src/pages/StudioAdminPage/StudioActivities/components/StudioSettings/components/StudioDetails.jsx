@@ -28,8 +28,6 @@ import { API_PATHS } from "../../../../../../utils/apiPath";
 import { useAuth } from "../../../../../../context/AuthContext";
 import LoadingSpinner from "../../../../../../components/LoadingSpinner";
 import uploadStudio from "../../../../../../utils/uploadStudio";
-import FinancialAccessGate from "../../../../../../components/FinancialAccessGate";
-import useFinancialStepUp from "../../../../../../utils/useFinancialStepUp";
 
 import { fetchImage, INDONESIAN_BANKS } from "../../../../../../utils/helper";
 import { getBankLogo } from "../../../../../../utils/helpers";
@@ -112,12 +110,6 @@ const StudioDetails = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [bankDetailsLoading, setBankDetailsLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [financialPasswordError, setFinancialPasswordError] = useState("");
-  const financialAccess = useFinancialStepUp();
-
-  useEffect(() => {
-    financialAccess.lock();
-  }, [financialAccess.lock, user?._id, user?.adminStudioLocation]);
 
   const fetchStudio = async () => {
     try {
@@ -141,7 +133,7 @@ const StudioDetails = () => {
     let isCurrent = true;
 
     const fetchPaymentInstructions = async () => {
-      if (!financialAccess.isUnlocked || !user?.adminStudioLocation) return;
+      if (!user?.adminStudioLocation) return;
 
       setBankDetailsLoading(true);
       try {
@@ -149,7 +141,6 @@ const StudioDetails = () => {
           API_PATHS.STUDIO.GET_PAYMENT_INSTRUCTIONS(
             user.adminStudioLocation,
           ),
-          { headers: financialAccess.requestHeaders },
         );
         if (!isCurrent) return;
         setStudio((currentStudio) =>
@@ -171,11 +162,7 @@ const StudioDetails = () => {
     return () => {
       isCurrent = false;
     };
-  }, [
-    financialAccess.isUnlocked,
-    financialAccess.requestHeaders,
-    user?.adminStudioLocation,
-  ]);
+  }, [user?.adminStudioLocation]);
 
   const handleUpdateStudio = async ({ formData, newFiles }) => {
     try {
@@ -213,7 +200,6 @@ const StudioDetails = () => {
       const response = await axiosInstance.put(
         API_PATHS.STUDIO.UPDATE_STUDIO_BY_ID(studio._id),
         payload,
-        { headers: financialAccess.requestHeaders },
       );
       setStudio(response.data);
       setIsEditModalOpen(false);
@@ -226,25 +212,13 @@ const StudioDetails = () => {
     }
   };
 
-  if (loading || (financialAccess.isUnlocked && bankDetailsLoading))
+  if (loading || bankDetailsLoading)
     return (
       <div className='min-h-screen flex justify-center items-center'>
         <LoadingSpinner />
       </div>
     );
   if (!studio) return <div className='p-10 text-center'>Studio not found.</div>;
-  if (!financialAccess.isUnlocked) {
-    return (
-      <FinancialAccessGate
-        description='Confirm your password before editing studio payment instructions.'
-        error={financialPasswordError}
-        onUnlock={financialAccess.unlock}
-        setError={setFinancialPasswordError}
-        title='Unlock Studio Settings'
-      />
-    );
-  }
-
   const facilitiesList = studio?.facilities?.flat() || [];
   const allImages = studio?.studioPictures?.flat() || [];
   const bankDetails = studio?.bankDetails?.flat() || [];

@@ -40,10 +40,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { QRCodeCanvas } from "qrcode.react";
 import uploadProof from "../../../../../utils/uploadProof";
-import useFinancialStepUp, {
-  FINANCIAL_READ_SCOPE,
-  isFinancialStepUpError,
-} from "../../../../../utils/useFinancialStepUp";
 
 // --- Helpers ---
 const STATUS_STYLES = {
@@ -99,104 +95,6 @@ const formatDate = (dateString) => {
     .replace(/ /g, "-");
 };
 
-const PaymentPasswordGate = ({ onUnlock, error, setError }) => {
-  const { user } = useAuth();
-  const [password, setPassword] = useState("");
-  const [verifying, setVerifying] = useState(false);
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setVerifying(true);
-    setError("");
-
-    try {
-      const response = await axiosInstance.post(
-        API_PATHS.AUTH.VERIFY_PASSWORD,
-        { password, scope: FINANCIAL_READ_SCOPE },
-      );
-      if (
-        response.data.success &&
-        onUnlock(
-          response.data.stepUpToken,
-          response.data.stepUpExpiresIn,
-        )
-      ) {
-        setPassword("");
-      } else {
-        setError("Verification did not return a valid authorization.");
-      }
-    } catch (requestError) {
-      if (requestError.response?.data?.code === "PASSWORD_NOT_SET") {
-        setError("Create a password in Account Settings first.");
-      } else if (requestError.response?.status === 401) {
-        setError("Incorrect password. Please try again.");
-      } else {
-        setError("Verification failed. Please try again.");
-      }
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  if (!user?.hasPassword) {
-    return (
-      <div className='flex min-h-[60vh] items-center justify-center p-6 text-center'>
-        <div className='w-full max-w-md rounded-2xl border border-stone-100 bg-white p-8 shadow-sm'>
-          <div className='mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50'>
-            <Lock className='h-8 w-8 text-amber-600' />
-          </div>
-          <h2 className='mb-2 text-xl font-bold text-stone-900'>
-            Create a Password First
-          </h2>
-          <p className='mb-6 text-sm text-stone-500'>
-            Create a password before accessing payment and revenue data.
-          </p>
-          <Link
-            to='/admin-account-settings'
-            className='flex w-full items-center justify-center rounded-xl bg-stone-900 py-3 font-semibold text-white transition-colors hover:bg-stone-800'>
-            Create Password
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className='flex min-h-[60vh] items-center justify-center p-6 text-center'>
-      <div className='w-full max-w-md rounded-2xl border border-stone-100 bg-white p-8 shadow-sm'>
-        <div className='mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-stone-100'>
-          <Lock className='h-8 w-8 text-stone-800' />
-        </div>
-        <h2 className='mb-2 text-xl font-bold text-stone-900'>
-          Unlock Payment Data
-        </h2>
-        <p className='mb-6 text-sm text-stone-500'>
-          Confirm your admin password to review financial transactions.
-        </p>
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <input
-            type='password'
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder='Admin Password'
-            autoComplete='current-password'
-            autoFocus
-            required
-            className='w-full rounded-xl border border-stone-200 px-4 py-3 outline-none transition-all focus:border-stone-500 focus:ring-2 focus:ring-stone-300'
-          />
-          {error && <p className='text-xs text-red-500'>{error}</p>}
-          <button
-            disabled={verifying || !password}
-            type='submit'
-            className='flex w-full items-center justify-center rounded-xl bg-stone-900 py-3 font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60'>
-            {verifying ? "Verifying..." : "Unlock Payment Data"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 const AdminPaymentManager = ({ isEmbedded = false }) => {
   const { user } = useAuth();
   const [purchases, setPurchases] = useState([]);
@@ -216,56 +114,22 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
 
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
-  const [financialPasswordError, setFinancialPasswordError] = useState("");
-  const {
-    isUnlocked: isFinancialDataUnlocked,
-    lock: lockFinancialData,
-    requestHeaders: financialRequestHeaders,
-    unlock: unlockFinancialData,
-  } = useFinancialStepUp();
-
   const fetchPurchases = useCallback(async () => {
     try {
-      if (!user?.adminStudioLocation || !isFinancialDataUnlocked) return;
+      if (!user?.adminStudioLocation) return;
       setLoading(true);
       const response = await axiosInstance.get(
         API_PATHS.PURCHASES.GET_ALL_ADMIN(user.adminStudioLocation),
-        { headers: financialRequestHeaders },
       );
       setPurchases(response.data);
     } catch (error) {
-      if (isFinancialStepUpError(error)) {
-        setFinancialPasswordError(
-          "Authorization expired. Verify your password again.",
-        );
-        lockFinancialData();
-      } else {
-        console.error("Error fetching purchases:", error);
-      }
+      console.error("Error fetching purchases:", error);
     } finally {
       setLoading(false);
     }
-  }, [
-    financialRequestHeaders,
-    isFinancialDataUnlocked,
-    lockFinancialData,
-    user?.adminStudioLocation,
-  ]);
+  }, [user?.adminStudioLocation]);
 
   useEffect(() => {
-    lockFinancialData();
-  }, [lockFinancialData, user?._id, user?.adminStudioLocation]);
-
-  useEffect(() => {
-    if (!isFinancialDataUnlocked) {
-      setPurchases([]);
-      setSelectedPurchase(null);
-      setShowPdfPreview(false);
-      setPdfUrl(null);
-      setLoading(false);
-      return undefined;
-    }
-
     fetchPurchases();
 
     const handleAdminUpdate = () => {
@@ -276,7 +140,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     return () => {
       window.removeEventListener("admin-data-updated", handleAdminUpdate);
     };
-  }, [fetchPurchases, isFinancialDataUnlocked]);
+  }, [fetchPurchases]);
 
   const filteredData = useMemo(() => {
     let data = purchases.filter((p) => {
@@ -346,7 +210,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
           rejectionReason: action === "reject" ? rejectionReason : null,
           ...extraData,
         },
-        { headers: financialRequestHeaders },
       );
 
       setPurchases((prev) =>
@@ -363,14 +226,7 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
       setSelectedPurchase(null);
       setRejectionReason("");
     } catch (error) {
-      if (isFinancialStepUpError(error)) {
-        setFinancialPasswordError(
-          "Authorization expired. Verify your password again.",
-        );
-        lockFinancialData();
-      } else {
-        alert(error.response?.data?.error || "Action failed");
-      }
+      alert(error.response?.data?.error || "Action failed");
     } finally {
       setProcessingId(null);
     }
@@ -470,15 +326,6 @@ const AdminPaymentManager = ({ isEmbedded = false }) => {
     doc.save(`Transactions_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
-  if (!isFinancialDataUnlocked) {
-    return (
-      <PaymentPasswordGate
-        onUnlock={unlockFinancialData}
-        error={financialPasswordError}
-        setError={setFinancialPasswordError}
-      />
-    );
-  }
   if (loading) return <LoadingSpinner />;
 
   return (

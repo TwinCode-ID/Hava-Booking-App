@@ -37,6 +37,7 @@ const AUTHENTICATION_METHODS = {
   [PREAUTH_PURPOSES.PHONE_PASSWORD_LOGIN]: "phone_password_otp",
   [PREAUTH_PURPOSES.PHONE_PASSWORD_SETUP]: "phone_otp",
   [PREAUTH_PURPOSES.REGISTRATION]: "registration_otp",
+  [PREAUTH_PURPOSES.EMAIL_CLAIM]: "email_claim_otp",
 };
 
 const otpHashesMatch = (expectedHash, suppliedHash) => {
@@ -99,8 +100,20 @@ const getBoundPreAuthFlow = async (body = {}) => {
 
   if (!flow.session.userId || flow.session.pendingRegistrationId) return null;
   const user = await User.findById(flow.session.userId);
+  if (!user) return null;
+
+  // Claiming a mailbox is the one flow whose address is not yet the account's.
+  // The code proves the claimed address, so the account must still have none
+  // and the address must still belong to nobody when the code is redeemed.
+  if (flow.session.purpose === PREAUTH_PURPOSES.EMAIL_CLAIM) {
+    if (user.email) return null;
+    if (normalizeEmail(flow.session.email) !== email) return null;
+    if (await User.exists({ email })) return null;
+    return { ...flow, email, purpose: flow.session.purpose, user };
+  }
+
   const accountEmail = normalizeEmail(user?.email);
-  if (!user || !accountEmail) return null;
+  if (!accountEmail) return null;
   if (usesPhone) {
     // The number must still belong to this account when the code is requested.
     if (user.phoneNumberE164 !== phoneNumberE164) return null;
@@ -298,7 +311,10 @@ exports.verifyOTP = async (req, res) => {
     }
 
     let authenticatedUser = flow.user;
-    if (flow.purpose === PREAUTH_PURPOSES.REGISTRATION) {
+    if (flow.purpose === PREAUTH_PURPOSES.EMAIL_CLAIM) {
+      authenticatedUser.email = email;
+      await authenticatedUser.save();
+    } else if (flow.purpose === PREAUTH_PURPOSES.REGISTRATION) {
       const pendingRegistration = await PendingRegistration.findOneAndDelete({
         _id: flow.pendingRegistration._id,
         email,
@@ -323,7 +339,9 @@ exports.verifyOTP = async (req, res) => {
       message:
         flow.purpose === PREAUTH_PURPOSES.REGISTRATION
           ? "Registration successful"
-          : "Login successful",
+          : flow.purpose === PREAUTH_PURPOSES.EMAIL_CLAIM
+            ? "Email address added"
+            : "Login successful",
       _id: authenticatedUser._id,
       fullName: authenticatedUser.fullName,
       email: authenticatedUser.email,

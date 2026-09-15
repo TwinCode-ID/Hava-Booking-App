@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
@@ -38,12 +38,6 @@ const ROLE_DESTINATIONS = {
   devTeam: "/development-dashboard",
 };
 
-// Sign in with Apple stays off while the Apple Developer account is failing
-// authorization. Set VITE_APPLE_SIGNIN_ENABLED=true to bring the button back
-// once Apple's side is healthy; the backend route is unchanged.
-const APPLE_SIGNIN_ENABLED =
-  import.meta.env.VITE_APPLE_SIGNIN_ENABLED === "true";
-
 const getSafeReturnPath = (role) => {
   if (role !== "client") return null;
   const candidate = new URLSearchParams(window.location.search).get(
@@ -55,25 +49,8 @@ const getSafeReturnPath = (role) => {
     : null;
 };
 
-const createOAuthState = () => {
-  const bytes = new Uint8Array(24);
-  window.crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
-};
-
 const Login = () => {
   const { login } = useAuth();
-  const appleAuthState = useRef(null);
-
-  if (
-    APPLE_SIGNIN_ENABLED &&
-    !appleAuthState.current &&
-    window.crypto?.getRandomValues
-  ) {
-    appleAuthState.current = createOAuthState();
-  }
 
   // Steps: 0 = Identifier, 1 = Password, 2 = OTP, 3 = Create Password
   const [step, setStep] = useState(0);
@@ -154,18 +131,7 @@ const Login = () => {
 
   // --- INITIALIZE THIRD-PARTY LOGINS ---
   useEffect(() => {
-    // 1. Initialize Apple Sign In
-    if (APPLE_SIGNIN_ENABLED && window.AppleID) {
-      window.AppleID.auth.init({
-        clientId: import.meta.env.VITE_APPLE_CLIENT_ID,
-        scope: "name email",
-        redirectURI: import.meta.env.VITE_APPLE_REDIRECT_URI,
-        state: appleAuthState.current,
-        usePopup: true,
-      });
-    }
-
-    // 2. Initialize Google Sign In
+    // Initialize Google Sign In
     const initGoogle = () => {
       if (window.google) {
         window.google.accounts.id.initialize({
@@ -246,42 +212,6 @@ const Login = () => {
         ...prev,
         loading: false,
         errors: { submit: "Failed to sign in with Google." },
-      }));
-    }
-  };
-
-  // --- APPLE SIGN-IN HANDLER ---
-  const handleAppleLogin = async () => {
-    if (!APPLE_SIGNIN_ENABLED) return;
-    try {
-      setFormState((prev) => ({ ...prev, loading: true }));
-
-      const response = await window.AppleID.auth.signIn();
-      if (
-        !appleAuthState.current ||
-        response.authorization.state !== appleAuthState.current
-      ) {
-        throw new Error("Apple sign-in state validation failed.");
-      }
-      const identityToken = response.authorization.id_token;
-
-      let fullName = "";
-      if (response.user) {
-        fullName =
-          `${response.user.name.firstName} ${response.user.name.lastName}`.trim();
-      }
-
-      const res = await axiosInstance.post(API_PATHS.APPLE.LOGIN, {
-        identityToken,
-        fullName,
-      });
-
-      await finalizeLogin(res.data);
-    } catch {
-      setFormState((prev) => ({
-        ...prev,
-        loading: false,
-        errors: { submit: "Failed to sign in with Apple." },
       }));
     }
   };
@@ -880,26 +810,12 @@ const Login = () => {
                 {/* Social Buttons Container */}
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
                   {/* Google Sign-In Target Div */}
+                  {/* Google renders its own button here. It spans the full
+                      width because the SDK refuses to draw below 200px, which
+                      a half-width column cannot give it. */}
                   <div
                     id='google-button-div'
-                    className='w-full h-10 flex items-center justify-center overflow-hidden'></div>
-
-                  {/* Apple Sign-In Button */}
-                  {APPLE_SIGNIN_ENABLED && (
-                    <button
-                      type='button'
-                      onClick={handleAppleLogin}
-                      disabled={formState.loading}
-                      // Changed h-[52px] to h-[40px] and adjusted padding so it matches Google exactly
-                      className='w-full bg-stone-900 text-white px-6 h-10 rounded border border-stone-900 font-medium hover:bg-stone-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50'>
-                      <svg
-                        viewBox='0 0 384 512'
-                        className='w-5 h-5 fill-current'>
-                        <path d='M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 24 184.8 8.8 245.8c-10.4 41.8-6.4 96.6 22.8 141.2 16.4 25.1 39.1 52.5 67.2 51.5 26.6-1.1 36.6-17.1 68.7-17.1 32 0 41.4 17.1 69.1 16.7 29.1-.4 49-25.1 65.2-48.8 19-27.8 26.9-54.8 27.5-56.2-.2-.2-41.5-15.6-41.8-64.4zM263.2 89.6c14.6-17.8 24.5-42.6 21.8-67.6-20.8 1.1-47.1 14.3-62.3 32.1-13.4 15.6-24.8 41.3-21.6 65.4 23.3 1.9 47.5-12.1 62.1-29.9z' />
-                      </svg>
-                      Sign in with Apple
-                    </button>
-                  )}
+                    className='w-full h-10 flex items-center justify-center overflow-hidden sm:col-span-2'></div>
 
                   <button
                     type='button'

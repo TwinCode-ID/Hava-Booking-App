@@ -156,7 +156,7 @@ test("privileged account and studio mutations no longer require a step-up grant"
   }
 });
 
-test("purchase, pass-credit, bank, and medical-record access require a same-session grant", async () => {
+test("purchase, pass-credit, bank, and medical-record access no longer require a step-up grant", async () => {
   const originalFindById = User.findById;
   User.findById = (id) => {
     const query = {
@@ -178,11 +178,6 @@ test("purchase, pass-credit, bank, and medical-record access require a same-sess
       authenticationMethod: "password",
       authVersion: 0,
     });
-    const grant = issueStepUpToken(
-      "admin-a",
-      FINANCIAL_READ_SCOPE,
-      verifyAuthToken(accessToken).jti,
-    );
     const routeCases = [
       ["../routes/StudioRoutes/purchaseRoutes", "get", "/studio/:studioId", {}],
       ["../routes/StudioRoutes/purchaseRoutes", "post", "/cashier-bulk", {}],
@@ -192,22 +187,14 @@ test("purchase, pass-credit, bank, and medical-record access require a same-sess
       ["../routes/StudioRoutes/studioRoutes", "put", "/:id", { bankDetails: [] }],
     ];
 
+    // A signed-in administrator reaches these directly now: the password
+    // re-confirmation was removed, so the access token alone is the whole
+    // authorization. Role and tenant checks still apply and are covered
+    // elsewhere.
     for (const [routerPath, method, path, body] of routeCases) {
       const guards = getRouteGuards(routerPath, method, path);
       const bearerOnly = await runGuards(guards, { accessToken, body });
-      assert.equal(bearerOnly.passed, false, `${method} ${path}`);
-      assert.equal(
-        bearerOnly.response.body.code,
-        "STEP_UP_REQUIRED",
-        `${method} ${path}`,
-      );
-
-      const authorized = await runGuards(guards, {
-        accessToken,
-        body,
-        stepUpToken: grant,
-      });
-      assert.equal(authorized.passed, true, `${method} ${path}`);
+      assert.equal(bearerOnly.passed, true, `${method} ${path}`);
     }
   } finally {
     User.findById = originalFindById;

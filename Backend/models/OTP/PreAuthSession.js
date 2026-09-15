@@ -10,6 +10,7 @@ const PREAUTH_PURPOSE_VALUES = [
   "passwordless_login",
   ...PHONE_PREAUTH_PURPOSE_VALUES,
   "registration",
+  "email_claim",
 ];
 
 const PreAuthSessionSchema = new mongoose.Schema(

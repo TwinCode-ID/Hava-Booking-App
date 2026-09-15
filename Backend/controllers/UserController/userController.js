@@ -5,8 +5,13 @@ const User = require("../../models/UserData/User");
 const Studios = require("../../models/StudioData/Studios");
 const {
   logAuthError,
+  normalizeEmail,
   validatePassword,
 } = require("../../helper/authSecurity");
+const {
+  PREAUTH_PURPOSES,
+  createPreAuthSession,
+} = require("../../helper/preAuthSession");
 const { canAccessUser } = require("../../helper/authorization");
 const {
   issueReplacementAuthToken,
@@ -30,6 +35,48 @@ const getAuthenticationMethodChangedResponse = (user, accessClaims) => {
 
 const nullableIdsEqual = (left, right) =>
   (left == null && right == null) || left?.toString() === right?.toString();
+
+// A member who registered with a phone number alone can add a mailbox later.
+// The address is never stored on the word of the request: this only issues the
+// grant that a code, sent to that address, redeems. Until the code is verified
+// the account still has no email. Verifying matters because social sign-in
+// links accounts by email, so an unverified address would let one account
+// capture another person's Google or Apple identity.
+exports.startEmailClaim = async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    if (!email) {
+      return res.status(400).json({ message: "Enter a valid email address." });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found." });
+    if (user.email) {
+      return res.status(409).json({
+        code: "EMAIL_ALREADY_SET",
+        message: "This account already has an email address.",
+      });
+    }
+    if (await User.exists({ email })) {
+      return res
+        .status(409)
+        .json({ message: "This email address is not available." });
+    }
+
+    const preAuth = await createPreAuthSession({
+      userId: user._id,
+      email,
+      purpose: PREAUTH_PURPOSES.EMAIL_CLAIM,
+    });
+
+    return res.status(200).json({ success: true, email, ...preAuth });
+  } catch (error) {
+    logAuthError("Email claim could not be started", error);
+    return res
+      .status(500)
+      .json({ message: "Unable to start email verification." });
+  }
+};
 
 exports.updateProfile = async (req, res) => {
   try {
